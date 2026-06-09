@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -46,7 +46,7 @@ const DEFAULT_COMPONENTS = {
       return <code className={className}>{children}</code>;
     }
     return (
-      <code className="font-data text-primary text-xs">
+      <code className="font-data text-xs text-foreground/90 bg-muted/60 rounded px-1 py-0.5">
         {children}
       </code>
     );
@@ -71,7 +71,7 @@ interface MarkdownBodyProps {
  * Use this instead of <ReactMarkdown> directly so callers can't accidentally
  * skip remarkGfm or diverge on table styling.
  */
-export default function MarkdownBody({ children, components }: MarkdownBodyProps) {
+function MarkdownBody({ children, components }: MarkdownBodyProps) {
   const merged = components
     ? { ...DEFAULT_COMPONENTS, ...components }
     : DEFAULT_COMPONENTS;
@@ -82,3 +82,8 @@ export default function MarkdownBody({ children, components }: MarkdownBodyProps
     </ReactMarkdown>
   );
 }
+
+/* Memoized so a parent re-render with identical markdown does not re-parse.
+   During streaming the active message's content changes (so it re-renders),
+   but settled messages skip react-markdown's full re-tokenize. */
+export default memo(MarkdownBody);

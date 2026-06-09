@@ -107,3 +107,4 @@ backend/app/features/twitter/_distillation_artifacts/
 .context/
 tmp/
 env
+.ui-research/

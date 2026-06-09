@@ -1,23 +1,24 @@
-"""Unit tests for the entitlements webhook handler in the Stripe webhook endpoint."""
+"""Unit tests for Stripe entitlement reconciliation through the webhook endpoint."""
+
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 
 class TestEntitlementsWebhook:
-    """Test entitlements.active_entitlement_summary.updated webhook handler."""
+    """Test entitlements.active_entitlement_summary.updated webhook handling."""
 
     @pytest.fixture(autouse=True)
     def setup_client(self):
         from app.main import app
+
         self.app = app
         self.client = TestClient(app)
         yield
         app.dependency_overrides.clear()
 
     def _build_event(self, customer=None):
-        """Build a fake Stripe entitlements webhook event."""
         obj = {}
         if customer is not None:
             obj["customer"] = customer
@@ -27,297 +28,216 @@ class TestEntitlementsWebhook:
         }
 
     def _make_entitlement(self, lookup_key):
-        """Build a fake Stripe ActiveEntitlement object."""
         return {"feature": {"lookup_key": lookup_key}, "lookup_key": lookup_key}
 
-    # ------------------------------------------------------------------
-    # 1. Happy path: Max features
-    # ------------------------------------------------------------------
-
-    @patch("app.features.payment.router.stripe")
-    @patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock)
-    @patch("app.features.payment.router.get_subscription", new_callable=AsyncMock)
-    @patch("app.features.payment.router.get_subscription_by_customer", new_callable=AsyncMock)
-    def test_max_features_webhook(
-        self, mock_get_sub, mock_get_sub_full, mock_upsert, mock_stripe,
-    ):
-        """10 Max features -> plan=max, entitlements synced, resend called."""
-        customer_id = "cus_max_123"
-        user_id = "user-max-001"
-
-        # get_subscription_by_customer returns a sub record
-        mock_get_sub.return_value = {
-            "user_id": user_id,
-            "status": "active",
-        }
-
-        # Build 10 features: 7 Pro + 3 Max-only
-        from app.features.payment.entitlements import PRO_FEATURES, MAX_ONLY_FEATURES
-        all_features = sorted(PRO_FEATURES | MAX_ONLY_FEATURES)
-        ent_list = [self._make_entitlement(k) for k in all_features]
-
-        # get_subscription (post-upsert read) returns the freshly written sub
-        # so sync_resend_segments receives the full record (not None).
-        mock_get_sub_full.return_value = {
-            "user_id": user_id,
-            "status": "active",
-            "plan": "max",
-            "entitlements": all_features,
-        }
-
-        # stripe.entitlements.ActiveEntitlement.list
-        mock_ent_response = MagicMock()
-        mock_ent_response.to_dict.return_value = {"data": ent_list}
-        mock_stripe.entitlements.ActiveEntitlement.list.return_value = mock_ent_response
-
-        # stripe.Customer.retrieve (for Resend sync)
-        mock_customer = MagicMock()
-        mock_customer.to_dict.return_value = {"email": "max@test.com"}
-        mock_stripe.Customer.retrieve.return_value = mock_customer
-
-        # stripe.Webhook.construct_event returns our fake event
-        event = self._build_event(customer=customer_id)
-        mock_stripe.Webhook.construct_event.return_value = event
-        mock_stripe.SignatureVerificationError = Exception
-
-        # Mock SubscriptionService.sync_resend_segments
+    def _post_event(self, event):
         with patch(
-            "app.features.subscription.service.SubscriptionService.sync_resend_segments"
-        ) as mock_sync:
-            resp = self.client.post(
+            "app.features.payment.router.stripe.Webhook.construct_event",
+            return_value=event,
+        ):
+            return self.client.post(
                 "/api/payment/webhook",
                 content=b"raw-payload",
                 headers={"stripe-signature": "sig_test"},
             )
 
+    def _mock_stripe_entitlements(self, entitlements, email="user@test.com"):
+        mock_ent_response = MagicMock()
+        mock_ent_response.to_dict.return_value = {"data": entitlements}
+
+        mock_customer = MagicMock()
+        mock_customer.to_dict.return_value = {"email": email}
+
+        return (
+            patch(
+                "app.features.payment.service.stripe.entitlements.ActiveEntitlement.list",
+                return_value=mock_ent_response,
+            ),
+            patch(
+                "app.features.payment.service.stripe.Customer.retrieve",
+                return_value=mock_customer,
+            ),
+        )
+
+    def test_max_features_webhook(self):
+        """Max features -> plan=max, full Max entitlements, Resend sync."""
+        customer_id = "cus_max_123"
+        user_id = "user-max-001"
+
+        from app.features.payment.entitlements import MAX_FEATURES
+
+        all_features = sorted(MAX_FEATURES)
+        ent_list = [self._make_entitlement(k) for k in all_features]
+        list_patch, customer_patch = self._mock_stripe_entitlements(ent_list, "max@test.com")
+
+        with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value={"user_id": user_id, "status": "active"},
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "user_id": user_id,
+                "status": "active",
+                "plan": "max",
+                "entitlements": all_features,
+            },
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
+            "app.features.subscription.service.SubscriptionService.sync_resend_segments"
+        ) as mock_sync, list_patch, customer_patch:
+            resp = self._post_event(self._build_event(customer=customer_id))
+
         assert resp.status_code == 200
         assert resp.json() == {"received": True}
 
-        # Verify upsert was called with max plan and all features
         mock_upsert.assert_awaited_once()
         call_kwargs = mock_upsert.call_args.kwargs
         assert call_kwargs["user_id"] == user_id
         assert call_kwargs["plan"] == "max"
         assert call_kwargs["status"] == "active"
         assert call_kwargs["entitlements"] == all_features
+        assert call_kwargs["clear_access_expires_at"] is True
 
-        # Verify sync_resend_segments received correct email and the full sub
-        # record (the new signature is (email, sub) instead of (email, entitlements_set);
-        # the method extracts entitlements from the sub internally).
         mock_sync.assert_called_once()
         sync_args = mock_sync.call_args
         assert sync_args[0][0] == "max@test.com"
-        sub_arg = sync_args[0][1]
-        assert isinstance(sub_arg, dict)
-        assert set(sub_arg.get("entitlements", [])) == set(all_features)
+        assert set(sync_args[0][1].get("entitlements", [])) == set(all_features)
 
-    # ------------------------------------------------------------------
-    # 2. Pro features only
-    # ------------------------------------------------------------------
-
-    @patch("app.features.payment.router.stripe")
-    @patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock)
-    @patch("app.features.payment.router.get_subscription_by_customer", new_callable=AsyncMock)
-    def test_pro_features_only(
-        self, mock_get_sub, mock_upsert, mock_stripe,
-    ):
-        """7 Pro features (no Max-only) -> plan=pro."""
+    def test_pro_features_only(self):
+        """Pro-only features -> plan=pro."""
         customer_id = "cus_pro_456"
         user_id = "user-pro-002"
 
-        mock_get_sub.return_value = {
-            "user_id": user_id,
-            "status": "active",
-        }
-
         from app.features.payment.entitlements import PRO_FEATURES
+
         pro_features = sorted(PRO_FEATURES)
         ent_list = [self._make_entitlement(k) for k in pro_features]
-
-        mock_ent_response = MagicMock()
-        mock_ent_response.to_dict.return_value = {"data": ent_list}
-        mock_stripe.entitlements.ActiveEntitlement.list.return_value = mock_ent_response
-
-        mock_customer = MagicMock()
-        mock_customer.to_dict.return_value = {"email": "pro@test.com"}
-        mock_stripe.Customer.retrieve.return_value = mock_customer
-
-        event = self._build_event(customer=customer_id)
-        mock_stripe.Webhook.construct_event.return_value = event
-        mock_stripe.SignatureVerificationError = Exception
+        list_patch, customer_patch = self._mock_stripe_entitlements(ent_list, "pro@test.com")
 
         with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value={"user_id": user_id, "status": "active"},
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={"user_id": user_id, "plan": "pro", "entitlements": pro_features},
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
             "app.features.subscription.service.SubscriptionService.sync_resend_segments"
-        ):
-            resp = self.client.post(
-                "/api/payment/webhook",
-                content=b"raw-payload",
-                headers={"stripe-signature": "sig_test"},
-            )
+        ), list_patch, customer_patch:
+            resp = self._post_event(self._build_event(customer=customer_id))
 
         assert resp.status_code == 200
         call_kwargs = mock_upsert.call_args.kwargs
         assert call_kwargs["plan"] == "pro"
         assert call_kwargs["entitlements"] == pro_features
+        assert call_kwargs["clear_access_expires_at"] is True
 
-    # ------------------------------------------------------------------
-    # 3. Empty entitlements (canceled)
-    # ------------------------------------------------------------------
-
-    @patch("app.features.payment.router.stripe")
-    @patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock)
-    @patch("app.features.payment.router.get_subscription_by_customer", new_callable=AsyncMock)
-    def test_empty_entitlements_canceled(
-        self, mock_get_sub, mock_upsert, mock_stripe,
-    ):
-        """0 features -> plan=free, status=canceled."""
+    def test_empty_entitlements_canceled(self):
+        """Empty entitlements -> plan=free, status=canceled."""
         customer_id = "cus_cancel_789"
         user_id = "user-cancel-003"
+        list_patch, customer_patch = self._mock_stripe_entitlements([], "cancel@test.com")
 
-        mock_get_sub.return_value = {
-            "user_id": user_id,
-            "status": "active",
-        }
-
-        # Empty entitlements list
-        mock_ent_response = MagicMock()
-        mock_ent_response.to_dict.return_value = {"data": []}
-        mock_stripe.entitlements.ActiveEntitlement.list.return_value = mock_ent_response
-
-        event = self._build_event(customer=customer_id)
-        mock_stripe.Webhook.construct_event.return_value = event
-        mock_stripe.SignatureVerificationError = Exception
-
-        resp = self.client.post(
-            "/api/payment/webhook",
-            content=b"raw-payload",
-            headers={"stripe-signature": "sig_test"},
-        )
+        with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value={"user_id": user_id, "status": "active"},
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={"user_id": user_id, "plan": "free", "entitlements": []},
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
+            "app.features.subscription.service.SubscriptionService.sync_resend_segments"
+        ), list_patch, customer_patch:
+            resp = self._post_event(self._build_event(customer=customer_id))
 
         assert resp.status_code == 200
         call_kwargs = mock_upsert.call_args.kwargs
         assert call_kwargs["plan"] == "free"
         assert call_kwargs["status"] == "canceled"
         assert call_kwargs["entitlements"] == []
+        assert call_kwargs["clear_access_expires_at"] is True
 
-    # ------------------------------------------------------------------
-    # 4. Unknown customer
-    # ------------------------------------------------------------------
-
-    @patch("app.features.payment.router.stripe")
-    @patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock)
-    @patch("app.features.payment.router.get_subscription_by_customer", new_callable=AsyncMock)
-    def test_unknown_customer(
-        self, mock_get_sub, mock_upsert, mock_stripe,
-    ):
-        """Customer not found in DB -> log warning, return received True, no upsert."""
+    def test_unknown_customer(self):
+        """Unknown customer is acknowledged without writing local state."""
         customer_id = "cus_unknown_000"
 
-        mock_get_sub.return_value = None  # not found
-
-        event = self._build_event(customer=customer_id)
-        mock_stripe.Webhook.construct_event.return_value = event
-        mock_stripe.SignatureVerificationError = Exception
-
-        resp = self.client.post(
-            "/api/payment/webhook",
-            content=b"raw-payload",
-            headers={"stripe-signature": "sig_test"},
-        )
+        with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value=None,
+        ) as mock_get_sub, patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert:
+            resp = self._post_event(self._build_event(customer=customer_id))
 
         assert resp.status_code == 200
         assert resp.json() == {"received": True}
+        mock_get_sub.assert_awaited_once()
         mock_upsert.assert_not_awaited()
 
-    # ------------------------------------------------------------------
-    # 5. Missing customer field
-    # ------------------------------------------------------------------
-
-    @patch("app.features.payment.router.stripe")
-    @patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock)
-    @patch("app.features.payment.router.get_subscription_by_customer", new_callable=AsyncMock)
-    def test_missing_customer_field(
-        self, mock_get_sub, mock_upsert, mock_stripe,
-    ):
-        """No customer in event object -> log warning, return received True."""
-        event = self._build_event(customer=None)  # no customer key
-        mock_stripe.Webhook.construct_event.return_value = event
-        mock_stripe.SignatureVerificationError = Exception
-
-        resp = self.client.post(
-            "/api/payment/webhook",
-            content=b"raw-payload",
-            headers={"stripe-signature": "sig_test"},
-        )
+    def test_missing_customer_field(self):
+        """Missing customer in event is acknowledged without DB lookup."""
+        with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+        ) as mock_get_sub, patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert:
+            resp = self._post_event(self._build_event(customer=None))
 
         assert resp.status_code == 200
         assert resp.json() == {"received": True}
         mock_get_sub.assert_not_awaited()
         mock_upsert.assert_not_awaited()
 
-    # ------------------------------------------------------------------
-    # 6. Regression: placeholder status must not clobber activation
-    # ------------------------------------------------------------------
-
-    @patch("app.features.payment.router.stripe")
-    @patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock)
-    @patch("app.features.payment.router.get_subscription", new_callable=AsyncMock)
-    @patch("app.features.payment.router.get_subscription_by_customer", new_callable=AsyncMock)
-    def test_placeholder_status_not_clobbered(
-        self, mock_get_sub, mock_get_sub_full, mock_upsert, mock_stripe,
-    ):
-        """Regression: a stale placeholder status must never be copied back.
-
-        Repro of the production bug: ``get_or_create_stripe_customer`` writes a
-        row at checkout start with only ``stripe_customer_id``, so ``status``
-        falls back to the column default ``"none"``. Stripe does not guarantee
-        webhook ordering, so this entitlements webhook can read that placeholder
-        row before ``checkout.session.completed`` commits ``status="active"``.
-        The handler must derive status from entitlement presence (active here),
-        NOT copy the stale ``"none"`` — otherwise paid Max users stay stuck as
-        regular users (frontend ``isMax`` requires ``status === "active"``).
-        """
+    def test_placeholder_status_not_clobbered(self):
+        """Regression: placeholder status must not be copied back."""
         customer_id = "cus_race_555"
         user_id = "user-race-006"
 
-        # Stored row is the placeholder: status still at the column default.
-        mock_get_sub.return_value = {"user_id": user_id, "status": "none"}
+        from app.features.payment.entitlements import MAX_FEATURES
 
-        from app.features.payment.entitlements import PRO_FEATURES, MAX_ONLY_FEATURES
-        all_features = sorted(PRO_FEATURES | MAX_ONLY_FEATURES)
+        all_features = sorted(MAX_FEATURES)
         ent_list = [self._make_entitlement(k) for k in all_features]
-
-        mock_get_sub_full.return_value = {
-            "user_id": user_id,
-            "status": "active",
-            "plan": "max",
-            "entitlements": all_features,
-        }
-
-        mock_ent_response = MagicMock()
-        mock_ent_response.to_dict.return_value = {"data": ent_list}
-        mock_stripe.entitlements.ActiveEntitlement.list.return_value = mock_ent_response
-
-        mock_customer = MagicMock()
-        mock_customer.to_dict.return_value = {"email": "race@test.com"}
-        mock_stripe.Customer.retrieve.return_value = mock_customer
-
-        event = self._build_event(customer=customer_id)
-        mock_stripe.Webhook.construct_event.return_value = event
-        mock_stripe.SignatureVerificationError = Exception
+        list_patch, customer_patch = self._mock_stripe_entitlements(ent_list, "race@test.com")
 
         with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value={"user_id": user_id, "status": "none"},
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "user_id": user_id,
+                "status": "active",
+                "plan": "max",
+                "entitlements": all_features,
+            },
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
             "app.features.subscription.service.SubscriptionService.sync_resend_segments"
-        ):
-            resp = self.client.post(
-                "/api/payment/webhook",
-                content=b"raw-payload",
-                headers={"stripe-signature": "sig_test"},
-            )
+        ), list_patch, customer_patch:
+            resp = self._post_event(self._build_event(customer=customer_id))
 
         assert resp.status_code == 200
         call_kwargs = mock_upsert.call_args.kwargs
         assert call_kwargs["plan"] == "max"
         assert call_kwargs["entitlements"] == all_features
-        # The bug: this used to be "none" (copied from the placeholder row).
         assert call_kwargs["status"] == "active"

@@ -95,10 +95,16 @@ export async function GET() {
         });
       }
       if (error) {
+        // Explicit rejection from Insforge — the refresh token is genuinely
+        // invalid/revoked. Safe to clear so we don't keep retrying a dead token.
         await clearAuthCookies();
       }
     } catch {
-      await clearAuthCookies();
+      // Transient failure (network blip / Insforge unreachable). Do NOT clear
+      // cookies: the session may still be perfectly valid, and clearing here
+      // would log a genuinely-logged-in user out on a momentary hiccup. Return
+      // null for this round; a later refresh (12-min interval / tab focus)
+      // recovers without forcing re-login.
     }
   }
 

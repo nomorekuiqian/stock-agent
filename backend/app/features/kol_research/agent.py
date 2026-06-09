@@ -87,6 +87,7 @@ from app.shared.kol_persona import (
     persona_chunks_buffer,
     search_kol_tweets,
 )
+from app.shared.kol_persona.tools import _active_kol_author
 from app.shared.llm_metering import meter
 
 logger = get_logger(__name__)
@@ -534,16 +535,96 @@ _COVERAGE_LABELS = {
     "none": "博主未直接讨论",
 }
 _TRADING_PHRASE_REPLACEMENTS = (
+    ("TLDR：", "一句话说："),
+    ("TLDR:", "一句话说："),
+    ("methodology", "方法论"),
+    ("Methodology", "方法论"),
+    ("top picks", "高信念标的"),
+    ("Top picks", "高信念标的"),
+    ("Veto", "一票否决"),
+    ("veto", "一票否决"),
+    ("chokepoint", "物理咽喉"),
+    ("Chokepoint", "物理咽喉"),
+    ("bottleneck", "产能瓶颈"),
+    ("Bottleneck", "产能瓶颈"),
+    ("forward mismatch", "前瞻错配"),
+    ("Forward mismatch", "前瞻错配"),
+    ("forward revenue ramp", "未来收入爬坡"),
+    ("revenue ramp", "收入爬坡"),
+    ("volume ramp", "量产爬坡"),
+    ("design-in", "客户导入"),
+    ("Design-in", "客户导入"),
+    ("design out", "被客户绕开"),
+    ("design-out", "被客户绕开"),
+    ("qualification", "客户验证"),
+    ("Qualification", "客户验证"),
+    ("BOM", "物料清单"),
+    ("capex", "资本开支"),
+    ("Capex", "资本开支"),
+    ("hyperscaler", "超大规模云厂商"),
+    ("Hyperscaler", "超大规模云厂商"),
+    ("high conviction", "高信念"),
+    ("High conviction", "高信念"),
+    ("playbook", "完整材料"),
+    ("thesis", "原始判断"),
+    ("Thesis", "原始判断"),
+    ("TAM", "可服务市场"),
+    ("物料清单（物料清单）", "物料清单"),
+    ("物理咽喉（物理咽喉）", "物理咽喉"),
+    ("完全值得继续深入研究", "仍值得继续研究"),
+    ("完全值得继续研究", "仍值得继续研究"),
+    ("极高的权重", "较高权重"),
+    ("极高的研究与追踪价值", "较高的研究与追踪价值"),
+    ("最具爆发力的", "弹性较高的"),
+    ("强烈支持", "支持"),
+    ("强力背书", "支持信号"),
+    ("顶尖背景", "相关背景"),
+    ("不可替代的国安节点", "重要国安节点"),
+    ("重点轮动加仓", "重点轮动关注"),
+    ("绝对份额", "关键份额"),
+    ("坚决一票否决", "触发一票否决"),
+    ("看多逻辑", "原始判断"),
+    ("享受估值重塑", "观察估值重塑"),
+    ("非常值得关注", "值得继续观察"),
+    ("非常值得继续观察", "仍可放进观察名单"),
+    ("高度值得关注", "值得继续观察"),
+    ("值得高度关注", "值得继续观察"),
+    ("博主现在高度看好", "博主历史上给过高权重"),
+    ("现在高度看好", "历史上给过高权重"),
+    ("高度看好", "高权重关注"),
+    ("最具确定性", "关键"),
+    ("极强的", "较强的"),
+    ("极强", "较强"),
+    ("绝对瓶颈", "关键瓶颈"),
+    ("黄金窗口期", "验证窗口"),
+    ("黄金期", "验证窗口"),
+    ("国王制造者", "关键上游"),
     ("视作分批回补仓位的窗口", "视作重新评估仓位风险收益的窗口"),
     ("视作分批建仓的窗口", "视作分批评估的窗口"),
     ("分批回补仓位", "分批评估仓位"),
     ("回补仓位", "重新评估仓位"),
     ("分批建仓", "分批评估"),
     ("再分批建仓", "再分批评估"),
+    ("提前入场", "提前识别"),
+    ("入场接盘", "追认"),
+    ("接盘", "追认"),
     ("不建议", "不适合"),
     ("应该等待", "更稳的是等待"),
     ("恐慌卖出", "因情绪一次性处理"),
+    ("800V 直流（HDC）", "800V 直流（HVDC）"),
+    ("杀估值", "估值回撤"),
+    ("杀验证", "验证窗口"),
+    ("杀业绩", "业绩恶化"),
+    ("杀逻辑", "逻辑破裂"),
+    ("三杀", "判断状态"),
 )
+
+_FRANK_METHODOLOGY_TERMS = {
+    "杀估值",
+    "杀业绩",
+    "杀逻辑",
+    "三杀",
+}
 
 
 def _fix_concat_citations(text: str) -> str:
@@ -558,7 +639,11 @@ def _fix_concat_citations(text: str) -> str:
     return text
 
 
-def _sanitize_user_facing_markdown(text: str) -> str:
+def _sanitize_user_facing_markdown(
+    text: str,
+    *,
+    persona_username: str | None = None,
+) -> str:
     """Remove internal metadata and debug-looking markdown from final answers."""
     if not text:
         return text
@@ -586,7 +671,10 @@ def _sanitize_user_facing_markdown(text: str) -> str:
     text = _INTERNAL_COVERAGE_RE.sub(_replace_coverage, text)
     text = _CODE_SPAN_RE.sub(_replace_code_span, text)
     text = _BULLET_BOLD_LABEL_RE.sub(r"\1\2\3", text)
+    preserve_frank_terms = (persona_username or "").lower() == "qinbafrank"
     for source, target in _TRADING_PHRASE_REPLACEMENTS:
+        if preserve_frank_terms and source in _FRANK_METHODOLOGY_TERMS:
+            continue
         text = text.replace(source, target)
     bold_count = 0
     return _BOLD_RE.sub(_cap_bold, text)
@@ -596,238 +684,42 @@ def _sanitize_user_facing_markdown(text: str) -> str:
 # Agent construction (singleton per persona)
 # ---------------------------------------------------------------------------
 
-# LONG-TERM TODO: 下面这套"回答框架 / 工具使用 / 输出格式"规则混合了通用脚手架
-# (任何 KOL persona 都该遵守) 和 qinbafrank 特定的认知模式 (产业派分析师独有的
-# 5 段式推理). 长期方向: 把"产业派回答框架"这种 KOL 特定内容继续沉到
-# skill 文件里, 让换 KOL 时框架自动跟着变 (技术派会用形态/均线/量能/
-# 突破/止损; 量化派会用因子/backtest/sharpe). 当前只服务 qinbafrank, 一次性
-# hardcode 是可接受的简化。
-
-_TOOL_USAGE_RULES = """
-# 工具使用规则
-
-**调用顺序 (每次回答都按这个顺序至少走一遍)**:
-
-1. **先调 `load_skill(skill_name=...)`** — 看用户问题命中哪个 lens (stock-analysis / macro / ai-infrastructure / crypto), 加载 1-3 个相关 lens. AI 算力相关同时加载 stock-analysis + ai-infrastructure.
-
-2. **再调 `search_kol_tweets(query=..., author_username="{username}")`** — 看博主过去具体说过什么. 引用必须用 [#N] 编号 + 作者 + 日期.
-
-3. **必须调对应的 brief 拿"当下"数据** — 不调就是只有历史回声的空话. 每个 brief 内部已经并发拉多个数据点, 一次调用就够:
-   - 用户问个股 (任何 ticker 出现): **`get_stock_brief(symbol)`** — 一次返回 quote / fundamentals / 历史估值分位 / 7 天新闻 / 公司画像 / 财报日历
-   - 用户问前瞻市盈率 / forward P/E / 当前年度估值: 优先看 `get_stock_brief(symbol).forward_valuation`; 如用户质疑估值数字, 直接补调 **`get_forward_valuation(symbol)`**. 年度 forward P/E 只能引用该工具的 `current_year` / `next_year`, 不要把 yfinance/Yahoo rolling `forwardPE` 当 FY2026.
-   - 需要同行对比: **`get_peer_brief(symbol)`**
-   - 需要行业鸟瞰 (大盘 + 同行): **`get_industry_brief(symbol)`**
-   - 用户问宏观 / Fed / 利率 / 流动性: **`get_macro_brief()`** — 一次返回风险综述 / 流动性 / 情绪 / 经济日历
-   - 用户问最近市场 / 复盘 / 早报: `get_morning_report` / `get_report_by_date` / `list_recent_reports`
-   - 用户问 KOL 圈最近在聊什么 / 推特日报 / 多空打架: `get_twitter_digest`
-   - 罕见: 技术面 / K 线问题用 `get_technical_analysis` (博主权重低)
-   不要分别调 `get_stock_quote` / `get_stock_fundamentals` 等 fine-grained 工具 — 它们已经被 brief 包了, 串行调多次只会浪费时间.
-
-4. **`google_search` — Escape hatch, 通常不应触发**. 仅在**同时满足以下三条**时, 才允许调用一次:
-   a) search_kol_tweets 召回 0 条 (博主对该话题完全没讲过)
-   b) 所有相关 data tool 都返回"未找到" / "无数据" / 拿不到该标的
-   c) 用户问的是博主 4 个 lens (stock / macro / ai-infra / crypto) 之外的话题 (例如日本央行政策细节、欧洲小盘股、新近发生且博主未表态的事件)
-   一旦使用 `google_search`, **必须**在答案里显式标注 "以下信息来自 web 搜索, 非博主历史观点", 不要混进博主引用里.
-   如果**不**满足以上三条但前面工具仍不够, 不要 google. 直接在答案里说"博主未明确表态, 按方法论推断"或"暂无最新数据, 建议补充", 也不要编造数据.
-   注: 代码层会硬限 `google_search` 每轮最多 1 次, 第二次调用会被强制拒绝.
-
-**冲突处理**: lens 框架是判断准则; search_kol_tweets 召回是具体观点; data tool 是当下事实. 三者冲突时显式点出"分歧", 不要藏起来.
-
-**没数据时**: 明确说"需要补充", 不要笼统判断. 不冒充博主本人, 用"按 @{username} 方法论看", 不说"我认为".
-
-# 回答框架 (qinbafrank 产业派的 5 段式)
-
-每次回答按这个顺序展开, 每段都要混合 [lens 框架] + [历史观点 [#N]] + [当下数据], 缺一段就是空话:
-
-### 1. 产业定位
-- 这个标的在 qinbafrank 的世界观里属于哪条产业链的哪个位置?
-- 主线叙事 (AI 算力 / 稳定币合规化 / etc) 是否仍成立?
-- 引博主历史观点 [#N] 佐证产业逻辑
-
-### 2. 当下指标读数 (差异化最强的一段)
-- 列出 qinbafrank 关心的特定指标 (RPO 增速 / Capex 比 / 营收-Capex 比 / 产能售罄 / 加权剩余期限 等; 不同 lens 关心的指标见 lens 内容)
-- **每个指标必须三栏对照**: 博主关心 X → 历史阈值 / 解读 [#N] → 当前实际数值 (来自 data tool)
-- 这段如果只引用历史观点没拉当下数据, 等于完全没回答问题
-
-### 3. 催化剂 & 风险等级
-- 近期催化剂 (财报日 / 政策窗口 / 经济数据): 用 calendar 工具拿
-- 风险等级化: 小级别 (个位数) / 中级别 (15-20%) / 大级别 (25%+, 需要产业基本面崩塌) — 引博主原话 [#N]
-- 当前是"杀估值"还是"杀业绩"还是"杀逻辑"? 这是博主的关键分类, 必须明确归位
-
-### 4. Falsifiability 锚
-- 强信念必带可证伪锚 — qinbafrank 真正的指纹
-- **必须具体到 指标 + 阈值 + 时间窗**, 不要写"若情况恶化"这种模糊话
-- 例: "**若 Q4 RPO 环比 < 15% 或营收/Capex 比 < 3.5, 则长合约时代假设证伪**"
-
-### 5. 操作框架
-- 不给精确点位 ("让子弹自己飞")
-- 给: 观察清单 + 加减仓阈值 + 仓位心理测试 ("回调 30% 能拿住吗?")
-- 仓位匹配认知深度: 拿不住 = 不该重仓 = 不够了解
-
-# 输出格式
-
-- Markdown 简体中文, **目标 800-1500 字** (投研问题, 短了就是糊弄).
-- 5 段必须用 `### 1. 产业定位` / `### 2. 当下指标读数` 这种结构化标题, 不要全堆一段.
-- **粗体** 全段 1-2 处, 锁定该段核心判断的句子或数字, 不打装饰. 看到第三处 ** 就该自问 "这真重要吗".
-- **代码反引号** ` ` 只能包裹:
-  (a) 美股 ticker: `NVDA` / `TSLA` / `SPY`
-  (b) 含运算符/单位的数值阈值: `10Y > 4.5%` / `PE < 20` / `RPO 增速 < 15%`
-  (c) 指标短名: `RPO` / `Capex/Revenue` / `PMI`
-  **禁止包裹**: 中文短语 (`业绩兑现` / `确定性` / `兑现`) / 英文名词 (`Macro` / `Capex`) / 整句话 / 形容词. 规则极简: 这个 token 是数据字面量吗? 不是就别用反引号, 用粗体或不强调.
-- **表格** (GFM 管道语法) 仅当展示"多维度对照" (≥3 行 × ≥2 列) 时用. 典型: 当下数据 vs 博主原话对照 (列 = 指标 / 博主原话 / 当下值 / 状态). 状态列只填 `已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`. 单维度清单一律用列表, 不要造两列假表格.
-- **列表**: 观察清单 / 风险因子 / 触发条件 / 待补数据; ≥3 项才列, 1-2 项写进段落.
-- **引用块** `>` : 直接转述博主原话 (一两句) 时用, 紧跟 `— 博主 YYYY/MM/DD [#N]`. 长段落转述用普通段落 + 句末 [#N], 不要套引用块.
-- **禁止**: 装饰性 emoji、ASCII 分隔线、嵌套 4 层以上列表、`# / ##` 一级二级标题 (与气泡视觉撞).
-- 长度不达标或缺段 = 没用尽工具, 重新组织.
-"""
-
-
-# ---------------------------------------------------------------------------
-# 当前 Frank skill loader 使用这套更松散的指令
-# ---------------------------------------------------------------------------
+# Shared outer prompt. Persona-specific voice and frameworks belong in skill docs.
 
 _SKILL_TOOL_USAGE_RULES = """
-# 工具使用规则
+# 职责
 
-每次回答按这个顺序走:
+你是 TheMarketBrew 的 KOL 方法论投研分析师。你的主要职责是帮助用户透过 @{username} 过去的公开观点、长期方法论,并结合当前可获得的市场和公司数据,理解股票、板块、市场主线或新闻事件。
 
-1. **先看用户问什么类型的问题, 加载对应的 framework skill** (拿到这类问题"必须包含的动作"清单, 不是骨架):
+你不是 @{username} 本人,也不是替用户做买卖决定的人。你的工作是把"博主过去怎么看、他/她通常怎么判断、现在的数据发生了什么、这些信息合起来说明什么"讲清楚。
 
-   | 问题类型 | 触发关键词 | 加载 framework |
-   |---|---|---|
-   | 个股观点 | ticker / 公司中文名 + 怎么看 / 估值 / 财报 / 加仓 / 顶 / 底 | `framework-ask-about-stock` |
-   | 产业板块 | AI 算力 / HBM / 稳定币 / 太空 / SaaS / 物理 AI + 板块 / 看好 / 阶段 | `framework-ask-about-sector` |
-   | 宏观判断 | Fed / 降息 / CPI / 流动性 / 大顶 / 地缘 / 关税 / TACO | `framework-ask-about-macro` |
-   | 新闻事件 | 新闻 / 消息 / 利好利空 / 怎么看这个新闻 / 对 X 影响 | 先判断影响对象: 个股用 stock, 产业用 sector, 宏观用 macro |
-   | 方法论 / 概念 | 什么是 / 怎么判断 / 如何决策 / 为什么 / 是什么意思 | `framework-ask-about-method` |
-   | Veto 类 | meme / 梭哈 / all in / 做空 / 抄底烂 / 一把梭 / 短炒 / 赌 | `framework-ask-about-veto` |
-   | 比较选择 | 还是 / vs / 对比 / 哪个 / 选谁 / 二选一 | `framework-ask-to-compare` |
+# 回答原则
 
-   边界 case 你自己判断. 通常 1 个 framework 就够; 跨类问题最多 2 个.
+- 默认以深度投研方式回答: 结论清楚、证据充分、解释完整。除非用户明确要求"简单说 / 两句话 / 只选一个 / 只要结论",不要主动压短。
+- 回答风格、分析框架、术语体系、判断顺序,全部以当前 persona 的 skill 为准。outer prompt 不定义具体博主风格,也不要把一个博主的框架套到另一个博主身上。
+- 尽量通俗易懂: 少堆术语,不要只贴标签;要讲清楚背后的因果关系,说明这个变量为什么重要、它影响哪条链、变化后意味着什么。
+- skill 文件是判断素材库,不是答案大纲。不要机械复述 skill 的目录、章节名或 evidence 段落。
 
-2. **再加载对应的内容 skill** (拿到博主对具体主题的看法):
-   - 个股问题 → `ticker-<TICKER>` (例: `ticker-nvda`, `ticker-mrvl` 是 marker)
-   - 产业问题 → `sector-<name>` (`sector-ai-infrastructure` / `sector-crypto-stablecoin-rwa` / `sector-defense-and-space` / `sector-power-and-physical-ai` / `sector-semiconductor-memory-hbm` / `sector-software-ai-disruption` / `sector-fintech-brokerage`)
-   - 宏观问题 → core 和 macro 已经在 system prompt 里, 通常不需要再 load
-   - 方法论 / Veto / 比较 → 通常 framework + core 就够, 按需加 sector / ticker
+# 每轮流程
 
-3. **调 `search_kol_tweets(query=..., author_username="{username}")`** 找博主历史原话. 引用必须用 [#N] 编号 + 作者 + 日期.
+1. 先理解用户问题类型: 个股、板块、宏观、新闻事件、方法论、比较、机会发现、历史观点追问。
+2. core / macro 已经常驻在系统 prompt 里,不需要重复加载。
+3. 根据问题加载最相关的 framework skill,用它决定这个问题应该怎么分析;如不确定,先用 `list_skills` 看当前 persona 实际可用的 skill。
+4. 当用户问"为什么 / 怎么判断 / 框架 / 方法 / 如何理解",或博主近期没有直接观点但需要按其长期思路分析当下问题时,加载方法论相关 framework skill;方法论用于解释判断逻辑,不要机械复述 skill 内容。
+5. 如果涉及具体个股,加载对应 ticker skill。
+6. 如果涉及产业或主题,加载对应 sector skill。
+7. 用 `search_kol_tweets(query=..., author_username="{username}")` 检索当前 persona 的历史原文。
+8. 涉及当下判断时,调用 `get_stock_brief` / `get_peer_brief` / `get_industry_brief` / `get_macro_brief` 等 brief 工具;早报/复盘问题可用 `get_report_by_date` / `list_recent_reports`。
+9. 回答时清楚分开: 博主历史上说过什么、当前数据是什么、按博主方法论可以如何理解、后续需要观察哪些变化。
 
-4. **调对应的 brief 拿"当下"数据** (除非是方法论 / Veto 类不需要数据; 比较类只要涉及可交易标的也要拿当前数据):
-   - 个股: `get_stock_brief(symbol)`
-   - 同行对比: `get_peer_brief(symbol)`
-   - 行业鸟瞰: `get_industry_brief(symbol)`
-   - 宏观 / Fed / 利率 / 流动性: `get_macro_brief()`
-   - 早报: `get_report_by_date` / `list_recent_reports`
-   - 技术面 (罕见): `get_technical_analysis`
-   不要调 fine-grained 工具, brief 内部已并发拉数据.
+# 证据和边界
 
-5. **`google_search` 是 escape hatch**, 仅在同时满足三条时调用一次:
-   a) search_kol_tweets 召回 0 条
-   b) 所有 data tool 返回无数据
-   c) 话题超出 skill 覆盖范围
-   调用后在答案显式标注 "以下信息来自 web 搜索, 非博主历史观点".
-
-# 回答模式 (用户格式优先)
-
-先看 `Deterministic Input Guard` 里的 `parsed_input.response_hints`, 再结合用户原话选择回答模式。用户明确要求的格式优先于任何默认框架。
-
-| Mode | 触发 | 用户可见形态 |
-|---|---|---|
-| `direct_short` | `requested_brevity=true`, "只答两句 / 只选一只 / 简单说" | 直接结论 + 1-3 个理由; 不要四段标题 |
-| `normal_explain` | 默认"怎么看 / 是否还成立 / 利好利空" | 白话结论 → Frank 会先问什么 → 历史观点与当下事实 → 观察/打脸信号 |
-| `deep_research` | 用户明确要详细、深度、表格、对照 | 可分段、可表格, 但仍先给白话结论 |
-| `method_teach` | `question_shape=method` | 先用大白话解释概念, 再给一个例子和可复用 checklist |
-| `latest_take` | `question_shape=latest` | 最近直接观点优先; 没有最近直接观点就明说, 再退回方法论推断 |
-| `no_coverage` | RAG 无直接覆盖 / ticker 弱覆盖 | 先说覆盖不足, 再说明只能按 sector/core 方法论推断 |
-
-禁止为了完整而强行输出固定的 `结论 / Frank 过往观点 / 现状 / 总结` 四段。只有用户要长文、或问题确实需要清楚分离历史观点和当前事实时, 才使用这些标题。
-
-# 默认回答顺序
-
-1. **第一句直接白话回答用户的问题**: 更像机会、风险、等待确认、分歧未决, 还是 Frank 没直接覆盖。
-2. **马上说 Frank 会先问哪几个问题**: 例如"不是先看 PE, 而是先看需求有没有断、瓶颈还在不在、什么数据会打脸"。
-3. **分清三种来源**:
-   - 历史观点: 只能来自 `search_kol_tweets`, 用 `[#N]` 引用, 写清日期/当时场景。
-   - 当前事实: 只能来自 `prefetched_data` / brief tool / report tool / 明确披露的 web 搜索。
-   - 方法论推断: 没有直接观点时, 写成"按 @{username} 方法论推断", 不装成博主最新表态。
-4. **最后给确认/打脸信号**: 每个信号都要说明"变了以后意味着什么", 不要只列观察清单。
-
-# Frank 框架必须可感知
-
-每个 stock / sector / macro / compare 回答至少体现下面 2 个元素:
-
-- 产业链位置: 这只票/产业在链条哪一层, 瓶颈在哪里。
-- 三杀分类: 当前更像杀估值、杀业绩, 还是杀逻辑。
-- 可证伪锚: 什么事实出现后, 原来的判断必须下修。
-- 风险等级: 小级别扰动、中级别调整、大级别风险, 并解释成普通话。
-- 能力圈 / Veto: 这是不是 Frank 框架内的问题, 是否触发不碰原则。
-
-# 白话纪律
-
-- **禁止专业名词堆叠**. `TGA` / `RRP` / `SOFR` / `RPO` / `Capex` 这类词出现时, 必须在同一句或下一句翻译成普通投资者能理解的机制语言。
-- 常用翻译:
-  - 杀估值 = 公司故事没坏, 市场只是嫌贵。
-  - 杀业绩 = 订单、收入、利润或增速真的开始变差。
-  - 杀逻辑 = 原来相信的产业故事被事实推翻。
-  - RPO = 已签但还没交付、未来可能转成收入的订单。
-  - Capex = 大客户愿不愿意继续掏钱建基础设施。
-  - 流动性 = 市场里愿意追风险资产的钱是不是变多。
-  - 打脸条件 = 什么事实出现后, 原来的判断必须认错。
-- 不要把 "因果链" / "场景树" / "Thesis 证伪条件" / "coverage" / "high/medium/low/none" 当标题或正文标签写给用户。
-
-# 通用纪律 (跨所有 framework 必须遵守)
-
-- **不假冒博主本人**. 用"按 @{username} 方法论看", 不说"我认为"。
-- **没数据时**明确说"需要补充", 不要编造数字。
-- **不预测精确点位 / 不预测 Fed 节奏 / 不喊大顶大底崩盘** — 博主语言指纹。
-- **冲突处理**: skill 框架是判断准则; search_kol_tweets 是历史观点; data tool / web 是当下事实. 三者冲突时显式点出"分歧"。
-- **禁用词**: all in / 梭哈 / 必涨 / 保底 / 稳赚 / 财富自由 / 猛干 / 绝对崩盘。
-- **任何具体阈值/数字必须来自 search_kol_tweets 召回的博主原话或 data tool 的当前数据**. 来源是历史原话时写清"博主当时说"; 来源是当前数据时写清"截至本轮可用数据". 没来源就标"博主未给具体数字"或"数据待补", 不要编。
-- **开场禁止引言句**: 直接给观点 / 转述博主评价. 禁用 "拆解为几个维度" / "以下为分析" / "可以从几个方面看" / "下面展开" / "可以从以下几点看" 这类填表式开场。
-
-# 引用规则 [#N] (硬性约束)
-
-- 只能引用 **search_kol_tweets 工具本轮实际返回过的 [#N] 编号**. 工具结果里会显式告诉你 "Valid citation range: [#X] ~ [#Y]", 严格在这范围内引.
-- **不要瞎编引用号** (例如 [#11]、[#44] 这种你从没在工具返回里见过的编号). 用户看到的中间稿会先于最终 strip 出现, 所以即使后端会 fallback 删掉, 仍要尽量从源头不写错号.
-- **未调 search_kol_tweets 之前不要写 [#N]**. 想引用就先 search, 拿到编号再引.
-- 引用号不连写多个: 用 `[#3]` 而不是 `[#3][#4]`; 多个来源用 `[#3] 和 [#4]` 这种自然句式.
-- 引用必须有具体含义: 不要句尾随手挂 `[#11]` 当装饰, 要么佐证一个具体论点, 要么省略.
-
-# 策展人模式 (全 framework 默认生效)
-
-你是博主观点的**策展人**, 不是博主代言人, 也不是判断者. 所有 framework 默认遵守这套约束 (method / veto 因为本身就是转述博主立场, 天然适用; stock / sector / macro / compare 风险更高, 务必严守):
-
-- **主语锁博主**. 用 "博主说过 / 博主认为 / 博主关心 / 博主多次强调". **禁用**: "我看多 X / 我看空 X" / "博主框架下能买 / 不能买" / "建议加仓 / 减仓" / "产业看好 / 板块见顶".
-- **可以给散户可用含义, 但必须条件化**. 允许说"如果 X 信号未出现, 更适合观察/等待确认"; 禁止说"应该买/应该卖/可以加仓".
-- **交易措辞降级**. 不要用 "建议买入 / 建议卖出 / 应当布局 / 持有是合理的 / 坚决降低 / 回补仓位" 这种像投顾指令的话. 改成 "可以把 X 当作继续观察条件" / "这更像风险复核信号" / "不适合只凭单一叙事加大暴露".
-- **不主动扩写无关交易剧本**. 如果需要给路径分叉, 只画与用户问题直接相关的基准 / 升级 / 缓和路径, 不把未发生场景定性成事实.
-- **如果你选用对照表**展示当下数据 vs 博主原话, 对照列只能填以下机械事实词:
-  - 允许: `已达` / `未达` / `数据走弱` / `数据走强` / `与博主原话一致` / `与博主原话偏离` / `数据待补`
-  - 禁用: `看多` / `看空` / `仍成立` / `已破` / `已触发` / `已证伪` / `加仓` / `减仓` / `风险升高` / `接近触发` / `框架成立`
-- 安全护栏: 博主历史推文是过去某一时点的立场, 中间可能出过新事件博主已悄悄改了立场 —— 你不知道. 你只摆 "博主当时说过 X + 当下数据是 Y", 让用户自己拼接结论.
-
-# 输出格式
-
-- Markdown 简体中文; 段落自然语言为主, 别填表.
-- 不要使用 `# / ##` 一级二级标题。短答通常不需要标题; 普通解释最多用 2-3 个短标题; 深度研究才使用多段标题。
-- 长度由问题深度决定: 短答 80-260 字; 普通解释 300-700 字; 深度投研问题 800-1500 字。
-- **粗体** 全篇最多 3 处; 散户短问最多 1 处. 只加粗真正的结论或打脸信号, 不给每个小标题、每条 bullet、普通形容词加粗.
-- **代码反引号** ` ` 只能包裹:
-  (a) 用户问到的美股 ticker: `NVDA` / `TSLA` / `SPY`
-  (b) 含运算符/单位的数值阈值: `10Y > 4.5%` / `PE < 20` / `RPO 增速 < 15%`
-  **禁止包裹**: 中文短语、产品名、普通指标名、公司名、英文名词、整句话、形容词. 例如 Blackwell / Rubin / Revenue YoY / Forward PE / Gross Margin / Capex 都不要加反引号.
-- **内部标签禁止外露**: 不输出 `coverage: high`、`parent_sector`、`marker`、skill 文件名、frontmatter 字段名. 需要表达覆盖度时写成人话: "博主对这只票讨论很多 / 讨论不多 / 没有直接讨论".
-- **表格** 仅当用户明确要"数据对照 / 详细表格", 或确实有 ≥4 个独立指标需要同屏比较时才用. 散户短问、thesis 是否成立、能买吗/要卖吗/持有吗这几类问题禁止用表格, 包括 GFM 管道表、空格对齐表、"指标对照表"小节. 如果用了表格, 列名要像给普通投资者看的语言, 不要出现 "状态" 这种机械列; 最后一列用 "怎么理解".
-- **列表**: 观察清单 / 风险因子 / 触发条件 / 待补数据; ≥3 项才列, 1-2 项写进段落.
-- **引用块** `>` : 直接转述博主原话 (一两句) 时用, 紧跟 `— 博主 YYYY/MM/DD [#N]`. 长段落转述用普通段落 + 句末 [#N], 不要套引用块.
-- **禁止**: 装饰性 emoji、ASCII 分隔线、嵌套 4 层以上列表.
-
-# skill 来源
-
-当前加载 Frank skill 资产:
-- core/operating-system + macro/macro-regime 已注入此 prompt (always-on)
-- 6 个 framework + 7 sector + 32 ticker playbook + 1 marker 通过 load_skill 按需加载
+- 引用历史观点时,必须提及大致时间或当时语境,并使用本轮 `search_kol_tweets` 返回的 [#N] 编号。
+- 只能引用本轮工具实际返回过的 [#N];未调 `search_kol_tweets` 前不要写引用号,不要编造引用号。
+- 没有直接覆盖时要明说,再按方法论和当前数据做有边界的分析。
+- 当前事实只能来自 `prefetched_data`、brief tool、report tool 或明确披露的 web 搜索;没数据时说明缺口,不要编造数字。
+- 不假装自己是博主本人,不编造博主没说过的话,不给直接买卖指令。
+- `google_search` 仅作为 escape hatch: 当历史观点、skill 和数据工具都不足以回答当前事件/URL时使用;使用后必须说明哪些信息来自 web 搜索。
 """
 
 
@@ -835,7 +727,7 @@ def _build_instruction(persona: Persona) -> str:
     always_on = build_always_on_instruction(persona)
     tool_rules = _SKILL_TOOL_USAGE_RULES.format(username=persona.username)
     header = (
-        f"你是 TheMarketBrew 的投研助手 (KOL 视角)，"
+        f"你是 TheMarketBrew 的 KOL 方法论投研分析师，"
         f"正在用 @{persona.username} 的公开方法论 skill 系统看市场。\n"
         f"**绝不能声称自己就是 @{persona.username}**。\n\n"
     )
@@ -1019,6 +911,7 @@ async def _run_session(
     agent: LlmAgent,
     runner: InMemoryRunner,
     prompt: str,
+    persona_username: str,
 ) -> str:
     """Run one turn, return collected markdown text.
 
@@ -1033,6 +926,7 @@ async def _run_session(
 
     queue = _sse_queue.get(None)
     final_text_parts: list[str] = []
+    partial_text_parts: list[str] = []
     # ADK requires explicit StreamingMode.SSE to get partial text chunks.
     # Default is StreamingMode.NONE which only yields final aggregated events
     # — that's why typewriter streaming wasn't working before.
@@ -1043,11 +937,12 @@ async def _run_session(
     final_chunks = 0
     logger.info("_run_session start: prompt_chars=%d", len(prompt))
     cancelled = False
-    try:
+    async def _collect_text(new_message: types.Content) -> None:
+        nonlocal adk_events, partial_chunks, final_chunks
         async for event in runner.run_async(
             user_id="kol_research",
             session_id=session.id,
-            new_message=message,
+            new_message=new_message,
             run_config=run_config,
         ):
             adk_events += 1
@@ -1072,6 +967,7 @@ async def _run_session(
                     continue
                 if is_partial:
                     partial_chunks += 1
+                    partial_text_parts.append(text)
                     if queue is not None:
                         queue.put_nowait({"type": "message_delta", "text": text})
                         await asyncio.sleep(0)
@@ -1082,6 +978,25 @@ async def _run_session(
                     # final_text used in KolResearchResponse).
                     final_chunks += 1
                     final_text_parts.append(text)
+
+    try:
+        await _collect_text(message)
+        if not "".join(final_text_parts).strip() and not "".join(partial_text_parts).strip():
+            logger.warning(
+                "_run_session got no user-visible text after first pass; requesting final answer"
+            )
+            follow_up = types.Content(
+                parts=[
+                    types.Part(
+                        text=(
+                            "请基于刚才已经加载的 skill 和工具结果,直接给出用户可见的最终回答。"
+                            "不要只调用工具;如果信息不足,也要明确说明不足并给出可用判断。"
+                        )
+                    )
+                ],
+                role="user",
+            )
+            await _collect_text(follow_up)
     except asyncio.CancelledError:
         cancelled = True
         raise
@@ -1102,8 +1017,11 @@ async def _run_session(
         except Exception:  # noqa: BLE001
             pass
 
-    text = _fix_concat_citations("".join(final_text_parts).strip())
-    return _sanitize_user_facing_markdown(text)
+    canonical_text = "".join(final_text_parts).strip()
+    if not canonical_text:
+        canonical_text = "".join(partial_text_parts).strip()
+    text = _fix_concat_citations(canonical_text)
+    return _sanitize_user_facing_markdown(text, persona_username=persona_username)
 
 
 async def answer_kol_research(
@@ -1126,6 +1044,7 @@ async def answer_kol_research(
     nav_buf: List[Dict[str, Any]] = []
     timers: Dict[str, float] = {}
 
+    token_author = _active_kol_author.set(persona_username)
     token_chunks = persona_chunks_buffer.set(chunks_buf)
     token_skills = _activated_skills.set(skills_buf)
     token_log = _tool_call_log.set(tool_log)
@@ -1160,7 +1079,12 @@ async def answer_kol_research(
 
         try:
             text = await asyncio.wait_for(
-                _run_session(agent=agent, runner=runner, prompt=prompt),
+                _run_session(
+                    agent=agent,
+                    runner=runner,
+                    prompt=prompt,
+                    persona_username=persona_username,
+                ),
                 timeout=timeout,
             )
         except asyncio.TimeoutError:
@@ -1227,6 +1151,7 @@ async def answer_kol_research(
             navigate=navigate,
         )
     finally:
+        _active_kol_author.reset(token_author)
         persona_chunks_buffer.reset(token_chunks)
         _activated_skills.reset(token_skills)
         _tool_call_log.reset(token_log)
@@ -1273,6 +1198,7 @@ async def stream_kol_research(
     timers: Dict[str, float] = {}
 
     token_queue = _sse_queue.set(queue)
+    token_author = _active_kol_author.set(persona_username)
     token_chunks = persona_chunks_buffer.set(chunks_buf)
     token_skills = _activated_skills.set(skills_buf)
     token_log = _tool_call_log.set(tool_log)
@@ -1328,7 +1254,12 @@ async def stream_kol_research(
         async def _run(prompt_to_run: str):
             try:
                 text = await asyncio.wait_for(
-                    _run_session(agent=agent, runner=runner, prompt=prompt_to_run),
+                    _run_session(
+                        agent=agent,
+                        runner=runner,
+                        prompt=prompt_to_run,
+                        persona_username=persona_username,
+                    ),
                     timeout=timeout,
                 )
                 agent_text.append(text)
@@ -1608,6 +1539,7 @@ async def stream_kol_research(
                     exc_type.__name__, exc_val,
                 )
         _sse_queue.reset(token_queue)
+        _active_kol_author.reset(token_author)
         persona_chunks_buffer.reset(token_chunks)
         _activated_skills.reset(token_skills)
         _tool_call_log.reset(token_log)

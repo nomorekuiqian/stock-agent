@@ -52,9 +52,11 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `backend/app/features/notification/.context.md` -- Email sending & broadcast
 - `backend/app/features/feedback/.context.md` -- User feedback
 - `backend/app/features/payment/.context.md` -- Stripe payments
+- `backend/app/features/webhooks/.context.md` -- Third-party webhook ingestion
 - `backend/app/edge_functions/.context.md` -- Insforge Edge Functions
 - `backend/app/shared/.context.md` -- Cross-module shared services
 - `backend/app/shared/data_tools/.context.md` -- Data fetching tool layer
+- `backend/app/features/twitter/methodologies/.context.md` -- KOL methodology distillation artifacts
 
 **Frontend**:
 - `frontend/src/app/today/.context.md` -- Market daily report page
@@ -78,7 +80,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `docs/references/pages.md` -- Frontend page routes
 - `docs/references/components.md` -- Frontend components & libraries
 - `docs/constraints/design-system.md` -- Design system spec
-- `mcp/frank-lens/.context.md` -- Frank Lens MCP installable package
+- `mcp/market-lens/.context.md` -- Market Lens MCP installable package
 
 ## Engineering Plans
 
@@ -318,3 +320,24 @@ Critical lessons from production incidents. **Read these before making changes t
 - Logout: `POST /api/auth/logout`
 - Profiles: `GET /api/auth/profiles/{userId}`, `PUT /api/auth/profiles/current`
 - All requests need `apikey` header (anon key)
+
+<!-- INSFORGE:START -->
+## InsForge backend
+
+This project uses [InsForge](https://insforge.dev): an all-in-one, open-source Postgres-based backend (BaaS) that gives this app a database, authentication, file storage, edge functions, realtime, an AI model gateway, and payments through one platform.
+
+- **Project:** **stock-agent** (API base `https://9wmhxyi4.us-east.insforge.app`)
+- **Skills:** these InsForge skills are installed for supported coding agents. Reach for them before implementing any InsForge feature instead of guessing the API:
+  - `insforge`: app code with the `@insforge/sdk` client (database CRUD, auth, storage, edge functions, realtime, AI, email, and Stripe payments).
+  - `insforge-cli`: backend and infrastructure via the `insforge` CLI (projects, SQL, migrations, RLS policies, storage buckets, functions, secrets, payment setup, schedules, deploys).
+  - `insforge-debug`: diagnosing failures (SDK/HTTP errors, RLS denials, auth and OAuth issues) and running security or performance audits.
+  - `insforge-integrations`: wiring external auth providers (Clerk, Auth0, WorkOS, Better Auth, etc.) for JWT-based RLS, or the OKX x402 payment facilitator.
+  - `find-skills`: discovering additional skills on demand.
+- **Credentials:** app code reads keys from `.env.local`; the CLI reads `.insforge/project.json`. Never hardcode or commit keys.
+
+Key patterns:
+
+- Database inserts take an array: `insert([{ ... }])`.
+- Reference users with `auth.users(id)`; use `auth.uid()` in RLS policies.
+- For storage uploads, persist both the returned `url` and `key`.
+<!-- INSFORGE:END -->

@@ -645,6 +645,7 @@ class TestRouter:
         from app.main import app
 
         with patch("app.features.for_you.router.verify_user_token", return_value="test-user"), \
+             patch("app.features.for_you.router.has_entitlement", new_callable=AsyncMock, return_value=True), \
              patch("app.features.portfolio.db.get_profile", new_callable=AsyncMock, return_value=make_profile()), \
              patch("app.features.portfolio.db.list_portfolio", new_callable=AsyncMock, return_value=[]):
 

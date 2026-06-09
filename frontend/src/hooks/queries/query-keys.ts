@@ -128,5 +128,7 @@ export const queryKeys = {
       ['kol', username, 'ticker-timeline', ticker] as const,
     evidenceTweets: (username: string, ids: string[]) =>
       ['kol', username, 'evidence-tweets', ids.join(',')] as const,
+    highConviction: (username: string) =>
+      ['kol', username, 'high-conviction'] as const,
   },
 };

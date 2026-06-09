@@ -103,6 +103,30 @@ module.exports = async function(request) {
       );
     }
 
+    // GET ?action=list_expired_access_grants&now=ISO
+    if (request.method === "GET" && action === "list_expired_access_grants") {
+      const nowIso = url.searchParams.get("now") || new Date().toISOString();
+      const { data, error } = await client.database
+        .from("subscriptions")
+        .select("*")
+        .not("access_expires_at", "is", null)
+        .lte("access_expires_at", nowIso)
+        .order("access_expires_at", { ascending: true });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const rows = (data || []).filter((row) => row.is_lifetime !== true);
+      return new Response(
+        JSON.stringify({ success: true, data: rows }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // POST ?action=upsert
     if (request.method === "POST" && action === "upsert") {
       const body = await request.json();
@@ -164,6 +188,11 @@ module.exports = async function(request) {
         patch.status = "active";
         patch.access_expires_at = null;
         if (Array.isArray(entitlements)) patch.entitlements = entitlements;
+      } else {
+        patch.plan = "free";
+        patch.status = "canceled";
+        patch.access_expires_at = null;
+        patch.entitlements = [];
       }
 
       const { data, error } = await client.database

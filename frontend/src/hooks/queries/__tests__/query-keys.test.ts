@@ -171,4 +171,14 @@ describe('queryKeys', () => {
       ]);
     });
   });
+
+  describe('kol', () => {
+    it('highConviction(username) includes persona username', () => {
+      expect(queryKeys.kol.highConviction('aleabitoreddit')).toEqual([
+        'kol',
+        'aleabitoreddit',
+        'high-conviction',
+      ]);
+    });
+  });
 });

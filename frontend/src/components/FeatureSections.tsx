@@ -369,7 +369,7 @@ function StockResearchSection() {
             <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1]">
               输入代码，
               <br />
-              <span className="text-gradient-emerald">一页看透</span>
+              <span className="text-primary">一页看透</span>
             </h2>
 
             <p className="text-muted-foreground text-base md:text-lg leading-relaxed max-w-md">
@@ -396,11 +396,7 @@ function StockResearchSection() {
 
           {/* Right: Mockup */}
           <div className="relative">
-            {/* Ambient glow */}
-            <div className="absolute -inset-12 bg-primary/[0.05] blur-[80px] rounded-full pointer-events-none" />
-            <div
-              className="relative md:[transform:perspective(1200px)_rotateY(-2deg)_rotateX(1deg)]"
-            >
+            <div className="relative">
               <StockMockup />
             </div>
           </div>
@@ -596,7 +592,7 @@ function DailyReportsSection() {
           <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1] mb-4">
             四份日报,
             <br className="md:hidden" />
-            <span className="text-gradient-emerald">覆盖你的全天</span>
+            <span className="text-primary">覆盖你的全天</span>
           </h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
             从盘前到盘后、从大盘到 KOL 声音、从市场到你的持仓 ——
@@ -845,10 +841,7 @@ function ResearchSection() {
         <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* Left: Mockup (reversed layout for visual variety) */}
           <div className="relative order-2 md:order-1">
-            <div className="absolute -inset-12 bg-sky-400/[0.04] blur-[80px] rounded-full pointer-events-none" />
-            <div
-              className="relative md:[transform:perspective(1200px)_rotateY(2deg)_rotateX(1deg)]"
-            >
+            <div className="relative">
               <ResearchMockup />
             </div>
           </div>
@@ -860,7 +853,7 @@ function ResearchSection() {
             <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1]">
               对话式投研，
               <br />
-              <span className="text-gradient-emerald">追问到底</span>
+              <span className="text-primary">追问到底</span>
             </h2>
 
             <p className="text-muted-foreground text-base md:text-lg leading-relaxed max-w-md">
@@ -1105,7 +1098,7 @@ function MacroSection() {
             <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1]">
               宏观全局，
               <br />
-              <span className="text-gradient-emerald">一眼看穿</span>
+              <span className="text-primary">一眼看穿</span>
             </h2>
 
             <p className="text-muted-foreground text-base md:text-lg leading-relaxed max-w-md">
@@ -1167,10 +1160,7 @@ function MacroSection() {
 
           {/* Right: Mockup */}
           <div className="relative">
-            <div className="absolute -inset-12 bg-amber-400/[0.03] blur-[80px] rounded-full pointer-events-none" />
-            <div
-              className="relative md:[transform:perspective(1200px)_rotateY(-2deg)_rotateX(1deg)]"
-            >
+            <div className="relative">
               <MacroMockup />
             </div>
           </div>

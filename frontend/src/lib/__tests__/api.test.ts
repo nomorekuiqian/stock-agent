@@ -526,6 +526,31 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('subscriptions.syncUser', () => {
+    it('sends bearer token so backend can verify user identity', async () => {
+      mockFetchOk({
+        success: true,
+        email: 'tester@example.com',
+        user_id: 'u-123',
+        synced_channels: [],
+        errors: [],
+      });
+
+      await api.subscriptions.syncUser('u-123', 'tester@example.com', 'Tester');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/subscriptions/sync-user'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer fake-token',
+          }),
+        }),
+      );
+    });
+  });
+
   // -------------------------------------------------------------------------
   // Watchlist APIs
   // -------------------------------------------------------------------------
@@ -900,6 +925,34 @@ describe('api (post cache removal)', () => {
       );
     });
 
+    it('refreshes and retries once on 401, succeeding with the new token', async () => {
+      const payload = { success: true, message: 'ok', options: [], candidates: [] };
+      globalThis.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({ detail: 'Missing or invalid Authorization header' }),
+        })
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => payload });
+      vi.mocked(refreshSession).mockResolvedValueOnce('fresh-token');
+
+      const result = await api.research.chat({ message: 'test' });
+
+      expect(refreshSession).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+      const retryHeaders = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[1][1].headers;
+      expect(retryHeaders.Authorization).toBe('Bearer fresh-token');
+      expect(result).toEqual(payload);
+    });
+
+    it('does not retry on 401 when refresh yields no token', async () => {
+      mockFetchError(401);
+      vi.mocked(refreshSession).mockResolvedValueOnce(null);
+
+      await expect(api.research.chat({ message: 'test' })).rejects.toThrow(/登录/);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    });
+
     it('throws with detail message on error', async () => {
       mockFetchError(500, 'Agent processing failed');
 
@@ -957,6 +1010,69 @@ describe('api (post cache removal)', () => {
         api.research.chatStream({ message: 'test' }, vi.fn(), { requiredAuth: true })
       ).rejects.toThrow('登录已过期');
       expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('kolResearch.chatStream', () => {
+    // Minimal SSE-style 200 response whose ReadableStream yields `lines` then ends.
+    function streamOk(lines: string[]) {
+      const encoder = new TextEncoder();
+      let i = 0;
+      return {
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => ({
+            read: async () =>
+              i < lines.length
+                ? { done: false, value: encoder.encode(lines[i++]) }
+                : { done: true, value: undefined },
+          }),
+        },
+      };
+    }
+
+    it('refreshes and retries once on 401, then streams with the new token', async () => {
+      globalThis.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({ detail: 'Missing or invalid Authorization header' }),
+        })
+        .mockResolvedValueOnce(streamOk(['data: {"type":"final","content":"hi"}\n\n']));
+      vi.mocked(refreshSession).mockResolvedValueOnce('fresh-token');
+
+      const events: Array<{ type?: string; code?: string }> = [];
+      await api.kolResearch.chatStream(
+        { message: 'NVDA', persona_username: 'qinbafrank' },
+        (e) => events.push(e),
+      );
+
+      expect(refreshSession).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+      const retryHeaders = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[1][1].headers;
+      expect(retryHeaders.Authorization).toBe('Bearer fresh-token');
+      expect(events.find((e) => e.code === 'auth_error')).toBeUndefined();
+      expect(events.find((e) => e.type === 'final')).toBeTruthy();
+    });
+
+    it('emits auth_error (no retry) when 401 persists and refresh yields no token', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ detail: 'Missing or invalid Authorization header' }),
+      });
+      vi.mocked(refreshSession).mockResolvedValue(null);
+
+      const events: Array<{ type?: string; code?: string }> = [];
+      await api.kolResearch.chatStream(
+        { message: 'NVDA', persona_username: 'qinbafrank' },
+        (e) => events.push(e),
+      );
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const errEvent = events.find((e) => e.type === 'error');
+      expect(errEvent?.code).toBe('auth_error');
     });
   });
 
@@ -1070,6 +1186,28 @@ describe('api (post cache removal)', () => {
       await expect(api.research.conversations.delete('bad-id')).rejects.toThrow(
         'Conversation not found'
       );
+    });
+  });
+
+  describe('kolResearch.cockpitHighConviction', () => {
+    it('GETs the persona high-conviction endpoint', async () => {
+      const payload = { groups: [] };
+      mockFetchOk(payload);
+
+      const result = await api.kolResearch.cockpitHighConviction('aleabitoreddit');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/kol_research/personas/aleabitoreddit/high-conviction'),
+      );
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on non-ok response', async () => {
+      mockFetchError(500);
+
+      await expect(
+        api.kolResearch.cockpitHighConviction('aleabitoreddit'),
+      ).rejects.toThrow('Failed to load high-conviction grid');
     });
   });
 

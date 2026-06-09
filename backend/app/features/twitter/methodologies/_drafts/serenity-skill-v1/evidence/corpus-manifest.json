@@ -1,0 +1,321 @@
+{
+  "generated_at": "2026-05-28T06:05:50.300685+00:00",
+  "persona_key": "serenity-skill-v1",
+  "username": "aleabitoreddit",
+  "source": "insforge_db_via_kol-tweets_edge_function",
+  "filter": {
+    "exclude_content_type": [
+      "noise"
+    ],
+    "note": "quality field is not populated by current enrichment; signal is content_type"
+  },
+  "month_ranges": [
+    {
+      "since": "2025-09-01T00:00:00Z",
+      "until": "2025-09-30T23:59:59Z"
+    },
+    {
+      "since": "2025-10-01T00:00:00Z",
+      "until": "2025-10-31T23:59:59Z"
+    },
+    {
+      "since": "2025-11-01T00:00:00Z",
+      "until": "2025-11-30T23:59:59Z"
+    },
+    {
+      "since": "2025-12-01T00:00:00Z",
+      "until": "2025-12-31T23:59:59Z"
+    },
+    {
+      "since": "2026-01-01T00:00:00Z",
+      "until": "2026-01-31T23:59:59Z"
+    },
+    {
+      "since": "2026-02-01T00:00:00Z",
+      "until": "2026-02-28T23:59:59Z"
+    },
+    {
+      "since": "2026-03-01T00:00:00Z",
+      "until": "2026-03-31T23:59:59Z"
+    },
+    {
+      "since": "2026-04-01T00:00:00Z",
+      "until": "2026-04-30T23:59:59Z"
+    },
+    {
+      "since": "2026-05-01T00:00:00Z",
+      "until": "2026-05-31T23:59:59Z"
+    },
+    {
+      "since": "2026-06-01T00:00:00Z",
+      "until": "2026-06-30T23:59:59Z"
+    }
+  ],
+  "stats": {
+    "raw_fetched": 1335,
+    "unique_after_dedupe": 1335,
+    "total_kept": 987,
+    "rejected": {
+      "content_type='noise'": 263,
+      "symbols_missing": 40,
+      "content_type_missing": 45
+    },
+    "earliest": "2025-09-27T19:11:40+00:00",
+    "latest": "2026-05-24T20:42:39+00:00",
+    "content_type_distribution": {
+      "thesis": 420,
+      "trade_action": 126,
+      "sector_framework": 109,
+      "macro_view": 106,
+      "catalyst": 132,
+      "risk_flag": 94
+    },
+    "category_distribution": {
+      "null": 987
+    },
+    "top_50_tickers": [
+      [
+        "SIVE",
+        196
+      ],
+      [
+        "LITE",
+        178
+      ],
+      [
+        "AXTI",
+        133
+      ],
+      [
+        "NBIS",
+        109
+      ],
+      [
+        "AAOI",
+        104
+      ],
+      [
+        "MRVL",
+        101
+      ],
+      [
+        "NVDA",
+        99
+      ],
+      [
+        "COHR",
+        93
+      ],
+      [
+        "MU",
+        70
+      ],
+      [
+        "SNDK",
+        70
+      ],
+      [
+        "SOI",
+        69
+      ],
+      [
+        "IREN",
+        68
+      ],
+      [
+        "TSM",
+        57
+      ],
+      [
+        "IQE",
+        54
+      ],
+      [
+        "AVGO",
+        47
+      ],
+      [
+        "EWY",
+        41
+      ],
+      [
+        "AMZN",
+        39
+      ],
+      [
+        "META",
+        39
+      ],
+      [
+        "GOOGL",
+        39
+      ],
+      [
+        "AEHR",
+        38
+      ],
+      [
+        "MSFT",
+        38
+      ],
+      [
+        "TSEM",
+        38
+      ],
+      [
+        "JBL",
+        33
+      ],
+      [
+        "INTC",
+        32
+      ],
+      [
+        "CIFR",
+        30
+      ],
+      [
+        "POET",
+        29
+      ],
+      [
+        "RKLB",
+        28
+      ],
+      [
+        "AMD",
+        28
+      ],
+      [
+        "MTSI",
+        23
+      ],
+      [
+        "LPK",
+        21
+      ],
+      [
+        "GFS",
+        20
+      ],
+      [
+        "CRWV",
+        19
+      ],
+      [
+        "CRCL",
+        19
+      ],
+      [
+        "AAPL",
+        19
+      ],
+      [
+        "ALAB",
+        18
+      ],
+      [
+        "HIMS",
+        18
+      ],
+      [
+        "HOOD",
+        17
+      ],
+      [
+        "RDDT",
+        16
+      ],
+      [
+        "RPI",
+        16
+      ],
+      [
+        "TSLA",
+        15
+      ],
+      [
+        "ALRIB",
+        15
+      ],
+      [
+        "HPS.A",
+        13
+      ],
+      [
+        "CVX",
+        12
+      ],
+      [
+        "FN",
+        12
+      ],
+      [
+        "AVAV",
+        11
+      ],
+      [
+        "GLW",
+        11
+      ],
+      [
+        "SMCI",
+        10
+      ],
+      [
+        "WULF",
+        9
+      ],
+      [
+        "LPTH",
+        9
+      ],
+      [
+        "NVO",
+        9
+      ]
+    ],
+    "top_30_sectors": [
+      [
+        "photonics",
+        397
+      ],
+      [
+        "AI_infra",
+        269
+      ],
+      [
+        "CPO",
+        234
+      ],
+      [
+        "substrates",
+        162
+      ],
+      [
+        "macro",
+        145
+      ],
+      [
+        "optical_transceiver",
+        143
+      ],
+      [
+        "neocloud",
+        116
+      ],
+      [
+        "defense",
+        61
+      ],
+      [
+        "space",
+        30
+      ],
+      [
+        "power_semi",
+        17
+      ]
+    ]
+  }
+}

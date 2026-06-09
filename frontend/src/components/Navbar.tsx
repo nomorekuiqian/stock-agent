@@ -30,7 +30,7 @@ export function Navbar() {
 
   const navBase = 'fixed top-0 left-0 right-0 z-50 transition-all duration-500';
   const navScrolled = 'bg-background/95 backdrop-blur-md border-b border-border/40 shadow-sm shadow-black/5';
-  const navTransparentHome = 'bg-transparent border-b border-transparent hero-dark';
+  const navTransparentHome = 'bg-transparent border-b border-transparent';
 
   return (
     <nav
@@ -123,6 +123,15 @@ export function Navbar() {
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-3">
+            <a
+              href="https://x.com/golden_pan1"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="在 X 上关注 Golden"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-border/50 bg-background/35 text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-foreground"
+            >
+              <XLogo className="h-3.5 w-3.5" />
+            </a>
             <ThemeToggle />
             <div className="hidden md:flex items-center">
               <NavAuth />
@@ -132,6 +141,20 @@ export function Navbar() {
         </div>
       </div>
     </nav>
+  );
+}
+
+function XLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+      focusable="false"
+    >
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
   );
 }
 

@@ -87,7 +87,7 @@ function ProfileContent(): ReactNode {
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
   const {
-    isPro, isMax, isLoading: subLoading, status,
+    plan, isLoading: subLoading, status,
     currentPeriodEnd, accessExpiresAt,
     openBillingPortal,
     portalError,
@@ -221,11 +221,16 @@ function ProfileContent(): ReactNode {
     ? Math.round((daysLeft / INVITE_DAYS) * 100)
     : 0;
 
-  const isPaid = isPro && daysLeft === null;
-  const isPaidPro = isPaid && !isMax;
-  const isTrial = isPro && daysLeft !== null;
-  const isCanceled = !isPro && status === 'canceled';
-  const tierLabel = isMax ? 'Max' : isPro ? 'Pro' : null;
+  const normalizedPlan = plan === 'max' || plan === 'pro' ? plan : 'free';
+  const hasActiveAccessStatus = status === 'active' || status === 'trialing';
+  const hasActivePlan = hasActiveAccessStatus && normalizedPlan !== 'free' && (daysLeft === null || daysLeft > 0);
+  const isDisplayMax = hasActivePlan && normalizedPlan === 'max';
+  const isDisplayPro = hasActivePlan && normalizedPlan === 'pro';
+  const isPaid = hasActivePlan && daysLeft === null;
+  const isPaidPro = isPaid && isDisplayPro;
+  const isTrial = hasActivePlan && daysLeft !== null;
+  const isCanceled = !hasActivePlan && status === 'canceled';
+  const tierLabel = isDisplayMax ? 'Max' : hasActivePlan ? 'Pro' : null;
 
   const urgency = daysLeft !== null
     ? daysLeft <= 3 ? 'red'
@@ -258,9 +263,9 @@ function ProfileContent(): ReactNode {
               <p className="text-sm font-medium text-foreground truncate">{user.name || '未设置昵称'}</p>
               {subLoading ? (
                 <span className="shrink-0 w-8 h-4 rounded bg-muted animate-pulse" />
-              ) : isPro ? (
+              ) : hasActivePlan ? (
                 <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-micro font-medium uppercase tracking-wide ${
-                  isMax ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20' : 'bg-primary/15 text-primary border border-primary/20'
+                  isDisplayMax ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20' : 'bg-primary/15 text-primary border border-primary/20'
                 }`}>
                   {tierLabel}
                 </span>
@@ -353,11 +358,11 @@ function ProfileContent(): ReactNode {
                 <span className="w-12 h-5 rounded-full bg-muted animate-pulse" />
               ) : (
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-                  isPro ? urgencyStyles.badge
+                  hasActivePlan ? urgencyStyles.badge
                     : isCanceled ? 'bg-amber-400/10 border-amber-400/30 text-amber-400'
                     : 'bg-muted border-border/50 text-muted-foreground'
                 }`}>
-                  {isPro ? tierLabel : isCanceled ? '已取消' : '免费版'}
+                  {hasActivePlan ? tierLabel : isCanceled ? '已取消' : '免费版'}
                 </span>
               )}
             </div>
@@ -414,14 +419,14 @@ function ProfileContent(): ReactNode {
                 /* ── Paid (Pro or Max) ── */
                 <div className="p-5">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isMax ? 'bg-amber-400/10' : 'bg-primary/10'}`}>
-                      <svg className={`w-4 h-4 ${isMax ? 'text-amber-400' : 'text-primary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDisplayMax ? 'bg-amber-400/10' : 'bg-primary/10'}`}>
+                      <svg className={`w-4 h-4 ${isDisplayMax ? 'text-amber-400' : 'text-primary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">{tierLabel} 会员</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{isMax ? PRICING.maxPerMonth : PRICING.proPerMonth} · 自动续费</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{isDisplayMax ? PRICING.maxPerMonth : PRICING.proPerMonth} · 自动续费</p>
                     </div>
                   </div>
 
@@ -438,7 +443,7 @@ function ProfileContent(): ReactNode {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">状态</span>
-                      <span className={`font-medium ${isMax ? 'text-amber-400' : 'text-primary'}`}>活跃</span>
+                      <span className={`font-medium ${isDisplayMax ? 'text-amber-400' : 'text-primary'}`}>活跃</span>
                     </div>
                   </div>
 

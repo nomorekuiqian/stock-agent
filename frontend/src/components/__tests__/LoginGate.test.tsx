@@ -85,4 +85,26 @@ describe('LoginGate', () => {
       `/login?mode=signup&redirect=${redirect}`,
     );
   });
+
+  it('honors an explicit redirectTo that carries query params', () => {
+    mocks.useAuth.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    });
+
+    render(
+      <LoginGate redirectTo="/research?agent=kol&persona=qinbafrank&q=NVDA">
+        <div>protected content</div>
+      </LoginGate>,
+    );
+
+    // pathname mock stays at /kol/qinbafrank/stocks; redirectTo must win.
+    const redirect = encodeURIComponent('/research?agent=kol&persona=qinbafrank&q=NVDA');
+    expect(screen.getByRole('link', { name: '登录' }).getAttribute('href')).toBe(
+      `/login?redirect=${redirect}`,
+    );
+    expect(screen.getByRole('link', { name: '免费注册' }).getAttribute('href')).toBe(
+      `/login?mode=signup&redirect=${redirect}`,
+    );
+  });
 });

@@ -43,13 +43,34 @@ export async function refreshSession(): Promise<string | null> {
 
 // --- Session fetch ---
 
-async function fetchSession(): Promise<{ user: User | null; accessToken: string | null }> {
+type SessionResult = { user: User | null; accessToken: string | null };
+
+// Single-flight de-dup: many callers can ask for the session at once — the
+// 12-min refresh interval, the visibilitychange handler, getAccessTokenAsync /
+// refreshSession, plus subscription/entitlement contexts. Without de-dup an
+// expired 15-min access cookie triggers several concurrent /api/auth/session
+// calls, each rotating the refresh token; the first to land invalidates the
+// token the others presented, so the losers fail and clear cookies — logging a
+// genuinely-logged-in user out. Sharing one in-flight round-trip removes the
+// rotation thundering herd entirely.
+let _sessionInFlight: Promise<SessionResult> | null = null;
+
+async function fetchSession(): Promise<SessionResult> {
+  if (_sessionInFlight) return _sessionInFlight;
+  const inFlight = (async (): Promise<SessionResult> => {
+    try {
+      const res = await fetch('/api/auth/session');
+      if (!res.ok) return { user: null, accessToken: null };
+      return await res.json();
+    } catch {
+      return { user: null, accessToken: null };
+    }
+  })();
+  _sessionInFlight = inFlight;
   try {
-    const res = await fetch('/api/auth/session');
-    if (!res.ok) return { user: null, accessToken: null };
-    return await res.json();
-  } catch {
-    return { user: null, accessToken: null };
+    return await inFlight;
+  } finally {
+    _sessionInFlight = null;
   }
 }
 

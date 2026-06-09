@@ -116,14 +116,16 @@ Use a known existing paid user (any of the 146 backfilled accounts from migratio
 | G3 | As Pro user on `/research` (twitter_digest gated by Max) | "Pro 升级到 Max" flow with Crown icon |
 | G4 | Search HTML rendered for any of those screens | No occurrence of "14 天" or "auto-trial" or "trial-used" |
 
-### Group H — Lifecycle scheduler (dry-run)
+### Group H — Lifecycle scheduler (retired)
+
+The lifecycle onboarding scheduler and the older Day 3/7/14 drip emails are no
+longer active. This section is historical only; current `onboarding_drip` cron
+calls return `disabled=true` and send no email.
 
 | # | Step | Expected |
 |---|------|----------|
-| H1 | `curl -X POST http://localhost:8000/api/cron/lifecycle/onboarding-pass -H "X-Cron-Secret: <CRON_SECRET>"` | Returns `{success: true, counters: {...}}` — in non-prod, scanned ≤ 1 (test account only) |
-| H2 | Force a user's `auth_created_at` to today via DB → re-run cron | counter `sent` goes to 1, `skipped_already` 0; next run shows `skipped_already=1` |
-| H3 | Verify in DB: `SELECT lifecycle_state FROM public.subscriptions WHERE user_id='<test-uid>'` | Contains `{"onboarding_sent": {"0": "<iso>"}}` |
-| H4 | Email actually delivered? Check Resend dashboard for the send | One email sent to test account, subject begins with "[TheMarketBrew] 欢迎加入 + 今日推特日报" |
+| H1 | `curl -X POST http://localhost:8000/api/cron/onboarding-emails -H "X-Cron-Secret: <CRON_SECRET>"` | Returns `{success: true, disabled: true, sent: 0}` |
+| H2 | Check Resend dashboard for this cron window | No onboarding drip email is sent |
 
 ### Group I — Edge function `update_lifecycle_state`
 
@@ -134,8 +136,8 @@ Use a known existing paid user (any of the 146 backfilled accounts from migratio
 
 ## Pending product setup (user manual action)
 
-1. **Lifecycle cron status**: the lifecycle onboarding workflow was reverted on 2026-06-04; do not add a new GitHub Actions cron. Current onboarding drip runs through Insforge `Cron - Onboarding Drip` (`0 23 * * *`) via `cron-trigger`.
-2. **Old drip retirement**: still deferred. Keep `backend/app/features/notification/onboarding.py` until the replacement lifecycle scheduler is rebuilt and migrated through Insforge Schedules, not GitHub Actions.
+1. **Lifecycle cron status**: the lifecycle onboarding workflow was reverted on 2026-06-04; do not add a new GitHub Actions cron. The Insforge `Cron - Onboarding Drip` (`0 23 * * *`) may still call `cron-trigger`, but backend returns a disabled no-op.
+2. **Old drip retirement**: completed on 2026-06-06. `backend/app/features/notification/onboarding.py` remains only as a legacy no-op so existing cron calls do not send email.
 
 (Resend segment + Stripe `watchlist_unlimited` feature, mentioned in earlier drafts, are no longer needed — the scheduler sends per-user not per-segment, and watchlist limit is now uniform 25.)
 

@@ -482,7 +482,10 @@ async def broadcast_to_channel(
 
 
 @router.post("/subscriptions/sync-user", response_model=SyncUserResponse)
-async def sync_user_subscriptions(request: SyncUserRequest):
+async def sync_user_subscriptions(
+    request: SyncUserRequest,
+    user: dict = Depends(verify_user_token_with_email),
+):
     """
     Sync a website user with their existing Resend subscriptions.
 
@@ -495,11 +498,19 @@ async def sync_user_subscriptions(request: SyncUserRequest):
     - Unified subscription management across channels
     """
     try:
+        user_id = user["user_id"]
+        email = user["email"]
+        if not email:
+            raise HTTPException(status_code=400, detail="User email not available")
+
+        if request.user_id != user_id or request.email.lower() != email.lower():
+            raise HTTPException(status_code=403, detail="User identity mismatch")
+
         subscription_service = get_subscription_service()
 
         result = subscription_service.sync_user(
-            user_id=request.user_id,
-            email=request.email,
+            user_id=user_id,
+            email=email,
             first_name=request.first_name,
         )
 
@@ -514,14 +525,16 @@ async def sync_user_subscriptions(request: SyncUserRequest):
 
         return SyncUserResponse(
             success=result.get("success", False),
-            email=result.get("email", request.email),
-            user_id=result.get("user_id", request.user_id),
+            email=result.get("email", email),
+            user_id=result.get("user_id", user_id),
             synced_channels=[
                 SyncedChannelInfo(**ch) for ch in result.get("synced_channels", [])
             ],
             errors=result.get("errors", []),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error in sync_user_subscriptions")
         raise HTTPException(status_code=500, detail=str(e))

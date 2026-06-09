@@ -398,6 +398,10 @@ async def broadcast_morning_report(
             logger.error("Morning report broadcast failed: %s", error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
+        # Mirror to Discord as an embed card (best-effort, never blocks email path)
+        from app.shared.discord_notifier import send_morning_report_card
+        await send_morning_report_card(report_data)
+
         return BroadcastResponse(
             success=True,
             channel="daily_report",

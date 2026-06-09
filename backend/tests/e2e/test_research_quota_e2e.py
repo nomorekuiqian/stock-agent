@@ -65,20 +65,15 @@ class TestResearchChatAnonymous:
     """Tests for POST /api/research/chat without auth."""
 
     @pytest.mark.asyncio
-    async def test_chat_anonymous_not_401(self, client):
-        """Anonymous user is not rejected with 401 (quota-gated, not auth-gated)."""
-        try:
-            resp = await client.post(
-                "/api/research/chat",
-                json={"message": "hello"},
-                timeout=60,
-            )
-        except Exception as exc:
-            pytest.skip(f"Insforge Edge Function unreachable: {exc}")
-            return
-        # May return 200 (success), 429 (quota exceeded), or 500 (no universe cache)
-        # but never 401 (auth required)
-        assert resp.status_code != 401
+    async def test_chat_anonymous_returns_401(self, client):
+        """Anonymous user is rejected with 401 — the research chat is now
+        login-gated server-side (matches the frontend login wall)."""
+        resp = await client.post(
+            "/api/research/chat",
+            json={"message": "hello"},
+            timeout=10,
+        )
+        assert resp.status_code == 401
 
 
 @pytest.mark.e2e

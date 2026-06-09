@@ -127,6 +127,10 @@ async def send_daily_report(
         if not email_result.get("success"):
             raise HTTPException(status_code=500, detail=email_result.get("error", "Failed to broadcast email"))
 
+        # Mirror to Discord as an embed card (best-effort, never blocks email path)
+        from app.shared.discord_notifier import send_daily_report_card
+        await send_daily_report_card(report_data)
+
         return {
             "success": True,
             "message": "Daily report broadcast to all subscribers",
@@ -756,33 +760,13 @@ async def get_onboarding_email_preview(
     day: int = Query(3, description="Signup day: 3, 7, or 14"),
     first_name: str = Query("", description="User first name"),
 ):
-    """Render onboarding drip email HTML for preview. Does NOT send anything."""
-    from app.features.notification.onboarding import _TEMPLATE_MAP
-
-    template_fn = _TEMPLATE_MAP.get(day)
-    if not template_fn:
-        valid = sorted(_TEMPLATE_MAP.keys())
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid day={day}. Valid days: {valid}",
-        )
-    subject, html = template_fn(first_name=first_name)
-    return {
-        "success": True,
-        "day": day,
-        "subject": subject,
-        "html": html,
-        "valid_days": sorted(_TEMPLATE_MAP.keys()),
-    }
+    """Legacy preview endpoint: onboarding drip emails have been removed."""
+    raise HTTPException(status_code=410, detail="onboarding_drip_emails_removed")
 
 
 @router.post("/cron/onboarding-emails", dependencies=[Depends(verify_cron_secret)])
 async def cron_onboarding_emails():
-    """Daily cron: send Day 3/7/14 onboarding drip emails.
-
-    Anchored on signup time (auth_created_at). Idempotent via
-    subscriptions.lifecycle_state.onboarding_sent.
-    """
+    """Legacy cron endpoint: onboarding drip emails have been removed."""
     try:
         from app.features.notification.onboarding import process_onboarding_emails
 

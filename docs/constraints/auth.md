@@ -99,10 +99,26 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
 ```text
 getAccessTokenAsync()
   -> 先读模块级 _cachedAccessToken
-  -> 没有时请求 /api/auth/session
+  -> 没有时请求 /api/auth/session (经 fetchSession single-flight 去重)
   -> /api/auth/session 先验证 access token，失败再用 refresh token 刷新
   -> 返回 user / accessToken
 ```
+
+#### Refresh token 轮换竞态防护（重要）
+
+`/api/auth/session` 的 refresh 会**轮换** refresh token（`setAuthCookies(access, newRefresh)`）。
+若多个调用方（12 分钟定时刷新 / visibilitychange / 订阅·权益 context / 业务请求）在
+access cookie 过期后**并发**打这个端点，第一个成功的会让其余请求手上的旧 refresh token
+失效——这会把一个真实登录的用户登出。两道防护：
+
+1. `fetchSession` 用模块级 in-flight promise 做 **single-flight 去重**，同一 tab 内并发
+   调用共享同一次往返，从根上消除"轮换雪崩"。
+2. `/api/auth/session` 在 refresh 的 **catch（网络/瞬时异常）路径不再 `clearAuthCookies()`**，
+   避免 Insforge 抖动或竞态败者把刚轮换好的 cookie 清掉；只有 Insforge 明确返回 invalid
+   refresh token 的 error 分支才清理。
+
+业务侧 chatStream（`api.research.chatStream` / `api.kolResearch.chatStream`）收到 401 时
+也会 `refreshSession()` 后重试一次，让瞬时 null token 自愈而不是弹"登录已过期"。
 
 ### OAuth Callback 处理
 
@@ -140,6 +156,7 @@ OAuth callback 现在是服务端 route handler，避免客户端 SDK callback �
 
 - `backend/app/core/deps.py` - `verify_user_token` 用 Bearer token 校验身份
 - 各 feature `router.py` - `Depends(verify_user_token)` 提取 `user_id`
+- 付费内容 API 还必须叠加 feature entitlement gate。当前 Stock AI 内容（`/api/stocks/{symbol}/analysis/cache`, `/analysis`, `/technical`, `/news`, `/macro`, `/market-analysis`, `/earnings`）必须 `verify_user_token` + `has_entitlement(user_id, "stock_research")`；不能只依赖前端 PaywallGuard。
 
 ## 手动 QA 计划
 

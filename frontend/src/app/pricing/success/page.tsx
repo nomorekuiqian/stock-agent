@@ -40,7 +40,7 @@ function normalizeTier(raw: string | null, nextPath: string): CheckoutTier | nul
 }
 
 function isActiveSubscription(sub: SubscriptionStatus): boolean {
-  if (sub.status !== 'active') return false;
+  if (sub.status !== 'active' && sub.status !== 'trialing') return false;
   if (!sub.access_expires_at) return true;
   return new Date(sub.access_expires_at) > new Date();
 }

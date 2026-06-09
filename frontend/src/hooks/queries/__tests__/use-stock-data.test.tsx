@@ -3,7 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 import {
-  useStockQuotes, useGenerateStockAnalysis, useGenerateTechnicalAnalysis,
+  useStockQuotes, useStockAnalysisCache, useGenerateStockAnalysis, useGenerateTechnicalAnalysis,
   useEarningsData, useGenerateEarningsAnalysis, useNewsFeed, useInsiderTrading,
 } from '../use-stock-data';
 import { queryKeys } from '../query-keys';
@@ -14,9 +14,15 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+vi.mock('@/contexts/AuthContext', () => ({
+  getAccessTokenAsync: vi.fn(),
+}));
+
 import { api } from '@/lib/api';
+import { getAccessTokenAsync } from '@/contexts/AuthContext';
 
 const mockGetStockQuotes = api.getStockQuotes as ReturnType<typeof vi.fn>;
+const mockGetAccessToken = getAccessTokenAsync as ReturnType<typeof vi.fn>;
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -34,6 +40,7 @@ function createWrapper() {
 beforeEach(() => {
   vi.clearAllMocks();
   globalThis.fetch = vi.fn();
+  mockGetAccessToken.mockResolvedValue('test-token');
 });
 
 describe('useStockQuotes', () => {
@@ -58,6 +65,28 @@ describe('useStockQuotes', () => {
   });
 });
 
+describe('useStockAnalysisCache', () => {
+  it('fetches cached analysis with bearer token', async () => {
+    const mockAnalysis = { title: 'Cached AAPL' };
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, analysis: mockAnalysis }),
+    });
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useStockAnalysisCache('AAPL'), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(mockAnalysis);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stocks/AAPL/analysis/cache'),
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer test-token' },
+      }),
+    );
+  });
+});
+
 describe('useGenerateStockAnalysis', () => {
   it('calls POST /stocks/{symbol}/analysis and sets cache on success', async () => {
     const mockAnalysis = { rating: 'buy', summary: 'Looks good' };
@@ -76,6 +105,13 @@ describe('useGenerateStockAnalysis', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockAnalysis);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stocks/AAPL/analysis?force=false'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-token' },
+      }),
+    );
 
     // Verify cache was populated via onSuccess
     const cached = queryClient.getQueryData(queryKeys.stocks.analysis('AAPL'));
@@ -98,7 +134,10 @@ describe('useGenerateStockAnalysis', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/stocks/TSLA/analysis?force=true'),
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-token' },
+      }),
     );
   });
 
@@ -156,7 +195,10 @@ describe('useGenerateTechnicalAnalysis', () => {
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/stocks/NVDA/technical?force=false&timeframe=weekly'),
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-token' },
+      }),
     );
 
     // Cache should be set via onSuccess
@@ -180,7 +222,10 @@ describe('useGenerateTechnicalAnalysis', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/stocks/META/technical?force=false&timeframe=daily'),
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-token' },
+      }),
     );
   });
 });
@@ -260,7 +305,10 @@ describe('useGenerateEarningsAnalysis', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/stocks/TSLA/earnings?force=true'),
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-token' },
+      }),
     );
   });
 

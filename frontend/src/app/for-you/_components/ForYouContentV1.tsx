@@ -196,7 +196,7 @@ export function ForYouPageContentV1() {
       {!dataLoading && isOnboarding && user && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-16">
           <div className="flex flex-col items-center justify-center gap-6 py-16 rounded-xl border border-dashed border-border/50 bg-card/30 animate-fade-in-up">
-            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center animate-float">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
               <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
               </svg>

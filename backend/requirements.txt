@@ -16,7 +16,7 @@ resend==2.19.0
 slowapi
 svix
 uvicorn
-fastmcp>=3.4,<4           # Frank Lens MCP (Streamable HTTP), mounted at /frank/mcp/
+fastmcp>=3.4,<4           # Market Lens MCP (Streamable HTTP), mounted at /frank/mcp/
 stripe
 tvscreener>=0.2.0
 pandas-ta>=0.4.71b

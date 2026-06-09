@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Glasses, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { KolPersonaSummary } from '@/lib/api';
 
@@ -19,8 +20,8 @@ interface PersonaSelectorProps {
 /**
  * PersonaSelector — picks between the neutral research agent and a KOL persona.
  *
- * Visual: small button "🎙️ 博主视角" in the chat panel header. When a persona
- * is loaded, shows a chip with the username and an ✕ to revert.
+ * Visual: small icon button "博主视角" in the chat panel header. When a persona
+ * is loaded, shows a chip with the username and a clear (X) control to revert.
  */
 export default function PersonaSelector({
   agentKind,
@@ -92,15 +93,16 @@ export default function PersonaSelector({
   return (
     <div className="relative inline-flex items-center gap-2">
       {active ? (
-        <div className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-          <span>🎙️ @{personaUsername} 视角</span>
+        <div className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary border border-primary/20">
+          <Glasses className="h-3.5 w-3.5" aria-hidden />
+          <span>@{personaUsername} 视角</span>
           <button
             type="button"
             onClick={handleClearPersona}
             aria-label="退出博主视角"
-            className="ml-1 text-emerald-600 hover:text-emerald-800 transition"
+            className="ml-0.5 text-primary/70 hover:text-primary transition-colors"
           >
-            ✕
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       ) : (
@@ -108,27 +110,28 @@ export default function PersonaSelector({
           ref={buttonRef}
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
-          🎙️ 博主视角
+          <Glasses className="h-3.5 w-3.5" aria-hidden />
+          博主视角
         </button>
       )}
 
       {!active && open && (
         <div
           ref={popoverRef}
-          className={`absolute left-0 w-72 z-50 rounded-lg border border-gray-200 bg-white shadow-lg ${
+          className={`absolute left-0 w-72 z-50 rounded-lg border border-border bg-popover shadow-lg ${
             placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-1'
           }`}
         >
-          <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+          <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border/60">
             选一个博主，按他的方法论投研
           </div>
           {!loaded && (
-            <div className="px-3 py-3 text-xs text-gray-400">加载中...</div>
+            <div className="px-3 py-3 text-xs text-muted-foreground/70">加载中...</div>
           )}
           {loaded && personas.length === 0 && (
-            <div className="px-3 py-3 text-xs text-gray-400">
+            <div className="px-3 py-3 text-xs text-muted-foreground/70">
               暂无可用博主视角（功能可能未开启）
             </div>
           )}
@@ -137,14 +140,14 @@ export default function PersonaSelector({
               key={p.username}
               type="button"
               onClick={() => handlePickPersona(p)}
-              className="block w-full text-left px-3 py-2 hover:bg-gray-50 transition border-b border-gray-50 last:border-b-0"
+              className="block w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/40 last:border-b-0"
             >
-              <div className="text-sm font-medium text-gray-900">@{p.username}</div>
-              <div className="mt-0.5 text-xs text-gray-500 line-clamp-2">
+              <div className="text-sm font-medium text-foreground">@{p.username}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
                 {p.description || '博主方法论视角'}
               </div>
               {p.lenses_available?.length > 0 && (
-                <div className="mt-1 text-[10px] text-gray-400">
+                <div className="mt-1 text-micro text-muted-foreground/70">
                   {p.lenses_available.length} 个视角
                 </div>
               )}

@@ -38,18 +38,26 @@ module.exports = async function(request) {
 
   const rawDays = Number.parseInt(url.searchParams.get("days") || "30", 10);
   const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 90) : 30;
-  const { data, error } = await client.database
-    .rpc("admin_daily_activity", { days_back: days });
+  const [activityResult, growthResult] = await Promise.all([
+    client.database.rpc("admin_daily_activity", { days_back: days }),
+    client.database.rpc("admin_growth_metrics", { days_back: days }),
+  ]);
 
-  if (error) {
+  if (activityResult.error) {
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: activityResult.error.message }),
       { status: 500, headers: jsonHeaders }
     );
   }
 
   return new Response(
-    JSON.stringify({ success: true, days, data: data || [] }),
+    JSON.stringify({
+      success: true,
+      days,
+      data: activityResult.data || [],
+      growth_metrics: growthResult.error ? null : growthResult.data,
+      growth_metrics_error: growthResult.error ? growthResult.error.message : null,
+    }),
     { status: 200, headers: jsonHeaders }
   );
 };

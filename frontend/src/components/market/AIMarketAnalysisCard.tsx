@@ -2,9 +2,16 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnalysisSection, AIPaywall } from '@/app/stock/[symbol]/_components/shared';
+import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
 import { queryKeys } from '@/hooks/queries/query-keys';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+async function requiredAuthHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Session expired');
+  return { Authorization: `Bearer ${token}` };
+}
 
 export interface MarketAnalysis {
   title: string;
@@ -15,17 +22,19 @@ export interface MarketAnalysis {
   signal_coherence: string;
 }
 
-function useMarketAnalysis(symbol: string) {
+function useMarketAnalysis(symbol: string, enabled: boolean = true) {
   return useQuery<{ analysis: MarketAnalysis | null; meta: { generated_at?: string } } | null>({
     queryKey: queryKeys.stocks.marketAnalysis(symbol),
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/market-analysis`);
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/market-analysis`, {
+        headers: await requiredAuthHeaders(),
+      });
       if (!response.ok) return null;
       const result = await response.json();
       if (!result.success) return null;
       return { analysis: result.analysis, meta: result.meta };
     },
-    enabled: !!symbol,
+    enabled: !!symbol && enabled,
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
     retry: false,
@@ -38,7 +47,7 @@ function useGenerateMarketAnalysis(symbol: string) {
     mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
       const response = await fetch(
         `${API_BASE_URL}/stocks/${symbol}/market-analysis?force=${force}`,
-        { method: 'POST' },
+        { method: 'POST', headers: await requiredAuthHeaders() },
       );
       if (!response.ok) throw new Error(`Failed: ${response.status}`);
       const result = await response.json();
@@ -61,7 +70,7 @@ export function AIMarketAnalysisCard({
   symbol: string;
   hasAIAccess?: boolean;
 }) {
-  const { data, isLoading: fetching } = useMarketAnalysis(symbol);
+  const { data, isLoading: fetching } = useMarketAnalysis(symbol, hasAIAccess);
   const { mutate: generate, isPending: generating } = useGenerateMarketAnalysis(symbol);
 
   const analysis = data?.analysis ?? null;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { ChevronDown } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import OptionChips from './OptionChips';
 import ChatInput from './ChatInput';
@@ -60,15 +61,20 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
     setUserScrolled(!atBottom);
   }, []);
 
-  // Auto-scroll to bottom on new messages (unless user scrolled up)
+  // Auto-scroll to bottom on new messages AND as the streaming answer grows.
+  // The last message is mutated in place during streaming (its array length
+  // doesn't change), so we also key the effect on its content/thinking. While
+  // streaming we use instant scroll so rapid growth follows tightly without
+  // smooth-scroll animations stacking/fighting each other.
+  const lastMsg = messages[messages.length - 1];
   useEffect(() => {
     if (!userScrolled) {
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
-        behavior: 'smooth',
+        behavior: lastMsg?.streaming ? 'auto' : 'smooth',
       });
     }
-  }, [messages.length, loading, userScrolled]);
+  }, [messages.length, lastMsg?.content, lastMsg?.thinking, lastMsg?.streaming, loading, userScrolled]);
 
   // Find the last assistant message index for animation
   const lastAssistantIdx = messages.reduce(
@@ -139,16 +145,9 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
                   const label = latest?.description;
                   return (
                     <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <span className="thinking-dot" />
-                        <span className="thinking-dot" />
-                        <span className="thinking-dot" />
+                      <span key={label || 'thinking'} className="animate-status-label animate-pulse-subtle">
+                        {label || '正在思考…'}
                       </span>
-                      {label && (
-                        <span key={label} className="animate-status-label">
-                          {label}
-                        </span>
-                      )}
                     </div>
                   );
                 })()}
@@ -166,12 +165,31 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
         <div ref={bottomRef} />
       </div>
 
+      {/* Jump to latest — appears when the user has scrolled up. */}
+      {userScrolled && messages.length > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            scrollRef.current?.scrollTo({
+              top: scrollRef.current.scrollHeight,
+              behavior: 'smooth',
+            });
+            setUserScrolled(false);
+          }}
+          aria-label="跳到最新"
+          className="absolute bottom-24 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-popover/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md backdrop-blur transition-colors hover:text-foreground animate-fade-in"
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+          跳到最新
+        </button>
+      )}
+
       {/* Input area */}
       <div className="shrink-0 px-3 sm:px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         {personaUsername && (
           <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
               @{personaUsername} 视角
             </span>
             <span className="text-muted-foreground/70">按博主公开方法论作答</span>

@@ -1,8 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
 import { queryKeys } from './query-keys';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+async function requiredAuthHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Session expired');
+  return { Authorization: `Bearer ${token}` };
+}
 
 export function useStockQuotes(symbols: string[]) {
   return useQuery({
@@ -74,16 +81,18 @@ export function useValuationComparison(symbol: string) {
 }
 
 // Auto-fetch cached analysis on page load (GET, no AI generation)
-export function useStockAnalysisCache(symbol: string) {
+export function useStockAnalysisCache(symbol: string, enabled: boolean = true) {
   return useQuery({
     queryKey: queryKeys.stocks.analysis(symbol),
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/analysis/cache`);
+      const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/analysis/cache`, {
+        headers: await requiredAuthHeaders(),
+      });
       if (!response.ok) return null;
       const result = await response.json();
       return result.success ? result.analysis : null;
     },
-    enabled: !!symbol,
+    enabled: !!symbol && enabled,
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
@@ -95,6 +104,7 @@ export function useGenerateStockAnalysis(symbol: string) {
     mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
       const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/analysis?force=${force}`, {
         method: 'POST',
+        headers: await requiredAuthHeaders(),
       });
       if (!response.ok) throw new Error(`Failed to generate analysis: ${response.status}`);
       const result = await response.json();
@@ -112,7 +122,7 @@ export function useGenerateTechnicalAnalysis(symbol: string) {
     mutationFn: async ({ force = false, timeframe = 'daily' }: { force?: boolean; timeframe?: string } = {}) => {
       const response = await fetch(
         `${API_BASE_URL}/stocks/${symbol}/technical?force=${force}&timeframe=${timeframe}`,
-        { method: 'POST' }
+        { method: 'POST', headers: await requiredAuthHeaders() }
       );
       if (!response.ok) throw new Error(`Failed to generate technical analysis: ${response.status}`);
       const result = await response.json();
@@ -130,6 +140,7 @@ export function useGenerateNewsAnalysis(symbol: string) {
     mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
       const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/news?force=${force}`, {
         method: 'POST',
+        headers: await requiredAuthHeaders(),
       });
       if (!response.ok) throw new Error(`Failed to generate news analysis: ${response.status}`);
       const result = await response.json();
@@ -147,6 +158,7 @@ export function useGenerateMacroAnalysis(symbol: string) {
     mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
       const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/macro?force=${force}`, {
         method: 'POST',
+        headers: await requiredAuthHeaders(),
       });
       if (!response.ok) throw new Error(`Failed to generate macro analysis: ${response.status}`);
       const result = await response.json();
@@ -200,6 +212,7 @@ export function useGenerateEarningsAnalysis(symbol: string) {
     mutationFn: async ({ force = false }: { force?: boolean } = {}) => {
       const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/earnings?force=${force}`, {
         method: 'POST',
+        headers: await requiredAuthHeaders(),
       });
       if (!response.ok) throw new Error(`Failed to generate earnings analysis: ${response.status}`);
       const result = await response.json();

@@ -99,6 +99,11 @@ export default function TickerDetail({ username, ticker }: Props) {
                       : "轻度提及"}
                 </span>
               ) : null}
+              {detail.region && detail.region !== "US" ? (
+                <span className="font-data rounded-sm border border-border/60 bg-card/50 px-1.5 py-0.5 text-xs font-medium tracking-wide text-muted-foreground">
+                  {detail.region}
+                </span>
+              ) : null}
             </div>
             <h2 className="mt-1 font-editorial text-3xl leading-tight text-foreground md:text-4xl">
               ${detail.ticker}
@@ -110,6 +115,21 @@ export default function TickerDetail({ username, ticker }: Props) {
             ) : null}
           </div>
         </div>
+
+        {/* Decoder box — niche / non-US tickers ship a 「公司或产业是什么」
+            section in the skill md. The router exposes it as `decoder`.
+            Render as a sky-tinted callout above the metadata row so first-time
+            readers immediately grok what the company actually does. */}
+        {detail.decoder ? (
+          <div className="mt-5 rounded-md border border-sky-500/25 bg-sky-500/5 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-sky-600 dark:text-sky-400">
+              公司或产业是什么
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-foreground">
+              {detail.decoder}
+            </p>
+          </div>
+        ) : null}
 
         {/* Coverage metadata — kept lean: 次数 + 时间跨度 */}
         <div className="mt-5 grid grid-cols-3 gap-x-6 gap-y-3 border-t border-border/40 pt-4">

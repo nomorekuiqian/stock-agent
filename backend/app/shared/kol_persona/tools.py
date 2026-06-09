@@ -102,6 +102,15 @@ def chunk_to_persona_result(
 # threshold of 0.7 silently filters everything; use a looser bar here.
 _KOL_SEARCH_THRESHOLD = 0.45
 
+# When a KOL persona agent is active, the server pins tweet retrieval to that
+# persona's username via this contextvar (set by kol_research.agent at the start
+# of each turn). It TAKES PRECEDENCE over whatever author the LLM passes, so a
+# Serenity conversation can never retrieve qinbafrank's tweets — and vice versa —
+# even if the model omits or hallucinates the author argument.
+_active_kol_author: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "_active_kol_author", default=None
+)
+
 
 async def search_kol_tweets(
     query: str,
@@ -123,6 +132,9 @@ async def search_kol_tweets(
     Returns:
       Markdown text with [#N] indexed chunks, ready to be cited inline.
     """
+    # The active persona (if any) wins over the LLM-supplied author so retrieval
+    # stays pinned to the current KOL — never leaks another persona's tweets.
+    author = _active_kol_author.get(None) or author_username
     try:
         resp = await vector_search(
             VectorSearchRequest(
@@ -131,7 +143,7 @@ async def search_kol_tweets(
                 threshold=_KOL_SEARCH_THRESHOLD,
                 filters=VectorSearchFilters(
                     source_types=["kol_tweet"],
-                    metadata={"author_username": author_username},
+                    metadata={"author_username": author},
                 ),
             )
         )

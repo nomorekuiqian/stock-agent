@@ -1,0 +1,987 @@
+{"tweet_id": "1972016308662513748", "tickers": ["ALAB", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "MSFT", "NBIS", "NVDA", "RDDT", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1972367879858470974", "tickers": ["AMZN", "CIFR", "GOOGL", "HOOD", "MRVL", "MSFT", "NBIS", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "1972677721290682505", "tickers": ["IREN", "NBIS", "VIRT"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "1972769926302855553", "tickers": ["ALAB", "AMZN", "AVGO", "CIFR", "GOOGL", "HOOD", "IREN", "LITE", "MRVL", "MSFT", "NBIS", "NVDA", "RDDT", "RKLB", "TSM"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "1973188544186425368", "tickers": ["ALAB", "AMZN", "CRWV", "META", "NBIS", "RDDT", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1973277513452494873", "tickers": ["AMZN", "NBIS", "RKLB"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "1973693781888417816", "tickers": ["ALAB", "CIFR", "CRWV", "GOOGL", "IREN", "MSFT", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1973799361332326443", "tickers": ["CIFR", "CRWV", "HOOD", "IREN", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": false, "is_core": true}
+{"tweet_id": "1974167533226955118", "tickers": ["AMZN", "CIFR", "GOOGL", "HOOD", "MRVL", "MSFT", "NBIS", "RDDT", "RKLB"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "1974283913905517009", "tickers": ["ALAB", "AMZN", "AVGO", "CIFR", "GOOGL", "HOOD", "IREN", "LITE", "MRVL", "MSFT", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1975155632811507945", "tickers": ["AMD", "NVDA"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "1975205333254447126", "tickers": ["ALAB", "CIFR", "CRWV", "GOOGL", "IREN", "MSFT", "NBIS", "NVDA", "RDDT", "SNAP", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1975294794370064468", "tickers": ["SPRB"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "1975327662903337144", "tickers": ["ALAB", "AMD", "AMZN", "ASML", "AVGO", "CIFR", "CRWV", "IREN", "MRVL", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1975334113726079397", "tickers": ["SPRB"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "1975612208286736451", "tickers": ["AMD", "AMZN", "ASML", "AVGO", "CIFR", "CRWV", "IREN", "MSFT", "MU", "NBIS", "NVDA", "ORCL", "RDDT", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1975929128114377050", "tickers": ["AMD", "CIFR", "CRWV", "IREN", "MSFT", "NBIS", "RDDT", "UNH", "WYFI"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1975952087143039039", "tickers": ["AMD", "DFLI", "FLY", "OSS", "RDDT", "RKLB"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "1975987940473045058", "tickers": ["AMD", "NVDA", "RDDT"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "1976001305866080372", "tickers": ["CIFR", "GOOGL", "WLAC"], "sectors": ["neocloud"], "is_macro": false, "is_core": true}
+{"tweet_id": "1976033094932234314", "tickers": ["AMD", "AMZN", "CIFR", "CRWV", "FLY", "HOOD", "INTC", "IREN", "MRVL", "MU", "NBIS", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1976057641999925300", "tickers": ["AMD", "FLY", "MU", "NBIS", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1976370622633755115", "tickers": ["HOOD", "MSFT", "NBIS", "RDDT"], "sectors": ["power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1976484532326105414", "tickers": ["DFLI", "RKLB", "WWR"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "1976662977106596031", "tickers": ["ALAB", "CIFR", "CRWV", "FLY", "GOOGL", "IREN", "MSFT", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1976673663509508249", "tickers": ["AMD", "AMZN", "NBIS", "RDDT", "RKLB", "SPY"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "1976710335433523330", "tickers": ["AMD", "AMZN", "DKNG", "NBIS", "UNH"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "1976771236215808119", "tickers": ["CIFR", "HOOD", "IREN", "MU"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "1977079938835718513", "tickers": ["ALAB", "AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "META", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "optical-transceivers", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1977428188000309673", "tickers": ["ALAB", "AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "META", "MRVL", "MU", "NBIS", "NVDA", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "optical-transceivers"], "is_macro": true, "is_core": true}
+{"tweet_id": "1977495210063286491", "tickers": ["ALAB", "AMD", "CIFR", "CRDO", "CRWV", "GOOGL", "HOOD", "IREN", "MSFT", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1977764021815415233", "tickers": ["ALAB", "AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "META", "MRVL", "MU", "NBIS", "NVDA", "RBRK", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "optical-transceivers"], "is_macro": true, "is_core": true}
+{"tweet_id": "1977846041673363810", "tickers": ["ALAB", "AMD", "CIFR", "GOOGL", "HOOD", "MSFT", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WLAC", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1977878456940757367", "tickers": ["CIFR", "GOOGL", "WULF"], "sectors": ["memory-and-hbm", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "1978183356777922651", "tickers": ["ALAB", "CIFR", "CRWV", "GOOGL", "IREN", "MSFT", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1978247373089358249", "tickers": ["CIFR", "IREN", "NBIS", "TSM", "WULF"], "sectors": ["defense-and-space", "neocloud"], "is_macro": true, "is_core": false}
+{"tweet_id": "1978365814941384882", "tickers": ["ALAB", "AMD", "AMZN", "AVGO", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "LITE", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1978434143043084737", "tickers": ["ALAB", "AMD", "AMZN", "AVGO", "CEG", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "MU", "NBIS", "NRG", "NVDA", "RKLB", "TSM", "VST", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1978511244710617534", "tickers": ["ALAB", "AMD", "AMZN", "AVGO", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "MU", "NBIS", "NVDA", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1978716322453492060", "tickers": ["ALAB", "CIFR", "CRWV", "GOOGL", "IREN", "MSFT", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1978955578652398061", "tickers": ["AMZN", "CIFR", "GOOGL", "MSFT", "NBIS", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1979087229038530782", "tickers": ["ALAB", "AMZN", "CIFR", "GOOGL", "MSFT", "NBIS", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1979201376115921139", "tickers": ["ALAB", "AMZN", "GOOGL", "NBIS", "TSM"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "1979685872800010548", "tickers": ["ALAB", "AMD", "AMZN", "AVGO", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1979976235825635419", "tickers": ["ALAB", "AMD", "AMZN", "AVGO", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1980287888077312390", "tickers": ["ALAB", "AMD", "AMZN", "AVGO", "CIFR", "HOOD", "IREN", "MU", "NBIS", "NVDA", "RDDT", "TE", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1980413318973333927", "tickers": ["GOOGL", "HOOD", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1980786077003833508", "tickers": ["CRWV", "GOOGL", "HOOD", "META", "MSFT", "NBIS", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1981009544546591207", "tickers": ["CRWV", "HOOD", "META", "MSFT", "NBIS", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1981201004931739734", "tickers": ["NBIS", "RKLB", "TE"], "sectors": ["defense-and-space", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1981351114655346809", "tickers": ["ALAB", "CIFR", "CRWV", "GOOGL", "IREN", "META", "MSFT", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1981759104831115698", "tickers": ["CRWV", "IREN", "META", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1981981029029298374", "tickers": ["CIFR", "CRWV", "IREN", "META", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1982428584431251483", "tickers": ["CIFR", "CRWV", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1982931539836187074", "tickers": ["ALAB", "CIFR", "CRWV", "GOOGL", "IREN", "MSFT", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1983030739332673923", "tickers": ["CIFR", "CRWV", "IREN", "NBIS", "NVDA", "WULF"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": false, "is_core": true}
+{"tweet_id": "1983399179759300943", "tickers": ["ALAB", "AMD", "ASML", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1983895786590200266", "tickers": ["AMZN", "GOOGL", "META", "MSFT"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1984293587295866986", "tickers": ["AMZN", "CIFR", "CRWV", "IREN", "NBIS", "NVDA", "WULF"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "1984837960735285593", "tickers": ["AMD", "CIFR", "CRWV", "GOOGL", "IREN", "META", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1985175534133993567", "tickers": ["ALAB", "AMD", "AMZN", "CIFR", "GOOGL", "HOOD", "IREN", "META", "MSFT", "NBIS", "NVDA", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1985334909108433014", "tickers": ["AMD", "AMZN", "CIFR", "CRWV", "GOOGL", "IREN", "META", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1985770241532838347", "tickers": ["ALAB", "AMD", "AMZN", "CIFR", "GOOGL", "HOOD", "IREN", "LITE", "META", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "SMCI", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1985989016219508993", "tickers": ["ALAB", "AMD", "AMZN", "CIFR", "IREN", "META", "MSFT", "MU", "NBIS", "RDDT", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1986483611202400672", "tickers": ["ALAB", "AMD", "AMZN", "CIFR", "IREN", "META", "MSFT", "MU", "NBIS", "RDDT", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1986883096692830292", "tickers": ["ALAB", "AMD", "CIFR", "HOOD", "IREN", "LITE", "MRVL", "MSFT", "NBIS", "RDDT", "RKLB", "TSM"], "sectors": ["memory-and-hbm", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1987610303752970252", "tickers": ["ALAB", "AMD", "CIFR", "HOOD", "IREN", "NBIS", "RDDT", "RKLB", "TSM"], "sectors": ["power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1988048592754589970", "tickers": ["AMZN", "CIFR", "CRWV", "IREN", "MSFT", "NVDA", "WULF"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1988221135759290725", "tickers": ["CRWV", "IREN", "META", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "1988227411054653710", "tickers": ["META", "NBIS"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "1988237492596994341", "tickers": ["META", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "1988537251530469620", "tickers": ["MSFT", "NBIS"], "sectors": ["memory-and-hbm", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "1988644630175547407", "tickers": ["MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1988993526517100814", "tickers": ["ALAB", "AMZN", "CIFR", "GOOGL", "HOOD", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1989258180552175977", "tickers": ["ALAB", "AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1989352983348589023", "tickers": ["AMZN", "CIFR", "CRWV", "GOOGL", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1989608255371579717", "tickers": ["AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1990065497547923800", "tickers": ["NBIS"], "sectors": ["power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "1990452960758042917", "tickers": ["CIFR", "CRWV", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "1990790641056731439", "tickers": ["ALAB", "CIFR", "CRWV", "HOOD", "IREN", "MSFT", "NBIS", "RKLB", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "neocloud"], "is_macro": true, "is_core": false}
+{"tweet_id": "1990884323726127462", "tickers": ["ALAB", "HOOD", "IREN", "MSFT", "NBIS", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "neocloud"], "is_macro": true, "is_core": false}
+{"tweet_id": "1991116739577307184", "tickers": ["ALAB", "AMD", "AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "LITE", "META", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1991452423186182524", "tickers": ["ALAB", "AMD", "AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "LITE", "META", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "SMCI", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1991639781080805593", "tickers": ["ALAB", "AMZN", "CIFR", "GOOGL", "HOOD", "IREN", "META", "MSFT", "NBIS", "NVDA", "RDDT", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1992181846134968633", "tickers": ["ALAB", "AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "META", "MSFT", "NBIS", "NVDA", "RDDT", "RKLB", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1992667465785201142", "tickers": ["AMD", "CRWV", "IREN", "NBIS", "NVDA", "RDDT"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "1992984440960921604", "tickers": ["AMZN", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "META", "MSFT", "NBIS", "WULF"], "sectors": ["humanoid-robotics", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "1993283099162189962", "tickers": ["ALAB", "AMD", "AMZN", "AVGO", "CIFR", "GOOGL", "HOOD", "IREN", "META", "MSFT", "MU", "NBIS", "NVDA", "SNDK", "TSM", "WULF"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1993657309986509242", "tickers": ["AMZN", "CIFR", "GOOGL", "HOOD", "IREN", "META", "MSFT", "NBIS"], "sectors": ["humanoid-robotics", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1994089931602579688", "tickers": ["AMZN", "CRWV", "GOOGL", "META", "MSFT", "NBIS"], "sectors": ["humanoid-robotics", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "1994555219607523362", "tickers": ["ALAB", "AMD", "AVGO", "CIFR", "GOOGL", "IREN", "META", "MSFT", "MU", "NBIS", "NVDA", "SNDK", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1995084174223651180", "tickers": ["CIFR", "CRWV", "IREN", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "1995239607672414333", "tickers": ["ETH"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "1995543748353347989", "tickers": ["AMD", "AVGO", "COHR", "GOOGL", "LITE", "META", "MSFT", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1995644085563261034", "tickers": ["AVGO", "COHR", "GOOGL", "IREN", "LITE", "META", "NBIS", "NVDA", "SMCI", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1995865990341496999", "tickers": ["GOOGL", "PL", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1996198042664669557", "tickers": ["AMZN", "GOOGL", "NBIS"], "sectors": ["humanoid-robotics", "neocloud", "optical-transceivers"], "is_macro": true, "is_core": true}
+{"tweet_id": "1996232079890325753", "tickers": ["NBIS"], "sectors": ["humanoid-robotics", "neocloud", "optical-transceivers"], "is_macro": false, "is_core": false}
+{"tweet_id": "1996263556527120521", "tickers": ["NBIS"], "sectors": ["humanoid-robotics", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "1996560529679327449", "tickers": ["HOOD", "NBIS", "RKLB"], "sectors": ["defense-and-space", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "1996581986472022087", "tickers": ["HOOD", "RKLB", "TTD"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "1996586822189613538", "tickers": ["META"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "1996746497199874431", "tickers": ["HOOD", "NBIS", "RKLB"], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "1996810382875177099", "tickers": ["ALAB", "AVGO", "CIFR", "COHR", "IREN", "LITE", "MRVL", "NBIS", "NVDA", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics"], "is_macro": true, "is_core": false}
+{"tweet_id": "1997034977524121633", "tickers": ["AMZN", "CRWV", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "neocloud"], "is_macro": false, "is_core": true}
+{"tweet_id": "1997122660749529353", "tickers": ["AMZN", "CRWV", "MSFT", "NBIS", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "neocloud"], "is_macro": false, "is_core": true}
+{"tweet_id": "1998057580472729941", "tickers": ["AMKR", "CRWV", "GOOGL", "LITE", "NBIS", "NVDA", "RKLB", "SMCI", "TSM", "TTD"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "1998453391203389533", "tickers": ["CRCL", "CRWV", "GOOGL", "LITE", "NBIS", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1998846813177262295", "tickers": ["ALAB", "AMZN", "AVGO", "CIFR", "COHR", "CRCL", "CRWV", "GOOGL", "HOOD", "IREN", "LITE", "META", "MRVL", "NBIS", "NVDA", "RDDT", "RKLB", "SMCI", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1998925429890261130", "tickers": ["ALAB", "AMZN", "AVGO", "CIFR", "COHR", "CRWV", "GOOGL", "HOOD", "IREN", "LITE", "META", "MRVL", "MSFT", "NBIS", "NVDA", "ORCL", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1999240464420250042", "tickers": ["AAOI", "ALAB", "AMZN", "CIFR", "CRWV", "GOOGL", "IREN", "LITE", "MSFT", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1999372215599644781", "tickers": ["AAOI", "ALAB", "AMZN", "GOOGL", "LITE", "MSFT", "NBIS", "NVDA", "SNAP", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "1999575509462843833", "tickers": ["ALAB", "AMZN", "AVGO", "CIFR", "COHR", "CRWV", "GOOGL", "IREN", "LITE", "MSFT", "MU", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "2000208395832602786", "tickers": ["AMD", "HOOD", "IREN", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "TSM"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2000354823435420024", "tickers": ["AAOI", "ALAB", "AMD", "AVGO", "CIFR", "CRWV", "GOOGL", "HOOD", "IREN", "LITE", "MSFT", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "SNDK", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2001134839685353742", "tickers": ["AMZN", "CIFR", "CRWV", "IREN", "MSFT", "NBIS", "ORCL", "WULF"], "sectors": ["defense-and-space", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2001240032099885381", "tickers": ["AAOI", "AMZN", "AVGO", "CIFR", "COHR", "CRWV", "IREN", "LITE", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2001265461963694140", "tickers": ["AMZN", "CIFR", "CRWV", "GOOGL", "HUT", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["defense-and-space", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2001953935171670117", "tickers": ["DJT", "GOOGL", "HUT", "META", "MSFT"], "sectors": ["power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2002040245920100762", "tickers": ["AAOI", "AMZN", "AVGO", "CIFR", "COHR", "CRWV", "IREN", "LITE", "MRVL", "MU", "NBIS", "NVDA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2002392267311739320", "tickers": ["ALAB", "CRCL", "HOOD", "LITE", "NBIS", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2002688753710887007", "tickers": ["ALAB", "COIN", "CRCL", "HOOD", "LITE", "META", "NBIS", "NVDA", "RDDT", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2003019490871869644", "tickers": ["AMZN", "AVGO", "COHR", "GOOGL", "LITE", "META", "MSFT", "MU", "NBIS", "NVDA", "RDDT", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2003259964526330053", "tickers": ["AAOI", "AMZN", "AVGO", "COHR", "GOOGL", "LITE", "META", "MSFT", "MU", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2003476197028852074", "tickers": ["AAOI", "AMZN", "ARM", "COHR", "INTC", "LITE", "META", "MRVL", "MSFT", "MU", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2004569946492453003", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2004936335702753729", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "META", "MRVL", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2005485130958430440", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "IQE", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2005654662616387783", "tickers": ["AXTI", "COHR", "IQE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2005918544924664315", "tickers": ["AMZN", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "META", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2006013108817678779", "tickers": ["CIFR", "GOOGL", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "neocloud"], "is_macro": true, "is_core": false}
+{"tweet_id": "2006301094394335399", "tickers": ["AMZN", "AVGO", "META", "MRVL", "MSFT", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers"], "is_macro": true, "is_core": true}
+{"tweet_id": "2006434445205930103", "tickers": ["MRVL", "MSTR", "SMCI", "SNAP"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2006709693012467774", "tickers": ["ALAB", "AMD", "AMZN", "AVGO", "AXTI", "CIFR", "CRWV", "GOOGL", "HOOD", "INTC", "IREN", "LITE", "MRVL", "MSFT", "NBIS", "NVDA", "ONDS", "POET", "RKLB", "TSLA", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2007071108831338685", "tickers": ["AAOI", "ALAB", "AMD", "AMZN", "AVGO", "AXTI", "CIFR", "COHR", "CRWV", "GOOGL", "HOOD", "INTC", "IREN", "LITE", "META", "MRVL", "MSFT", "MU", "NBIS", "NVDA", "POET", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2007202015940931878", "tickers": ["AMZN", "AXTI", "COHR", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2007387427820978510", "tickers": ["AAOI", "ALAB", "AMZN", "AVAV", "AVGO", "AXTI", "CIFR", "COHR", "CVX", "INTC", "IREN", "LITE", "MRVL", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2007489901877436756", "tickers": ["ASHM", "AVAV", "CVX"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2007649811621880238", "tickers": ["CVX"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2007758407948788162", "tickers": ["ASHM", "AVAV", "CVX"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2007872395990937749", "tickers": [], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2008155137018155478", "tickers": ["AXTI", "CIFR", "HOOD", "IREN", "MU", "NBIS", "ONDS", "POET", "RKLB"], "sectors": ["substrates"], "is_macro": false, "is_core": false}
+{"tweet_id": "2008235337643086305", "tickers": ["AVAV", "CVX"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2008352067765837942", "tickers": ["AVAV", "CVX"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": false}
+{"tweet_id": "2008454507823591467", "tickers": ["AAOI", "AIRO", "ALAB", "AMZN", "AVGO", "AXTI", "CIFR", "COHR", "INTC", "IREN", "LITE", "MRVL", "MU", "NBIS", "NVDA", "RDDT", "RKLB", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2008582578186678307", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2008633673743298617", "tickers": ["AXTI", "MU", "NVDA"], "sectors": ["memory-and-hbm", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2008854319806787681", "tickers": ["AMZN", "AXTI", "CRDO", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2008910857003221451", "tickers": ["AVAV", "OSS", "RKLB"], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2009176232416669998", "tickers": ["AMZN", "AXTI", "META", "MSFT", "MU", "NVDA"], "sectors": ["memory-and-hbm", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2009275961003426050", "tickers": ["AIRO", "OSS"], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2009321878071201826", "tickers": ["AMZN", "AXTI", "META", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2009388507341754743", "tickers": ["AXTI"], "sectors": ["power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2009407689349341557", "tickers": ["AXTI"], "sectors": ["power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2009567495796265302", "tickers": ["AAOI", "AXTI", "COHR", "GOOGL", "LITE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2009637599661510665", "tickers": ["VLN"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers"], "is_macro": true, "is_core": true}
+{"tweet_id": "2009702902420652084", "tickers": ["NVDA", "VLN"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "optical-transceivers"], "is_macro": true, "is_core": true}
+{"tweet_id": "2010016015330291787", "tickers": ["NVDA", "VLN"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2010255341196628117", "tickers": ["AMZN", "AXTI", "CRDO", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2010573877798482313", "tickers": ["AVAV"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2010651116699029710", "tickers": ["AVGO", "AXTI", "LITE", "NVDA"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2010667066202702177", "tickers": ["AVGO", "AXTI", "LITE", "MU", "NVDA"], "sectors": ["defense-and-space", "memory-and-hbm", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2010877487681835338", "tickers": ["EWY"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2011029875361218700", "tickers": ["AVAV", "KTOS", "OSS"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2011114186265513999", "tickers": ["META"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2011353420649623561", "tickers": ["AAPL", "AXTI", "INTC"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2011446944866935073", "tickers": ["AMZN", "AXTI", "INTC", "UAVS"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2011496801548058735", "tickers": ["LPTH"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "optical-transceivers"], "is_macro": true, "is_core": true}
+{"tweet_id": "2011732705063682155", "tickers": ["LPTH"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2011837062157385907", "tickers": ["ETOR"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2012040798901321952", "tickers": ["BMNR"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2012071822481900030", "tickers": ["AEHR", "ALGM", "AMBA", "NOVT", "OUST", "VICR"], "sectors": ["humanoid-robotics", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2012199466166616492", "tickers": ["AIRO", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2012436515868352958", "tickers": ["AVGO", "AXTI", "COHR", "LITE", "NVDA", "POET"], "sectors": ["defense-and-space", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2012492311092244821", "tickers": ["INTC", "NVDA", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2012562412457562304", "tickers": ["AMD", "CRWV", "MSFT", "ORCL"], "sectors": ["neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2012827175314239662", "tickers": ["LPTH"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2012957864026087525", "tickers": ["AXTI", "INTC", "IQE", "LPTH"], "sectors": ["defense-and-space", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2013376770121105710", "tickers": ["ASML", "COHR", "INTC", "ONDS", "OSS", "RKLB"], "sectors": ["defense-and-space"], "is_macro": true, "is_core": true}
+{"tweet_id": "2013527028318846987", "tickers": ["ASML", "COHR", "GOOGL", "INTC", "LITE", "ON", "ONDS", "OSS", "RKLB"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": true, "is_core": true}
+{"tweet_id": "2013621368831778896", "tickers": ["DPRO", "ONDS", "RKLB"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2013632820866908655", "tickers": ["ASML", "COHR", "INTC", "LPTH", "ONDS", "RKLB"], "sectors": ["defense-and-space"], "is_macro": true, "is_core": true}
+{"tweet_id": "2013664829282599094", "tickers": ["RKLB", "TSLA", "VPG"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2013691795130228801", "tickers": ["AVAV"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2013895541277762034", "tickers": ["SNDK", "TSLA", "VPG"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2013947011490615486", "tickers": ["AMZN", "BKKT"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2013991833966113138", "tickers": ["INTC", "NVDA", "RKLB", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2014002413146173863", "tickers": ["SMCI", "SNDK", "VPG"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2014051512142668047", "tickers": ["INTC", "MU"], "sectors": ["defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2014278521741553793", "tickers": ["INTC", "MU", "NVDA"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2014368177682292774", "tickers": ["ACLS", "FORM", "INTC", "MU", "NVDA", "ONTO", "PLAB", "VECO"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2014444695821472218", "tickers": ["MRVL", "POET"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2014505817509355841", "tickers": ["AMD", "NVDA", "QCOM", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2014731960418238574", "tickers": ["AMZN", "INTC", "MU", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2014808195014001018", "tickers": ["AXTI", "INTC", "SNDK"], "sectors": ["defense-and-space", "humanoid-robotics", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2014826579625738691", "tickers": ["LASR"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2015096496019112151", "tickers": ["AAOI", "AEHR", "AMZN", "AVGO", "AXTI", "CIFR", "COHR", "CRWV", "GOOGL", "HOOD", "INTC", "IQE", "IREN", "LPTH", "META", "MRVL", "MSFT", "MU", "NBIS", "POET", "RDDT", "TSM", "WULF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2015152332821217305", "tickers": ["NVDA", "WOLF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": true, "is_core": true}
+{"tweet_id": "2015164232795627975", "tickers": ["AEHR", "AMKR", "COHR", "NVDA", "TSM", "WOLF"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2015241123896369372", "tickers": ["INTC", "MU", "NVDA", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2015549311732658520", "tickers": ["EWY", "HOOD", "INTC", "LPTH", "MU", "SNDK"], "sectors": ["memory-and-hbm", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2015805598265479518", "tickers": ["ALM"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2016126247869546583", "tickers": ["INTC", "MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2016164601789050918", "tickers": ["FISV", "NVDA", "PYPL", "TSM", "UNH"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2016249140855156962", "tickers": ["AXTI", "CPSH", "INTC", "IQE", "LPTH", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2016302997039612112", "tickers": ["AMD", "CPSH", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "power-and-electrical", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2016361080117961170", "tickers": ["CRWV", "NVDA"], "sectors": ["neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2016487104000446545", "tickers": ["EWY", "HOOD", "INTC", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2016511571137327207", "tickers": ["CPSH", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2016584615679643966", "tickers": ["LEU", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2016621132632510939", "tickers": ["META"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2016651304027009278", "tickers": ["TSLA", "VPG"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2016681010793153018", "tickers": ["MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2016883354004758910", "tickers": ["TSLA", "VPG"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2016896340576653639", "tickers": ["UAMY"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2016921538780680402", "tickers": ["AMD", "CPSH", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2016973892674630066", "tickers": ["META"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2016988540744454279", "tickers": ["SNDK"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2016993953015615621", "tickers": ["SNDK"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2017097752535322767", "tickers": ["MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2017262857017258345", "tickers": ["COIN"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2017278999727378786", "tickers": ["AXTI", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2017353453790761259", "tickers": ["SLV"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2017387953052610571", "tickers": ["SLV"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2017439237294211221", "tickers": [], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2017669714353537024", "tickers": ["SLV"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2017889050456465723", "tickers": [], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2017919446296437037", "tickers": ["MU", "NVDA"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018103859647037824", "tickers": ["AMZN", "GOOGL", "META", "MSFT", "MU", "NVDA", "SNDK"], "sectors": ["humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018185060353278016", "tickers": ["CRDO", "GOOGL", "MU", "NVDA", "RKLB", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018260327293751484", "tickers": ["MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2018369023738802437", "tickers": ["MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018390358384869519", "tickers": ["MU", "SNDK", "TSLA", "VPG"], "sectors": ["humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018426434579317010", "tickers": ["SNAP"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2018506303736569942", "tickers": ["AMZN", "EWY", "GOOGL", "META", "MSFT", "MU", "NVDA"], "sectors": ["humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018559372033708259", "tickers": ["AVGO", "AXTI", "COHR", "EWY", "LITE", "MU", "NVDA", "POET", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018703864409870379", "tickers": ["MU"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018724759262085467", "tickers": ["CRCL"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2018754428757815580", "tickers": ["PYPL"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2018792971907588226", "tickers": ["INTC", "MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2018972810912399375", "tickers": ["AMZN", "GOOGL", "META", "MSFT", "MU", "NVDA", "SNDK"], "sectors": ["humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2019166071899713744", "tickers": ["NVDA", "SNAP"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2019181182026686661", "tickers": ["AVGO", "AXTI", "COHR", "GOOGL", "LITE", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2019203090931675298", "tickers": ["AVGO", "COHR", "GOOGL", "LITE", "MU", "NVDA", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2019216672004141282", "tickers": ["AVGO", "AXTI", "COHR", "GOOGL", "LITE", "META", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2019405783562351021", "tickers": ["CRDO", "HOOD"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "2019542700308197649", "tickers": ["TSLA"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2019668459685310565", "tickers": ["AAOI", "AMZN", "AVGO", "GOOGL", "LITE", "META", "MRVL", "MSFT", "MU", "NVDA", "POET", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2019835298658807869", "tickers": ["ETOR"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2019846302591512896", "tickers": ["MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2019853553997869150", "tickers": ["AMZN", "CRWV", "GOOGL", "IREN", "NBIS", "NVDA"], "sectors": ["neocloud"], "is_macro": true, "is_core": false}
+{"tweet_id": "2019857047052022237", "tickers": ["AMZN", "CRWV", "GOOGL", "IREN", "NBIS", "NVDA"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": true, "is_core": false}
+{"tweet_id": "2019946788233617526", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2020033017880698920", "tickers": ["COHR"], "sectors": ["ai-infrastructure-mag7", "power-and-electrical", "substrates"], "is_macro": true, "is_core": false}
+{"tweet_id": "2020088575203721520", "tickers": ["AMD", "AMKR", "AVGO", "AXTI", "CAMT", "COHR", "ETN", "GLW", "INTC", "KLAC", "LITE", "MPWR", "MRVL", "MU", "NVDA", "ON", "ONTO", "QLCM", "SNDK", "TSM", "VICR", "VRT"], "sectors": ["memory-and-hbm", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2020131529389928947", "tickers": ["AMD", "AVGO", "AXTI", "COHR", "INTC", "LITE", "MRVL", "MU", "NVDA", "ON", "SNDK", "TSLA", "TSM"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2020678924255297991", "tickers": ["EWY", "MU"], "sectors": ["defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2020702873458463137", "tickers": ["HOOD", "RDDT", "WMT"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2020917443565388085", "tickers": ["AAOI", "AXTI", "COHR", "GOOGL", "IQE", "LITE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2020926882624176300", "tickers": ["AEVA", "AMBA", "AXTI", "GOOGL", "NVDA", "OUST", "TER", "U"], "sectors": ["defense-and-space", "humanoid-robotics", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2020975054411137326", "tickers": ["CRDO"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2021028247476289890", "tickers": ["AXTI", "COHR", "GOOGL", "LITE", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2021050004627128695", "tickers": ["IREN", "NBIS"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "neocloud"], "is_macro": true, "is_core": false}
+{"tweet_id": "2021072807409713380", "tickers": [], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2021374206185963683", "tickers": ["SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2021420335699198329", "tickers": ["AAOI", "AEHR", "AMKR", "AXTI", "COHR", "INTC", "LITE", "MU", "SNDK", "TER", "TSEM", "TSM"], "sectors": ["memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2021518590219079692", "tickers": ["HOOD", "IBKR"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2021549948593123787", "tickers": ["VPG"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2021615793159704628", "tickers": ["HIMS", "HOOD", "RDDT", "WMT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2021620427009970501", "tickers": ["U"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2021783355076026581", "tickers": ["AMD", "AMKR", "AVGO", "AXTI", "CAMT", "COHR", "ETN", "GLW", "INTC", "KLAC", "LITE", "MPWR", "MRVL", "MU", "NVDA", "ON", "ONTO", "SNDK", "TSM", "VICR"], "sectors": ["memory-and-hbm", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2021937198799733148", "tickers": ["LASR"], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2022196582884790607", "tickers": ["EWY", "GOOGL"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2022283819374854167", "tickers": ["AMZN", "EWY", "GOOGL", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2022586015635157403", "tickers": ["AMZN", "GOOGL", "META", "MSFT", "NVDA", "TSLA"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": false}
+{"tweet_id": "2023024514721108031", "tickers": ["AMZN", "AVGO", "GOOGL", "META", "MSFT", "NVDA", "ORCL", "TSM"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "2023061769313542601", "tickers": ["CEG", "CIFR", "ETN", "IREN", "NBIS", "NEE", "PWR", "TLN", "TSLA", "VRT", "VST", "WULF"], "sectors": ["defense-and-space", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2023206956601876691", "tickers": ["AMZN", "CEG", "ETN", "GOOGL", "META", "MSFT", "NVDA", "TSM", "VST"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2023219596606706124", "tickers": ["AMZN", "GOOGL", "MSFT", "MU", "NVDA", "PLTR", "TSM"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2023234655898763775", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2023323844346618010", "tickers": ["INTC", "MRVL", "MU", "NTAP", "NVDA", "PSTG", "SIMO", "SNDK", "STX"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2023333225423425645", "tickers": ["INTC", "MRVL", "MU", "NVDA", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2023415224372756782", "tickers": ["MU", "NVDA", "RDDT", "RPI", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2023600495353622546", "tickers": ["ALAB", "AVGO", "MRVL"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2023733917866750273", "tickers": ["META", "NVDA", "RPI"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2023886782769848796", "tickers": ["AMZN", "EWY", "GOOGL", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2023921191652933900", "tickers": ["RPI"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2023944611765592084", "tickers": ["HOOD"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2024043155566522855", "tickers": ["META", "NVDA", "RPI"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2024135345542242531", "tickers": ["INFQ", "IONQ", "RGTI"], "sectors": ["defense-and-space"], "is_macro": true, "is_core": false}
+{"tweet_id": "2024147309949551096", "tickers": ["MU", "NVDA", "SIMO", "SNDK"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2024170237512601619", "tickers": ["AMZN", "EWY", "GOOGL", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2024322169376035019", "tickers": ["AVAV", "AXTI", "CVX", "JBSS"], "sectors": ["substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2024357272085012595", "tickers": [], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2024408036203516182", "tickers": ["RPI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2024556607762550943", "tickers": ["AMZN", "CEG", "GOOGL", "VST", "XLU"], "sectors": ["ai-infrastructure-mag7", "power-and-electrical"], "is_macro": true, "is_core": false}
+{"tweet_id": "2024643537489563900", "tickers": [], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2024853251284488498", "tickers": ["AMZN", "EWY", "GOOGL", "MRVL", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2024875425747652887", "tickers": ["EWY", "MRVL", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2025220219602706881", "tickers": ["AMZN", "CEG", "GOOGL", "META", "MSFT", "VST", "XLU"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2025274299746251190", "tickers": ["RPI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2025409123999953064", "tickers": ["EWY"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": false}
+{"tweet_id": "2025473355777016175", "tickers": ["AXTI", "LITE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "neocloud", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2025548194634256782", "tickers": ["EWY", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2025619207015301349", "tickers": ["AMZN", "CEG", "GOOGL", "META", "MSFT", "NVDA", "VST", "XLU"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2025918790782120232", "tickers": ["EWY", "MRVL", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2025949083383599607", "tickers": ["EWY"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2026012416841334975", "tickers": ["HOOD", "IBKR"], "sectors": ["defense-and-space"], "is_macro": true, "is_core": true}
+{"tweet_id": "2026145776003408348", "tickers": [], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": false}
+{"tweet_id": "2026186542633635851", "tickers": [], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": false}
+{"tweet_id": "2026191160411382010", "tickers": ["RPI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2026259534550126971", "tickers": [], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2026341976942195152", "tickers": ["AAOI", "AMKR", "AXTI", "CAMT", "COHR", "FORM", "KLIC", "LITE", "MU", "ONTO", "SIMO", "SNDK", "XLU"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2026488864748228736", "tickers": ["MSFT", "XLU"], "sectors": ["ai-infrastructure-mag7", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2026529571990839302", "tickers": ["EWY"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2026638711941902461", "tickers": ["AVGO", "AXTI", "COHR", "FN", "GOOGL", "IQE", "LITE", "MRVL", "MTSI"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2026663975145164937", "tickers": ["AVGO", "AXTI", "COHR", "FN", "GOOGL", "IQE", "LITE", "MRVL", "MTSI"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2026683292679024811", "tickers": ["CRCL"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2026713998281027594", "tickers": ["AMZN", "CEG", "META", "MSFT", "VST", "XLU"], "sectors": ["ai-infrastructure-mag7", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2026755002514157818", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "IQE", "LITE", "MSFT", "NVDA", "SMTOY"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2026914153710105048", "tickers": ["EWY", "MRVL"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2026934223416734052", "tickers": ["AXTI", "GOOGL", "IQE", "LITE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2027052811318693995", "tickers": ["AMZN", "GOOGL", "NVDA", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2027068051749998875", "tickers": ["AXTI", "CRCL"], "sectors": ["substrates"], "is_macro": false, "is_core": false}
+{"tweet_id": "2027080026051731630", "tickers": ["AEHR", "AMD", "ASML", "NVDA", "POET", "TER"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2027184821173416261", "tickers": ["EWY", "MU", "SNDK", "TSM"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2027275242628948103", "tickers": ["AAOI", "AMZN", "AXTI", "COHR", "IQE", "LITE", "META", "MSFT", "MU", "NVDA"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2027318568728273305", "tickers": ["AMZN", "AVGO", "AXTI", "CIFR", "COHR", "CRWV", "GOOGL", "INTC", "IQE", "IREN", "LITE", "MSFT"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2027393372953174177", "tickers": ["CHGG", "CRCL", "DUOL", "FIG", "NET", "NFLX", "PINS", "RDDT", "SNAP", "SPOT", "U", "V"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2027435474793730240", "tickers": ["AAOI", "LITE", "SNDK"], "sectors": ["optical-transceivers"], "is_macro": false, "is_core": false}
+{"tweet_id": "2027447224188473736", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "FN", "INTC", "IQE", "LITE", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": false}
+{"tweet_id": "2027480850397573567", "tickers": ["AAOI", "ASML", "AVGO", "AXTI", "COHR", "IQE", "LITE", "TSM", "VECO"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2027488567971443170", "tickers": ["AAOI", "AMZN", "AVGO", "AXTI", "COHR", "FN", "GOOGL", "INTC", "IQE", "LITE", "MSFT", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": false}
+{"tweet_id": "2027637911097839997", "tickers": ["AVAV", "CVX", "FRO", "LASR", "LMT", "LPTH", "NOC", "RTX", "STNG", "XLE", "XOM"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2027723157017358404", "tickers": ["HOOD", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space"], "is_macro": true, "is_core": false}
+{"tweet_id": "2027744380761833546", "tickers": ["HOOD", "NOC", "NVDA", "XLE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2027766785362301395", "tickers": ["CVX", "LMT", "NOC", "XLE", "XOM"], "sectors": ["defense-and-space", "memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2027830093247300016", "tickers": ["AAOI", "AMZN", "ASML", "AXTI", "COHR", "GOOGL", "IQE", "LITE", "MSFT", "VECO"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2027839956765515961", "tickers": ["AAOI", "ALAB", "AMZN", "FN", "GOOGL", "INTC", "LITE", "MSFT", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2028007393582621071", "tickers": ["PLTR"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2028097416273293518", "tickers": ["XLU"], "sectors": ["ai-infrastructure-mag7", "power-and-electrical"], "is_macro": true, "is_core": false}
+{"tweet_id": "2028109409948508531", "tickers": ["CRCL", "CRWV", "NBIS", "NVDA"], "sectors": ["neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2028140055425139186", "tickers": ["MU", "NVDA", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028203665430057068", "tickers": ["AXTI", "INTC", "IQE", "SLOIF", "SOI"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028374385544093829", "tickers": ["EWY", "MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2028380960954413389", "tickers": ["AAOI", "ALAB", "AMZN", "GOOGL", "INTC", "LITE", "MSFT", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2028405556944445919", "tickers": [], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2028423645098610839", "tickers": ["AAOI", "AXTI", "COHR", "IQE", "LITE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2028455727996752242", "tickers": ["LASR"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028464631195574674", "tickers": ["AAOI", "AXTI", "COHR", "IQE", "LITE", "NVDA"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028465538444427584", "tickers": ["AAOI", "AXTI", "COHR", "IQE", "LITE", "NVDA"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028470130628514077", "tickers": ["AAOI", "AMZN", "AXTI", "COHR", "IQE", "LITE", "META", "MSFT", "MU", "NVDA", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2028487006708539512", "tickers": ["EWY", "MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2028497913979302109", "tickers": ["LASR"], "sectors": ["defense-and-space", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028511702288085093", "tickers": ["AAOI", "AXTI", "COHR", "IQE", "LITE", "NVDA"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028520248891392461", "tickers": ["AAOI", "AXTI", "EWY", "SNDK"], "sectors": ["memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2028581366510870627", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028737716544802841", "tickers": ["EWY", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2028754498710290457", "tickers": ["AAOI", "COHR", "IQE", "LITE", "NVDA"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028767576357228608", "tickers": ["LASR", "RKLB"], "sectors": ["defense-and-space", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2028786845861990895", "tickers": ["AMZN", "EWY", "META", "MSFT", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2028810725398053326", "tickers": ["AXTI", "SLOIF", "SOI"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028893030330318868", "tickers": ["AEHR"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2028912096713511401", "tickers": ["CRCL"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2029088341258584454", "tickers": ["EWY", "MU", "NVDA", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2029106748334981645", "tickers": ["EWY", "MU", "NVDA", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2029160940604739625", "tickers": ["AAOI", "AXTI", "COHR", "GOOGL", "IQE", "LITE", "SOI"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": false}
+{"tweet_id": "2029189271572365661", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "GOOGL", "IQE", "LITE", "MRVL"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2029208699471053061", "tickers": ["AAOI", "AMZN", "EWY", "GOOGL", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2029219794025644382", "tickers": ["AAOI", "ALAB", "AMZN", "AXTI", "COHR", "FN", "GOOGL", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2029232881705599247", "tickers": ["EWY", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": false}
+{"tweet_id": "2029251945274458508", "tickers": [], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2029270327247962447", "tickers": ["ASTS", "RKLB"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2029337803369349293", "tickers": ["AAOI", "ALAB", "AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2029358890778062900", "tickers": ["EWY", "MU", "NVDA", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2029492958550949893", "tickers": ["AAOI", "AXTI", "COHR", "LITE", "MU"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2029524132568994011", "tickers": ["IREN", "NBIS"], "sectors": ["power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2029632678350426448", "tickers": ["AMD", "AXTI", "MSFT", "MU", "NVDA", "TSM"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2029646649170219307", "tickers": ["LASR"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2029659552141246661", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "IQE", "LITE"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2029675551980679177", "tickers": ["CRCL", "IREN"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2029698209199837354", "tickers": ["AAOI", "AVGO", "COHR", "GOOGL", "LITE", "SOI"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2029700836755132507", "tickers": ["AMD", "AXTI", "EWY", "MSFT", "MU", "NVDA", "SNDK", "TSM"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2029702378551975939", "tickers": ["AMD", "EWY", "NVDA", "SNDK", "TSM"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2029839589444374560", "tickers": ["AAOI", "AEHR", "AXTI", "MRVL", "POET", "RKLB", "SIVE", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2029889046399566190", "tickers": ["EWY", "MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2029950298492715170", "tickers": ["AAOI", "ALAB", "AMZN", "COHR", "GOOGL", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2029977266541953094", "tickers": ["RDDT"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2029993746658643978", "tickers": ["AMZN", "CIFR", "GOOGL", "IREN", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030020673570275618", "tickers": ["GOOGL", "LITE", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2030024185490329799", "tickers": ["GOOGL", "LITE", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": false}
+{"tweet_id": "2030083176744505386", "tickers": ["HIMS", "NVO"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2030236553708966027", "tickers": ["HIMS", "NVO"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030288379179614287", "tickers": ["HOOD", "RVI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2030303709675360520", "tickers": ["AXTI", "LITE", "NVDA", "SIVE", "SNDK", "TSEM"], "sectors": ["memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030357884199129395", "tickers": ["AMZN", "CIFR", "GOOGL", "HIMS", "IREN", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030390988808785948", "tickers": ["AVGO", "GOOGL", "LITE", "TSM"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030418917592903895", "tickers": ["AAOI", "AEHR", "AVGO", "AXTI", "COHR", "LITE", "MTSI", "NVDA", "SIVE", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030445000686014588", "tickers": ["EWY", "MU"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030507767371596175", "tickers": ["EWY", "TSM"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030667380855083222", "tickers": ["EWY", "GOOGL", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030700123433619875", "tickers": ["IREN"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2030761150292615564", "tickers": ["IREN"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2030787622436774177", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2030799872870527461", "tickers": ["HIMS", "NVO"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030816176029462616", "tickers": ["EWY", "GOOGL", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030855466696495396", "tickers": ["AMD", "LITE", "MU", "NVDA"], "sectors": ["power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2030973822514712627", "tickers": ["AAOI", "AMZN", "GOOGL"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers"], "is_macro": false, "is_core": false}
+{"tweet_id": "2030987568020631691", "tickers": ["HIMS", "NVO"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2031014187401650192", "tickers": ["AAOI", "AXTI", "COHR", "LITE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2031025334611833058", "tickers": [], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2031036045358399608", "tickers": ["JETS"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "2031055797086728366", "tickers": ["RDDT"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031079292474650686", "tickers": ["CRCL"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2031092505178157256", "tickers": ["JETS"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031152993886941656", "tickers": ["HIMS", "HOOD"], "sectors": ["humanoid-robotics", "optical-transceivers"], "is_macro": true, "is_core": false}
+{"tweet_id": "2031175321748385992", "tickers": ["HIMS", "HOOD", "META"], "sectors": ["humanoid-robotics", "optical-transceivers"], "is_macro": true, "is_core": false}
+{"tweet_id": "2031206834879737894", "tickers": ["AAOI", "AXTI"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031272426961776663", "tickers": ["EWY", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2031410155297058844", "tickers": ["AAOI", "AMZN", "AXTI", "COHR", "IREN", "LITE", "META", "MSFT", "MU", "NVDA"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2031415909336887682", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031448823164436895", "tickers": ["CODA", "KRKNF", "MIND", "OPTT"], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2031457195091759114", "tickers": ["CODA", "EXA", "KRKNF", "MIND", "OPTT"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2031464140028654077", "tickers": [], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2031567544751108436", "tickers": ["AAOI", "AXTI", "COHR", "HIMS", "IQE", "LITE", "MU", "SNDK"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2031648475310616604", "tickers": ["AXTI", "NVDA", "SLOIF", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031744017201848397", "tickers": ["AMZN", "NBIS", "NVDA"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2031748911174725855", "tickers": ["HIMS", "HOOD", "META"], "sectors": ["humanoid-robotics", "optical-transceivers"], "is_macro": true, "is_core": false}
+{"tweet_id": "2031751619117744443", "tickers": ["AXTI", "NVDA", "SLOIF", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031765468982473011", "tickers": ["GOOGL", "KRKNF", "LITE", "SPIR"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031785810052465078", "tickers": ["IREN", "NBIS", "NVDA"], "sectors": ["neocloud"], "is_macro": true, "is_core": false}
+{"tweet_id": "2031820871170736570", "tickers": ["NVDA", "SOI", "TSEM", "TSM"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031859498546299159", "tickers": ["HIMS", "HOOD", "NVO"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2031896692283621696", "tickers": ["AXTI", "NVDA", "SLOIF", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2031973770844626988", "tickers": ["HIMS", "HOOD"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2032045719167934775", "tickers": ["AXTI", "COHR", "LITE", "NVDA", "SOI", "TSEM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2032178441064534389", "tickers": ["AXTI", "NVDA", "SLOIF", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2032194165690548623", "tickers": ["RDDT"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2032198562877227199", "tickers": ["AAOI", "IREN", "POET"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2032239138980905334", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2032260350457102748", "tickers": ["EWY", "INTC", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2032273412413145111", "tickers": ["AXTI", "COHR", "IREN", "LITE", "NVDA", "RKLB", "SOI", "TSEM"], "sectors": ["defense-and-space", "memory-and-hbm", "neocloud", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2032334155053470177", "tickers": ["HOOD", "PAYP", "RDDT"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2032474260179149056", "tickers": ["NVDA", "SOI", "TSEM", "TSM"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2032476428005220449", "tickers": ["AXTI", "NVDA", "TSEM", "TSM"], "sectors": ["defense-and-space", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2032496203993334046", "tickers": [], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2032533634218184965", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2032551687089746239", "tickers": [], "sectors": ["defense-and-space", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2032577275439485080", "tickers": ["AAOI", "AEHR", "AXTI", "COHR", "GOOGL", "IQE", "LITE", "MRVL", "NVDA", "POET", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2032619748199170451", "tickers": ["EWY", "TSM"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2032640028502012293", "tickers": ["ACHR", "AMD", "KRKNF", "NVDA", "PLTR", "SPIR"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2032697006586786139", "tickers": ["AXTI", "NVDA", "SLOIF", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2032898412279115858", "tickers": ["AAOI", "AEHR", "AMZN", "ASML", "AVGO", "AXTI", "COHR", "INTC", "LITE", "MRVL", "MU", "NBIS", "NVDA", "SNDK", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2032929794275553400", "tickers": ["AAOI", "AEHR", "AMZN", "ASML", "AVGO", "AXTI", "COHR", "INTC", "LITE", "MRVL", "MU", "NBIS", "NVDA", "SNDK", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2032943522891051319", "tickers": ["IQE"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2033203768792371525", "tickers": ["RDDT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2033320724291813503", "tickers": ["EWY", "INTC", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "2033378597151650299", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2033447091679416393", "tickers": ["EWY", "MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2033466880661606646", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "INTC", "LITE", "LWLG", "MRVL", "NVDA", "POET", "SIVE", "TSEM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2033486637553127865", "tickers": ["META", "NBIS"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2033501241758949863", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2033512244244529396", "tickers": ["AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2033518628650512784", "tickers": ["NBIS"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2033535833085718996", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "INTC", "LITE", "MRVL", "NVDA", "POET", "SIVE", "TSEM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2033643128390095328", "tickers": ["NVDA", "SOI", "TSEM", "TSM"], "sectors": ["optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2033651209371013588", "tickers": ["EWY", "GOOGL", "MU", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2033695716938551350", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "INTC", "LITE", "MRVL", "MTSI", "NVDA", "POET", "SIVE", "TSEM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2033792436892570083", "tickers": ["AXTI", "MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2033820269358571800", "tickers": ["AAOI", "AVGO", "COHR", "LITE", "MRVL", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2033848250101616646", "tickers": ["AAOI", "COHR", "INTC", "LITE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2033864202440610128", "tickers": ["META", "NBIS"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2033885603423785170", "tickers": ["AAOI", "AEHR", "APH", "ASX", "AVGO", "AXTI", "BESI", "CAMT", "CIEN", "COHR", "CSCO", "FN", "FORM", "GFS", "GLW", "HIMX", "INTC", "KEYS", "LITE", "LWLG", "MRVL", "MTSI", "MXL", "NOK", "ONTO", "POET", "SIVE", "SMTC", "SOI", "TSEM", "TSM", "UMC", "VIAV"], "sectors": ["optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034056688693875036", "tickers": ["AAOI", "AEHR", "AVGO", "AXTI", "COHR", "GFS", "INTC", "LITE", "MRVL", "MTSI", "NVDA", "POET", "SIVE", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034087274800091401", "tickers": ["AMZN", "COHR", "GOOGL", "LITE", "META", "MRVL", "MSFT", "MTSI", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034095067586326982", "tickers": ["AAOI", "AMZN", "COHR", "LITE", "MSFT"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2034127800840688097", "tickers": ["AMZN", "AXTI", "COHR", "GOOGL", "LITE", "LWLG", "MRVL", "MSFT", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034166166676230238", "tickers": ["CRCL"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2034186487672328657", "tickers": ["AAOI", "AMZN", "LITE", "LWLG", "MSFT", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034212267487793348", "tickers": ["AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034224630429630974", "tickers": ["AVGO", "AXTI", "COHR", "GOOGL", "IQE", "LITE", "MRVL"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034237409093878030", "tickers": ["AMZN", "AVGO", "COHR", "GOOGL", "LITE", "MSFT", "MU", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034331784763343333", "tickers": ["AMZN", "COHR", "GOOGL", "LITE", "MRVL", "MSFT", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034422243594530857", "tickers": ["AAOI", "AEHR", "AXTI", "CRCL", "EWY", "IQE", "LITE", "NBIS", "NVDA", "RDDT", "SIVE", "SNDK", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034524869086552292", "tickers": ["AMZN", "COHR", "GOOGL", "JBL", "LITE", "MRVL", "MSFT", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034531113574736053", "tickers": ["AMZN", "AVGO", "GOOGL", "INTC", "JBL", "LITE", "META", "NVDA", "SIVE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034543082071597422", "tickers": ["AMZN", "AVGO", "GOOGL", "INTC", "JBL", "LITE", "NVDA", "SIVE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034559475533910175", "tickers": ["COIN", "CRCL", "MA", "PYPL", "V"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2034584155036828052", "tickers": ["AAOI", "AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "JBL", "LITE", "META", "MRVL", "MSFT", "NVDA", "POET", "SIVE", "TSEM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034634272733343835", "tickers": ["AAOI", "COHR", "LITE", "SIVE", "TSEM"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034740497953243439", "tickers": ["NVDA", "SOI", "TSEM", "TSM"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034743349337628803", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2034897725662404902", "tickers": ["NVDA", "SMCI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2034916899021365725", "tickers": ["AAOI", "AEHR", "AIXA", "ASX", "AVGO", "AXTI", "CAMT", "CIEN", "COHR", "FN", "FOCI", "FORM", "GLW", "HIMX", "INTC", "IQE", "KEYS", "LITE", "LWLG", "MRVL", "MTSI", "NOK", "POET", "SIVE", "SMTC", "SOI", "TSEM", "TSM", "VIAV"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034932278032564264", "tickers": ["AXTI", "COHR", "LITE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2034993411821117462", "tickers": ["AMZN", "AXTI", "COHR", "INTC", "JBL", "LITE", "META", "MSFT", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2035179905235992614", "tickers": ["MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2035190163392143518", "tickers": ["MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2035552610078572849", "tickers": ["AAPL", "AMZN", "BAC", "BRK.B", "CAT", "CRCL", "GOOGL", "HOOD", "JPM", "META", "MSFT", "NVDA", "PGR", "T", "VZ", "XOM"], "sectors": ["power-and-electrical"], "is_macro": true, "is_core": false}
+{"tweet_id": "2035597851871588578", "tickers": ["INTC", "JBL"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2035616534794494304", "tickers": [], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2035691328382849280", "tickers": ["AMZN", "COHR", "GOOGL", "JBL", "LITE", "META", "MRVL", "MSFT", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2035739495031792031", "tickers": ["AXTI"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2035897562025410927", "tickers": ["AEVA", "JBL", "MRVL", "SIVE"], "sectors": ["humanoid-robotics", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2035984148159164870", "tickers": ["ALB", "ALOY", "ATI", "AXTI", "CRS", "EAF", "FCX", "MP", "MTRN", "NEO", "TECK", "USAR", "UUUU", "VNP"], "sectors": ["defense-and-space", "humanoid-robotics", "memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2036004225365483686", "tickers": ["EWY"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2036801199073382422", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "INTC", "LITE", "MRVL", "NVDA", "POET", "SIVE", "TSEM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2036840136730935736", "tickers": ["COHR", "GLW", "GOOGL", "LITE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2036851975376298062", "tickers": ["TSLA", "VPG"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2036862433319583898", "tickers": ["ARM", "MU", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2037078978696028364", "tickers": ["AVGO", "COHR", "JBL", "LITE", "MRVL", "SIVE", "TSEM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2037085574813942094", "tickers": ["AVGO", "COHR", "LITE", "MTSI", "SIVE", "TSEM"], "sectors": ["defense-and-space", "optical-transceivers", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2037091584563691858", "tickers": ["COHR", "GOOGL", "LITE", "SIVE"], "sectors": ["ai-infrastructure-mag7", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2037100035780075760", "tickers": ["AMZN", "GOOGL", "META", "MSFT"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2037137351638704487", "tickers": ["META", "VCX"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2037165951096152307", "tickers": ["VCX"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2037189444131054021", "tickers": ["VCX"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2037201137515061370", "tickers": ["AAOI", "AXTI", "COHR", "IQE", "LITE", "MTSI", "SIVE", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2037212648643977679", "tickers": ["CVX", "LMT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2037218261218255248", "tickers": ["VCX"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2037229863690781141", "tickers": ["SPY"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2037320624746729756", "tickers": ["META", "PINS", "RDDT", "SNAP"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2037352339154280568", "tickers": ["AAOI", "AXTI", "IQE", "LITE", "SIVE", "SOI", "TSEM"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2037387801285841118", "tickers": ["AVGO", "COHR", "LITE", "MTSI", "NVDA", "QCOM", "SIVE", "SOI", "TSEM", "TSM"], "sectors": ["defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2037442444367974907", "tickers": ["AVGO", "COHR", "JBL", "LITE", "MRVL", "NVDA", "POET", "QCOM", "SIVE", "SOI", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2037463630455902465", "tickers": ["CRCL"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2037483250419990759", "tickers": ["HOOD", "RDDT", "SPY"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics"], "is_macro": true, "is_core": true}
+{"tweet_id": "2037493017209450673", "tickers": ["AXTI", "JBL", "MRVL", "SIVE"], "sectors": ["defense-and-space", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2037503648520179834", "tickers": ["AXTI", "JBL", "MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2037690441668419778", "tickers": ["IREN", "VCX"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2037698708612210693", "tickers": ["AAOI", "AXTI", "HIMX", "POET", "SIVE", "TSM"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2037715698592719312", "tickers": ["AAOI", "AMZN", "AXTI", "IQE", "JBL", "LITE", "MRVL", "MSFT", "SIVE", "SOI"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2037746312167481807", "tickers": ["META", "MSFT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2037779565066764425", "tickers": ["AMZN", "LCID", "MSFT", "NVDA"], "sectors": ["defense-and-space"], "is_macro": true, "is_core": true}
+{"tweet_id": "2037896456179438049", "tickers": ["AMZN", "CRWV", "IREN", "META", "MSFT", "NBIS", "NVDA"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "neocloud", "power-and-electrical"], "is_macro": true, "is_core": false}
+{"tweet_id": "2037915721435587028", "tickers": ["AAOI", "AEHR", "AMKR", "AMZN", "ARM", "AVGO", "AXTI", "CVX", "GLD", "INTC", "IQE", "LITE", "MRVL", "MSFT", "NBIS", "RDDT", "RKLB", "SIVE", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "neocloud", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2037933841802014891", "tickers": ["AA", "CNEX"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2037944481199358169", "tickers": ["CVX", "LNG"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2038092601224831103", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "FN", "LITE", "META", "MRVL", "MSFT", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2038109389111062832", "tickers": ["AMZN", "LCID", "MSFT", "NVDA"], "sectors": ["defense-and-space"], "is_macro": true, "is_core": true}
+{"tweet_id": "2038163974437659019", "tickers": ["IREN", "NBIS", "NVDA"], "sectors": ["power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038186501834768399", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2038221422808760744", "tickers": ["AVGO", "MRVL", "SIVE"], "sectors": ["memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2038281177124245842", "tickers": ["AXTI", "HIMS", "TEM"], "sectors": ["ai-infrastructure-mag7", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038436546412769560", "tickers": ["AVGO", "CIEN", "COHR", "GFS", "GLW", "INTC", "LITE", "MRVL", "NOK", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2038480499425923375", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "IQE", "LITE", "MRVL", "MSFT", "NOK", "NVDA", "QCOM", "SIVE", "SOI", "TSEM", "TSM"], "sectors": ["defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2038502143154331677", "tickers": ["AMZN", "AVGO", "MRVL", "MSFT", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038543801174896719", "tickers": ["AMZN", "AVGO", "META", "MRVL", "MSFT", "QCOM", "SIVE"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038556249592119671", "tickers": ["MP", "ON", "USAR"], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": true, "is_core": true}
+{"tweet_id": "2038617810738520159", "tickers": ["AAOI", "AMZN", "MSFT", "ORCL"], "sectors": ["optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038630062665482339", "tickers": ["VCX"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2038635697603826096", "tickers": ["META", "MU"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038672101717274941", "tickers": ["IREN", "NBIS", "NVDA"], "sectors": ["neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038777289115345200", "tickers": ["AEHR", "AMKR", "ANSS", "ASX", "AVGO", "CDNS", "COHR", "FN", "FORM", "GFS", "GLW", "GOOGL", "INTC", "KEYS", "LITE", "MRVL", "MTSI", "NVDA", "SIVE", "SNPS", "SOI", "TER", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": false}
+{"tweet_id": "2038785650632397005", "tickers": ["LASR", "LMT", "RTX"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2038792069079339162", "tickers": ["ON"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2038817828275642424", "tickers": ["MP", "USAR"], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038876668765610085", "tickers": ["AXTI", "GOOGL", "LITE"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2038913900582998087", "tickers": ["MU", "NVDA", "RDDT", "RPI", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038919845623017874", "tickers": ["AXTI", "RPI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2038934006734135572", "tickers": ["AXTI", "COHR", "JBL", "LITE", "MRVL", "SIVE"], "sectors": ["memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2038943956697059637", "tickers": ["AXTI", "COHR", "JBL", "LITE", "MRVL", "SIVE"], "sectors": ["memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2038954532944875733", "tickers": ["MRVL", "NVDA", "SIVE"], "sectors": ["photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2038959008514801969", "tickers": ["AVGO", "MRVL", "NVDA", "SIVE"], "sectors": ["photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2038965788724560093", "tickers": ["RPI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2038971821635326368", "tickers": ["AAOI", "AEHR"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2038998103177728246", "tickers": ["NVDA", "RPI"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2039011647264903382", "tickers": ["AEHR", "COHR", "GFS", "LITE", "MRVL", "MTSI", "NVDA", "SIVE", "SOI", "TSEM"], "sectors": ["optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2039145387664314541", "tickers": ["META", "MSFT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2039259000336949457", "tickers": ["AXTI", "IQE", "MRVL", "NVDA", "POET", "SIVE", "SOI"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2039359732457357453", "tickers": ["AMD", "AMZN", "CRWV", "MSFT", "NVDA", "ORCL"], "sectors": ["defense-and-space"], "is_macro": true, "is_core": false}
+{"tweet_id": "2039388766083944750", "tickers": ["AAOI", "AEHR", "AMD", "AMZN", "AVGO", "GOOGL", "INTC", "META", "MRVL", "NVDA", "TER"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2039548429412806832", "tickers": [], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2039635527402664030", "tickers": ["AAOI"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2039657844392202498", "tickers": ["IREN", "NBIS", "NVDA"], "sectors": ["ai-infrastructure-mag7", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2039709630217994270", "tickers": ["AAOI", "AEHR", "AXTI", "COHR", "IQE", "LITE", "MRVL", "MTSI", "SIVE", "SOI", "TSEM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": false}
+{"tweet_id": "2039729176144711989", "tickers": ["AAOI", "AMZN", "MSFT"], "sectors": ["optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2039755414318039256", "tickers": ["AAOI", "AEHR"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2039887575520026653", "tickers": ["AAOI"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers"], "is_macro": false, "is_core": false}
+{"tweet_id": "2039894556871913726", "tickers": ["MU", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2039927381914489301", "tickers": ["ASST", "BKKT", "IREN"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2040001386788815245", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2040415436517597612", "tickers": ["ARM", "ASML", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "2040428338213507531", "tickers": ["VELO"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2040441583661932711", "tickers": ["COIN", "CRCL"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2040500149877891563", "tickers": ["AXTI"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2040504686349090986", "tickers": ["AXTI"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2040654858475504075", "tickers": [], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2040772387772449123", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2040842953883840770", "tickers": ["AEHR", "FORM", "KEYS"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2041038963859931593", "tickers": ["AAOI", "AEHR", "LITE", "SIVE", "SOI", "TSEM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2041056589088702781", "tickers": ["CRWV", "META", "NBIS"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041062144884797685", "tickers": ["NBIS", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2041157377928700262", "tickers": ["AAOI", "AEHR", "AMD", "AMZN", "AVGO", "GOOGL", "INTC", "MRVL", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2041168871168545115", "tickers": ["AMZN", "GOOGL", "HPS.A", "MSFT"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2041249789195813291", "tickers": ["AXTI", "IREN"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2041363738327204264", "tickers": ["AAPL", "AVGO", "COHR", "LITE", "NVDA", "QCOM", "SIVE", "SOI", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2041494522367291525", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2041519692985344500", "tickers": ["HPS.A", "LITE", "SNDK"], "sectors": ["memory-and-hbm", "optical-transceivers", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2041537706522808818", "tickers": ["ALRIB", "GOOGL", "NVDA"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041545598164443378", "tickers": ["AAOI", "AVGO", "COHR", "LITE", "MTSI", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041553933664145620", "tickers": ["CRWV", "NBIS", "NVDA"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041612047058924009", "tickers": ["AAOI", "AEHR"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041650903305089389", "tickers": ["AAOI", "AMZN", "AVGO", "COHR", "GOOGL", "LITE", "MSFT", "MU", "NVDA", "POET", "RDDT", "SIVE", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2041654477812592756", "tickers": ["AAOI", "RKLB"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2041701156771262789", "tickers": ["AAPL", "AVGO", "LITE", "SIVE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2041740090691698750", "tickers": ["AAOI", "LITE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2041752476542759313", "tickers": ["AAOI", "ETH", "EWY", "HOOD", "IBIT", "LITE", "MSFT", "RDDT"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2041774512904294595", "tickers": ["AAOI", "COHR", "JBL", "MRVL", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041791434525962584", "tickers": ["IQE", "SIVE", "SOI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041872946424377430", "tickers": ["AAOI", "AEHR", "AMD", "AMZN", "AVGO", "GOOGL", "INTC", "MRVL", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041879203323297966", "tickers": ["AAOI", "AEHR", "IREN"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2041889308416839808", "tickers": ["ALRIB", "GOOGL", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2041907945500504466", "tickers": ["IREN", "NBIS"], "sectors": ["power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2041916656944083188", "tickers": ["AAOI", "AMZN", "COHR", "LITE", "META", "MSFT", "MU", "NVDA"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2041963517071519963", "tickers": ["COHR", "INTC", "MRVL", "NVDA"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2042161215968051652", "tickers": ["ALRIB", "MSFT"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2042187668931616964", "tickers": ["AAOI", "AEHR", "AMZN", "ARM", "AVGO", "COHR", "GOOGL", "HOOD", "INTC", "JBL", "LITE", "MRVL", "MSFT", "NBIS", "RKLB", "SIVE", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2042324781916438621", "tickers": ["AAOI", "AEHR", "AMD", "AMZN", "AVGO", "GOOGL", "INTC", "MRVL", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2042335200110322131", "tickers": ["AAOI", "AMZN", "LITE", "MRVL"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2042345236354265271", "tickers": ["AMZN", "GOOGL", "HPS.A", "MSFT", "POWL"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2042469877492171129", "tickers": [], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2042476441196241094", "tickers": ["AAOI", "COHR", "LITE"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2042507141618004372", "tickers": ["AAOI", "AEHR", "AVGO", "JBL", "LITE", "MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2042526193375940878", "tickers": ["AAOI", "AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2042533797405823299", "tickers": ["AAOI", "COHR", "LITE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2042549185095045231", "tickers": ["AAOI", "AVGO", "AXTI", "COHR", "GOOGL", "IQE", "LITE", "MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2042634402480689355", "tickers": ["AAOI", "LITE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "substrates"], "is_macro": false, "is_core": false}
+{"tweet_id": "2042687596166615445", "tickers": ["AVGO", "COHR", "LITE", "MRVL", "NVDA"], "sectors": ["defense-and-space", "humanoid-robotics", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2042797823574634991", "tickers": ["COHR", "LITE", "MRVL", "NVDA", "SIVE", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2042950601550762021", "tickers": ["AXTI"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2042967133160902679", "tickers": ["ALRIB", "ASML", "MSFT"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": false}
+{"tweet_id": "2042988968149684305", "tickers": ["IREN", "NBIS"], "sectors": ["neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2043005647424491596", "tickers": ["AVGO", "AXTI", "COHR", "GOOGL", "IQE", "JBL", "LITE", "MRVL", "MSFT", "SIVE", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2043164967244103762", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2043315043455176826", "tickers": ["BKKT", "IQE", "IREN", "JBL", "LITE", "MRVL", "MSFT", "SIVE", "TSM"], "sectors": ["substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2043326734565863534", "tickers": ["VIRT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2043399761253085257", "tickers": ["ASST", "BKKT", "IREN", "NBIS"], "sectors": ["neocloud"], "is_macro": false, "is_core": true}
+{"tweet_id": "2043499958134022631", "tickers": ["COIN", "CRCL"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2043528404063166599", "tickers": ["GOOGL", "MRVL", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2043590018078531632", "tickers": ["ALRIB", "MSFT"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2043592728270061741", "tickers": ["AVGO", "AXTI", "COHR", "GOOGL", "IQE", "LITE", "MRVL"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2043599807487652112", "tickers": ["IQE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2043602257292534014", "tickers": ["JBL", "LITE", "MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2043701659621290047", "tickers": ["AMZN", "GOOGL", "HPS.A", "MSFT"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2043708829570072606", "tickers": ["AVGO", "IQE", "JBL", "LITE", "LWLG", "MRVL", "MTSI", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2043724212159025534", "tickers": ["NBIS"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2043906518026989817", "tickers": ["AXTI", "COHR", "GOOGL", "LITE", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2043977582564229249", "tickers": ["ALRIB", "IQE", "MSFT", "VECO"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2044077799338881108", "tickers": ["AAOI", "AXTI", "NVDA", "SIVE", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044094868079906990", "tickers": ["AEHR", "FORM"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2044183312533770427", "tickers": ["AAOI", "LITE", "MU", "NVDA", "RDDT", "RPI", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044279346945503600", "tickers": ["COHR", "GOOGL", "INTC", "LITE", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044287196300226960", "tickers": ["JBL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044312072780165440", "tickers": ["JBL", "LITE", "MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044331395561206116", "tickers": ["JBL", "LITE", "MRVL", "MTSI", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044477539402580438", "tickers": ["META", "MSFT"], "sectors": ["ai-infrastructure-mag7"], "is_macro": true, "is_core": true}
+{"tweet_id": "2044491122161160517", "tickers": ["AVGO", "AXTI", "IQE", "JBL", "LITE", "MRVL", "MSFT", "QCOM", "SIVE", "SOI"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044544090549981244", "tickers": ["HIMS", "NVO"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2044553960431014359", "tickers": ["JBL", "LITE", "MRVL", "SIVE"], "sectors": ["optical-transceivers"], "is_macro": false, "is_core": false}
+{"tweet_id": "2044597208860016877", "tickers": ["AVGO", "COHR", "JBL", "LITE", "NVDA", "QCOM", "SIVE", "SOI", "TSM"], "sectors": ["defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2044675765267214753", "tickers": ["JBL", "LITE", "MRVL", "SIVE"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2044682729128874210", "tickers": ["ALRIB", "AXTI", "IQE", "SIVE", "SOI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044695311764099291", "tickers": ["AEHR", "ALRIB", "GOOGL", "IQE", "MSFT", "VECO"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2044794468193476955", "tickers": ["AEHR"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2044796702218215832", "tickers": ["AXTI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2044822095931306149", "tickers": ["ALRIB", "AXTI", "NVDA", "RPI", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044830468299010144", "tickers": ["JBL", "LWLG", "MRVL", "NVDA", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044843391348056489", "tickers": ["HIMS", "NVO"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2044954792381030506", "tickers": ["NVDA"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2044958395485311178", "tickers": ["AVGO", "NVDA"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2045160542256656611", "tickers": ["AXTI", "SOI"], "sectors": ["power-and-electrical", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2045175383210000444", "tickers": ["NVDA", "SOI", "TSEM", "TSM"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2045182633647456355", "tickers": ["AAOI", "AEHR", "AMZN", "AXTI", "GOOGL", "HPS.A", "MSFT"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2045196575010587104", "tickers": ["HIMS", "NVO"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2045565771234021468", "tickers": ["ASML", "TSLA", "TSM", "UMC"], "sectors": ["neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "2045682728432185713", "tickers": ["AMZN", "MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2045932788218794257", "tickers": ["GOOGL", "MRVL", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046003874553901188", "tickers": ["AAOI", "AEHR", "ARM", "AVGO", "AXTI", "COHR", "GOOGL", "HPS.A", "IQE", "JBL", "LITE", "MRVL", "MSFT", "NBIS", "NVDA", "SIVE", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2046043070538633618", "tickers": ["AMZN", "ARM", "AVGO", "AXTI", "COHR", "GOOGL", "HPS.A", "IQE", "JBL", "LITE", "MRVL", "MSFT", "NBIS", "NVDA", "SIVE", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2046095854621413511", "tickers": ["AMZN", "ASTS", "RKLB"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": false}
+{"tweet_id": "2046125620728566235", "tickers": ["GOOGL", "MRVL", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046134751279591632", "tickers": ["ALRIB", "IQE", "SIVE", "SOI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2046173276473614388", "tickers": ["GLW", "LPK"], "sectors": ["substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046187732800782587", "tickers": ["ASX", "FN", "GFS", "LITE", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046282147036909941", "tickers": ["HIMS", "NVO"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2046288211136442856", "tickers": ["AMZN", "GOOGL", "HPS.A", "MSFT"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046290739727098166", "tickers": ["AAOI", "AEHR", "AMD", "AMZN", "AVGO", "GOOGL", "INTC", "MRVL", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2046296091461869737", "tickers": ["HIMS", "RDDT", "TTD"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2046302180001673341", "tickers": ["CDNS", "FN", "GFS", "GLW", "KEYS", "LITE", "SIVE", "SNPS"], "sectors": ["humanoid-robotics", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2046313830784065617", "tickers": [], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": false, "is_core": false}
+{"tweet_id": "2046363533471035793", "tickers": ["AMD", "GFS", "LITE", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046374163338912200", "tickers": ["IREN", "MSFT", "NBIS"], "sectors": ["neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2046408704573292659", "tickers": ["AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046419572203683922", "tickers": ["ARM", "GOOGL", "MSFT", "NVDA"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046434201428492317", "tickers": ["AMZN", "GOOGL", "HPS.A", "MSFT"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2046449839626670369", "tickers": ["AXTI", "INTC", "LPK"], "sectors": ["defense-and-space", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2046494023297429645", "tickers": ["AMD", "GFS", "LITE", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2046620208387981538", "tickers": ["INTC", "LPK", "SOI"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2046696582696083634", "tickers": ["AMD", "GFS", "LITE", "MTSI", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2046879187076817237", "tickers": ["MRVL", "POET", "SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2046884581471928778", "tickers": ["AXTI", "IQE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046894773706035638", "tickers": ["ALRIB", "IQE", "LPK", "MRVL", "POET", "SIVE", "SOI"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046906948088435024", "tickers": ["AMZN", "AXTI", "GOOGL", "IQE", "JBL", "MRVL", "MSFT", "SIVE"], "sectors": ["ai-infrastructure-mag7", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2046918449168085183", "tickers": ["MRVL", "POET", "SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2047019381637677061", "tickers": ["NVDA"], "sectors": ["power-and-electrical"], "is_macro": true, "is_core": false}
+{"tweet_id": "2047030798554132901", "tickers": ["AMSC", "ATKR", "HPS.A", "PLPC", "VMI"], "sectors": ["defense-and-space", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2047054864040308895", "tickers": ["ARM", "GOOGL", "MSFT"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2047086440757309492", "tickers": ["AMSC", "ATKR", "HPS.A", "NVDA", "NVTS", "PLPC", "VMI"], "sectors": ["defense-and-space", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2047110496999137730", "tickers": ["ALRIB", "AVGO", "AXTI", "INTC", "LPK", "NVDA", "SIVE", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2047182611160965383", "tickers": ["AMD", "INTC", "NVDA", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2047209727738957983", "tickers": ["AMD", "AMZN", "AVGO", "GOOGL", "INTC", "JBL", "LITE", "META", "MRVL", "MSFT", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2047232354184536273", "tickers": ["SIVE"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2047238732382876064", "tickers": ["HOOD", "IBKR"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2047255106677362910", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2047375576894452068", "tickers": ["AAPL", "GOOGL", "SIVE"], "sectors": ["substrates"], "is_macro": true, "is_core": false}
+{"tweet_id": "2047413257812717859", "tickers": ["INTC"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2047426124586893566", "tickers": ["AAOI", "INTC", "IREN", "LITE", "LPK", "MU", "NVDA", "SNDK"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2047566792294613248", "tickers": ["AAPL", "AMD", "AMZN", "COHR", "GOOGL", "JBL", "LITE", "META", "MRVL", "MSFT", "NVDA", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2047688270231027947", "tickers": ["AAOI", "SNDK"], "sectors": ["memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2047705901486985666", "tickers": ["AAOI", "AEHR", "LITE", "MXL", "SIVE", "SOI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2047729405309640899", "tickers": ["AMZN", "GOOGL", "HPS.A", "MSFT"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2047790368700445153", "tickers": ["AAPL", "AXTI", "JBL", "MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2048123597223579736", "tickers": ["AAOI", "AEHR", "AMD", "AMZN", "AVGO", "GOOGL", "INTC", "MRVL", "MSFT", "NVDA", "TSEM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2048129936813428922", "tickers": ["AAOI", "AXTI", "COHR", "JBL", "LITE", "POET", "SIVE"], "sectors": ["humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2048143244673081730", "tickers": ["IREN"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2048155816457568258", "tickers": ["IREN"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2048301213943579012", "tickers": ["AAPL", "AMD", "AMZN", "JBL", "LITE", "MRVL", "MSFT", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2048449289152778686", "tickers": ["AAOI", "AMAT", "AMD", "AMSC", "ARM", "ATKR", "COHR", "DOW", "GOOGL", "HPS.A", "INTC", "IQE", "KLAC", "LITE", "MRVL", "PLPC", "POET", "POWL", "SIVE", "TSM", "VICR"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2048479754672844939", "tickers": [], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2048623230416761019", "tickers": ["LPK", "MU", "TSM"], "sectors": ["memory-and-hbm", "substrates"], "is_macro": true, "is_core": false}
+{"tweet_id": "2048663719933333524", "tickers": ["AAPL", "AMD", "AMZN", "GFS", "JBL", "LITE", "MRVL", "MSFT", "MTSI", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2048680795586568237", "tickers": ["AAPL", "JBL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": false}
+{"tweet_id": "2048687868919611836", "tickers": ["ALRIB", "LPK", "SIVE"], "sectors": ["memory-and-hbm", "substrates"], "is_macro": true, "is_core": false}
+{"tweet_id": "2048785899610427809", "tickers": ["COHR", "LITE", "MRVL", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2048798568543387922", "tickers": ["COHR", "LITE", "MRVL", "SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2048801270337831047", "tickers": ["AAPL", "AMD", "GFS", "JBL", "MRVL", "SIVE"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2048822871527682152", "tickers": ["IQE", "MTSI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2048833654336729213", "tickers": ["LITE", "MRVL", "NVDA", "POET", "SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2048929438679896317", "tickers": ["AAOI", "AVGO", "INTC", "JBL", "LITE", "META", "MRVL", "SIVE"], "sectors": ["optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2048956013374755266", "tickers": ["IREN"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2049032343974007088", "tickers": ["AMD", "COHR", "JBL", "LITE", "MRVL", "NVDA", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2049212010660049008", "tickers": ["AEHR", "LPK"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": true, "is_core": false}
+{"tweet_id": "2049288233583006018", "tickers": ["IBKR"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2049360475046224050", "tickers": ["HOOD", "IBKR"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2049386026460942645", "tickers": ["AMZN", "SIVE"], "sectors": ["defense-and-space", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2049390824673456494", "tickers": ["AEHR", "LPK"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": true, "is_core": false}
+{"tweet_id": "2049437962195055060", "tickers": ["AMD", "AMZN", "JBL", "MSFT", "SIVE", "TSEM"], "sectors": ["ai-infrastructure-mag7", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049592634398875731", "tickers": ["AMZN", "META", "MSFT", "TSM"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": true, "is_core": true}
+{"tweet_id": "2049604721766494640", "tickers": ["COHR", "FORM", "LITE", "VIAV"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2049609993071259684", "tickers": ["NVDA"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049646205039522009", "tickers": ["COHR", "LITE", "MU", "TOWA"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2049655082250314014", "tickers": ["AAPL", "AMAT", "ASML", "AVGO", "AXTI", "INTC", "MRVL", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2049737227677421908", "tickers": ["AEHR", "LPK"], "sectors": ["substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049761085872570864", "tickers": ["MRVL", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049767690425016780", "tickers": ["GOOGL", "LITE", "MRVL", "MSFT", "SIVE", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049775164184055998", "tickers": ["AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049876593674440706", "tickers": ["AEHR", "LPK"], "sectors": ["ai-infrastructure-mag7", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049916817519587600", "tickers": ["SIVE", "YSS"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2049941088165892196", "tickers": ["AMD", "COHR", "LITE", "MRVL", "MTSI", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049949682022203738", "tickers": ["RDDT"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049956624480276628", "tickers": ["RDDT", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2049969772251709921", "tickers": ["ASST", "BKKT", "IREN", "SLNH"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2049985874193195425", "tickers": ["AXTI", "COHR", "LITE", "POET"], "sectors": ["ai-infrastructure-mag7", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2050031111103984072", "tickers": ["ASML", "LPK", "MU", "TOWA", "TSEM", "TSM"], "sectors": ["memory-and-hbm", "optical-transceivers", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2050040294205448401", "tickers": ["AXTI", "NVDA", "SLOIF", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2050093551313469467", "tickers": ["AAPL", "AMD", "COHR", "INTC", "JBL", "LITE", "MRVL", "NVDA", "POET", "RTX", "SIVE", "TSM", "YSS"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2050237030828052862", "tickers": ["AAOI", "AXTI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2050242891117900233", "tickers": ["RDDT"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2050249906758341003", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2050265078965182518", "tickers": ["EWY", "NVDA", "SIVE", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2050272539851821157", "tickers": ["IQE", "SIVE", "SOI"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2050493739416883227", "tickers": ["COIN"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2050504109460250973", "tickers": ["INTC", "NVDA", "SOI"], "sectors": ["defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2050610868640260426", "tickers": ["ARM", "NVDA"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2050762148545216899", "tickers": ["AVGO", "NVDA", "SIVE", "TSEM"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2050790690591048002", "tickers": ["AAOI", "AXTI", "COHR", "LITE", "SIVE", "SOI"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2050802865862836381", "tickers": ["IREN", "SLNH"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2050833230736269767", "tickers": ["AMD", "COHR", "GFS", "JBL", "LITE", "MRVL", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051028253130006901", "tickers": ["AAOI", "AVGO", "COHR", "LITE"], "sectors": ["optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2051033642416361642", "tickers": ["AVGO", "NVDA", "SIVE", "TSEM"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2051099481693954525", "tickers": ["KLA"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2051105661220774266", "tickers": ["ASML", "AVGO", "AXTI", "INTC", "MRVL", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2051198288997789765", "tickers": ["NVDA", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2051319157552267710", "tickers": ["AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051322315649290619", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA", "SMTOY"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051348607966875919", "tickers": ["NBIS"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051357868126044577", "tickers": ["AMD", "COHR", "LITE", "MRVL", "NVDA", "POET", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2051432439432740931", "tickers": ["AMD", "GFS", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2051472715165704657", "tickers": ["ASX", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051566667009073315", "tickers": ["AAPL", "AMD", "AMZN", "GOOGL", "JBL", "MRVL", "MSFT", "POET", "RTX", "SIVE", "YSS"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2051571231590379708", "tickers": ["AAOI", "AEHR", "AXTI", "COHR", "IQE", "LITE", "SIVE", "SOI", "TSEM"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051593478245851178", "tickers": ["NVDA", "SIVE", "SOI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2051628401354785026", "tickers": ["MU", "NVDA", "RDDT", "RPI", "SNDK"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051694795270365584", "tickers": ["POET"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2051796147031949708", "tickers": ["AMSC", "HPS.A", "PLPC"], "sectors": ["defense-and-space", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2051801908344771022", "tickers": ["LITE", "NVDA", "SIVE", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2051811094092804446", "tickers": ["AXTI", "LITE", "SIVE"], "sectors": ["optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051820971510866428", "tickers": ["AAOI", "COHR", "LITE", "NVDA", "SIVE"], "sectors": ["optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051848666588303758", "tickers": ["AXTI", "LITE"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2051863264624353314", "tickers": ["AAOI", "LITE", "SIVE", "SNDK", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2051889611216195909", "tickers": ["LPK"], "sectors": ["substrates"], "is_macro": false, "is_core": false}
+{"tweet_id": "2051894462696276330", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2052059960058814800", "tickers": ["AAOI", "AXTI", "LITE", "SIVE", "SNDK", "SOI"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2052084166960001150", "tickers": ["AAOI", "SIVE"], "sectors": ["defense-and-space", "photonics-and-cpo"], "is_macro": true, "is_core": false}
+{"tweet_id": "2052095835903852564", "tickers": ["ARM", "GOOGL", "MSFT"], "sectors": ["humanoid-robotics", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052105838396084622", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA", "SMTOY"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2052184498620834237", "tickers": ["LPK"], "sectors": ["memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": false}
+{"tweet_id": "2052189463460401367", "tickers": ["EWY", "MU", "TOWA", "TSEM"], "sectors": ["memory-and-hbm", "optical-transceivers"], "is_macro": true, "is_core": false}
+{"tweet_id": "2052278391928500502", "tickers": ["AAOI", "COHR", "JBL", "LITE", "NVDA", "SIVE", "SNDK"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2052296867653066978", "tickers": ["COHR", "JBL", "LITE", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052308880961810532", "tickers": ["GLW", "INTC", "LPK"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2052325056429384165", "tickers": ["AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052435712126161008", "tickers": ["FLNC", "GOOGL", "MSFT"], "sectors": ["ai-infrastructure-mag7", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052485912714752144", "tickers": ["AAOI", "LITE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052494142765441301", "tickers": ["AMZN", "IREN", "NBIS", "NVDA"], "sectors": ["power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2052653551311094074", "tickers": ["COHR", "JBL", "LITE", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052679583892426925", "tickers": ["FNF", "IBKR", "SCHW", "SIVE"], "sectors": ["memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2052695450869014930", "tickers": ["FLNC", "GOOGL", "MSFT"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052698113874518527", "tickers": ["AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052744623366475916", "tickers": ["FLNC", "GOOGL", "MSFT"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052760996784349455", "tickers": ["RDDT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2052784100784922983", "tickers": ["HPS.A", "LITE", "SNDK"], "sectors": ["memory-and-hbm", "optical-transceivers", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2052799637669769363", "tickers": ["AAOI", "AMZN", "AVGO", "COHR", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2053205192980721797", "tickers": ["AAPL", "INTC", "LPK", "MU", "NBIS", "NVDA", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm", "neocloud", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2053211806584410466", "tickers": ["GFS", "NVDA", "SIVE", "VRT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2053232613561909746", "tickers": ["IBKR", "SCHW", "SIVE"], "sectors": ["humanoid-robotics", "memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2053235688146162077", "tickers": ["SIVE"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2053237681619087550", "tickers": ["IBKR", "SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2053270948414099915", "tickers": ["AXTI", "IQE", "LITE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2053377238532329611", "tickers": ["GLW", "LPK", "LRCX", "ONTO"], "sectors": ["substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2053634088259690727", "tickers": ["AEHR", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": false}
+{"tweet_id": "2053643213723013507", "tickers": ["AMZN", "NVDA"], "sectors": ["humanoid-robotics", "memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2053658068106477755", "tickers": ["EWY", "MU", "NVDA", "SNDK", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": true, "is_core": false}
+{"tweet_id": "2053741502808133638", "tickers": ["SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2053794972663754849", "tickers": ["AXTI", "IQE", "MTSI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2053809563535905063", "tickers": ["SIVE"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2053811303622627649", "tickers": ["AMD", "COHR", "JBL", "LITE", "MRVL", "NVDA", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2053812395949412694", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2053841684698636599", "tickers": ["AAOI", "LITE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2053847817899421807", "tickers": ["AMZN", "FLNC", "GOOGL", "MSFT"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2053851494924034481", "tickers": ["SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2053857864637436221", "tickers": ["AAOI", "AMZN", "AVGO", "COHR", "GOOGL", "LITE", "MSFT", "MU", "NVDA", "SIVE", "TSM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2053858353022173480", "tickers": ["AAOI", "AEHR", "LITE", "SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2053859471076753440", "tickers": ["ALRIB"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2053928672202268993", "tickers": ["AMZN", "IREN", "NBIS", "NVDA"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "neocloud", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2053946950425460946", "tickers": ["AAOI", "MU", "SNDK", "TOWA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2053949746239435197", "tickers": ["SNDK"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2053980270135738816", "tickers": ["AAOI", "AMZN", "FLNC", "GOOGL", "LPK", "MSFT", "NBIS"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2053980536142741514", "tickers": ["IREN"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2053990690477195313", "tickers": ["AAOI", "AEHR", "AMD", "AMZN", "AVGO", "GOOGL", "INTC", "MRVL", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054040580502745588", "tickers": ["AAOI", "MU", "NBIS", "SNDK", "TOWA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2054076086452162675", "tickers": ["AXTI", "COHR", "GFS", "IQE", "LITE", "MTSI", "SIVE", "SOI", "TSEM"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054080477783577032", "tickers": ["AAOI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054081061576131015", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2054141853566726371", "tickers": ["RPI", "SIVE", "SOI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054150077833490524", "tickers": ["COHR", "GFS", "SIVE"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2054154731006955852", "tickers": ["LWLG", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054159820392218717", "tickers": [], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2054183097470775339", "tickers": ["RKLB", "TSLA"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054198288556109906", "tickers": ["FLNC"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054199610206454243", "tickers": ["FLNC"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2054316135592706291", "tickers": ["LPK", "SOI"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2054319443770221015", "tickers": ["SOI"], "sectors": [], "is_macro": true, "is_core": true}
+{"tweet_id": "2054320176179695735", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2054327689721581789", "tickers": ["NVDA"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054335940026573222", "tickers": ["ABB", "AMBA", "ARBE", "LSCC", "MBLY", "NOVT", "OUST", "RKLB", "SERV", "SYM", "ZBRA"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054365028820881794", "tickers": ["HIMX", "NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054395891965194742", "tickers": ["AVGO", "MRVL", "NVDA"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054412992000012555", "tickers": ["AAOI", "AXTI", "COHR", "LITE", "NBIS", "SIVE", "SOI"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2054429708868309239", "tickers": ["SIVE", "SOI"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2054470106244350122", "tickers": ["AAOI", "LITE", "SIVE"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054471789305266298", "tickers": ["MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054477165996241336", "tickers": ["GFS", "LITE", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054502564591464554", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2054509882011971994", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2054524864866980010", "tickers": ["NBIS", "NVDA"], "sectors": ["neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054527095066566725", "tickers": ["NVDA", "SOI", "TSEM", "TSM"], "sectors": ["optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054532386239693206", "tickers": ["SOI", "TSEM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054583956167877111", "tickers": ["AAOI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2054592898042380788", "tickers": ["AMZN", "GOOGL", "HPS.A", "MSFT"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054687492750889323", "tickers": ["AAOI", "SIVE", "SNDK", "TSEM"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2054696650539688271", "tickers": ["CDNS", "TSLA"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054697272248766580", "tickers": ["MP"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2054728301806256484", "tickers": ["AMZN", "NVDA"], "sectors": ["humanoid-robotics", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054737349075218567", "tickers": ["NVDA", "TSM"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054740298182603024", "tickers": ["AVGO", "NVDA", "TSM"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2054858304107745356", "tickers": [], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054868760629272850", "tickers": ["AEVA", "AMD", "JBL", "LITE", "MRVL", "NOK", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2054870737618604515", "tickers": ["JBL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers"], "is_macro": false, "is_core": false}
+{"tweet_id": "2054896661672210817", "tickers": ["POET", "SIVE"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2054901944653656384", "tickers": ["AAPL", "JBL", "MRVL", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055060984012890250", "tickers": ["AMAT", "JBL"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2055063144532508995", "tickers": [], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055064231905788025", "tickers": ["CRBS"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2055068788975157672", "tickers": ["CBRS"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2055107276575588612", "tickers": ["GOOGL", "IQE", "MRVL", "NVDA", "SOI", "TSM"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055110412375621643", "tickers": ["NVDA", "TSM"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055116243582247014", "tickers": [], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2055127004970938373", "tickers": ["NVDA", "POET", "TSM"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055182601158074769", "tickers": ["AMZN", "JBL", "LITE", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055200705334395161", "tickers": ["AMZN", "GOOGL", "IREN", "NBIS"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055208861242655010", "tickers": ["GOOGL"], "sectors": ["power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055367916426756386", "tickers": ["CITI", "GFS", "LITE", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055374511172899247", "tickers": ["IREN", "NVDA", "POET", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055379668195561657", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055382936489496667", "tickers": ["AXTI"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055384732121366899", "tickers": [], "sectors": ["defense-and-space", "humanoid-robotics"], "is_macro": true, "is_core": false}
+{"tweet_id": "2055403755638800727", "tickers": ["AXTI", "SIVE", "SOI"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055405163092066719", "tickers": ["AXTI", "HPS.A", "SIVE", "SOI"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2055822766600016238", "tickers": ["AAOI", "AMD", "ASML", "COHR", "INTC", "IQE", "JBL", "LITE", "LPK", "MRVL", "NVDA", "POET", "SIVE", "SOI"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2055865012565254591", "tickers": ["JBL", "LITE", "SNDK"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055925643158938050", "tickers": ["MRVL", "PENG"], "sectors": ["memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055935227525272019", "tickers": ["DELL", "FLNC", "SMCI"], "sectors": ["memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055970949762302055", "tickers": ["BOT"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055977296121778461", "tickers": ["BOT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2055984145160175790", "tickers": ["BOT"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2055987434148823160", "tickers": ["BOT"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2056011024982282674", "tickers": ["PENG", "RKLB", "TSEM"], "sectors": ["memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2056022130953965601", "tickers": ["BOT"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2056157639760126294", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA", "SMTOY"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2056171199512891790", "tickers": ["IREN", "POET"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2056244818125418979", "tickers": ["AXTI", "NVDA", "TSM"], "sectors": ["memory-and-hbm", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2056255865448247311", "tickers": ["AAOI", "AXTI", "LITE", "NBIS"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2056549908438749581", "tickers": ["BOT"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2056558267896311996", "tickers": ["COHR", "LITE", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2056594930232135705", "tickers": ["AXTI", "NVDA", "SOI", "TSEM", "TSM"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2056596504878735567", "tickers": ["RPI", "SIVE"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": true}
+{"tweet_id": "2056640420008878330", "tickers": ["AEVA", "AMD", "JBL", "MRVL", "POET", "SIVE"], "sectors": ["memory-and-hbm"], "is_macro": true, "is_core": true}
+{"tweet_id": "2056641850086502436", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2056745774760026410", "tickers": ["AMZN", "IREN", "NBIS", "NVDA"], "sectors": ["neocloud", "power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2056749297820176585", "tickers": ["AEHR", "IREN", "NBIS"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2056750124798464203", "tickers": ["AAOI", "IREN"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2056754328896241957", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2056877645275820418", "tickers": ["AAPL", "SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2056891308934148253", "tickers": ["TSLA"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2056930958276985055", "tickers": ["BOT"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2056932941050286465", "tickers": ["BOT"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": false}
+{"tweet_id": "2056939360222884144", "tickers": [], "sectors": ["humanoid-robotics", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2056940719013867708", "tickers": ["AXTI", "IQE", "LITE"], "sectors": ["photonics-and-cpo", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2056943109448307141", "tickers": ["IQE", "LITE"], "sectors": ["humanoid-robotics", "substrates"], "is_macro": true, "is_core": false}
+{"tweet_id": "2056946192568012877", "tickers": ["SMCI"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2056993753882345818", "tickers": ["JBL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2056999486371860927", "tickers": ["JBL", "SIVE"], "sectors": ["optical-transceivers"], "is_macro": false, "is_core": false}
+{"tweet_id": "2057008127917347125", "tickers": ["IQE", "SIVE", "SOI"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2057059745429901334", "tickers": ["LITE", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2057062953237823978", "tickers": ["JBL", "SIVE"], "sectors": ["optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2057063548115902967", "tickers": ["JBL", "LITE", "MRVL", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2057064158265590011", "tickers": ["HOOD", "NBIS", "RKLB", "SIVE"], "sectors": ["neocloud"], "is_macro": false, "is_core": false}
+{"tweet_id": "2057084047466414107", "tickers": ["AMD", "LITE", "MRVL", "NVDA", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2057090237621584260", "tickers": [], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2057117978014126372", "tickers": ["AAPL", "JBL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": false, "is_core": false}
+{"tweet_id": "2057146050084045024", "tickers": ["RDDT"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2057148026494570542", "tickers": ["RDDT"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2057503508967096598", "tickers": ["CIFR", "CRWV", "IREN", "MSFT", "NBIS", "WULF"], "sectors": ["ai-infrastructure-mag7", "neocloud"], "is_macro": false, "is_core": true}
+{"tweet_id": "2057510441778315730", "tickers": ["ARM", "GOOGL", "MSFT"], "sectors": ["humanoid-robotics"], "is_macro": false, "is_core": true}
+{"tweet_id": "2057516027479814380", "tickers": ["NVDA", "SOI", "TSEM", "TSM"], "sectors": ["optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2057518759968190581", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2057524112944468149", "tickers": ["AXTI", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2057620897796878725", "tickers": ["RKLB"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2057689020390580234", "tickers": ["AXTI", "IREN", "MU", "RDDT"], "sectors": ["memory-and-hbm"], "is_macro": false, "is_core": false}
+{"tweet_id": "2057720796613873805", "tickers": ["JBL", "MRVL", "SIVE"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2057761720710631573", "tickers": ["ALRIB", "IQE", "LPK", "SOI"], "sectors": [], "is_macro": false, "is_core": true}
+{"tweet_id": "2057780545292308506", "tickers": ["FUTU", "GOOGL", "TIGR"], "sectors": ["ai-infrastructure-mag7"], "is_macro": false, "is_core": false}
+{"tweet_id": "2057804691321577607", "tickers": ["MRVL", "SIVE"], "sectors": ["photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2057806168962277737", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2057826212257685733", "tickers": ["AAOI", "AEHR", "AMZN", "ARM", "AVGO", "COHR", "GOOGL", "HOOD", "INTC", "JBL", "LITE", "LPK", "MRVL", "MSFT", "NBIS", "RKLB", "TSEM", "TSM"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical"], "is_macro": true, "is_core": true}
+{"tweet_id": "2058002991886844357", "tickers": ["AMZN", "AVGO", "AXTI", "COHR", "GOOGL", "INTC", "LITE", "MSFT", "NVDA", "SIVE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "optical-transceivers", "photonics-and-cpo", "substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2058060753933131949", "tickers": ["JBL", "LITE", "MRVL", "POET", "SIVE"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "optical-transceivers", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2058064950116130919", "tickers": ["RTX", "SIVE", "YSS"], "sectors": ["defense-and-space"], "is_macro": false, "is_core": true}
+{"tweet_id": "2058071728090484983", "tickers": ["NVDA", "TSM"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2058131516346315226", "tickers": ["LITE", "SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2058145137214329150", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2058150502685384769", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2058152382765379788", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2058154203642728716", "tickers": ["SIVE"], "sectors": [], "is_macro": false, "is_core": false}
+{"tweet_id": "2058356865566900439", "tickers": [], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2058374522353672558", "tickers": ["AAOI", "AEHR", "AXTI", "COHR", "JBL", "LITE", "LPK", "SIVE", "SNDK", "SOI", "TSEM"], "sectors": ["ai-infrastructure-mag7", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo", "power-and-electrical", "substrates"], "is_macro": true, "is_core": true}
+{"tweet_id": "2058376970178847075", "tickers": ["AAOI", "NVDA"], "sectors": ["ai-infrastructure-mag7", "optical-transceivers"], "is_macro": false, "is_core": true}
+{"tweet_id": "2058410430649774504", "tickers": ["JBL", "LITE", "SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": false, "is_core": false}
+{"tweet_id": "2058577885754163382", "tickers": ["NVDA", "NVTS", "WOLF"], "sectors": ["power-and-electrical"], "is_macro": false, "is_core": true}
+{"tweet_id": "2058618801554604040", "tickers": ["AXTI", "IQE", "MU", "NBIS", "NVDA", "SIVE", "SNDK", "SOI"], "sectors": ["memory-and-hbm", "neocloud", "photonics-and-cpo"], "is_macro": true, "is_core": true}
+{"tweet_id": "2058620094532718772", "tickers": ["AXTI"], "sectors": ["substrates"], "is_macro": false, "is_core": true}
+{"tweet_id": "2058625256911475161", "tickers": ["SIVE"], "sectors": ["ai-infrastructure-mag7", "photonics-and-cpo"], "is_macro": true, "is_core": false}
+{"tweet_id": "2058644487224848654", "tickers": ["AEVA", "INTC", "MU", "NVDA", "SIVE"], "sectors": ["ai-infrastructure-mag7", "humanoid-robotics", "memory-and-hbm", "photonics-and-cpo"], "is_macro": false, "is_core": true}
+{"tweet_id": "2058646934181879991", "tickers": ["GFS", "SIVE"], "sectors": [], "is_macro": true, "is_core": false}
+{"tweet_id": "2058649903300280586", "tickers": ["AAPL", "AEVA", "JBL", "MRVL", "NOK", "NVDA", "POET", "RTX", "SIVE", "YSS"], "sectors": ["ai-infrastructure-mag7", "defense-and-space", "humanoid-robotics", "memory-and-hbm", "optical-transceivers", "photonics-and-cpo"], "is_macro": false, "is_core": true}
