@@ -1,7 +1,7 @@
 # Frank Agent Readable Framework Engineering Plan
 
 > Status: In Progress
-> Related: `backend/app/features/kol_research/.context.md`, `backend/app/features/twitter/.context.md`, `frontend/src/app/kol/.context.md`, `docs/plans/active/qinbafrank-skill-distillation.md`, `docs/plans/active/kol-research-context-mgmt.md`
+> Related: `backend/app/features/kol_research/.context.md`, `backend/app/features/twitter/.context.md`, `frontend/src/app/kol/.context.md`, `docs/plans/active/kol-research-context-mgmt.md`
 > Vision: 产品策略.md > 帮用户把数据变成判断，而不是堆积信息；KOL agent 要让用户通俗理解 Frank 的框架，并用这个框架看市场问题。
 
 ## 目标
