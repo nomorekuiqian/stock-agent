@@ -25,7 +25,38 @@ export interface ActivityData {
     events_30d: number;
     api_calls_30d: number;
   };
+  growth_metrics?: GrowthMetricsData;
   email_metrics?: EmailMetricsData;
+}
+
+export interface GrowthMetricPeriod {
+  value: number | null;
+  numerator: number;
+  denominator: number;
+}
+
+export interface GrowthMetricRow {
+  key: string;
+  category: string;
+  priority: string;
+  label: string;
+  format: 'percent' | 'decimal' | string;
+  description: string;
+  current: GrowthMetricPeriod;
+  previous: GrowthMetricPeriod;
+}
+
+export interface GrowthMetricsData {
+  days: number;
+  current: {
+    start_date?: string | null;
+    end_date?: string | null;
+  };
+  previous: {
+    start_date?: string | null;
+    end_date?: string | null;
+  };
+  metrics: GrowthMetricRow[];
 }
 
 export interface EmailMetricsRow {
@@ -118,6 +149,13 @@ function formatRate(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
+function formatMetricValue(value: number | null, format: string): string {
+  if (value === null) return 'n/a';
+  if (format === 'percent') return formatRate(value);
+  if (format === 'decimal') return formatDecimal(value);
+  return formatNumber(value);
+}
+
 function pctChange(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
   return ((current - previous) / previous) * 100;
@@ -170,9 +208,15 @@ function comparisonTone(value: number | null): string {
   return 'text-muted-foreground';
 }
 
+function metricDelta(current: number | null, previous: number | null): number | null {
+  if (current === null || previous === null) return null;
+  return current - previous;
+}
+
 export function ActivityComparisonPanel({ initialData }: { initialData: ActivityData }) {
   const rows = useMemo(() => initialData.daily ?? [], [initialData.daily]);
   const emailMetrics = initialData.email_metrics;
+  const growthMetrics = initialData.growth_metrics;
   const comparisons = useMemo(
     () => [
       compareRows(rows, 7, 'Week over week'),
@@ -212,6 +256,8 @@ export function ActivityComparisonPanel({ initialData }: { initialData: Activity
           ))}
         </section>
 
+        <GrowthMetricsSection metrics={growthMetrics} />
+
         <EmailMetricsSection metrics={emailMetrics} />
 
         <section className="rounded-lg border border-border bg-card p-4">
@@ -244,6 +290,101 @@ export function ActivityComparisonPanel({ initialData }: { initialData: Activity
         </section>
       </div>
     </main>
+  );
+}
+
+function GrowthMetricsSection({ metrics }: { metrics?: GrowthMetricsData }) {
+  const rows = metrics?.metrics ?? [];
+  const p0Rows = rows.filter((row) => row.priority === 'P0');
+  const p1Rows = rows.filter((row) => row.priority !== 'P0');
+  const currentRange = metrics?.current?.start_date && metrics?.current?.end_date
+    ? `${shortDate(metrics.current.start_date)}-${shortDate(metrics.current.end_date)}`
+    : 'current period';
+  const previousRange = metrics?.previous?.start_date && metrics?.previous?.end_date
+    ? `${shortDate(metrics.previous.start_date)}-${shortDate(metrics.previous.end_date)}`
+    : 'previous period';
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">MVP Growth Metrics</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Activation, retention, depth, and trust metrics from raw events plus agent sessions.
+          </p>
+        </div>
+        <div className="text-right text-xs text-muted-foreground">
+          <div>{currentRange}</div>
+          <div>vs {previousRange}</div>
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+          No growth metric data yet. Run the admin_growth_metrics migration first.
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {p0Rows.map((row) => (
+              <GrowthMetricCard key={row.key} metric={row} />
+            ))}
+          </div>
+          {p1Rows.length > 0 ? (
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-foreground">P1 supporting metrics</h3>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                {p1Rows.map((row) => (
+                  <GrowthMetricCard key={row.key} metric={row} compact />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
+function GrowthMetricCard({
+  metric,
+  compact = false,
+}: {
+  metric: GrowthMetricRow;
+  compact?: boolean;
+}) {
+  const delta = metricDelta(metric.current.value, metric.previous.value);
+  const value = formatMetricValue(metric.current.value, metric.format);
+  const previous = formatMetricValue(metric.previous.value, metric.format);
+  const denominatorLabel = metric.current.denominator > 0
+    ? `${formatNumber(metric.current.numerator)} / ${formatNumber(metric.current.denominator)}`
+    : 'no denominator';
+
+  return (
+    <div className="rounded-md border border-border/70 px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs text-muted-foreground">{metric.category} · {metric.priority}</div>
+          <div className="mt-1 text-sm font-medium leading-snug text-foreground">{metric.label}</div>
+        </div>
+        <div className={`text-sm font-semibold tabular-nums ${comparisonTone(delta)}`}>
+          {delta === null ? 'n/a' : `${delta > 0 ? '+' : ''}${formatMetricValue(delta, metric.format)}`}
+        </div>
+      </div>
+      <div className={compact ? 'mt-2' : 'mt-3'}>
+        <div className={`${compact ? 'text-xl' : 'text-2xl'} font-semibold tabular-nums text-foreground`}>
+          {value}
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {denominatorLabel} · previous {previous}
+        </div>
+      </div>
+      {!compact ? (
+        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          {metric.description}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
