@@ -71,6 +71,26 @@ normalizes each tweet into `VectorDocumentInput`, and calls:
 app.features.vector.service.index_document()
 ```
 
+### Production Cron
+
+Production keeps selected KOL tweet embeddings fresh through a direct Insforge
+Schedule:
+
+```text
+KOL Tweet Embeddings - Frank + Serenity
+cron: 15 5,11,17,23 * * *
+endpoint: POST /api/vector/index-kol-tweets
+authors: qinbafrank, aleabitoreddit
+window_hours: 36
+limit/page_size: 1000
+tweet_types: original, quote, article
+qualities: keep, high, medium
+include_unenriched: false
+```
+
+This cron is distinct from `Cron - KOL Tweets Ingestion`, which runs hourly and
+only fetches/enriches `kol_tweets`.
+
 ### Dry Run
 
 Always dry-run first:

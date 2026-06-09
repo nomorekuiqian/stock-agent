@@ -29,6 +29,19 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 | `twitter-digest-generate.yml` | `Cron - Twitter Digest Generate` | `58df517a-89e6-4b0f-90a5-1929c1d8fbd9` | `30 20 * * 1-5` | `twitter_digest_generate` | active |
 | `twitter-digest-broadcast.yml` | `Cron - Twitter Digest Broadcast` | `49ee46f5-2300-40f6-8a63-6dd5d1af13be` | `2 22 * * 1-5` | `twitter_digest_broadcast` | active |
 
+## 额外直连 Schedule
+
+以下 schedule 不经过 `cron-trigger`,直接调用 Railway backend:
+
+| Insforge schedule | Schedule ID | Cron UTC | Target | 状态 |
+|---|---|---|---|---|
+| `KOL Tweet Embeddings - Frank + Serenity` | `e07d6f04-c5fc-4206-9d44-489cf97ff16a` | `15 5,11,17,23 * * *` | `POST /api/vector/index-kol-tweets` with `author_usernames=["qinbafrank","aleabitoreddit"]` | active |
+
+2026-06-09: embedding schedule 从每天一次 `15 23 * * *`
+扩为每天四次,并从 Frank-only 改为 Frank + Serenity (`aleabitoreddit`)。
+它只写 `vector_documents` / `vector_chunks`; KOL tweet 拉取和 enrichment 仍由
+`Cron - KOL Tweets Ingestion` 负责。
+
 `twitter_digest_broadcast` 从原 `0 22 * * 1-5` 调整到 `2 22 * * 1-5`，
 避免 pg_cron 精确触发时与 `daily_report` 同分钟撞 Resend 限流。GitHub
 Actions 时代的调度抖动会天然错开，迁到 Insforge 后需要显式错峰。
