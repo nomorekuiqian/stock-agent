@@ -12,7 +12,7 @@ import {
 import { getPrompt, PROMPTS } from "./prompts.js";
 import { callTool, TOOLS } from "./tools.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 
 const server = new Server(
   {
@@ -30,7 +30,7 @@ const server = new Server(
       "Use market_lens_* tools as the primary persona-neutral tool surface.",
       "Legacy frank_* tools remain compatibility aliases for qinbafrank.",
       "Material tools return distilled lens context; evidence tools return historical posts; workflow tools return composed backend context packs.",
-      "Set MARKET_LENS_BACKEND_URL and MARKET_LENS_INVITE_CODE for beta workflow/material access.",
+      "Set MARKET_LENS_BACKEND_URL to the backend /api base URL. MARKET_LENS_PERSONA is optional.",
     ].join("\n"),
   },
 );

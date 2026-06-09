@@ -6,7 +6,6 @@ export function liveConfig(args: Record<string, unknown> = {}) {
   return {
     backend_url: normalizedBackendUrl(),
     persona: stringArg(args, "persona") || marketLensEnv("PERSONA") || DEFAULT_PERSONA,
-    has_invite_code: Boolean(marketLensEnv("INVITE_CODE")),
   };
 }
 
@@ -29,8 +28,8 @@ export async function marketLensStatus(args: Record<string, unknown>) {
       adapter: config,
       error: error instanceof Error ? error.message : String(error),
       setup: {
-        required_env: ["MARKET_LENS_BACKEND_URL", "MARKET_LENS_INVITE_CODE"],
-        note: "frank_status can run without an invite code, but workflow tools require MARKET_LENS_INVITE_CODE. Legacy FRANK_LENS_* variables are also accepted.",
+        required_env: ["MARKET_LENS_BACKEND_URL"],
+        note: "Set MARKET_LENS_BACKEND_URL to the backend /api base URL. MARKET_LENS_PERSONA is optional.",
       },
     };
   }
@@ -124,7 +123,7 @@ export async function runWorkflow(workflow: string, args: Record<string, unknown
   const config = liveConfig(args);
   const question =
     stringArg(args, "question") ||
-    (workflow === "market_regime" ? "按 Frank 框架判断当前市场行情。" : "");
+    (workflow === "market_regime" ? "按所选 persona 的框架判断当前市场行情。" : "");
   const ticker = stringArg(args, "ticker").toUpperCase();
   const tickers = arrayStringArg(args, "tickers").map((item) => item.toUpperCase());
   const sector = stringArg(args, "sector");
@@ -210,15 +209,10 @@ function normalizedBackendUrl() {
 }
 
 function headers(_args: Record<string, unknown> = {}) {
-  const out: Record<string, string> = {};
-  const inviteCode = marketLensEnv("INVITE_CODE");
-  if (inviteCode) {
-    out["X-Frank-Lens-Invite-Code"] = inviteCode;
-  }
-  return out;
+  return {};
 }
 
-function marketLensEnv(name: "BACKEND_URL" | "INVITE_CODE" | "PERSONA") {
+function marketLensEnv(name: "BACKEND_URL" | "PERSONA") {
   return process.env[`MARKET_LENS_${name}`] || process.env[`FRANK_LENS_${name}`] || "";
 }
 

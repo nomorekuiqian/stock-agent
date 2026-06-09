@@ -35,8 +35,8 @@ export const TOOLS: ToolDefinition[] = [
     title: "Market Lens Status",
     description: [
       "Check local adapter configuration and backend status for the selected persona.",
-      "Call first when diagnosing setup, backend connectivity, invite status, or available tool surface.",
-      "Returns adapter config, beta status, persona metadata, and tool names. Does not require an invite code.",
+      "Call first when diagnosing setup, backend connectivity, or available tool surface.",
+      "Returns adapter config, backend status, persona metadata, and tool names.",
     ].join(" "),
     inputSchema: objectSchema({ persona: PERSONA_PROPERTY }),
     annotations: readOnlyOpenWorld(),
@@ -123,7 +123,7 @@ export const TOOLS: ToolDefinition[] = [
     description: [
       "Semantic search over a persona's historical tweet evidence corpus.",
       "Call when the final answer needs direct historical posts or citations beyond the distilled methodology lens.",
-      "Returns vector-search tweet chunks with citation metadata. Requires MARKET_LENS_INVITE_CODE.",
+      "Returns vector-search tweet chunks with citation metadata.",
     ].join(" "),
     inputSchema: objectSchema({
       persona: PERSONA_PROPERTY,
