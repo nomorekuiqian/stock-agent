@@ -35,6 +35,7 @@ import {
   type FrankHighlightTopicId,
 } from './_components/frankContentData';
 import OverviewMiniPreview from './_components/OverviewMiniPreview';
+import SerenityOverview from './_components/SerenityOverview';
 import { relativeTimeCN } from './_components/relativeTime';
 
 type FrankHomeSectorId =
@@ -155,11 +156,13 @@ export default function OverviewPage({
   const sectors = sectorsQ.data?.sectors ?? [];
   const macroSummary = sectors.find((sector) => sector.layer === 'macro' || sector.key === 'macro-regime');
   const sectorOnly = sectors.filter((sector) => sector.layer === 'sector');
-  const isFrank = username.toLowerCase() === 'qinbafrank';
+  const u = username.toLowerCase();
+  const isFrank = u === 'qinbafrank';
+  const isSerenity = u === 'aleabitoreddit';
   const loading = profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading || (!isFrank && sectorsQ.isLoading);
 
   const displayName = profile?.persona.display_name ?? username;
-  const titleName = username.toLowerCase() === 'qinbafrank' ? 'qinbafrank' : displayName;
+  const titleName = isFrank ? 'qinbafrank' : displayName;
   const lensPositioning =
     isFrank
       ? '把 @qinbafrank 的公开观点、原文证据和当前数据，整理成可追问的内容档案馆。'
@@ -175,6 +178,10 @@ export default function OverviewPage({
         loading={profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading}
       />
     );
+  }
+
+  if (isSerenity) {
+    return <SerenityOverview username={username} />;
   }
 
   return (

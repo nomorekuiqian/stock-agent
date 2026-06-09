@@ -1296,6 +1296,12 @@ export interface KolCockpitTickerSummary {
   price: number | null;
   daily_change: number | null;
   summary?: KolTickerSummary | null;
+  /** v3 personas only: exchange region (US / SE / TW / JP / KR / IL / NL / CA). */
+  region?: string;
+  /** v3 personas only: 'high' | 'medium' | 'low' coverage tier. */
+  coverage?: string;
+  /** v3 personas only: sector key from the persona's _meta.json. */
+  sector?: string;
 }
 
 export interface KolCockpitPricePoint {
@@ -1320,6 +1326,36 @@ export interface KolCockpitTickerDetail {
     pe_ttm: number | null;
   };
   summary?: KolTickerSummary | null;
+  /** v3 personas only: 「公司或产业是什么」 decoder text for niche tickers. */
+  decoder?: string;
+  region?: string;
+  coverage?: string;
+  sector_key?: string;
+}
+
+// --- High Conviction grid (Serenity-era v3 cockpit) ---
+
+export interface KolCockpitHighConvictionTicker {
+  ticker: string;
+  mentions: number;
+  coverage: string;
+  region: string;
+  thesis: string;
+  priceable: boolean;
+  price: number | null;
+  daily_change: number | null;
+}
+
+export interface KolCockpitHighConvictionGroup {
+  sector_key: string;
+  sector_label: string;
+  sector_eyebrow: string;
+  sector_short: string;
+  tickers: KolCockpitHighConvictionTicker[];
+}
+
+export interface KolCockpitHighConvictionResponse {
+  groups: KolCockpitHighConvictionGroup[];
 }
 
 export interface KolCockpitFeedItem {
@@ -2841,6 +2877,16 @@ export const api = {
     cockpitTickers: async (username: string): Promise<{ tickers: KolCockpitTickerSummary[] }> => {
       const response = await fetch(`${API_BASE_URL}/kol_research/personas/${username}/tickers`);
       if (!response.ok) throw new Error('Failed to load tickers');
+      return response.json();
+    },
+
+    cockpitHighConviction: async (
+      username: string,
+    ): Promise<KolCockpitHighConvictionResponse> => {
+      const response = await fetch(
+        `${API_BASE_URL}/kol_research/personas/${username}/high-conviction`,
+      );
+      if (!response.ok) throw new Error('Failed to load high-conviction grid');
       return response.json();
     },
 
