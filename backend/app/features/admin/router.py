@@ -12,6 +12,7 @@ from app.core.config import ADMIN_EMAILS, EDGE_FUNCTION_SECRET
 from app.core.database import get_insforge_service
 from app.core.deps import verify_admin_user, verify_user_token_with_email
 from app.core.logging import get_logger
+from app.features.admin.cache import get_list_all
 
 logger = get_logger(__name__)
 
@@ -351,12 +352,14 @@ async def get_dashboard(
 ):
     """Return user overview for the admin dashboard."""
     service = get_insforge_service()
-    result = await service.call_function(
+    # Shared, coalesced cache: the user-detail page's fallback hits the same
+    # list_all, so repeat admin navigation reuses one upstream fetch.
+    result = await get_list_all(lambda: service.call_function(
         "subscriptions",
         method="GET",
         params={"action": "list_all"},
         timeout=60.0,
-    )
+    ))
     data = result.get("data", {})
     if not data.get("success"):
         logger.error("Failed to fetch subscriptions for admin dashboard: %s", data)
@@ -365,22 +368,27 @@ async def get_dashboard(
     users = data.get("data", [])
 
     # Merge CRM profile data + feedback data in parallel
+    # Short timeouts: a slow aggregate degrades to partial data (handled below via
+    # return_exceptions + null defaults) in 10s instead of hanging up to 30s.
     crm_task = service.call_function(
         "crm",
         method="GET",
         params={"action": "list_profiles"},
+        timeout=10.0,
     )
     contact_fb_task = service.call_function(
         "user-feedback",
         method="POST",
         params={"action": "aggregate"},
         json_body={},
+        timeout=10.0,
     )
     questionnaire_task = service.call_function(
         "access-requests",
         method="POST",
         params={"action": "aggregate"},
         json_body={},
+        timeout=10.0,
     )
     activity_task = _fetch_activity(30)
 

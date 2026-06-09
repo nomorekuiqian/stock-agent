@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { getAccessTokenSync, getAccessTokenAsync } from '@/contexts/AuthContext';
 import type { DashboardData, UserRecord } from '../page';
@@ -163,19 +163,33 @@ function formatNumber(value: number): string {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
 const OPS_STATUSES = ['待联系', '已联系', '跟进中', '已反馈', '活跃', '流失'] as const;
+const PAGE_SIZE = 50;
 
 export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
   const [data, setData] = useState(initialData);
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+  // `searchInput` is the immediate controlled-input value; `search` is the
+  // debounced value that actually drives the filter/sort memo (see effect below).
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('last_active_at');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
   const [copyFeedback, setCopyFeedback] = useState('');
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
+
+  // Debounce search so the O(N) filter/sort memo doesn't re-run on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset to the first page whenever the filter result set changes.
+  useEffect(() => { setPage(0); }, [activeCategory, activeTags, search]);
 
   const toggleTag = useCallback((tag: string) => {
     setActiveTags((prev) => {
@@ -192,6 +206,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
   const clearFilters = useCallback(() => {
     setActiveCategory('all');
     setActiveTags(new Set());
+    setSearchInput('');
     setSearch('');
   }, []);
 
@@ -237,7 +252,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
     }
   }, [selectedIds]);
 
-  const hasActiveFilters = activeCategory !== 'all' || activeTags.size > 0 || search.trim().length > 0;
+  const hasActiveFilters = activeCategory !== 'all' || activeTags.size > 0 || searchInput.trim().length > 0;
 
   const filteredUsers = useMemo(() => {
     let list = data.users;
@@ -300,26 +315,43 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
   const { summary } = data;
 
   const engagementStats = useMemo(() => {
-    const users = data.users;
-    return {
-      withConversations: users.filter((u) => u.conversations > 0).length,
-      withFeedback: users.filter((u) => u.feedback_count > 0).length,
-      totalConversations: users.reduce((sum, u) => sum + u.conversations, 0),
-      totalMessages: users.reduce((sum, u) => sum + u.messages, 0),
-      personalDigestSubscribers: users.filter((u) => u.personal_digest_subscribed).length,
-    };
+    let withConversations = 0;
+    let withFeedback = 0;
+    let totalConversations = 0;
+    let totalMessages = 0;
+    let personalDigestSubscribers = 0;
+    for (const u of data.users) {
+      if (u.conversations > 0) withConversations++;
+      if (u.feedback_count > 0) withFeedback++;
+      totalConversations += u.conversations;
+      totalMessages += u.messages;
+      if (u.personal_digest_subscribed) personalDigestSubscribers++;
+    }
+    return { withConversations, withFeedback, totalConversations, totalMessages, personalDigestSubscribers };
   }, [data.users]);
 
   // Per-chip count over the full user set, recomputed when users change.
+  // One pass over users (× chips) instead of a full filter() allocation per chip.
   const chipCounts = useMemo(() => {
+    const chips = Array.from(CHIP_LOOKUP.values());
     const counts = new Map<string, number>();
-    for (const group of FILTER_GROUPS) {
-      for (const chip of group.chips) {
-        counts.set(chip.tag, data.users.filter(chip.match).length);
+    for (const chip of chips) counts.set(chip.tag, 0);
+    for (const u of data.users) {
+      for (const chip of chips) {
+        if (chip.match(u)) counts.set(chip.tag, counts.get(chip.tag)! + 1);
       }
     }
     return counts;
   }, [data.users]);
+
+  // Pagination: render only one page slice — ~340+ UserRowGroup rows (each with
+  // checkboxes/toggles/badges) is a real main-thread paint stall otherwise.
+  const pageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedUsers = useMemo(
+    () => filteredUsers.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [filteredUsers, safePage],
+  );
 
   const cards: { key: Category; count: number }[] = [
     { key: 'all', count: summary.total },
@@ -373,8 +405,8 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           placeholder="搜索邮箱、用户 ID、邀请码..."
           className="w-full md:w-72 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50"
         />
@@ -506,7 +538,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
                   <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">暂无数据</td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                pagedUsers.map((user) => (
                   <UserRowGroup
                     key={user.user_id}
                     user={user}
@@ -521,6 +553,32 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {filteredUsers.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground tabular-nums">
+            第 {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filteredUsers.length)} / {filteredUsers.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-muted transition-colors"
+            >
+              上一页
+            </button>
+            <span className="text-xs text-muted-foreground tabular-nums">{safePage + 1} / {pageCount}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              disabled={safePage >= pageCount - 1}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-muted transition-colors"
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

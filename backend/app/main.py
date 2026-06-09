@@ -12,6 +12,7 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -58,6 +59,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Market Analysis API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Compress large JSON responses (the admin dashboard / list_all payloads are the
+# biggest in the app). Added before CORS so CORS stays the outermost middleware
+# and its headers are applied to the already-compressed response.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,

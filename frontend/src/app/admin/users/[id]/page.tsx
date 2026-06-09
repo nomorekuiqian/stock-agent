@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { UserDetail } from "./_components/UserDetail";
@@ -162,7 +163,17 @@ async function getValidAccessToken(): Promise<string | null> {
   return null;
 }
 
-export default async function UserDetailPage({ params }: PageProps) {
+export default function UserDetailPage({ params }: PageProps) {
+  // Stream the shell immediately; the data-dependent body streams in once the
+  // backend responds, so the user sees a skeleton instead of a blank wait for TTFB.
+  return (
+    <Suspense fallback={<UserDetailSkeleton />}>
+      <UserDetailLoader params={params} />
+    </Suspense>
+  );
+}
+
+async function UserDetailLoader({ params }: PageProps) {
   const token = await getValidAccessToken();
   if (!token) notFound();
 
@@ -186,4 +197,30 @@ export default async function UserDetailPage({ params }: PageProps) {
   }
 
   return <UserDetail data={data} />;
+}
+
+function UserDetailSkeleton() {
+  return (
+    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-6 animate-pulse">
+      <div className="h-4 w-40 rounded bg-muted" />
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <div className="h-6 w-48 rounded bg-muted" />
+          <div className="h-4 w-56 rounded bg-muted" />
+        </div>
+        <div className="h-6 w-24 rounded-full bg-muted" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-6">
+          <div className="h-64 rounded-lg border border-border bg-muted/40" />
+          <div className="h-80 rounded-lg border border-border bg-muted/40" />
+        </div>
+        <div className="lg:col-span-2 space-y-6">
+          <div className="h-40 rounded-lg border border-border bg-muted/40" />
+          <div className="h-40 rounded-lg border border-border bg-muted/40" />
+          <div className="h-56 rounded-lg border border-border bg-muted/40" />
+        </div>
+      </div>
+    </div>
+  );
 }

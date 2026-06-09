@@ -14,6 +14,7 @@ from datetime import datetime, timezone, timedelta
 from app.core.database import get_insforge_service
 from app.core.deps import verify_admin_user
 from app.core.logging import get_logger
+from app.features.admin.cache import get_list_all, invalidate as invalidate_list_all_cache
 from app.features.payment.db import get_subscription, upsert_subscription
 from app.features.payment.entitlements import MAX_FEATURES, PRO_FEATURES
 
@@ -91,18 +92,25 @@ async def get_user_detail(
 
     service = get_insforge_service()
 
-    # 1) Get email + subscription via list_all (already merges auth.users + subscriptions)
-    all_result = await service.call_function(
+    # ---- Phase A: user record + 5 user-scoped reads, all concurrent ----
+    # The detail page needs ONE user's record. We use the `get_detail` edge action
+    # (a single indexed auth-user lookup + the subscription row, in parallel) plus
+    # `digest_stats` for the personal-digest summary — instead of `list_all`, which
+    # scans the entire user base + 6 aggregate RPCs just to find one user. These run
+    # alongside the 5 user-scoped reads (profile/interactions/conversations/watchlist/
+    # portfolio), which never needed the email anyway.
+    detail_task = service.call_function(
         "subscriptions",
         method="GET",
-        params={"action": "list_all"},
-        timeout=60.0,
+        params={"action": "get_detail", "user_id": user_id},
+        timeout=15.0,
     )
-    all_users = all_result.get("data", {}).get("data", [])
-    user_record = next((u for u in all_users if u.get("user_id") == user_id), None)
-    email = user_record.get("email") if user_record else None
-
-    # 2) Parallel: CRM profile, interactions, conversations, watchlist, portfolio
+    digest_task = service.call_function(
+        "subscriptions",
+        method="GET",
+        params={"action": "digest_stats", "user_id": user_id},
+        timeout=15.0,
+    )
     profile_task = service.call_function(
         "crm",
         method="GET",
@@ -130,13 +138,35 @@ async def get_user_detail(
     )
 
     (
-        profile_result, interactions_result, conversations_result,
-        watchlist_result, portfolio_result,
+        detail_result, digest_result, profile_result, interactions_result,
+        conversations_result, watchlist_result, portfolio_result,
     ) = await asyncio.gather(
-        profile_task, interactions_task, conversations_task,
-        watchlist_task, portfolio_task,
+        detail_task, digest_task, profile_task, interactions_task,
+        conversations_task, watchlist_task, portfolio_task,
         return_exceptions=True,
     )
+
+    user_record = (
+        detail_result.get("data", {}).get("data")
+        if isinstance(detail_result, dict) else None
+    )
+
+    # Defensive fallback: if the deployed edge function predates `get_detail`
+    # (repo/prod drift), fall back to the full list_all scan so the page still loads.
+    if user_record is None:
+        all_result = await get_list_all(lambda: service.call_function(
+            "subscriptions",
+            method="GET",
+            params={"action": "list_all"},
+            timeout=60.0,
+        ))
+        all_users = (
+            all_result.get("data", {}).get("data", [])
+            if isinstance(all_result, dict) else []
+        )
+        user_record = next((u for u in all_users if u.get("user_id") == user_id), None)
+
+    email = user_record.get("email") if user_record else None
 
     profile = (
         profile_result.get("data", {}).get("data")
@@ -162,53 +192,66 @@ async def get_user_detail(
     conversations = conversations_full[:10]
     conversations_total = len(conversations_full)
 
-    # 3) Personal digest summary — reuse aggregates carried by list_all
-    personal_digest = {
-        "count_30d": user_record.get("personal_digest_count_30d", 0) if user_record else 0,
-        "last_date": user_record.get("personal_digest_last_date") if user_record else None,
-    }
+    # 3) Personal digest summary — from the digest_stats edge action; falls back to
+    #    aggregates carried by a list_all record (the Phase A fallback path).
+    digest_data = (
+        digest_result.get("data", {}).get("data")
+        if isinstance(digest_result, dict) else None
+    ) or {}
+    if digest_data:
+        personal_digest = {
+            "count_30d": digest_data.get("count_30d", 0),
+            "last_date": digest_data.get("last_date"),
+        }
+    else:
+        personal_digest = {
+            "count_30d": user_record.get("personal_digest_count_30d", 0) if user_record else 0,
+            "last_date": user_record.get("personal_digest_last_date") if user_record else None,
+        }
 
-    # 4) Email subscriptions
+    # ---- Phase B: email-dependent lookups run concurrently ----
+    # All three only need `email`. Previously they ran in two serial waves:
+    #   wave 3 = Resend email-preferences (~550ms), then wave 4 = the two feedback calls.
+    # Folding them into one gather hides the feedback round-trips under the Resend latency.
     # - morning/daily/weekly come from Resend ContactSegments (one email lookup)
     # - personal_digest reflects the actual broadcast trigger:
     #   broadcast_personal_digests iterates list_entitled_users("personal_digest_email"),
     #   so subscription is determined by entitlements, not by Resend audience.
     email_subscriptions: dict[str, bool] | None = None
-    if email:
-        try:
-            from app.features.subscription.service import get_subscription_service
-            sub_svc = get_subscription_service()
-            prefs = await asyncio.to_thread(sub_svc.get_email_preferences, email)
-            ents = (user_record.get("entitlements") if user_record else None) or []
-            email_subscriptions = {
-                "morning_report": bool(prefs.get("morning_report")),
-                "daily_report": bool(prefs.get("daily_report")),
-                "weekly_report": bool(prefs.get("weekly_report")),
-                "personal_digest": "personal_digest_email" in ents,
-            }
-        except Exception as e:
-            logger.warning("email_subscriptions lookup failed for %s: %s", email, e)
-
-    # 5) Feedback data (needs email)
     contact_feedbacks: list[dict[str, Any]] = []
     questionnaires: list[dict[str, Any]] = []
 
     if email:
-        cf_task = service.call_function(
-            "user-feedback",
-            method="POST",
-            params={"action": "list_by_email"},
-            json_body={"email": email},
+        from app.features.subscription.service import get_subscription_service
+        sub_svc = get_subscription_service()
+
+        prefs_result, cf_result, q_result = await asyncio.gather(
+            asyncio.to_thread(sub_svc.get_email_preferences, email),
+            service.call_function(
+                "user-feedback",
+                method="POST",
+                params={"action": "list_by_email"},
+                json_body={"email": email},
+            ),
+            service.call_function(
+                "access-requests",
+                method="POST",
+                params={"action": "list_by_email"},
+                json_body={"email": email},
+            ),
+            return_exceptions=True,
         )
-        q_task = service.call_function(
-            "access-requests",
-            method="POST",
-            params={"action": "list_by_email"},
-            json_body={"email": email},
-        )
-        cf_result, q_result = await asyncio.gather(
-            cf_task, q_task, return_exceptions=True,
-        )
+
+        if isinstance(prefs_result, dict):
+            ents = (user_record.get("entitlements") if user_record else None) or []
+            email_subscriptions = {
+                "morning_report": bool(prefs_result.get("morning_report")),
+                "daily_report": bool(prefs_result.get("daily_report")),
+                "weekly_report": bool(prefs_result.get("weekly_report")),
+                "personal_digest": "personal_digest_email" in ents,
+            }
+        elif isinstance(prefs_result, BaseException):
+            logger.warning("email_subscriptions lookup failed for %s: %s", email, prefs_result)
 
         if isinstance(cf_result, dict):
             cf_data = cf_result.get("data", {})
@@ -455,6 +498,10 @@ async def grant_subscription(
     if not success:
         logger.error("Failed to grant subscription for user %s", user_id[:8])
         return {"success": False, "error": "Failed to grant subscription"}
+
+    # The granted plan/status/entitlements now differ from the cached list_all
+    # snapshot; drop it so the dashboard reflects the grant immediately.
+    invalidate_list_all_cache()
 
     logger.info(
         "Admin granted %s subscription: user=%s days=%d expires=%s",
