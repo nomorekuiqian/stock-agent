@@ -142,7 +142,7 @@ class KolMcpEvidenceByIdsRequest(BaseModel):
 
 
 class KolMcpWorkflowRequest(BaseModel):
-    """Beta-gated Market Lens MCP workflow request for a persona.
+    """Market Lens MCP workflow request for a persona.
 
     The backend returns a context pack for the user's own agent to write the
     final answer. It does not expose local packaged methodology assets.
@@ -156,15 +156,6 @@ class KolMcpWorkflowRequest(BaseModel):
     evidence_limit: int = Field(default=6, ge=1, le=12)
     include_market_data: bool = True
     share: bool = False
-
-
-class KolMcpBetaInfo(BaseModel):
-    invite_code_id: Optional[str] = None
-    invite_label: Optional[str] = None
-    access: Literal["missing", "valid", "invalid", "dev"] = "missing"
-    remaining_quota: Optional[int] = None
-    allowed_personas: List[str] = Field(default_factory=list)
-    allowed_workflows: List[str] = Field(default_factory=list)
 
 
 class KolMcpWorkflowResponse(BaseModel):
@@ -183,5 +174,4 @@ class KolMcpWorkflowResponse(BaseModel):
     methodology_context: dict = Field(default_factory=dict)
     answer_discipline: List[str] = Field(default_factory=list)
     suggested_answer_shape: List[str] = Field(default_factory=list)
-    beta: KolMcpBetaInfo = Field(default_factory=KolMcpBetaInfo)
     share_url: Optional[str] = None

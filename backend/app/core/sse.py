@@ -35,8 +35,23 @@ async def with_heartbeat(
     """
     aiter = source.__aiter__()
 
-    async def _next_chunk() -> str:
-        return await aiter.__anext__()
+    # Drive the source generator inside ONE producer task so its entire lifetime
+    # runs in a single consistent context. The old approach re-tasked each
+    # __anext__ (asyncio.create_task per chunk), which copies the context per
+    # chunk and breaks any ContextVar the source sets/resets across yields
+    # (e.g. kol_research's _sse_queue -> "Token created in a different Context").
+    chunk_queue: asyncio.Queue = asyncio.Queue()
+    _DONE = object()
+
+    async def _drain() -> None:
+        try:
+            while True:
+                chunk = await aiter.__anext__()
+                await chunk_queue.put(("chunk", chunk))
+        except StopAsyncIteration:
+            await chunk_queue.put(("done", _DONE))
+        except BaseException as exc:  # noqa: BLE001 - forwarded to the consumer
+            await chunk_queue.put(("error", exc))
 
     interval = interval_seconds if interval_seconds is not None else SSE_HEARTBEAT_SECONDS
     started_at = time.monotonic()
@@ -44,34 +59,42 @@ async def with_heartbeat(
     heartbeats_sent = 0
     longest_silence = 0.0
     last_chunk_at = started_at
-    next_task: asyncio.Task[str] | None = None
     completed_normally = False
+    producer: asyncio.Task[None] = asyncio.create_task(_drain())
+    get_task: asyncio.Task | None = None
     try:
         while True:
-            if next_task is None:
-                next_task = asyncio.create_task(_next_chunk())
-            done, _ = await asyncio.wait({next_task}, timeout=interval)
+            if get_task is None:
+                get_task = asyncio.ensure_future(chunk_queue.get())
+            done, _ = await asyncio.wait({get_task}, timeout=interval)
             if not done:
                 yield ": ping\n\n"
                 heartbeats_sent += 1
                 continue
-            try:
-                chunk = next_task.result()
-            except StopAsyncIteration:
+            kind, payload = get_task.result()
+            get_task = None
+            if kind == "done":
                 completed_normally = True
                 return
-            next_task = None
+            if kind == "error":
+                raise payload
             gap = time.monotonic() - last_chunk_at
             if gap > longest_silence:
                 longest_silence = gap
             last_chunk_at = time.monotonic()
             chunks_forwarded += 1
-            yield chunk
+            yield payload
     finally:
-        if next_task is not None and not next_task.done():
-            next_task.cancel()
+        if get_task is not None and not get_task.done():
+            get_task.cancel()
             try:
-                await next_task
+                await get_task
+            except BaseException:
+                pass
+        if not producer.done():
+            producer.cancel()
+            try:
+                await producer
             except BaseException:
                 pass
         elapsed = time.monotonic() - started_at
