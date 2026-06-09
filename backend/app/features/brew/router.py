@@ -292,6 +292,13 @@ async def generate_digest(
         if not body.symbols:
             raise HTTPException(status_code=400, detail="No symbols provided")
 
+        if posthog.posthog_client:
+            posthog.posthog_client.capture(
+                distinct_id=user_id,
+                event="brew_digest_requested",
+                properties={"symbol_count": len(body.symbols)},
+            )
+
         # Merge portfolio symbols into analysis set
         try:
             portfolio_rows = await portfolio_db.list_portfolio(user_id)

@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from app.core.deps import verify_user_token_with_email
 from app.core.logging import get_logger
+import app.core.posthog_client as posthog
 from app.core.rate_limit import _get_real_ip
 from app.core.sse import with_heartbeat
 from app.features.quota.service import consume_quota
@@ -748,6 +749,15 @@ async def kol_research_chat(
             status_code=429,
             detail="今日免费提问次数已用完，升级 Max 解锁无限使用",
         )
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_info["user_id"],
+            event="kol_research_chat_sent",
+            properties={
+                "persona_username": req.persona_username or DEFAULT_PERSONA,
+                "is_stream": False,
+            },
+        )
     return await answer_kol_research(
         message=req.message,
         history=[m.model_dump() for m in req.history],
@@ -791,6 +801,16 @@ async def kol_research_chat_stream(
                 ensure_ascii=False,
             )
         return StreamingResponse(quota_error(), media_type="text/event-stream")
+
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_info["user_id"],
+            event="kol_research_chat_sent",
+            properties={
+                "persona_username": req.persona_username or DEFAULT_PERSONA,
+                "is_stream": True,
+            },
+        )
 
     async def event_generator():
         async for event in stream_kol_research(

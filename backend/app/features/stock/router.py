@@ -8,9 +8,11 @@ import re
 import threading
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+from app.core.deps import optional_user_token
+import app.core.posthog_client as posthog
 from app.shared.data_tools.quotes import get_batch_quotes, get_realtime_quote
 from app.shared.data_tools.search import search_stocks as dt_search_stocks
 from app.shared.data_tools.peers import get_peer_companies
@@ -357,6 +359,7 @@ async def generate_stock_analysis_endpoint(
     request: Request,
     symbol: str,
     force: bool = Query(default=False, description="Force regenerate even if cached"),
+    user_id: str | None = Depends(optional_user_token),
 ):
     """
     Generate AI analysis for an individual stock.
@@ -376,6 +379,13 @@ async def generate_stock_analysis_endpoint(
     # Validate symbol format
     if not re.match(r'^[A-Z0-9.\-]{1,10}$', symbol):
         raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+
+    if user_id and posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id,
+            event="stock_analysis_requested",
+            properties={"symbol": symbol},
+        )
 
     try:
         # Check cache first (unless force=True)
