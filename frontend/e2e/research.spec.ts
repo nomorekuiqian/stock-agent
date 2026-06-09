@@ -888,7 +888,7 @@ test.describe('Screener page (/research)', () => {
     await expect(page.getByRole('button', { name: /一句话选股/ })).toBeVisible();
   });
 
-  test('unauthenticated user can view the public research landing', async ({ browser }) => {
+  test('unauthenticated user sees the research login gate', async ({ browser }) => {
     // Fresh context without login.
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -927,7 +927,7 @@ test.describe('Screener page (/research)', () => {
     await page.goto('/research');
 
     await expect(page).toHaveURL(/\/research/, { timeout: 15000 });
-    await expect(page.getByLabel('消息输入')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '登录后使用 AI 研究助手' })).toBeVisible();
 
     await context.close();
   });

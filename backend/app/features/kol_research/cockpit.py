@@ -615,7 +615,7 @@ async def get_tweets_by_ids(username: str, ids: list[str]) -> list[dict]:
 # Static identity content (not dynamic), hand-distilled for structured display.
 # The skill markdown remains the source for the chat agent.
 # ---------------------------------------------------------------------------
-PROFILE_CORE: dict = {
+PROFILE_CORE_QINBAFRANK: dict = {
     # Public Twitter bio — what the KOL says about themselves on their profile.
     # Distinct from `portrait` (the analytical-lens identity used by the chat agent).
     # Source: verbatim from @qinbafrank's Twitter bio.
@@ -887,9 +887,54 @@ async def get_sector_detail(username: str, sector_key: str) -> Optional[dict]:
     }
 
 
-def get_profile_core() -> dict:
-    """Methodology core (static, curated from overview.md)."""
-    return PROFILE_CORE
+PROFILE_CORE_SERENITY: dict = {
+    "bio": (
+        "AI / 半导体供应链分析师 · 工程师视角下追踪 AI capex 漏斗的物理瓶颈; "
+        "重仓小盘 niche (SIVE / AXTI / AAOI / LITE), 几乎只做多但会轮动; "
+        "tweets 50% 是 quote-tweet 翻译产业新闻"
+    ),
+    "portrait": (
+        "Serenity 用工程师视角拆 AI 资本开支漏斗: 钱从 Mag7 → Neocloud → 光通信 / 定制硅 → "
+        "代工 → 衬底材料; 越往上游, 定价权和确定性越强。她不重仓 Mag7, 而是重仓漏斗末端的小盘 niche, "
+        "在机构发现前定位标的, 然后无视短期波动持有到瓶颈被消解。"
+    ),
+    "principles": [
+        {"title": "瓶颈迁移 (bottleneck rotation)",
+         "gist": "每出现一个新瓶颈, 产业链就把价值传导到下一环。识别「现在卡在哪一环」是定位标的的第一步: GPU → HBM → 电力 → EML 激光 → InP/SiPh 衬底。"},
+        {"title": "长期可见度 > 热度",
+         "gist": "区分多年可见度的瓶颈 (InP / CPO / 玻璃基板) 和迷因热度 (内存周期 / 矿工转型) —— 前者结构性重仓, 后者短期 trade。"},
+        {"title": "机构反指 (institutional contrarian)",
+         "gist": "机构唱空 → 散户卖出 → 机构买入 float → 股价数月后翻倍。下跌 30%+ 时加仓而非减仓, 是她最反人性也最赚钱的规则。"},
+        {"title": "强信念 + 高集中 + 不止损",
+         "gist": "她的高确信仓位常占组合 10%+; 不设止损线, 用「瓶颈是否被消解」这一逻辑判定退出, 而非价格。"},
+        {"title": "工程师视角 BOM 分析",
+         "gist": "从财报、供应链合同、卖方分析师 note 反推 BOM 流向 (AVGO MAIA → MRVL → TSM → LITE/AAOI → AXTI), 把每一环看清楚。"},
+    ],
+    "fingerprint": (
+        "「Bottleneck within a bottleneck」 —— 她抓的是 chokepoint 之内还有 chokepoint 的那个最上游环节, "
+        "如 AXTI 在 InP 衬底里又卡 indium/gallium 原料, SIVE 在 CW DFB 激光里卡 AI 客户量产时间表。"
+    ),
+    "not_doing": [
+        "做空 / 看跌期权",
+        "止损平仓 (用瓶颈逻辑判定, 不用价格)",
+        "高估值 SaaS / meme 股 / 应用层 AI (POET / IREN 这类「稀释维持市值」的也排除)",
+        "技术分析 / K 线 / 趋势线",
+        "宏观流动性 / Fed 利率 / Powell 讲话 (基本不写)",
+    ],
+}
+
+_PROFILE_CORE_BY_USERNAME: dict[str, dict] = {
+    "qinbafrank": PROFILE_CORE_QINBAFRANK,
+    "aleabitoreddit": PROFILE_CORE_SERENITY,
+}
+
+# Back-compat alias used by tests + legacy callers (defaults to Frank).
+PROFILE_CORE = PROFILE_CORE_QINBAFRANK
+
+
+def get_profile_core(username: str = "qinbafrank") -> dict:
+    """Methodology core (static, curated). Per-persona lookup."""
+    return _PROFILE_CORE_BY_USERNAME.get(username, PROFILE_CORE_QINBAFRANK)
 
 
 async def get_feed(

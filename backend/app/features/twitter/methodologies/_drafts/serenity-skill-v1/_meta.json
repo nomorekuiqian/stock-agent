@@ -1,0 +1,96 @@
+{
+  "username": "aleabitoreddit",
+  "schema_version": 1,
+  "sectors": [
+    {
+      "key": "ai-infrastructure-mag7",
+      "label": "AI 算力 · Mag7 锚",
+      "eyebrow": "AI INFRASTRUCTURE",
+      "path": "sector/ai-infrastructure-mag7.md",
+      "layer": "sector",
+      "short": "NVDA / AVGO / MRVL / TSM · 大盘 anchor 配置, alpha 在下游",
+      "order": 10
+    },
+    {
+      "key": "photonics-and-cpo",
+      "label": "光子学 · CPO",
+      "eyebrow": "PHOTONICS & CPO",
+      "path": "sector/photonics-and-cpo.md",
+      "layer": "sector",
+      "short": "光通信 · 数据中心从 800G → 1.6T → CPO 跃迁的主战场",
+      "order": 20
+    },
+    {
+      "key": "memory-and-hbm",
+      "label": "存储与 HBM",
+      "eyebrow": "MEMORY & HBM",
+      "path": "sector/memory-and-hbm.md",
+      "layer": "sector",
+      "short": "HBM 紧缺循环 · MU / SNDK + AEHR 测试设备",
+      "order": 30
+    },
+    {
+      "key": "defense-and-space",
+      "label": "国防与太空",
+      "eyebrow": "DEFENSE & SPACE",
+      "path": "sector/defense-and-space.md",
+      "layer": "sector",
+      "short": "商业航天 + 国防 · RKLB / 太空发射子系统",
+      "order": 40
+    },
+    {
+      "key": "power-and-electrical",
+      "label": "电力与数据中心电力",
+      "eyebrow": "POWER & ELECTRICAL",
+      "path": "sector/power-and-electrical.md",
+      "layer": "sector",
+      "short": "800V HVDC · 数据中心电力扩容 chokepoint",
+      "order": 50
+    },
+    {
+      "key": "optical-transceivers",
+      "label": "光模块",
+      "eyebrow": "OPTICAL TRANSCEIVERS",
+      "path": "sector/optical-transceivers.md",
+      "layer": "sector",
+      "short": "800G → 1.6T → CPO 过渡期 · LITE / COHR / AAOI 主战场",
+      "order": 60
+    },
+    {
+      "key": "substrates",
+      "label": "衬底材料",
+      "eyebrow": "SUBSTRATES",
+      "path": "sector/substrates.md",
+      "layer": "sector",
+      "short": "Substrates supercycle · AXTI / IQE / TSEM / SOI / POET",
+      "order": 70
+    },
+    {
+      "key": "humanoid-robotics",
+      "label": "人形机器人",
+      "eyebrow": "HUMANOID ROBOTICS",
+      "path": "sector/humanoid-robotics.md",
+      "layer": "sector",
+      "short": "人形机器人 + 工业自动化 · 她有专门 crowdsourced list",
+      "order": 80
+    },
+    {
+      "key": "neocloud",
+      "label": "Neocloud",
+      "eyebrow": "NEOCLOUD",
+      "path": "sector/neocloud.md",
+      "layer": "sector",
+      "short": "GPU cloud / Neocloud · NBIS / CRWV / IREN / CIFR / WULF",
+      "order": 90
+    },
+    {
+      "key": "ai-capex-cycle",
+      "label": "AI 资本开支周期",
+      "eyebrow": "AI CAPEX CYCLE",
+      "path": "macro/ai-capex-cycle.md",
+      "layer": "macro",
+      "short": "AI capex 2030 还在 ramp + KR / TW / JP 地缘",
+      "order": 999
+    }
+  ]
+}

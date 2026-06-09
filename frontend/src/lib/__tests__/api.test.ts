@@ -1189,4 +1189,26 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('kolResearch.cockpitHighConviction', () => {
+    it('GETs the persona high-conviction endpoint', async () => {
+      const payload = { groups: [] };
+      mockFetchOk(payload);
+
+      const result = await api.kolResearch.cockpitHighConviction('aleabitoreddit');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/kol_research/personas/aleabitoreddit/high-conviction'),
+      );
+      expect(result).toEqual(payload);
+    });
+
+    it('throws on non-ok response', async () => {
+      mockFetchError(500);
+
+      await expect(
+        api.kolResearch.cockpitHighConviction('aleabitoreddit'),
+      ).rejects.toThrow('Failed to load high-conviction grid');
+    });
+  });
+
 });

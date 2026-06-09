@@ -2,17 +2,27 @@
 
 import { useKolCockpitSector } from '@/hooks/queries/use-kol-data';
 import MacroRegimeFramework from './MacroRegimeFramework';
+import SerenityMacroFramework from './SerenityMacroFramework';
 
-const MACRO_REGIME_KEY = 'macro-regime';
+// Per-persona macro sector key. Each persona's macro layer lives under a
+// different filename — Frank's is `macro-regime`, Serenity's is the AI capex
+// cycle. Add an entry here when a new persona ships.
+const MACRO_KEY_BY_USERNAME: Record<string, string> = {
+  qinbafrank: 'macro-regime',
+  aleabitoreddit: 'ai-capex-cycle',
+};
+const DEFAULT_MACRO_KEY = 'macro-regime';
 
 interface Props {
   username: string;
 }
 
 export default function MacroPerspectivePanel({ username }: Props) {
+  const u = username.toLowerCase();
+  const macroKey = MACRO_KEY_BY_USERNAME[u] ?? DEFAULT_MACRO_KEY;
   const { data: detail, isLoading, isError } = useKolCockpitSector(
     username,
-    MACRO_REGIME_KEY,
+    macroKey,
   );
 
   if (isError) {
@@ -25,6 +35,13 @@ export default function MacroPerspectivePanel({ username }: Props) {
 
   if (isLoading || !detail) {
     return <MacroPerspectiveSkeleton />;
+  }
+
+  // Frank's macro view is a full liquidity / inflation / economy atlas — that
+  // chrome is irrelevant for Serenity (who doesn't track Fed). Render a
+  // skill-only macro framework for her instead.
+  if (u === 'aleabitoreddit') {
+    return <SerenityMacroFramework detail={detail} username={username} />;
   }
 
   return <MacroRegimeFramework detail={detail} username={username} />;

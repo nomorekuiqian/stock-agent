@@ -56,7 +56,7 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "market-lens-smoke-test", version: "0.4.0" },
+    clientInfo: { name: "market-lens-smoke-test", version: "0.4.1" },
   });
   notify("notifications/initialized");
 
@@ -101,7 +101,6 @@ try {
     toolCount: toolNames.length,
     tools: toolNames,
     statusOk: parsedStatus.ok,
-    hasInviteCode: parsedStatus.adapter.has_invite_code,
   }, null, 2));
 } finally {
   child.kill();

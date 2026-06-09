@@ -60,6 +60,10 @@ def material_persona_exists(username: str) -> bool:
     return _persona_root(username).is_dir()
 
 
+def supported_workflows(username: str) -> list[str]:
+    return _supported_workflows(username)
+
+
 def list_lenses(username: str, lens_type: str | None = None) -> dict[str, Any]:
     """List all distilled material lenses for a persona.
 

@@ -8,7 +8,7 @@ mcp/market-lens/
 
 ## 产品形态
 
-当前采用 backend-first beta 形态：
+当前采用 backend-first 形态：
 
 ```text
 用户 Agent
@@ -20,8 +20,8 @@ mcp/market-lens/
 ```
 
 本地 NPM 包只是薄 adapter，不再打包完整 persona 蒸馏资产。核心 assets、
-ticker/sector playbook、Evidence Map、workflow、usage logging 和未来付费能力
-都在 backend。当前默认 persona 是 `qinbafrank`。
+ticker/sector playbook、Evidence Map 和 workflow 都在 backend。当前默认
+persona 是 `qinbafrank`。
 
 ## 用户安装
 
@@ -37,12 +37,6 @@ ticker/sector playbook、Evidence Map、workflow、usage logging 和未来付费
 - MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api
 - MARKET_LENS_PERSONA=qinbafrank
 
-请先向我索取 MARKET_LENS_INVITE_CODE。这个邀请码是敏感信息：
-- 不要把邀请码打印到聊天记录里
-- 不要提交到 git
-- 不要写入项目源码
-- 只写入本机 MCP 客户端配置
-
 请根据当前环境选择安装方式：
 1. 如果是 Codex，优先使用 `codex mcp add market-lens ...`。
 2. 如果是 Claude Code，优先使用 `claude mcp add market-lens -s user ...`。
@@ -54,7 +48,7 @@ ticker/sector playbook、Evidence Map、workflow、usage logging 和未来付费
 安装后请验证：
 - MCP 配置里 command 是 npx
 - args 是 ["-y", "@themarketbrew/market-lens-mcp"]
-- env 包含 MARKET_LENS_BACKEND_URL、MARKET_LENS_INVITE_CODE、MARKET_LENS_PERSONA
+- env 包含 MARKET_LENS_BACKEND_URL；MARKET_LENS_PERSONA 可选
 - 如果当前客户端已经能刷新 MCP，请调用 market_lens_status 检查连接
 - 如果不能刷新，请告诉我需要重启客户端，然后让我重启后调用 market_lens_status
 ```
@@ -64,25 +58,25 @@ ticker/sector playbook、Evidence Map、workflow、usage logging 和未来付费
 Codex：
 
 ```bash
-codex mcp add market-lens --env MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api --env MARKET_LENS_INVITE_CODE=YOUR_INVITE_CODE --env MARKET_LENS_PERSONA=qinbafrank -- npx -y @themarketbrew/market-lens-mcp
+codex mcp add market-lens --env MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api --env MARKET_LENS_PERSONA=qinbafrank -- npx -y @themarketbrew/market-lens-mcp
 ```
 
 Claude Code：
 
 ```bash
-claude mcp add market-lens -s user -e MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api -e MARKET_LENS_INVITE_CODE=YOUR_INVITE_CODE -e MARKET_LENS_PERSONA=qinbafrank -- npx -y @themarketbrew/market-lens-mcp
+claude mcp add market-lens -s user -e MARKET_LENS_BACKEND_URL=https://stock-agent-production.up.railway.app/api -e MARKET_LENS_PERSONA=qinbafrank -- npx -y @themarketbrew/market-lens-mcp
 ```
 
 Claude Desktop：
 
 ```bash
-INVITE_CODE=YOUR_INVITE_CODE node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=process.platform==="win32"?path.join(process.env.APPDATA,"Claude","claude_desktop_config.json"):path.join(os.homedir(),"Library/Application Support/Claude/claude_desktop_config.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),"market-lens":{command:"npx",args:["-y","@themarketbrew/market-lens-mcp"],env:{MARKET_LENS_BACKEND_URL:"https://stock-agent-production.up.railway.app/api",MARKET_LENS_INVITE_CODE:process.env.INVITE_CODE,MARKET_LENS_PERSONA:"qinbafrank"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed market-lens in "+file);'
+node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=process.platform==="win32"?path.join(process.env.APPDATA,"Claude","claude_desktop_config.json"):path.join(os.homedir(),"Library/Application Support/Claude/claude_desktop_config.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),"market-lens":{command:"npx",args:["-y","@themarketbrew/market-lens-mcp"],env:{MARKET_LENS_BACKEND_URL:"https://stock-agent-production.up.railway.app/api",MARKET_LENS_PERSONA:"qinbafrank"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed market-lens in "+file);'
 ```
 
 Cursor：
 
 ```bash
-INVITE_CODE=YOUR_INVITE_CODE node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=path.join(os.homedir(),".cursor","mcp.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),"market-lens":{command:"npx",args:["-y","@themarketbrew/market-lens-mcp"],env:{MARKET_LENS_BACKEND_URL:"https://stock-agent-production.up.railway.app/api",MARKET_LENS_INVITE_CODE:process.env.INVITE_CODE,MARKET_LENS_PERSONA:"qinbafrank"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed market-lens in "+file);'
+node -e 'const fs=require("fs"),os=require("os"),path=require("path");const file=path.join(os.homedir(),".cursor","mcp.json");fs.mkdirSync(path.dirname(file),{recursive:true});const cfg=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,"utf8")||"{}"):{};cfg.mcpServers={...(cfg.mcpServers||{}),"market-lens":{command:"npx",args:["-y","@themarketbrew/market-lens-mcp"],env:{MARKET_LENS_BACKEND_URL:"https://stock-agent-production.up.railway.app/api",MARKET_LENS_PERSONA:"qinbafrank"}}};fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");console.log("Installed market-lens in "+file);'
 ```
 
 MCP Client 手动配置：
@@ -95,7 +89,6 @@ MCP Client 手动配置：
       "args": ["-y", "@themarketbrew/market-lens-mcp"],
       "env": {
         "MARKET_LENS_BACKEND_URL": "https://stock-agent-production.up.railway.app/api",
-        "MARKET_LENS_INVITE_CODE": "YOUR_INVITE_CODE",
         "MARKET_LENS_PERSONA": "qinbafrank"
       }
     }
@@ -103,15 +96,14 @@ MCP Client 手动配置：
 }
 ```
 
-内测期免费，但 workflow/evidence 工具需要邀请码。邀请码存储在 Insforge
-`frank_lens_invites` table，通过 `frank-lens-beta` Edge Function 校验。
-`FRANK_LENS_*` env 仍作为兼容 fallback，但新配置使用 `MARKET_LENS_*`。
+Market Lens MCP 只需要 backend URL。`FRANK_LENS_BACKEND_URL` 和
+`FRANK_LENS_PERSONA` env 仍作为兼容 fallback，但新配置使用 `MARKET_LENS_*`。
 
 ## Tools
 
 主工具是 persona-neutral 的 `market_lens_*`，通过 `persona` 参数切换博主：
 
-- `market_lens_status`：检查 adapter/backend/invite/persona 状态。
+- `market_lens_status`：检查 adapter/backend/persona 状态。
 - `market_lens_personas`：列出可用 persona、蒸馏物料数量和 capability。
 - `market_lens_list_lenses`：返回 `core/framework/macro/sector/ticker` lens index。
 - `market_lens_get_lens`：返回单个完整蒸馏 lens、sections、metadata、Evidence Map ids。
@@ -133,8 +125,7 @@ MCP Client 手动配置：
 - `frank_compare`
 - `frank_research_memo`
 
-`market_lens_status` 和 `market_lens_personas` 可以无邀请码调用。Material、
-evidence、context、workflow tools 需要 `MARKET_LENS_INVITE_CODE`。
+Material、evidence、context、workflow tools 都通过 backend URL 调用。
 
 ## Backend Endpoints
 
@@ -192,7 +183,7 @@ Backend targeted tests:
 ```bash
 cd /Users/kedeng/projects/stock-agent/backend
 source venv/bin/activate
-python -m pytest tests/test_frank_lens_mcp_beta.py -v
+python -m pytest tests/test_market_lens_mcp.py -v
 python -c "from app.main import app; print('FastAPI app loaded OK'); print(len(app.routes))"
 ```
 
@@ -206,15 +197,13 @@ python -c "from app.main import app; print('FastAPI app loaded OK'); print(len(a
 - material search：`market_lens_search_lenses` 必须能跨 layer 找到相关 lens。
 - evidence bridge：`market_lens_get_evidence_by_ids` 必须能把 Evidence Map ids
   交给 cockpit reader 取原始推文。
-- access control：缺 invite 返回 401；无效 invite 返回 403；有
-  `allowed_personas` / `allowed_workflows` 时必须强制 scope。
+- public access：材料、证据和 workflow endpoints 不需要额外 header，但业务参数校验仍然生效。
 - package boundary：`npm pack --dry-run` 不能包含完整 methodology assets。
 
 Live smoke：
 
 ```bash
 MARKET_LENS_BACKEND_URL=http://127.0.0.1:8000/api \
-MARKET_LENS_INVITE_CODE=beta_xxx \
 npm run smoke:live
 ```
 

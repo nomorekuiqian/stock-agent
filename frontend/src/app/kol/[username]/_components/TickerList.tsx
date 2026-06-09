@@ -109,6 +109,11 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
                       >
                         ${t.ticker}
                       </span>
+                      {t.region && t.region !== 'US' ? (
+                        <span className="font-data rounded-sm border border-border/50 px-1 py-0 text-micro tracking-wide text-muted-foreground">
+                          {t.region}
+                        </span>
+                      ) : null}
                       {active ? (
                         <span className="rounded-sm border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                           当前

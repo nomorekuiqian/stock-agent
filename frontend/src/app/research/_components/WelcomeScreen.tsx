@@ -253,13 +253,38 @@ const PERSONAS: Record<string, PersonaDescriptor> = {
       },
     ],
   },
+  aleabitoreddit: {
+    displayName: 'Serenity',
+    tagline: ['光子 / CPO', 'AI 半导体供应链', 'small-cap 瓶颈'],
+    quotes: [
+      {
+        label: '选股观',
+        text: '顺着 hyperscaler 的万亿 capex 漏斗往供应链最底层下沉，找那个少数公司绕不过去的 chokepoint。',
+      },
+      {
+        label: '估值观',
+        text: '只看 forward。市场提前约 8 个月定价，争论去年营收对 thesis 毫无意义。',
+      },
+      {
+        label: '反共识观',
+        text: 'Institutions are not your friends——卖方唱空一只在涨的票，往往是机构在低位吸筹。',
+      },
+      {
+        label: '风控观',
+        text: '方向对不等于时机对。thesis 不破就不因波动卖，拥抱波动、按瓶颈接力轮动。',
+      },
+    ],
+  },
 };
 
 function getPersonaDescriptor(username: string | null): PersonaDescriptor {
   if (username && PERSONAS[username]) return PERSONAS[username];
+  // Unknown persona: stay persona-agnostic — never borrow another KOL's
+  // tagline/quotes. Show just the handle with no fabricated voice.
   return {
-    ...PERSONAS.qinbafrank,
-    displayName: username || 'qinbafrank',
+    displayName: username || '',
+    tagline: [],
+    quotes: [],
   };
 }
 
@@ -846,7 +871,7 @@ function PersonaLensActions({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium tracking-[0.15em] text-primary">
-                qinbafrank LENS
+                {name.toUpperCase()} LENS
               </span>
               <span aria-hidden className="h-1 w-1 rounded-full bg-border" />
               <span className="text-sm font-medium text-muted-foreground">

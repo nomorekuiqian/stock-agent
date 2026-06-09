@@ -18,7 +18,6 @@ const mock = http.createServer((req, res) => {
     calls.push({
       method: req.method,
       url: req.url,
-      invite: req.headers["x-frank-lens-invite-code"] || null,
       body,
     });
     res.setHeader("Content-Type", "application/json");
@@ -27,8 +26,7 @@ const mock = http.createServer((req, res) => {
       res.end(JSON.stringify({
         ok: true,
         persona_username: "qinbafrank",
-        mode: "backend_first_beta",
-        beta: { access: req.headers["x-frank-lens-invite-code"] ? "valid" : "missing" },
+        mode: "backend_first",
       }));
       return;
     }
@@ -44,12 +42,6 @@ const mock = http.createServer((req, res) => {
           supported_workflows: ["stock_diagnosis", "market_regime", "compare", "research_memo"],
         }],
       }));
-      return;
-    }
-
-    if (!req.headers["x-frank-lens-invite-code"]) {
-      res.statusCode = 401;
-      res.end(JSON.stringify({ detail: "invite_code_required" }));
       return;
     }
 
@@ -140,7 +132,6 @@ const mock = http.createServer((req, res) => {
         methodology_context: { workflow: body.workflow },
         answer_discipline: ["Do not impersonate qinbafrank."],
         suggested_answer_shape: ["User agent writes final answer."],
-        beta: { access: "valid", invite_code_id: "mock" },
         share_url: null,
       }));
       return;
@@ -159,7 +150,6 @@ const child = spawn(process.execPath, [serverPath], {
   env: {
     ...process.env,
     MARKET_LENS_BACKEND_URL: `http://127.0.0.1:${port}/api`,
-    MARKET_LENS_INVITE_CODE: "BETA_TEST",
   },
 });
 
@@ -212,7 +202,7 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "market-lens-adapter-smoke-test", version: "0.4.0" },
+    clientInfo: { name: "market-lens-adapter-smoke-test", version: "0.4.1" },
   });
   notify("notifications/initialized");
 
@@ -280,17 +270,14 @@ try {
     arguments: { question: "帮我研究 CRWV 的产业逻辑。", ticker: "CRWV" },
   }));
 
-  const protectedCalls = calls.filter((call) => (
+  const backendCalls = calls.filter((call) => (
     call.url.includes("/mcp/search")
     || call.url.includes("/mcp/workflow")
     || call.url.includes("/mcp/lenses")
     || call.url.includes("/mcp/evidence")
     || call.url.includes("/mcp/context")
   ));
-  if (protectedCalls.some((call) => call.invite !== "BETA_TEST")) {
-    throw new Error("Protected backend calls did not include invite code");
-  }
-  const workflows = protectedCalls
+  const workflows = backendCalls
     .map((call) => call.body.workflow)
     .filter(Boolean)
     .sort();
@@ -299,7 +286,7 @@ try {
     ok: true,
     backendCalls: calls.length,
     workflows,
-    searchCalled: protectedCalls.some((call) => call.url.includes("/mcp/search")),
+    searchCalled: backendCalls.some((call) => call.url.includes("/mcp/search")),
   }, null, 2));
 } finally {
   child.kill();

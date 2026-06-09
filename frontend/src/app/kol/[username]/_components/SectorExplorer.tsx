@@ -12,14 +12,20 @@ import {
   Cpu,
   FileText,
   Gauge,
+  HardDrive,
   Layers3,
   MessageCircle,
   PanelsTopLeft,
+  Plug,
   Quote,
+  Rocket,
+  ServerCog,
   Shield,
   ShieldAlert,
   TrendingDown,
   TrendingUp,
+  Wand2,
+  Zap,
 } from 'lucide-react';
 
 import { api, type KolCockpitTweet, type KolSectorDetail, type KolSectorSummary } from '@/lib/api';
@@ -94,7 +100,97 @@ const FALLBACK_VISUAL: SectorVisual = {
   subtopics: [],
 };
 
-function getSectorVisual(key: string): SectorVisual {
+// Serenity's 9 supply-chain layers. Visual language matches Frank's: same
+// chip + icon-tone vocabulary, but each tile carries her own bottleneck
+// thesis and the sub-layer tags she actually tracks.
+const SERENITY_SECTOR_VISUALS: Record<string, SectorVisual> = {
+  'ai-infrastructure-mag7': {
+    icon: <Cpu className="h-4 w-4" />,
+    accent: 'border-primary/35 bg-primary/[0.055]',
+    iconTone: 'border-primary/30 bg-primary/10 text-primary',
+    bar: 'bg-primary/70',
+    badge: '锚配置',
+    thesis: 'Mag7 + NVDA + TSM 是 anchor,alpha 在更上游的瓶颈环节。',
+    subtopics: ['NVDA', 'TSM', 'GOOGL'],
+  },
+  'photonics-and-cpo': {
+    icon: <Wand2 className="h-4 w-4" />,
+    accent: 'border-sky-500/35 bg-sky-500/[0.055]',
+    iconTone: 'border-sky-500/30 bg-sky-500/10 text-sky-400',
+    bar: 'bg-sky-500/70',
+    badge: 'chokepoint',
+    thesis: '800G → 1.6T → CPO 量产, SIVE / 光器件链是核心 chokepoint。',
+    subtopics: ['CW DFB 激光', 'EML', 'POET'],
+  },
+  'optical-transceivers': {
+    icon: <Plug className="h-4 w-4" />,
+    accent: 'border-violet-500/35 bg-violet-500/[0.055]',
+    iconTone: 'border-violet-500/30 bg-violet-500/10 text-violet-400',
+    bar: 'bg-violet-500/70',
+    badge: '主战场',
+    thesis: '800G/1.6T 过渡期 · LITE / COHR / AAOI 美国本土制造溢价。',
+    subtopics: ['LITE', 'COHR', 'AAOI'],
+  },
+  'substrates': {
+    icon: <Layers3 className="h-4 w-4" />,
+    accent: 'border-amber-500/35 bg-amber-500/[0.055]',
+    iconTone: 'border-amber-500/30 bg-amber-500/10 text-amber-500',
+    bar: 'bg-amber-500/70',
+    badge: 'supercycle',
+    thesis: '衬底 supercycle · AXTI / IQE / TSEM / SOI / POET 都是上游瓶颈。',
+    subtopics: ['InP', 'GaAs', 'SiPh'],
+  },
+  'memory-and-hbm': {
+    icon: <HardDrive className="h-4 w-4" />,
+    accent: 'border-emerald-500/35 bg-emerald-500/[0.055]',
+    iconTone: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
+    bar: 'bg-emerald-500/70',
+    badge: '紧缺循环',
+    thesis: 'HBM 紧缺循环 · MU / SNDK + AEHR 测试设备承接 ramp。',
+    subtopics: ['MU', 'SNDK', 'AEHR'],
+  },
+  'neocloud': {
+    icon: <ServerCog className="h-4 w-4" />,
+    accent: 'border-rose-500/35 bg-rose-500/[0.055]',
+    iconTone: 'border-rose-500/30 bg-rose-500/10 text-rose-400',
+    bar: 'bg-rose-500/70',
+    badge: 'GPU 云',
+    thesis: 'GPU 云 / Neocloud · NBIS 「下一个 Microsoft」。',
+    subtopics: ['NBIS', 'CRWV', 'IREN'],
+  },
+  'power-and-electrical': {
+    icon: <Zap className="h-4 w-4" />,
+    accent: 'border-yellow-500/35 bg-yellow-500/[0.055]',
+    iconTone: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500',
+    bar: 'bg-yellow-500/70',
+    badge: 'chokepoint',
+    thesis: '800V HVDC · 数据中心电力扩容卡脖子。',
+    subtopics: ['HPS.A', 'HVDC', 'data-center'],
+  },
+  'defense-and-space': {
+    icon: <Shield className="h-4 w-4" />,
+    accent: 'border-slate-400/35 bg-slate-400/[0.055]',
+    iconTone: 'border-slate-400/30 bg-slate-400/10 text-slate-300',
+    bar: 'bg-slate-400/70',
+    badge: '硬资产',
+    thesis: '商业航天 + 国防 · RKLB / 太空发射子系统。',
+    subtopics: ['RKLB', '商业航天', '国防'],
+  },
+  'humanoid-robotics': {
+    icon: <Rocket className="h-4 w-4" />,
+    accent: 'border-fuchsia-500/35 bg-fuchsia-500/[0.055]',
+    iconTone: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-400',
+    bar: 'bg-fuchsia-500/70',
+    badge: '新主题',
+    thesis: '人形机器人 + 工业自动化 · 专门 crowdsourced list。',
+    subtopics: ['humanoid', '工业自动化'],
+  },
+};
+
+function getSectorVisual(key: string, isSerenity: boolean): SectorVisual {
+  if (isSerenity) {
+    return SERENITY_SECTOR_VISUALS[key] ?? FALLBACK_VISUAL;
+  }
   return SECTOR_VISUALS[key] ?? FALLBACK_VISUAL;
 }
 
@@ -107,6 +203,7 @@ export default function SectorExplorer({ username }: Props) {
   const searchParams = useSearchParams();
   const initialKey = searchParams?.get('key') ?? null;
   const isLegacyMacroRoute = initialKey === 'macro-regime';
+  const isSerenity = username.toLowerCase() === 'aleabitoreddit';
 
   const { data, isError } = useKolCockpitSectors(username);
   const sectorOnly = useMemo(
@@ -188,23 +285,28 @@ export default function SectorExplorer({ username }: Props) {
     .filter((detail): detail is KolSectorDetail => Boolean(detail));
   const maxTweetCount = Math.max(1, ...sectorOnly.map((sector) => sector.tweet_count));
 
+  const heading = isSerenity
+    ? `${sectorOnly.length} 条供应链环节`
+    : `${sectorOnly.length === 4 ? '四' : sectorOnly.length === 3 ? '三' : `${sectorOnly.length}`}条主线`;
+  const headingSub = isSerenity
+    ? '每个环节都汇总了她在该层的瓶颈判断、代表标的与历史原文。'
+    : '每条主线都汇总了历史推文里的子主题、标的和代表原文。';
+
   return (
     <div className="space-y-10 pb-12 pt-5 md:pt-6">
-      <SectorMethodStrip />
+      <SectorMethodStrip isSerenity={isSerenity} />
 
       <section>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              01 · 板块地图
+              01 · {isSerenity ? '供应链漏斗' : '板块地图'}
             </p>
             <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-              四条主线
+              {heading}
             </h3>
           </div>
-          <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-            每条主线都汇总了历史推文里的子主题、标的和代表原文。
-          </p>
+          <p className="max-w-md text-sm leading-relaxed text-muted-foreground">{headingSub}</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
           {sectorOnly.map((sector) => (
@@ -214,6 +316,7 @@ export default function SectorExplorer({ username }: Props) {
               detail={detailsByKey.get(sector.key)}
               active={activeKey === sector.key}
               maxTweetCount={maxTweetCount}
+              isSerenity={isSerenity}
               onClick={() => expandSector(sector.key)}
             />
           ))}
@@ -223,10 +326,10 @@ export default function SectorExplorer({ username }: Props) {
       <section className="space-y-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            02 · 过往观点
+            02 · {isSerenity ? '每条环节的方法论与原文' : '过往观点'}
           </p>
           <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-            每个板块的过往观点
+            {isSerenity ? '逐层展开她的供应链 thesis' : '每个板块的过往观点'}
           </h3>
         </div>
 
@@ -242,6 +345,7 @@ export default function SectorExplorer({ username }: Props) {
                 detail={detail}
                 open={open}
                 username={username}
+                isSerenity={isSerenity}
                 onToggle={() => expandSector(sector.key)}
               />
             );
@@ -249,26 +353,45 @@ export default function SectorExplorer({ username }: Props) {
         </div>
       </section>
 
-      <SectorAtlasSummary sectors={sectorOnly} details={loadedDetails} />
+      <SectorAtlasSummary
+        sectors={sectorOnly}
+        details={loadedDetails}
+        isSerenity={isSerenity}
+      />
     </div>
   );
 }
 
-function SectorMethodStrip() {
-  const steps = [
-    {
-      label: '定位主线',
-      body: '先判断这条机会属于哪条产业链，而不是按传统行业分类。',
-    },
-    {
-      label: '找兑现证据',
-      body: '看订单、收入、capex、政策或链上采用是否真的发生。',
-    },
-    {
-      label: '设打脸条件',
-      body: '每个机会都要能被数据推翻，避免只剩叙事。',
-    },
-  ];
+function SectorMethodStrip({ isSerenity = false }: { isSerenity?: boolean }) {
+  const steps = isSerenity
+    ? [
+        {
+          label: '找瓶颈',
+          body: '识别 AI capex 漏斗当前卡在哪一环 (GPU → HBM → 光通信 → 衬底)。',
+        },
+        {
+          label: '上游定位',
+          body: '钱越往上游、越往物理材料层, 定价权和确定性越强。重仓的不是 Mag7, 而是漏斗末端的 niche。',
+        },
+        {
+          label: '兑现节奏',
+          body: '看客户量产时间表 / RPO 增速 / 13F 机构流向 / 地缘事件如何放大定价权。',
+        },
+      ]
+    : [
+        {
+          label: '定位主线',
+          body: '先判断这条机会属于哪条产业链，而不是按传统行业分类。',
+        },
+        {
+          label: '找兑现证据',
+          body: '看订单、收入、capex、政策或链上采用是否真的发生。',
+        },
+        {
+          label: '设打脸条件',
+          body: '每个机会都要能被数据推翻，避免只剩叙事。',
+        },
+      ];
 
   return (
     <section className="grid gap-3 rounded-lg border border-border/40 bg-card/20 p-4 md:grid-cols-3">
@@ -292,16 +415,18 @@ function SectorMapCard({
   detail,
   active,
   maxTweetCount,
+  isSerenity = false,
   onClick,
 }: {
   sector: KolSectorSummary;
   detail?: KolSectorDetail;
   active: boolean;
   maxTweetCount: number;
+  isSerenity?: boolean;
   onClick: () => void;
 }) {
   const topTickers = (detail?.tickers ?? []).slice(0, 4);
-  const visual = getSectorVisual(sector.key);
+  const visual = getSectorVisual(sector.key, isSerenity);
   const mainPoint = visual.thesis || pickViewpoints(detail).at(0) || sector.short;
   const attentionWidth = `${Math.max(8, Math.round((sector.tweet_count / maxTweetCount) * 100))}%`;
   return (
@@ -388,6 +513,7 @@ function SectorNarrativePanel({
   detail,
   open,
   username,
+  isSerenity = false,
   onToggle,
 }: {
   index: number;
@@ -395,18 +521,24 @@ function SectorNarrativePanel({
   detail?: KolSectorDetail;
   open: boolean;
   username: string;
+  isSerenity?: boolean;
   onToggle: () => void;
 }) {
   const viewpoints = pickViewpoints(detail);
   const comments = detail?.rep_tweets.slice(0, 2) ?? [];
   const falsifier = detail?.falsifiers[0]?.text;
-  const visual = getSectorVisual(sector.key);
-  const hasChainView = CHAIN_BOARDS.has(sector.key);
+  const visual = getSectorVisual(sector.key, isSerenity);
+  const hasChainView = !isSerenity && CHAIN_BOARDS.has(sector.key);
   const expandLabel = hasChainView ? '看产业链' : '看框架';
   const collapseLabel = hasChainView ? '收起产业链' : '收起框架';
+  const personaName = isSerenity ? 'Serenity' : 'qinbafrank';
+  const chatPromptCue = isSerenity
+    ? `按 Serenity 的供应链漏斗,总结一下${sector.label}这一环的瓶颈、代表标的和减仓信号。`
+    : `按 qinbafrank 的框架，总结一下${sector.label}的机会、风险和打脸条件。`;
   const chatHref =
     `/research?agent=kol&persona=${encodeURIComponent(username)}` +
-    `&q=${encodeURIComponent(`按 qinbafrank 的框架，总结一下${sector.label}的机会、风险和打脸条件。`)}`;
+    `&q=${encodeURIComponent(chatPromptCue)}`;
+  void personaName;
 
   return (
     <article className={`rounded-lg border bg-card/20 transition-colors ${open ? visual.accent : 'border-border/45'}`}>
@@ -588,9 +720,11 @@ function RuleColumn({
 function SectorAtlasSummary({
   sectors,
   details,
+  isSerenity = false,
 }: {
   sectors: KolSectorSummary[];
   details: KolSectorDetail[];
+  isSerenity?: boolean;
 }) {
   const sorted = [...sectors].sort((a, b) => b.tweet_count - a.tweet_count);
   const topThree = sorted.slice(0, 3);
@@ -603,13 +737,15 @@ function SectorAtlasSummary({
       <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            03 · 板块总结
+            03 · {isSerenity ? '供应链总结' : '板块总结'}
           </p>
           <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
             总结
           </h3>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            这不是一个均匀铺开的行业地图，而是 qinbafrank 注意力最集中的几条产业线。
+            {isSerenity
+              ? '不是均匀铺开的板块图, 而是她沿 AI capex 漏斗追踪的 9 条上游瓶颈, 提及频次反映她当下的注意力。'
+              : '这不是一个均匀铺开的行业地图，而是 qinbafrank 注意力最集中的几条产业线。'}
           </p>
         </div>
 
