@@ -35,6 +35,10 @@ vi.mock('@/components/OnboardingGate', () => ({
   OnboardingGate: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('@/components/PostHogProvider', () => ({
+  PostHogProvider: () => null,
+}));
+
 vi.mock('@/hooks/queries/query-client', () => ({
   makeQueryClient: () => ({}),
 }));

@@ -9,6 +9,7 @@ import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { OnboardingGate } from '@/components/OnboardingGate';
+import { PostHogProvider } from '@/components/PostHogProvider';
 import { makeQueryClient } from '@/hooks/queries/query-client';
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -18,6 +19,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         <AuthProvider>
+          <PostHogProvider />
           <SubscriptionProvider>
             <EntitlementsProvider>
               <TooltipProvider>
