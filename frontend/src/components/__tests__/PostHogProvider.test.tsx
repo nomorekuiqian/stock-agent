@@ -89,12 +89,28 @@ describe('PostHogProvider', () => {
         expect.objectContaining({
           $current_url: 'https://themarketbrew.com/today?utm_source=test',
           path: '/today',
+          $host: 'themarketbrew.com',
+          $pathname: '/today',
+          is_authenticated: false,
+          user_id: undefined,
         }),
       );
     });
   });
 
-  it('identifies authenticated users', async () => {
+  it('waits for auth hydration before capturing pageviews', async () => {
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
+    authState = { isLoading: true, user: null };
+
+    await renderProvider();
+
+    await waitFor(() => {
+      expect(mockInit).toHaveBeenCalled();
+    });
+    expect(mockCapture).not.toHaveBeenCalled();
+  });
+
+  it('identifies authenticated users before capturing pageviews', async () => {
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
     authState = {
       isLoading: false,
@@ -108,6 +124,16 @@ describe('PostHogProvider', () => {
         email: 'user@example.com',
         name: 'Tester',
       });
+      expect(mockCapture).toHaveBeenCalledWith(
+        '$pageview',
+        expect.objectContaining({
+          is_authenticated: true,
+          user_id: 'user-1',
+        }),
+      );
+      expect(mockIdentify.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCapture.mock.invocationCallOrder[0],
+      );
     });
   });
 });
