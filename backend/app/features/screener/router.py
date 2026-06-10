@@ -730,11 +730,12 @@ async def list_conversations(
     user_id: str = Depends(verify_user_token),
     limit: int = 20,
     offset: int = 0,
+    search: str | None = None,
 ):
     """List user's research conversations (lightweight, no data field)."""
     from app.features.screener.conversation_db import list_conversations as db_list
 
-    result = await db_list(user_id, limit=limit, offset=offset)
+    result = await db_list(user_id, limit=limit, offset=offset, search=search)
     return {
         "conversations": result["items"],
         "has_more": result["has_more"],
@@ -903,11 +904,12 @@ async def research_list_conversations(
     user_id: str | None = Depends(optional_user_token),
     limit: int = 20,
     offset: int = 0,
+    search: str | None = None,
 ):
     """List research conversations. Anonymous users get empty list."""
     if not user_id:
         return {"conversations": [], "has_more": False}
-    return await list_conversations(user_id, limit=limit, offset=offset)
+    return await list_conversations(user_id, limit=limit, offset=offset, search=search)
 
 
 @research_router.get("/conversations/{conversation_id}")

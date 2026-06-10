@@ -461,6 +461,26 @@ describe('VIEW_RESULTS', () => {
 });
 
 // ---------------------------------------------------------------------------
+// SET_CONVERSATION_TITLE
+// ---------------------------------------------------------------------------
+
+describe('SET_CONVERSATION_TITLE', () => {
+  it('updates the active conversation title without changing the conversation id', () => {
+    const prev = chatState({
+      conversationId: 'conversation-1',
+      conversationTitle: '旧标题',
+    });
+    const state = researchReducer(prev, {
+      type: 'SET_CONVERSATION_TITLE',
+      title: '新标题',
+    });
+
+    expect(state.conversationId).toBe('conversation-1');
+    expect(state.conversationTitle).toBe('新标题');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // RESET
 // ---------------------------------------------------------------------------
 

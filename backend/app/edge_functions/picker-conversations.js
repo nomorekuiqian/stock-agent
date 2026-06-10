@@ -23,12 +23,84 @@ module.exports = async function(request) {
   const TABLE = "picker_conversations";
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
+  function normalizeText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function findTermIndex(lowerText, term) {
+    if (/^[a-z0-9_]+$/.test(term)) {
+      const match = new RegExp(`(^|[^a-z0-9_])(${escapeRegex(term)})(?![a-z0-9_])`).exec(lowerText);
+      return match ? match.index + match[1].length : -1;
+    }
+    return lowerText.indexOf(term);
+  }
+
+  function matchesAllTerms(text, terms) {
+    const lower = normalizeText(text).toLowerCase();
+    return terms.every((term) => findTermIndex(lower, term) >= 0);
+  }
+
+  function buildSnippet(text, terms) {
+    const normalized = normalizeText(text);
+    const lower = normalized.toLowerCase();
+    let firstIndex = -1;
+    for (const term of terms) {
+      const idx = findTermIndex(lower, term);
+      if (idx >= 0 && (firstIndex === -1 || idx < firstIndex)) {
+        firstIndex = idx;
+      }
+    }
+    if (firstIndex < 0) return normalized.slice(0, 120);
+    const start = Math.max(0, firstIndex - 45);
+    const end = Math.min(normalized.length, firstIndex + 95);
+    return `${start > 0 ? "..." : ""}${normalized.slice(start, end)}${end < normalized.length ? "..." : ""}`;
+  }
+
+  function conversationSearchMatches(row, terms) {
+    const matches = [];
+    const messages = Array.isArray(row.data?.messages) ? row.data.messages : [];
+    for (const message of messages) {
+      if (matches.length >= 3) break;
+      const content = normalizeText(message?.content);
+      if (!content || !matchesAllTerms(content, terms)) continue;
+      const role = message?.role === "assistant" ? "assistant" : "user";
+      matches.push({
+        type: "message",
+        role,
+        label: role === "assistant" ? "助手回答" : "用户消息",
+        snippet: buildSnippet(content, terms),
+      });
+    }
+    const title = normalizeText(row.title);
+    if (matches.length === 0 && matchesAllTerms(title, terms)) {
+      matches.push({ type: "title", label: "标题", snippet: buildSnippet(title, terms) });
+    }
+    return matches;
+  }
+
+  function toConversationSummary(row, searchMatches) {
+    const summary = {
+      id: row.id,
+      user_id: row.user_id,
+      title: row.title,
+      message_count: row.message_count,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+    if (searchMatches) summary.search_matches = searchMatches;
+    return summary;
+  }
+
   try {
     const action = url.searchParams.get("action");
     const userId = url.searchParams.get("user_id");
     const id = url.searchParams.get("id");
 
-    // GET ?action=list&user_id=xxx[&limit=20&offset=0] - list conversations
+    // GET ?action=list&user_id=xxx[&limit=20&offset=0][&search=term] - list conversations
     // (lightweight, no data). limit clamped to [1, 100], default 20.
     // Returns has_more=true when the page is exactly `limit` rows long, which
     // gives the client a cheap "load more" signal without a separate count().
@@ -37,6 +109,38 @@ module.exports = async function(request) {
       const rawOffset = parseInt(url.searchParams.get("offset") || "0", 10);
       const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 20 : rawLimit));
       const offset = Math.max(0, isNaN(rawOffset) ? 0 : rawOffset);
+      const search = (url.searchParams.get("search") || "").trim().toLowerCase();
+
+      if (search) {
+        const SEARCH_SCAN_LIMIT = 1000;
+        const terms = search.split(/\s+/).filter(Boolean);
+        const { data, error } = await client.database
+          .from(TABLE)
+          .select("id, user_id, title, data, message_count, created_at, updated_at")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false })
+          .range(0, SEARCH_SCAN_LIMIT - 1);
+
+        if (error) {
+          return new Response(
+            JSON.stringify({ success: false, error: error.message }),
+            { status: 500, headers: jsonHeaders }
+          );
+        }
+
+        const filtered = (data || [])
+          .map((row) => ({ row, matches: conversationSearchMatches(row, terms) }))
+          .filter((item) => item.matches.length > 0);
+        const rows = filtered
+          .slice(offset, offset + limit)
+          .map((item) => toConversationSummary(item.row, item.matches));
+        const has_more = filtered.length > offset + rows.length;
+
+        return new Response(
+          JSON.stringify({ success: true, data: rows, has_more, limit, offset, search }),
+          { status: 200, headers: jsonHeaders }
+        );
+      }
 
       const { data, error } = await client.database
         .from(TABLE)
@@ -56,7 +160,7 @@ module.exports = async function(request) {
       const has_more = rows.length === limit;
 
       return new Response(
-        JSON.stringify({ success: true, data: rows, has_more, limit, offset }),
+        JSON.stringify({ success: true, data: rows.map((row) => toConversationSummary(row)), has_more, limit, offset }),
         { status: 200, headers: jsonHeaders }
       );
     }

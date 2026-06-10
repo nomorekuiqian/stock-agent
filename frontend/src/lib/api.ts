@@ -1127,11 +1127,19 @@ export interface ResearchResult {
 
 // Research Conversation types
 
+export interface ConversationSearchMatch {
+  type: 'title' | 'message';
+  label: string;
+  snippet: string;
+  role?: 'user' | 'assistant';
+}
+
 export interface ConversationSummary {
   id: string;
   title: string;
   message_count: number;
   updated_at: string;
+  search_matches?: ConversationSearchMatch[];
 }
 
 export interface ConversationSaveRequest {
@@ -2787,12 +2795,13 @@ export const api = {
     },
 
     conversations: {
-      list: async (opts: { limit?: number; offset?: number } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
+      list: async (opts: { limit?: number; offset?: number; search?: string } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
         const headers = await _authHeaders({});
         const hasAuth = !!headers['Authorization'];
         const params = new URLSearchParams();
         if (opts.limit !== undefined) params.set('limit', String(opts.limit));
         if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+        if (opts.search?.trim()) params.set('search', opts.search.trim());
         const qs = params.toString();
         const url = `${API_BASE_URL}/research/conversations${qs ? `?${qs}` : ''}`;
         const response = await fetch(url, { headers });

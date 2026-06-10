@@ -11,6 +11,7 @@ Usage:
 """
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
@@ -97,7 +98,17 @@ class TestListConversations:
         assert len(body["conversations"]) == 1
         assert body["conversations"][0]["title"] == "高股息蓝筹"
         assert body["has_more"] is False
-        mock_list.assert_called_once_with(MOCK_USER_ID, limit=20, offset=0)
+        mock_list.assert_called_once_with(MOCK_USER_ID, limit=20, offset=0, search=None)
+
+    @patch(f"{CONV_DB}.list_conversations", new_callable=AsyncMock)
+    def test_passes_search_to_db(self, mock_list, client):
+        mock_list.return_value = {"items": [], "has_more": False}
+
+        resp = client.get("/api/screener/conversations?limit=10&offset=5&search=AI")
+
+        assert resp.status_code == 200
+        assert resp.json()["conversations"] == []
+        mock_list.assert_called_once_with(MOCK_USER_ID, limit=10, offset=5, search="AI")
 
     @patch(f"{CONV_DB}.list_conversations", new_callable=AsyncMock)
     def test_returns_empty_list(self, mock_list, client):
@@ -106,6 +117,156 @@ class TestListConversations:
         assert resp.status_code == 200
         assert resp.json()["conversations"] == []
         assert resp.json()["has_more"] is False
+
+    @pytest.mark.asyncio
+    async def test_db_search_hydrates_conversations_and_returns_message_snippets(self, monkeypatch):
+        from app.features.screener import conversation_db
+
+        captured_params = []
+
+        async def fake_call_function(name, *, method, params, timeout):
+            captured_params.append(params)
+            assert name == "picker-conversations"
+            assert method == "GET"
+            assert timeout == 10.0
+            return {
+                "data": {
+                    "success": True,
+                    "data": [
+                        {"id": "no-hit", "title": "普通对话", "updated_at": "2026-03-05T10:00:00Z"},
+                        {"id": "hit", "title": "市场讨论", "updated_at": "2026-03-05T11:00:00Z"},
+                    ],
+                    "has_more": False,
+                },
+            }
+
+        conversations = {
+            "no-hit": {
+                "id": "no-hit",
+                "user_id": MOCK_USER_ID,
+                "title": "普通对话",
+                "data": {"messages": [{"role": "user", "content": "怎么看银行股"}]},
+                "message_count": 1,
+                "created_at": "2026-03-05T10:00:00Z",
+                "updated_at": "2026-03-05T10:00:00Z",
+            },
+            "hit": {
+                "id": "hit",
+                "user_id": MOCK_USER_ID,
+                "title": "市场讨论",
+                "data": {
+                    "messages": [
+                        {"role": "user", "content": "最近AI 股有点瑟瑟发抖，兄弟们换方向么？"},
+                        {"role": "assistant", "content": "AI 股分歧变大，先看仓位和兑现压力。"},
+                    ],
+                },
+                "message_count": 2,
+                "created_at": "2026-03-05T11:00:00Z",
+                "updated_at": "2026-03-05T11:00:00Z",
+            },
+        }
+
+        async def fake_get_conversation(conversation_id, user_id):
+            assert user_id == MOCK_USER_ID
+            return conversations[conversation_id]
+
+        service = SimpleNamespace(call_function=fake_call_function)
+        monkeypatch.setattr(conversation_db, "get_insforge_service", lambda: service)
+        monkeypatch.setattr(conversation_db, "get_conversation", fake_get_conversation)
+
+        result = await conversation_db.list_conversations(
+            MOCK_USER_ID,
+            limit=20,
+            offset=0,
+            search="AI 股",
+        )
+
+        assert [item["id"] for item in result["items"]] == ["hit"]
+        assert result["has_more"] is False
+        assert result["items"][0]["search_matches"][0]["type"] == "message"
+        assert result["items"][0]["search_matches"][0]["role"] == "user"
+        assert "AI 股" in result["items"][0]["search_matches"][0]["snippet"]
+        assert captured_params[0]["search"] == "AI 股"
+        assert "search" not in captured_params[1]
+
+    @pytest.mark.asyncio
+    async def test_db_search_uses_edge_result_when_search_matches_present(self, monkeypatch):
+        from app.features.screener import conversation_db
+
+        async def fake_call_function(name, *, method, params, timeout):
+            assert name == "picker-conversations"
+            assert method == "GET"
+            assert params["search"] == "AI 股"
+            assert timeout == 10.0
+            return {
+                "data": {
+                    "success": True,
+                    "data": [
+                        {
+                            "id": "edge-hit",
+                            "title": "AI 股讨论",
+                            "message_count": 2,
+                            "updated_at": "2026-03-05T11:00:00Z",
+                            "search_matches": [
+                                {
+                                    "type": "message",
+                                    "role": "user",
+                                    "label": "用户消息",
+                                    "snippet": "最近AI 股有点瑟瑟发抖",
+                                },
+                            ],
+                        },
+                    ],
+                    "has_more": False,
+                },
+            }
+
+        async def fail_get_conversation(conversation_id, user_id):
+            raise AssertionError("edge search should not hydrate conversation details")
+
+        service = SimpleNamespace(call_function=fake_call_function)
+        monkeypatch.setattr(conversation_db, "get_insforge_service", lambda: service)
+        monkeypatch.setattr(conversation_db, "get_conversation", fail_get_conversation)
+
+        result = await conversation_db.list_conversations(
+            MOCK_USER_ID,
+            limit=8,
+            offset=0,
+            search="AI 股",
+        )
+
+        assert result["items"][0]["id"] == "edge-hit"
+        assert result["items"][0]["search_matches"][0]["snippet"] == "最近AI 股有点瑟瑟发抖"
+        assert result["has_more"] is False
+
+    def test_db_search_uses_word_boundaries_for_ascii_terms(self):
+        from app.features.screener import conversation_db
+
+        terms = conversation_db._search_terms("hi")
+        false_positive_row = {
+            "title": "SIVE thesis",
+            "data": {
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "CHIPS Act support and High Coverage do not contain a standalone greeting.",
+                    },
+                ],
+            },
+        }
+        greeting_row = {
+            "title": "Greeting",
+            "data": {
+                "messages": [
+                    {"role": "user", "content": "Hi, 帮我看看今天市场。"},
+                ],
+            },
+        }
+
+        assert conversation_db._conversation_search_matches(false_positive_row, terms) == []
+        matches = conversation_db._conversation_search_matches(greeting_row, terms)
+        assert matches[0]["type"] == "message"
+        assert matches[0]["snippet"].startswith("Hi")
 
 
 # ---------------------------------------------------------------------------

@@ -1090,6 +1090,18 @@ describe('api (post cache removal)', () => {
       expect(result).toEqual(payload);
     });
 
+    it('passes pagination and search query params', async () => {
+      mockFetchOk({ conversations: [], has_more: false });
+
+      await api.research.conversations.list({ limit: 20, offset: 40, search: '  NVDA thesis  ' });
+
+      const [url] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/conversations?');
+      expect(url).toContain('limit=20');
+      expect(url).toContain('offset=40');
+      expect(url).toContain('search=NVDA+thesis');
+    });
+
     it('throws on 401', async () => {
       mockFetchError(401);
 

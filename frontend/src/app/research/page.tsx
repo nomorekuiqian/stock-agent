@@ -31,6 +31,7 @@ import ChatPanel from './_components/ChatPanel';
 import ContentPanel from './_components/ContentPanel';
 import CanvasPanel from './_components/CanvasPanel';
 import ConversationSidebar from './_components/ConversationSidebar';
+import ConversationSearchDialog from './_components/ConversationSearchDialog';
 import MobileTabSwitch from './_components/MobileTabSwitch';
 import { type AgentKind } from './_components/PersonaSelector';
 import KolChunksPanel from './_components/KolChunksPanel';
@@ -48,6 +49,7 @@ const RESEARCH_MESSAGE_CHAR_LIMIT = 500;
 const KOL_MESSAGE_CHAR_LIMIT = 4000;
 const AGENT_STUCK_TIMEOUT_MS = 140_000;
 const CONVERSATIONS_PAGE_SIZE = 20;
+const CONVERSATION_SEARCH_PAGE_SIZE = 8;
 const CONVERSATIONS_STALE_TIME_MS = 10 * 60 * 1000;
 const CONVERSATIONS_GC_TIME_MS = 60 * 60 * 1000;
 const CONVERSATIONS_STORAGE_MAX_AGE_MS = 60 * 60 * 1000;
@@ -110,6 +112,10 @@ function dedupeConversations(pages: ConversationListPage[]): ConversationSummary
     }
   }
   return result;
+}
+
+function normalizeConversationSearch(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 function formatConversationTitle(agentTitle: string): string {
@@ -216,6 +222,9 @@ function ScreenerContent() {
   const [state, dispatch] = useReducer(researchReducer, initialState, loadState);
   const [mobileTab, setMobileTab] = useState<'chat' | 'results'>('chat');
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [conversationSearchOpen, setConversationSearchOpen] = useState(false);
+  const [conversationSearch, setConversationSearch] = useState('');
+  const [debouncedConversationSearch, setDebouncedConversationSearch] = useState('');
   const prevPhaseRef = useRef(state.phase);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [quota, setQuota] = useState<{ allowed: boolean; used: number; limit: number; remaining: number; unlimited: boolean } | null>(null);
@@ -281,7 +290,16 @@ function ScreenerContent() {
     () => queryKeys.research.conversations(conversationUserId, CONVERSATIONS_PAGE_SIZE),
     [conversationUserId],
   );
-  const shouldLoadConversations = !authLoading && !!userId && (state.phase === 'welcome' || historyOpen);
+  const conversationSearchQueryKey = useMemo(
+    () => queryKeys.research.conversations(
+      conversationUserId,
+      CONVERSATION_SEARCH_PAGE_SIZE,
+      debouncedConversationSearch,
+    ),
+    [conversationUserId, debouncedConversationSearch],
+  );
+  const shouldLoadConversations = !authLoading && !!userId && (state.phase === 'welcome' || historyOpen || conversationSearchOpen);
+  const shouldSearchConversations = !authLoading && !!userId && conversationSearchOpen && !!debouncedConversationSearch;
   const storedConversationList = useMemo(
     () => (userId ? readStoredConversations(userId) : undefined),
     [userId],
@@ -314,10 +332,39 @@ function ScreenerContent() {
     () => dedupeConversations(conversationsQuery.data?.pages ?? []),
     [conversationsQuery.data],
   );
+  const searchConversationsQuery = useInfiniteQuery<
+    ConversationListPage,
+    Error,
+    ConversationListInfiniteData,
+    typeof conversationSearchQueryKey,
+    number
+  >({
+    queryKey: conversationSearchQueryKey,
+    queryFn: ({ pageParam }) => api.research.conversations.list({
+      limit: CONVERSATION_SEARCH_PAGE_SIZE,
+      offset: pageParam,
+      search: debouncedConversationSearch,
+    }),
+    enabled: shouldSearchConversations,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.has_more) return undefined;
+      return allPages.reduce((offset, page) => offset + (page.conversations?.length ?? 0), 0);
+    },
+    staleTime: CONVERSATIONS_STALE_TIME_MS,
+    gcTime: CONVERSATIONS_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+  });
+  const searchConversations = useMemo(
+    () => dedupeConversations(searchConversationsQuery.data?.pages ?? []),
+    [searchConversationsQuery.data],
+  );
   const conversationsLoaded =
     !!conversationsQuery.data || !shouldLoadConversations || !conversationsQuery.isLoading;
   const hasMoreConversations = !!conversationsQuery.hasNextPage;
   const loadingMoreConversations = conversationsQuery.isFetchingNextPage;
+  const hasMoreSearchConversations = !!searchConversationsQuery.hasNextPage;
+  const loadingMoreSearchConversations = searchConversationsQuery.isFetchingNextPage;
   // Drive the quota indicator from the backend response, not from `isMax`.
   // In local dev `NEXT_PUBLIC_ENABLE_PAYWALL=false` flips `isMax` to true for
   // every signed-in user (so they can exercise Max-only features), but the
@@ -327,6 +374,13 @@ function ScreenerContent() {
   // The same quota is shared between research and KOL chat — see
   // backend/app/features/quota/service.py + kol_research router.
   const effectiveQuota = userId ? quota : null;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedConversationSearch(normalizeConversationSearch(conversationSearch));
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [conversationSearch]);
 
   useEffect(() => {
     latestStateRef.current = state;
@@ -688,6 +742,13 @@ function ScreenerContent() {
       // Silently ignore — user can retry by clicking again
     });
   }, [conversationsQuery, hasMoreConversations, loadingMoreConversations]);
+
+  const handleLoadMoreSearchConversations = useCallback(async () => {
+    if (loadingMoreSearchConversations || !hasMoreSearchConversations) return;
+    await searchConversationsQuery.fetchNextPage().catch(() => {
+      // Silently ignore — user can retry by clicking again
+    });
+  }, [hasMoreSearchConversations, loadingMoreSearchConversations, searchConversationsQuery]);
 
   // Fetch quota for signed-in users on mount and when messages change. Wait
   // for auth/subscription hydration so a paid Max user is not briefly rendered
@@ -1761,6 +1822,114 @@ function ScreenerContent() {
     }
   }, [conversations, loadConversationData]);
 
+  const handleRenameConversation = useCallback(async (conversationId: string, title: string) => {
+    const nextTitle = title.trim().slice(0, 50);
+    if (!nextTitle) return;
+
+    const activeState = latestStateRef.current;
+    const summary = conversations.find((conv) => conv.id === conversationId);
+    let conversation: Record<string, unknown> | undefined = convCache.current.get(conversationId);
+
+    if (conversationId === activeState.conversationId) {
+      const data = buildConversationData(
+        activeState.messages,
+        {
+          accumulated_filters: activeState.accumulatedFilters,
+          candidates: activeState.candidates,
+          candidate_count: activeState.candidateCount,
+          universe_size: activeState.universeSize,
+          recommendations: activeState.recommendations,
+        },
+        activeState.funnelSteps,
+        activeState.activeContent,
+        activeState.contentStack,
+        activeState.personaUsername
+          ? {
+              kolChunks: activeState.kolChunks,
+              personaUsername: activeState.personaUsername,
+            }
+          : undefined,
+      );
+      conversation = {
+        ...(conversation || {}),
+        title: activeState.conversationTitle,
+        data,
+        message_count: activeState.messages.length,
+      };
+    }
+
+    if (!conversation) {
+      conversation = await api.research.conversations.get(conversationId);
+    }
+
+    const data = (
+      conversation.data &&
+      typeof conversation.data === 'object' &&
+      !Array.isArray(conversation.data)
+    )
+      ? conversation.data as Record<string, unknown>
+      : {};
+    const messageCount = typeof conversation.message_count === 'number'
+      ? conversation.message_count
+      : Array.isArray(data.messages)
+        ? data.messages.length
+        : summary?.message_count ?? 0;
+    const persona = typeof data.persona_username === 'string' && data.persona_username
+      ? data.persona_username
+      : null;
+
+    setSaveStatus('saving');
+    try {
+      if (persona) {
+        await api.kolResearch.conversations.update(conversationId, {
+          title: nextTitle,
+          data,
+          message_count: messageCount,
+          persona_username: persona,
+          touch: false,
+        });
+      } else {
+        await api.research.conversations.update(conversationId, {
+          title: nextTitle,
+          data,
+          message_count: messageCount,
+          touch: false,
+        });
+      }
+
+      convCache.current.set(conversationId, {
+        ...conversation,
+        title: nextTitle,
+        data,
+        message_count: messageCount,
+      });
+      if (latestStateRef.current.conversationId === conversationId) {
+        dispatch({ type: 'SET_CONVERSATION_TITLE', title: nextTitle });
+      }
+      upsertConversationSummary({
+        id: conversationId,
+        title: nextTitle,
+        message_count: messageCount,
+        updated_at: summary?.updated_at || new Date().toISOString(),
+      }, { promote: false });
+      void queryClient.invalidateQueries({
+        queryKey: ['research', 'conversations', conversationUserId],
+        exact: false,
+      });
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (error) {
+      setSaveStatus('idle');
+      throw error;
+    }
+  }, [
+    buildConversationData,
+    conversationUserId,
+    conversations,
+    queryClient,
+    upsertConversationSummary,
+  ]);
+
   // Delete a conversation
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
     try {
@@ -1776,6 +1945,14 @@ function ScreenerContent() {
     }
   }, [removeConversationSummary, state.conversationId]);
 
+  const handleOpenConversationSearch = useCallback(() => {
+    if (!userId) {
+      redirectToLogin();
+      return;
+    }
+    setConversationSearchOpen(true);
+  }, [redirectToLogin, userId]);
+
   // Mobile tab change
   const handleTabChange = useCallback((tab: 'chat' | 'results') => {
     setMobileTab(tab);
@@ -1787,6 +1964,11 @@ function ScreenerContent() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        handleOpenConversationSearch();
+        return;
+      }
       if (e.key === 'Escape' && state.isLoading) {
         e.preventDefault();
         handleCancelLoading();
@@ -1794,7 +1976,39 @@ function ScreenerContent() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state.isLoading, handleCancelLoading]);
+  }, [state.isLoading, handleCancelLoading, handleOpenConversationSearch]);
+
+  const handleConversationSearchOpenChange = useCallback((open: boolean) => {
+    setConversationSearchOpen(open);
+    if (!open) setConversationSearch('');
+  }, []);
+
+  const normalizedConversationSearch = normalizeConversationSearch(conversationSearch);
+  const searchLoading = normalizedConversationSearch.length > 0 && (
+    debouncedConversationSearch !== normalizedConversationSearch ||
+    (searchConversationsQuery.isLoading && searchConversations.length === 0)
+  );
+
+  const conversationSearchDialog = (
+    <ConversationSearchDialog
+      open={conversationSearchOpen}
+      onOpenChange={handleConversationSearchOpenChange}
+      query={conversationSearch}
+      onQueryChange={setConversationSearch}
+      recentConversations={conversations}
+      recentLoading={!conversationsLoaded}
+      searchResults={searchConversations}
+      searchLoading={searchLoading}
+      hasMoreRecent={hasMoreConversations}
+      loadingMoreRecent={loadingMoreConversations}
+      onLoadMoreRecent={handleLoadMoreConversations}
+      hasMoreSearch={hasMoreSearchConversations}
+      loadingMoreSearch={loadingMoreSearchConversations}
+      onLoadMoreSearch={handleLoadMoreSearchConversations}
+      onLoad={handleLoadConversation}
+      requestInFlight={state.isLoading}
+    />
+  );
 
   // Auth loading
   if (authLoading) {
@@ -1833,6 +2047,7 @@ function ScreenerContent() {
             currentId={state.conversationId}
             onLoad={handleLoadConversation}
             onDelete={handleDeleteConversation}
+            onRename={handleRenameConversation}
             onNewChat={() => dispatch({ type: 'RESET' })}
             requestInFlight={false}
             onToggle={() => setHistoryOpen(false)}
@@ -1842,8 +2057,10 @@ function ScreenerContent() {
             hasMore={hasMoreConversations}
             loadingMore={loadingMoreConversations}
             onLoadMore={handleLoadMoreConversations}
+            onSearchOpen={handleOpenConversationSearch}
           />
         </div>
+        {conversationSearchDialog}
 
         {/* Welcome content — when sidebar is collapsed, show an obvious open button */}
         <div className="flex-1 flex flex-col">
@@ -1926,6 +2143,7 @@ function ScreenerContent() {
               currentId={state.conversationId}
               onLoad={handleLoadConversation}
               onDelete={handleDeleteConversation}
+              onRename={handleRenameConversation}
               onNewChat={() => dispatch({ type: 'RESET' })}
               requestInFlight={state.isLoading}
               onToggle={() => setHistoryOpen(false)}
@@ -1935,8 +2153,10 @@ function ScreenerContent() {
               hasMore={hasMoreConversations}
               loadingMore={loadingMoreConversations}
               onLoadMore={handleLoadMoreConversations}
+              onSearchOpen={handleOpenConversationSearch}
             />
           </div>
+          {conversationSearchDialog}
           {/* Backdrop overlay — mobile only, closes sidebar on tap */}
           <div
             onClick={() => setHistoryOpen(false)}

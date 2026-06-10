@@ -72,6 +72,7 @@ export type ResearchAction =
   | { type: 'VIEW_RESULTS' }
   | { type: 'RESET' }
   | { type: 'SET_CONVERSATION_ID'; id: string }
+  | { type: 'SET_CONVERSATION_TITLE'; title: string }
   | { type: 'LOAD_CONVERSATION'; data: LoadConversationData }
   // Research Desk: content panel navigation
   | { type: 'PUSH_CONTENT'; content: ContentContext }
@@ -388,6 +389,9 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
 
     case 'SET_CONVERSATION_ID':
       return { ...state, conversationId: action.id };
+
+    case 'SET_CONVERSATION_TITLE':
+      return { ...state, conversationTitle: action.title };
 
     case 'LOAD_CONVERSATION':
       return {
