@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { marketTodayStr } from '@/lib/timezone';
 import { queryKeys } from '@/hooks/queries/query-keys';
+import { trackScreenerFilterUsed } from '@/lib/screener-analytics';
 import type { ConversationSummary, ResearchRequest, ResearchResult } from '@/lib/api';
 import {
   researchReducer,
@@ -1380,6 +1381,11 @@ function ScreenerContent() {
       }
 
       dispatch({ type: 'RECEIVE_RESPONSE', result });
+      trackScreenerFilterUsed({
+        result,
+        queryLength: message.trim().length,
+        conversationId: conversationIdForTurn,
+      });
 
       // Handle agent-driven navigation (e.g. "show me NVDA" or "show daily report")
       let saveActiveContent: ContentContext = state.activeContent;

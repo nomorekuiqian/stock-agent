@@ -15,20 +15,41 @@ function PostHogTracker() {
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
   const identifiedUserId = useRef<string | null>(null);
+  const capturedPageviewKey = useRef<string | null>(null);
 
   useEffect(() => {
     initPostHog();
   }, []);
 
   useEffect(() => {
-    if (!pathname || !isPostHogEnabled()) return;
+    if (!pathname || isLoading || !isPostHogEnabled()) return;
     if (!initPostHog()) return;
+
+    if (user?.id && identifiedUserId.current !== user.id) {
+      posthog.identify(user.id, {
+        email: user.email,
+        name: user.name,
+      });
+      identifiedUserId.current = user.id;
+    } else if (!user?.id && identifiedUserId.current) {
+      posthog.reset();
+      identifiedUserId.current = null;
+    }
+
+    const query = searchParams.toString();
+    const pageviewKey = `${pathname}?${query}|${user?.id ?? 'anonymous'}`;
+    if (capturedPageviewKey.current === pageviewKey) return;
+    capturedPageviewKey.current = pageviewKey;
 
     posthog.capture('$pageview', {
       $current_url: currentUrl(pathname, searchParams),
+      $host: window.location.host,
+      $pathname: pathname,
       path: pathname,
+      is_authenticated: Boolean(user?.id),
+      user_id: user?.id,
     });
-  }, [pathname, searchParams]);
+  }, [isLoading, pathname, searchParams, user?.id, user?.email, user?.name]);
 
   useEffect(() => {
     if (isLoading || !isPostHogEnabled()) return;
