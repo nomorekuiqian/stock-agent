@@ -37,6 +37,8 @@ interface ChatPanelProps {
   citations?: KolPersonaChunk[];
   /** Username shown as a persona chip directly above the input. */
   personaUsername?: string | null;
+  /** Current persisted conversation id, used to scope answer feedback. */
+  conversationId?: string | null;
 }
 
 /**
@@ -48,7 +50,18 @@ interface ChatPanelProps {
  * - Newest AI message gets word-by-word animation
  * - Option chips under AI messages
  */
-export default function ChatPanel({ messages, onSend, loading, onCancelLoading, inputPlaceholder, toolActivities = [], quota, citations, personaUsername }: ChatPanelProps) {
+export default function ChatPanel({
+  messages,
+  onSend,
+  loading,
+  onCancelLoading,
+  inputPlaceholder,
+  toolActivities = [],
+  quota,
+  citations,
+  personaUsername,
+  conversationId,
+}: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
@@ -102,6 +115,21 @@ export default function ChatPanel({ messages, onSend, loading, onCancelLoading, 
                 thinking={msg.thinking}
                 citations={i === lastAssistantIdx ? citations : undefined}
                 personaUsername={personaUsername}
+                feedbackTargetId={
+                  msg.role === 'assistant' && !msg.isError
+                    ? `research:${msg.sessionId ?? conversationId ?? 'draft'}:${msg.id}`
+                    : undefined
+                }
+                feedbackAgentId={personaUsername ? 'kol_research_agent' : 'research_agent'}
+                feedbackSessionId={msg.sessionId ?? conversationId ?? null}
+                feedbackConversationId={msg.sessionId ?? conversationId ?? null}
+                feedbackMessageId={msg.id}
+                feedbackMessageEventId={msg.messageEventId ?? null}
+                feedbackClientEventId={msg.clientEventId ?? null}
+                feedbackTurnId={msg.turnId ?? null}
+                feedbackAgentKind={personaUsername ? 'kol_research' : 'research'}
+                feedbackPersonaUsername={personaUsername ?? null}
+                feedbackSentiment={msg.feedbackSentiment ?? null}
               />
               {msg.role === 'assistant' && msg.options && msg.options.length > 0 && (
                 <OptionChips

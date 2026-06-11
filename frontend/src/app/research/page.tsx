@@ -3,6 +3,7 @@
 import { useReducer, useCallback, useEffect, useState, useRef, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { PanelLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { api } from '@/lib/api';
@@ -55,6 +56,7 @@ const CONVERSATIONS_STALE_TIME_MS = 10 * 60 * 1000;
 const CONVERSATIONS_GC_TIME_MS = 60 * 60 * 1000;
 const CONVERSATIONS_STORAGE_MAX_AGE_MS = 60 * 60 * 1000;
 const SEND_RUNTIME_HISTORY = process.env.NEXT_PUBLIC_AGENT_RUNTIME_SEND_HISTORY !== 'false';
+const DESKTOP_HISTORY_QUERY = '(min-width: 1024px)';
 
 type ApiHistoryMessage = { role: 'user' | 'assistant'; content: string };
 type ConversationListPage = { conversations: ConversationSummary[]; has_more?: boolean };
@@ -63,6 +65,10 @@ type StoredConversationList = {
   updatedAt: number;
   data: ConversationListInfiniteData;
 };
+
+function isDesktopViewport(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia(DESKTOP_HISTORY_QUERY).matches;
+}
 
 function getConversationStorageKey(userId: string): string {
   return `research_conversations_cache_v1:${userId}`;
@@ -222,7 +228,7 @@ function ScreenerContent() {
   const userTier: 'max' | 'pro' | null = isMax ? 'max' : isPro ? 'pro' : null;
   const [state, dispatch] = useReducer(researchReducer, initialState, loadState);
   const [mobileTab, setMobileTab] = useState<'chat' | 'results'>('chat');
-  const [historyOpen, setHistoryOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [conversationSearchOpen, setConversationSearchOpen] = useState(false);
   const [conversationSearch, setConversationSearch] = useState('');
   const [debouncedConversationSearch, setDebouncedConversationSearch] = useState('');
@@ -248,6 +254,21 @@ function ScreenerContent() {
   void hasFlag;
   const kolPersonaEnabled = true;
   const stockContextRef = useRef<StockContextPayload | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia(DESKTOP_HISTORY_QUERY);
+    const syncHistoryForViewport = () => {
+      setHistoryOpen(mediaQuery.matches);
+    };
+    syncHistoryForViewport();
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncHistoryForViewport);
+      return () => mediaQuery.removeEventListener('change', syncHistoryForViewport);
+    }
+    mediaQuery.addListener(syncHistoryForViewport);
+    return () => mediaQuery.removeListener(syncHistoryForViewport);
+  }, []);
   const reportContextRef = useRef<DailyReportContextPayload | null>(null);
   const morningContextRef = useRef<MorningReportContextPayload | null>(null);
   const twitterDigestContextRef = useRef<TwitterDigestContextPayload | null>(null);
@@ -677,6 +698,14 @@ function ScreenerContent() {
           id: (entry.client_event_id || entry.id || `runtime-${idx}`) as string,
           role: entry.role,
           content: entry.content,
+          sessionId: cid,
+          turnId: entry.turn_id ?? null,
+          clientEventId: entry.client_event_id ?? null,
+          messageEventId: entry.id ?? null,
+          feedbackSentiment: entry.feedback_sentiment ?? null,
+          feedbackReason: entry.feedback_reason ?? null,
+          feedbackAt: entry.feedback_at ?? null,
+          feedbackPayload: entry.feedback_payload ?? {},
         })) as ChatMsg[];
         const uiState = rt.ui_state as
           | { active_content?: unknown; content_stack?: unknown }
@@ -1150,7 +1179,9 @@ function ScreenerContent() {
       dispatch({ type: 'SET_ERROR', error: `问题太长了，请压缩到 ${KOL_MESSAGE_CHAR_LIMIT} 字以内再发送` });
       return;
     }
-    dispatch({ type: 'SEND_MESSAGE', message });
+    const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
+    const turnId = crypto.randomUUID();
+    dispatch({ type: 'SEND_MESSAGE', message, sessionId: conversationIdForTurn, turnId });
     try {
       const history = buildCompactHistory(state.messages, KOL_HISTORY_LIMIT);
       const existingChunks = (latestStateRef.current.kolChunks as unknown as KolPersonaChunk[]) || [];
@@ -1160,8 +1191,6 @@ function ScreenerContent() {
       let finalChunks: KolPersonaChunk[] = [];
       let finalNavigate: { type: string; params: Record<string, string>; reason?: string } | null = null;
       let errored = false;
-      const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
-      const turnId = crypto.randomUUID();
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -1195,10 +1224,10 @@ function ScreenerContent() {
             // no-op — keep description visible until next event
           } else if (event.type === 'message_delta') {
             // Token-by-token streaming: append to the in-progress assistant msg.
-            dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text });
+            dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text, sessionId: conversationIdForTurn, turnId });
           } else if (event.type === 'thinking') {
             // Chain-of-thought chunk: accumulate on the same in-progress msg.
-            dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text });
+            dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text, sessionId: conversationIdForTurn, turnId });
           } else if (event.type === 'final') {
             finalMessage = event.data.message;
             finalChunks = event.data.kol_chunks || [];
@@ -1275,7 +1304,7 @@ function ScreenerContent() {
       // Route title through RECEIVE_RESPONSE so it lands in state.conversationTitle.
       const resultWithTitle: ResearchResult = { ...result, title: titleForRespose };
       const chunksToPersist = finalChunks.length > 0 ? finalChunks : existingChunks;
-      dispatch({ type: 'RECEIVE_RESPONSE', result: resultWithTitle });
+      dispatch({ type: 'RECEIVE_RESPONSE', result: resultWithTitle, sessionId: conversationIdForTurn, turnId });
       dispatch({
         type: 'SET_KOL_CHUNKS',
         chunks: chunksToPersist as unknown as Record<string, unknown>[],
@@ -1373,15 +1402,15 @@ function ScreenerContent() {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Screener] handleSend called, isLoading was:', state.isLoading);
     }
-    dispatch({ type: 'SEND_MESSAGE', message });
+    const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
+    const turnId = crypto.randomUUID();
+    dispatch({ type: 'SEND_MESSAGE', message, sessionId: conversationIdForTurn, turnId });
 
     try {
       const activeContext = buildActiveContext();
 
       let streamResult: ResearchResult | null = null;
       let streamErrorHandled = false;
-      const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
-      const turnId = crypto.randomUUID();
 
       await api.research.chatStream(
         {
@@ -1425,7 +1454,7 @@ function ScreenerContent() {
         return;
       }
 
-      dispatch({ type: 'RECEIVE_RESPONSE', result });
+      dispatch({ type: 'RECEIVE_RESPONSE', result, sessionId: conversationIdForTurn, turnId });
       trackScreenerFilterUsed({
         result,
         queryLength: message.trim().length,
@@ -1780,6 +1809,14 @@ function ScreenerContent() {
             id: entry.client_event_id || entry.id || `runtime-${idx}`,
             role: entry.role,
             content: entry.content,
+            sessionId: conversationId,
+            turnId: entry.turn_id ?? null,
+            clientEventId: entry.client_event_id ?? null,
+            messageEventId: entry.id ?? null,
+            feedbackSentiment: entry.feedback_sentiment ?? null,
+            feedbackReason: entry.feedback_reason ?? null,
+            feedbackAt: entry.feedback_at ?? null,
+            feedbackPayload: entry.feedback_payload ?? {},
           }));
         }
         const uiState = runtimeSession.ui_state as { active_content?: unknown; content_stack?: unknown } | null;
@@ -1937,6 +1974,33 @@ function ScreenerContent() {
     setConversationSearchOpen(true);
   }, [redirectToLogin, userId]);
 
+  const openHistorySidebar = useCallback(() => {
+    setHistoryOpen(true);
+  }, []);
+
+  const closeHistoryOnNarrowScreen = useCallback(() => {
+    if (!isDesktopViewport()) {
+      setHistoryOpen(false);
+    }
+  }, []);
+
+  const handleSidebarLoadConversation = useCallback((conversationId: string) => {
+    setMobileTab('chat');
+    closeHistoryOnNarrowScreen();
+    void handleLoadConversation(conversationId);
+  }, [closeHistoryOnNarrowScreen, handleLoadConversation]);
+
+  const handleSidebarNewChat = useCallback(() => {
+    dispatch({ type: 'RESET' });
+    setMobileTab('chat');
+    closeHistoryOnNarrowScreen();
+  }, [closeHistoryOnNarrowScreen]);
+
+  const handleSidebarSearchOpen = useCallback(() => {
+    closeHistoryOnNarrowScreen();
+    handleOpenConversationSearch();
+  }, [closeHistoryOnNarrowScreen, handleOpenConversationSearch]);
+
   // Mobile tab change
   const handleTabChange = useCallback((tab: 'chat' | 'results') => {
     setMobileTab(tab);
@@ -1953,6 +2017,11 @@ function ScreenerContent() {
         handleOpenConversationSearch();
         return;
       }
+      if (e.key === 'Escape' && historyOpen && !isDesktopViewport()) {
+        e.preventDefault();
+        setHistoryOpen(false);
+        return;
+      }
       if (e.key === 'Escape' && state.isLoading) {
         e.preventDefault();
         handleCancelLoading();
@@ -1960,7 +2029,7 @@ function ScreenerContent() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state.isLoading, handleCancelLoading, handleOpenConversationSearch]);
+  }, [historyOpen, state.isLoading, handleCancelLoading, handleOpenConversationSearch]);
 
   const handleConversationSearchOpenChange = useCallback((open: boolean) => {
     setConversationSearchOpen(open);
@@ -1989,9 +2058,55 @@ function ScreenerContent() {
       hasMoreSearch={hasMoreSearchConversations}
       loadingMoreSearch={loadingMoreSearchConversations}
       onLoadMoreSearch={handleLoadMoreSearchConversations}
-      onLoad={handleLoadConversation}
+      onLoad={handleSidebarLoadConversation}
       requestInFlight={state.isLoading}
     />
+  );
+
+  const mobileHistoryDrawer = (
+    <>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="历史对话"
+        aria-hidden={!historyOpen}
+        className={`
+          lg:hidden absolute inset-y-0 left-0 z-40 flex min-h-0 flex-col overflow-hidden border-r border-border/50 bg-background shadow-2xl
+          transition-[width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
+          ${historyOpen ? 'w-80 max-w-full opacity-100' : 'w-0 opacity-0 pointer-events-none'}
+        `}
+      >
+        <ConversationSidebar
+          conversations={conversations}
+          loading={historyOpen && !conversationsLoaded}
+          currentId={state.conversationId}
+          onLoad={handleSidebarLoadConversation}
+          onDelete={handleDeleteConversation}
+          onRename={handleRenameConversation}
+          onNewChat={handleSidebarNewChat}
+          requestInFlight={state.isLoading}
+          onToggle={() => setHistoryOpen(false)}
+          userName={user?.name}
+          userEmail={user?.email}
+          userTier={userTier}
+          hasMore={hasMoreConversations}
+          loadingMore={loadingMoreConversations}
+          onLoadMore={handleLoadMoreConversations}
+          onSearchOpen={handleSidebarSearchOpen}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => setHistoryOpen(false)}
+        className={`
+          lg:hidden absolute inset-0 z-30 bg-black/25 transition-opacity duration-300 ease-out
+          ${historyOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}
+        `}
+        aria-label="关闭历史对话"
+        aria-hidden={!historyOpen}
+        tabIndex={historyOpen ? 0 : -1}
+      />
+    </>
   );
 
   // Auth loading
@@ -2015,24 +2130,24 @@ function ScreenerContent() {
   if (state.phase === 'welcome') {
     return (
       <div className="fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex">
+        {mobileHistoryDrawer}
         {/* Shared sidebar */}
         <div
           className={`
-            hidden lg:flex shrink-0 border-r border-border/50 overflow-hidden flex-col
+            hidden shrink-0 border-r border-border/50 overflow-hidden flex-col lg:flex
             transition-[width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
-            ${historyOpen ? 'opacity-100' : 'w-0 opacity-0 pointer-events-none'}
+            ${historyOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 pointer-events-none'}
           `}
-          style={historyOpen ? { width: 'clamp(14rem, 15vw, 18rem)' } : undefined}
           aria-hidden={!historyOpen}
         >
           <ConversationSidebar
             conversations={conversations}
             loading={!conversationsLoaded}
             currentId={state.conversationId}
-            onLoad={handleLoadConversation}
+            onLoad={handleSidebarLoadConversation}
             onDelete={handleDeleteConversation}
             onRename={handleRenameConversation}
-            onNewChat={() => dispatch({ type: 'RESET' })}
+            onNewChat={handleSidebarNewChat}
             requestInFlight={false}
             onToggle={() => setHistoryOpen(false)}
             userName={user?.name}
@@ -2041,13 +2156,24 @@ function ScreenerContent() {
             hasMore={hasMoreConversations}
             loadingMore={loadingMoreConversations}
             onLoadMore={handleLoadMoreConversations}
-            onSearchOpen={handleOpenConversationSearch}
+            onSearchOpen={handleSidebarSearchOpen}
           />
         </div>
         {conversationSearchDialog}
 
         {/* Welcome content — when sidebar is collapsed, show an obvious open button */}
-        <div className="flex-1 flex flex-col">
+        <div className="min-w-0 flex-1 flex flex-col">
+          <div className="lg:hidden shrink-0 border-b border-border/50 bg-background/85 px-2 py-2 backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={openHistorySidebar}
+              title="历史对话"
+              aria-label="打开历史对话"
+              className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            >
+              <PanelLeft className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
           <div
             className={`
               shrink-0 px-3 py-2 hidden lg:flex items-center
@@ -2057,7 +2183,7 @@ function ScreenerContent() {
             aria-hidden={historyOpen}
           >
             <button
-              onClick={() => setHistoryOpen(true)}
+              onClick={openHistorySidebar}
               title="展开历史对话"
               aria-label="展开历史对话"
               className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-foreground/80 hover:text-foreground bg-muted/40 hover:bg-muted/70 border border-border/60 transition-colors cursor-pointer"
@@ -2089,12 +2215,15 @@ function ScreenerContent() {
   // Chat phase - split layout
   return (
     <div className="fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10">
+      {mobileHistoryDrawer}
+      {conversationSearchDialog}
       {/* Mobile tab switch */}
       <div className="lg:hidden shrink-0">
         <MobileTabSwitch
           activeTab={mobileTab}
           onTabChange={handleTabChange}
           hasNewResults={state.hasNewResults}
+          onHistoryOpen={openHistorySidebar}
         />
       </div>
 
@@ -2112,23 +2241,22 @@ function ScreenerContent() {
           {/* Collapsible history sidebar — overlay on mobile, inline on desktop */}
           <div
             className={`
-              shrink-0 border-r border-border/50 overflow-hidden flex min-h-0 flex-col
+              hidden shrink-0 border-r border-border/50 overflow-hidden min-h-0 flex-col lg:flex
               transition-[width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
               ${historyOpen
-                ? 'absolute inset-y-0 lg:relative lg:inset-y-auto h-full lg:h-auto z-20 bg-background shadow-xl lg:shadow-none opacity-100'
+                ? 'w-72 opacity-100'
                 : 'w-0 opacity-0 pointer-events-none'}
             `}
-            style={historyOpen ? { width: 'clamp(16rem, 70vw, 18rem)' } : undefined}
             aria-hidden={!historyOpen}
           >
             <ConversationSidebar
               conversations={conversations}
               loading={historyOpen && !conversationsLoaded}
               currentId={state.conversationId}
-              onLoad={handleLoadConversation}
+              onLoad={handleSidebarLoadConversation}
               onDelete={handleDeleteConversation}
               onRename={handleRenameConversation}
-              onNewChat={() => dispatch({ type: 'RESET' })}
+              onNewChat={handleSidebarNewChat}
               requestInFlight={state.isLoading}
               onToggle={() => setHistoryOpen(false)}
               userName={user?.name}
@@ -2137,26 +2265,15 @@ function ScreenerContent() {
               hasMore={hasMoreConversations}
               loadingMore={loadingMoreConversations}
               onLoadMore={handleLoadMoreConversations}
-              onSearchOpen={handleOpenConversationSearch}
+              onSearchOpen={handleSidebarSearchOpen}
             />
           </div>
-          {conversationSearchDialog}
-          {/* Backdrop overlay — mobile only, closes sidebar on tap */}
-          <div
-            onClick={() => setHistoryOpen(false)}
-            className={`
-              absolute inset-0 z-10 bg-black/20 lg:hidden
-              transition-opacity duration-300 ease-out
-              ${historyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
-            `}
-            aria-hidden={!historyOpen}
-          />
           {/* Chat panel */}
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative min-w-0">
             {/* Chat header: sidebar toggle + persona selector */}
             <div className="shrink-0 px-3 py-2 flex items-center gap-2">
               <button
-                onClick={() => setHistoryOpen(true)}
+                onClick={openHistorySidebar}
                 title="历史对话"
                 aria-label="展开历史对话"
                 tabIndex={historyOpen ? -1 : 0}
@@ -2183,6 +2300,7 @@ function ScreenerContent() {
               toolActivities={state.toolActivities}
               quota={effectiveQuota}
               citations={agentKind === 'kol_research' ? latestKolChunks : undefined}
+              conversationId={state.conversationId}
               personaUsername={
                 kolPersonaEnabled && agentKind === 'kol_research' ? personaUsername : null
               }

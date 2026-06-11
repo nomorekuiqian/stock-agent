@@ -878,11 +878,24 @@ export interface ActionBarResponse {
 
 // Feedback
 export interface FeedbackInput {
-  target_type: 'digest_quick_take' | 'digest_headline' | 'health_diagnosis' | 'action_bar_headline' | 'action_bar_chip' | 'top_event';
+  target_type:
+    | 'digest_quick_take'
+    | 'digest_headline'
+    | 'health_diagnosis'
+    | 'action_bar_headline'
+    | 'action_bar_chip'
+    | 'top_event'
+    | 'research_agent_answer';
   target_id: string;
-  sentiment: 1 | -1;
+  /** 1 = thumbs up, -1 = thumbs down, 0 = clear previous feedback. */
+  sentiment: 1 | -1 | 0;
   reason?: string;
   snapshot?: { text?: string; [key: string]: unknown };
+  agent_id?: 'research_agent' | 'kol_research_agent';
+  session_id?: string;
+  turn_id?: string;
+  client_event_id?: string;
+  message_event_id?: string;
 }
 
 export interface WatchlistData {
@@ -1015,6 +1028,10 @@ export interface AgentRuntimeMessageEntry {
   turn_id?: string | null;
   client_event_id?: string | null;
   client_ts?: string | null;
+  feedback_sentiment?: 1 | -1 | null;
+  feedback_reason?: string | null;
+  feedback_at?: string | null;
+  feedback_payload?: Record<string, unknown>;
   created_at: string;
   id?: string;
 }

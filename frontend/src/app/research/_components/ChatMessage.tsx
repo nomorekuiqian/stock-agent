@@ -3,6 +3,7 @@
 import { memo, useMemo, useState, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
 
+import { FeedbackBar } from '@/components/memory/FeedbackBar';
 import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
 import AssistantAvatar from './AssistantAvatar';
@@ -59,6 +60,17 @@ interface ChatMessageProps {
   citations?: KolPersonaChunk[];
   /** When set, AI avatar swaps from the brand mark to the persona's avatar. */
   personaUsername?: string | null;
+  feedbackTargetId?: string;
+  feedbackAgentId?: 'research_agent' | 'kol_research_agent';
+  feedbackSessionId?: string | null;
+  feedbackConversationId?: string | null;
+  feedbackMessageId?: string;
+  feedbackMessageEventId?: string | null;
+  feedbackClientEventId?: string | null;
+  feedbackTurnId?: string | null;
+  feedbackAgentKind?: 'research' | 'kol_research';
+  feedbackPersonaUsername?: string | null;
+  feedbackSentiment?: 1 | -1 | null;
 }
 
 function hasMarkdown(text: string): boolean {
@@ -127,6 +139,17 @@ function ChatMessage({
   thinking,
   citations,
   personaUsername,
+  feedbackTargetId,
+  feedbackAgentId,
+  feedbackSessionId,
+  feedbackConversationId,
+  feedbackMessageId,
+  feedbackMessageEventId,
+  feedbackClientEventId,
+  feedbackTurnId,
+  feedbackAgentKind,
+  feedbackPersonaUsername,
+  feedbackSentiment,
 }: ChatMessageProps) {
   const isMarkdown = useMemo(() => role === 'assistant' && hasMarkdown(content), [role, content]);
   // Skip per-char animation while streaming (delta-driven) or when content is markdown.
@@ -214,7 +237,7 @@ function ChatMessage({
               [&_li_p]:my-0
               ${animate ? 'animate-fade-in' : ''}`}
             >
-              <MarkdownBody>{annotatedContent}</MarkdownBody>
+              <MarkdownBody variant="agent">{annotatedContent}</MarkdownBody>
               {streaming && (
                 <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
@@ -228,10 +251,33 @@ function ChatMessage({
             </div>
           )}
 
-          {/* Hover action row — copy the answer (ChatGPT-style). */}
+          {/* Action row — mature agent pattern: copy + lightweight answer feedback. */}
           {!streaming && !isError && !!content && (
-            <div className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground opacity-90 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
               <CopyButton text={content} />
+              {feedbackTargetId && (
+                <>
+                  <span aria-hidden className="h-4 w-px bg-border/70" />
+                  <FeedbackBar
+                    targetType="research_agent_answer"
+                    targetId={feedbackTargetId}
+                    agentId={feedbackAgentId}
+                    sessionId={feedbackSessionId}
+                    turnId={feedbackTurnId}
+                    clientEventId={feedbackClientEventId}
+                    messageEventId={feedbackMessageEventId}
+                    initialSentiment={feedbackSentiment}
+                    snapshot={{
+                      text: content,
+                      conversation_id: feedbackConversationId ?? null,
+                      message_id: feedbackMessageId ?? null,
+                      agent_kind: feedbackAgentKind ?? 'research',
+                      persona_username: feedbackPersonaUsername ?? null,
+                    }}
+                    variant="agent"
+                  />
+                </>
+              )}
             </div>
           )}
         </div>
