@@ -181,6 +181,7 @@ AI 个股分析卡片，支持三种状态。
 ### MarkdownBody.tsx — Markdown 内容渲染
 - 统一 Markdown 正文样式
 - 使用场景: 报告、AI 输出、研究面板
+- `variant="agent"` 用于 Agent 回答，兼容 `->`/`=>`/`→` 流程箭头和行首 `>` 被 Markdown 解析为 blockquote 后不可见的问题
 
 ### ReportTabs.tsx — 报告入口标签页
 - 早报 / 晚报 / 推特三个报告入口，高亮当前 `/morning`、`/today` 或 `/twitter-digest` 路径
