@@ -62,7 +62,7 @@
 | `/admin/users/[id]` | 用户管理详情 | Backend (admin API) | 是 (admin) |
 | `/admin/flags` | Feature Flag 管理 | Backend (admin/flags API) | 是 (admin) |
 | `/admin/llm-usage` | LLM 用量与费用面板 | Backend (admin/llm-usage API) | 是 (admin) |
-| `/dev/feedback` | 开发反馈页 | Backend (feedback) | 否 |
+| `/admin/feedback` | 用户反馈 dashboard | Backend (admin/feedback API) | 是 (admin) |
 | `/webview-check` | WebView 检测 | 无 API 调用 | 否 |
 
 ### 重定向
@@ -194,6 +194,11 @@
 - 接收邮件中的反馈链接参数 (report_date, email, rating)
 - 自动提交到 Backend
 - 显示感谢页面
+
+### `/admin/feedback` 用户反馈 dashboard
+- Admin 页面，生产可访问；未登录或非 admin 由后端 admin API 拒绝
+- 首屏服务端读取 auth cookies，调用 `GET /api/admin/feedback`
+- 展示邮件内嵌反馈趋势、邮件反馈明细、Contact 页面反馈 inbox、负向反馈跟进信号
 
 ## 数据获取模式
 
