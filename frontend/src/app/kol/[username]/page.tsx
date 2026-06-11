@@ -27,6 +27,7 @@ import {
   useKolCockpitSectors,
 } from '@/hooks/queries/use-kol-data';
 import type { KolCockpitFeedItem, KolCockpitTickerSummary } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 import {
   FRANK_COMPANY_RECOMMENDATIONS,
   FRANK_FEATURED_CONTENT,
@@ -334,7 +335,7 @@ export default function OverviewPage({
                       {t.count} 次提及
                     </div>
                   </div>
-                  <PriceMini price={t.price} change={t.daily_change} />
+                  <PriceMini ticker={t.ticker} price={t.price} change={t.daily_change} />
                 </li>
               ))}
             </ul>
@@ -573,7 +574,7 @@ function FrankOverview({
                       {company.name}
                     </span>
                   </span>
-                  <PriceMini price={live?.price ?? null} change={live?.daily_change ?? null} />
+                  <PriceMini ticker={company.ticker} price={live?.price ?? null} change={live?.daily_change ?? null} />
                 </li>
               ))}
             </ul>
@@ -721,7 +722,7 @@ function MiniLoading({ rows }: { rows: number }) {
   );
 }
 
-function PriceMini({ price, change }: { price: number | null; change: number | null }) {
+function PriceMini({ ticker, price, change }: { ticker: string; price: number | null; change: number | null }) {
   if (price == null) return null;
   const hasChange = change != null;
   const up = (change ?? 0) > 0;
@@ -735,7 +736,7 @@ function PriceMini({ price, change }: { price: number | null; change: number | n
   const ChangeIcon = hasChange && (change ?? 0) !== 0 ? (up ? TrendingUp : TrendingDown) : null;
   return (
     <div className={`shrink-0 text-right font-data text-xs tabular-nums ${color}`}>
-      <div>{price.toFixed(2)}</div>
+      <div>{formatStockPrice(price, ticker, undefined, { compactPrice: true })}</div>
       {hasChange && ChangeIcon ? (
         <div className="flex items-center justify-end gap-0.5">
           <ChangeIcon className="h-3 w-3" />

@@ -6,6 +6,7 @@ import { ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 
 import { useKolIndustryChain } from '@/hooks/queries/use-kol-data';
 import type { KolChainLayer, KolChainTicker } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 import { IndustryChainSkeleton } from './Skeletons';
 
 interface Props {
@@ -243,7 +244,7 @@ function TickerCard({
           {ticker.price != null ? (
             <>
               <div className="font-data text-sm tabular-nums text-foreground">
-                ${ticker.price.toFixed(2)}
+                {formatStockPrice(ticker.price, ticker.ticker, undefined, { compactPrice: true })}
               </div>
               {hasChange && ChangeIcon ? (
                 <div

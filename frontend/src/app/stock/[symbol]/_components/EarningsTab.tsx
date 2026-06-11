@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { AnalysisSection, AIPaywall } from './shared';
 import { SectionCard, SubsectionHeader } from './StockDetailContent';
 import { useTranscript } from '@/hooks/queries/use-stock-data';
+import { formatCurrencyAmount } from '@/lib/currency';
 
 // =============================================================================
 // Types
@@ -91,32 +92,17 @@ interface EarningsTabProps {
 // Helpers
 // =============================================================================
 
-const ZERO_DECIMAL_CURRENCIES = ['JPY', 'KRW', 'VND', 'IDR', 'CLP', 'TWD'];
-
-function getCurrSym(currency?: string): string {
-  if (!currency || currency === 'USD') return '$';
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency })
-      .formatToParts(0).find(p => p.type === 'currency')?.value || currency;
-  } catch { return currency; }
-}
-
 function fmt(v: number | null | undefined, opts?: { pct?: boolean; bn?: boolean; sign?: boolean; currency?: string }): string {
   if (v === null || v === undefined) return '--';
   if (opts?.pct) {
     const s = (v * 100).toFixed(1);
     return opts.sign && v > 0 ? `+${s}%` : `${s}%`;
   }
-  const sym = getCurrSym(opts?.currency);
   if (opts?.bn) {
-    if (Math.abs(v) >= 1e9) return `${sym}${(v / 1e9).toFixed(1)}B`;
-    if (Math.abs(v) >= 1e6) return `${sym}${(v / 1e6).toFixed(0)}M`;
-    return `${sym}${v.toFixed(0)}`;
+    return formatCurrencyAmount(v, { currency: opts?.currency, compact: true, maximumFractionDigits: 0 });
   }
-  const decimals = opts?.currency && ZERO_DECIMAL_CURRENCIES.includes(opts.currency) ? 0 : 2;
-  const s = v.toFixed(decimals);
-  const prefix = opts?.currency ? sym : '';
-  return opts?.sign && v > 0 ? `+${prefix}${s}` : `${prefix}${s}`;
+  const formatted = opts?.currency ? formatCurrencyAmount(v, { currency: opts.currency }) : v.toFixed(2);
+  return opts?.sign && v > 0 ? `+${formatted}` : formatted;
 }
 
 function qLabel(q: string): string {
@@ -233,10 +219,7 @@ function fmtStatementVal(v: unknown, key: string, currency?: string): string {
   const n = Number(v);
   if (isNaN(n)) return '--';
   if (key.includes('shares')) return `${(n / 1e6).toFixed(0)}M`;
-  const sym = getCurrSym(currency);
-  if (Math.abs(n) >= 1e9) return `${sym}${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `${sym}${(n / 1e6).toFixed(0)}M`;
-  return `${sym}${n.toFixed(0)}`;
+  return formatCurrencyAmount(n, { currency, compact: true, maximumFractionDigits: 0 });
 }
 
 function StatementSection({ title, titleEn, items, data, currency }: {
@@ -625,10 +608,10 @@ export function EarningsTab({
                       // by rendering '--', which fmt(undefined) does naturally.
                       return (
                         <div className="grid grid-cols-2 gap-3">
-                          <MetricBox label="EPS" value={epsActual != null ? `$${fmt(epsActual)}` : '--'}
+                          <MetricBox label="EPS" value={epsActual != null ? fmt(epsActual, { currency }) : '--'}
                             sub={epsSurprise != null
                               ? `${epsSurprise >= 0 ? 'Beat' : 'Miss'} ${fmt(epsSurprise, { pct: true, sign: true })}`
-                              : (epsEst != null ? `Est. $${fmt(epsEst)}` : undefined)}
+                              : (epsEst != null ? `Est. ${fmt(epsEst, { currency })}` : undefined)}
                             positive={epsSurprise != null ? epsSurprise >= 0 : undefined} />
                           <MetricBox label="Revenue" value={revActual != null ? fmt(revActual, { bn: true, currency }) : '--'}
                             sub={revSurprise != null
@@ -707,8 +690,8 @@ export function EarningsTab({
                             {earningsHistory.slice(0, 8).map((item, i) => (
                               <tr key={item.quarter} className={`border-t border-border/20 ${i === 0 ? 'bg-card/30' : ''}`}>
                                 <td className="py-2 px-3 font-data text-foreground/90">{qLabel(item.quarter)}</td>
-                                <td className="py-2 px-3 text-right font-data text-foreground">${fmt(item.eps_actual)}</td>
-                                <td className="py-2 px-3 text-right font-data text-muted-foreground">${fmt(item.eps_estimate)}</td>
+                                <td className="py-2 px-3 text-right font-data text-foreground">{fmt(item.eps_actual, { currency })}</td>
+                                <td className="py-2 px-3 text-right font-data text-muted-foreground">{fmt(item.eps_estimate, { currency })}</td>
                                 <td className={`py-2 px-3 text-right font-data font-medium ${colorForGrowth(item.surprise_percent)}`}>
                                   {fmt(item.surprise_percent, { pct: true, sign: true })}
                                 </td>
@@ -780,10 +763,10 @@ export function EarningsTab({
                                     <tr className="border-t border-border/20">
                                       <td className="py-2 px-3 text-foreground/90">EPS</td>
                                       <td className="py-2 px-3 text-right font-data text-muted-foreground">
-                                        {epsE != null ? `$${fmt(epsE)}` : '--'}
+                                        {epsE != null ? fmt(epsE, { currency }) : '--'}
                                       </td>
                                       <td className="py-2 px-3 text-right font-data font-medium text-foreground">
-                                        {epsA != null ? `$${fmt(epsA)}` : '--'}
+                                        {epsA != null ? fmt(epsA, { currency }) : '--'}
                                       </td>
                                       <td className={`py-2 px-3 text-right font-data font-medium text-xs ${
                                         surprise != null ? (surprise >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-muted-foreground'
@@ -837,8 +820,8 @@ export function EarningsTab({
                                 {futureEstimate.eps_avg != null && (
                                   <tr className="border-t border-border/20">
                                     <td className="py-2 px-3 text-foreground/90">EPS</td>
-                                    <td className="py-2 px-3 text-right font-data text-foreground">${fmt(futureEstimate.eps_avg)}</td>
-                                    <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">${fmt(futureEstimate.eps_low)} - ${fmt(futureEstimate.eps_high)}</td>
+                                    <td className="py-2 px-3 text-right font-data text-foreground">{fmt(futureEstimate.eps_avg, { currency })}</td>
+                                    <td className="py-2 px-3 text-right font-data text-muted-foreground text-xs">{fmt(futureEstimate.eps_low, { currency })} - {fmt(futureEstimate.eps_high, { currency })}</td>
                                   </tr>
                                 )}
                                 {futureEstimate.revenue_avg != null && (
@@ -873,9 +856,9 @@ export function EarningsTab({
                           <div className="flex items-baseline justify-between mt-3 pt-3 border-t border-border/20">
                             <span className="text-sm text-muted-foreground">DCF 估值</span>
                             <div className="text-right">
-                              <span className="text-base font-data font-semibold text-foreground">${dcfValue.toFixed(2)}</span>
+                              <span className="text-base font-data font-semibold text-foreground">{fmt(dcfValue, { currency })}</span>
                               <span className={`text-xs font-data ml-2 ${dcfValue > stockPrice ? 'text-emerald-400' : 'text-red-400'}`}>
-                                vs ${stockPrice.toFixed(0)} ({dcfValue > stockPrice ? '+' : ''}{((dcfValue - stockPrice) / stockPrice * 100).toFixed(1)}%)
+                                vs {fmt(stockPrice, { currency })} ({dcfValue > stockPrice ? '+' : ''}{((dcfValue - stockPrice) / stockPrice * 100).toFixed(1)}%)
                               </span>
                             </div>
                           </div>

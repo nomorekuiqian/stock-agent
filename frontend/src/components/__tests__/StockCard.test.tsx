@@ -41,6 +41,19 @@ describe('StockCard', () => {
     expect(changeEl.className).toContain('emerald');
   });
 
+  it('renders local currency for non-US market symbols', () => {
+    render(
+      <StockCard
+        symbol="7203.T"
+        displayName="Toyota Motor"
+        index={0}
+        quote={{ symbol: '7203.T', price: 3125, daily_change: 1.1 }}
+      />
+    );
+
+    expect(screen.getByText('JPY 3,125')).toBeTruthy();
+  });
+
   it('renders negative change in red', () => {
     render(
       <StockCard

@@ -19,6 +19,7 @@ import type {
 } from 'lightweight-charts';
 import type { TechnicalData, ChartAnnotation } from '@/hooks/queries/use-technical-data';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatStockPrice, resolveCurrency } from '@/lib/currency';
 
 // ---------------------------------------------------------------------------
 // Theme detection (mirrors existing pattern in this file)
@@ -118,6 +119,12 @@ export function TechnicalChart({ data, annotations, height = 600 }: TechnicalCha
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [indicators, setIndicators] = useState<IndicatorVisibility>(INDICATOR_DEFAULTS);
+  const currency = useMemo(() => resolveCurrency(data.symbol), [data.symbol]);
+  const mainPriceFormat = useMemo(() => ({
+    type: 'custom' as const,
+    minMove: currency.zeroDecimal ? 1 : 0.01,
+    formatter: (price: number) => formatStockPrice(price, data.symbol, undefined, { compactPrice: true }),
+  }), [currency.zeroDecimal, data.symbol]);
 
   // Memoize OHLCV data transformation
   const ohlcvData = useMemo(() => {
@@ -248,6 +255,7 @@ export function TechnicalChart({ data, annotations, height = 600 }: TechnicalCha
       borderVisible: false,
       wickUpColor: '#10b981',
       wickDownColor: '#ef4444',
+      priceFormat: mainPriceFormat,
     });
     candleSeries.setData(ohlcvData.map(d => ({
       time: d.time,
@@ -630,7 +638,7 @@ export function TechnicalChart({ data, annotations, height = 600 }: TechnicalCha
       chart.remove();
       chartRef.current = null;
     };
-  }, [data, ohlcvData, indicatorData, signalMarkers, aiSRLevels, indicators, theme, height]);
+  }, [data, ohlcvData, indicatorData, signalMarkers, aiSRLevels, indicators, theme, height, mainPriceFormat]);
 
   // -----------------------------------------------------------------------
   // Render

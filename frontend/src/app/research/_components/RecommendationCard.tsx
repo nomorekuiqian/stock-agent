@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatStockPrice } from '@/lib/currency';
 
 interface RecommendationCardProps {
   symbol: string;
@@ -57,7 +58,7 @@ export default function RecommendationCard({
         <div className="flex items-baseline gap-2">
           {price != null && (
             <span className="font-data text-sm text-foreground">
-              ${price.toFixed(2)}
+              {formatStockPrice(price, cleanSymbol, undefined, { compactPrice: true })}
             </span>
           )}
           {dailyChange != null && (
