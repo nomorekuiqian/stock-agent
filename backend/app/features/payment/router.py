@@ -75,6 +75,12 @@ def _to_dict(obj):
     return obj
 
 
+def _timestamp_to_iso(value) -> Optional[str]:
+    if not value:
+        return None
+    return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
+
+
 def _get_period(sub_obj) -> Tuple[Optional[str], Optional[str]]:
     """Extract current_period_start/end from a Stripe subscription object.
 
@@ -105,6 +111,15 @@ def _get_period(sub_obj) -> Tuple[Optional[str], Optional[str]]:
         if end_ts else None
     )
     return period_start, period_end
+
+
+def _get_cancellation_state(sub_obj) -> Tuple[bool, Optional[str], Optional[str]]:
+    d = _to_dict(sub_obj) or {}
+    return (
+        bool(d.get("cancel_at_period_end")),
+        _timestamp_to_iso(d.get("cancel_at")),
+        _timestamp_to_iso(d.get("canceled_at")),
+    )
 
 
 @router.post("/checkout-session", response_model=CheckoutSessionResponse)
@@ -147,6 +162,9 @@ async def api_subscription_status(
         status=sub.get("status", "none"),
         current_period_end=sub.get("current_period_end"),
         access_expires_at=sub.get("access_expires_at"),
+        cancel_at_period_end=bool(sub.get("cancel_at_period_end")),
+        cancel_at=sub.get("cancel_at"),
+        canceled_at=sub.get("canceled_at"),
     )
 
 
@@ -218,9 +236,18 @@ async def stripe_webhook(request: Request):
         if not user_id or not sub_id:
             logger.warning("checkout.session.completed missing metadata: user_id=%s, sub_id=%s", user_id, sub_id)
         if user_id and sub_id:
+            existing = await get_subscription(user_id)
+            if existing and existing.get("is_lifetime"):
+                logger.info(
+                    "Skipped checkout.session.completed for lifetime user %s (sub %s)",
+                    user_id,
+                    sub_id,
+                )
+                return {"received": True}
             stripe_sub = await asyncio.to_thread(stripe.Subscription.retrieve, sub_id)
             period_start, period_end = _get_period(stripe_sub)
             plan = _resolve_plan_from_subscription(stripe_sub)
+            cancel_at_period_end, cancel_at, canceled_at = _get_cancellation_state(stripe_sub)
             await upsert_subscription(
                 user_id=user_id,
                 stripe_customer_id=obj.get("customer"),
@@ -229,6 +256,10 @@ async def stripe_webhook(request: Request):
                 status="active",
                 current_period_start=period_start,
                 current_period_end=period_end,
+                cancel_at_period_end=cancel_at_period_end,
+                cancel_at=cancel_at,
+                canceled_at=canceled_at,
+                clear_cancellation=not (cancel_at_period_end or cancel_at),
                 clear_access_expires_at=True,
             )
             await sync_entitlements_from_stripe(
@@ -261,6 +292,7 @@ async def stripe_webhook(request: Request):
                     return {"received": True}
                 status = obj.get("status", "active")
                 _, period_end = _get_period(obj)
+                cancel_at_period_end, cancel_at, canceled_at = _get_cancellation_state(obj)
                 customer_id = obj.get("customer")
                 await upsert_subscription(
                     user_id=user_id,
@@ -268,6 +300,10 @@ async def stripe_webhook(request: Request):
                     stripe_subscription_id=obj.get("id"),
                     status=status,
                     current_period_end=period_end,
+                    cancel_at_period_end=cancel_at_period_end,
+                    cancel_at=cancel_at,
+                    canceled_at=canceled_at,
+                    clear_cancellation=not (cancel_at_period_end or cancel_at),
                 )
                 if customer_id:
                     await sync_entitlements_from_stripe(
@@ -323,6 +359,7 @@ async def stripe_webhook(request: Request):
                                 status="active",
                                 current_period_start=period_start,
                                 current_period_end=period_end,
+                                clear_cancellation=True,
                                 clear_access_expires_at=True,
                             )
                             logger.info("Sub %s deleted but user %s has active sub %s, synced pro", deleted_sub_id, user_id, active_sub["id"])
@@ -333,6 +370,7 @@ async def stripe_webhook(request: Request):
                             plan="free",
                             status="canceled",
                             entitlements=[],
+                            clear_cancellation=True,
                             clear_access_expires_at=True,
                         )
                         logger.info("Subscription %s canceled for user %s, no active subs remain", deleted_sub_id, user_id)

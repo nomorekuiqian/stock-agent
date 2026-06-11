@@ -390,12 +390,41 @@ class TestWebhookHandler:
             assert call_kwargs["status"] == "active"
             assert call_kwargs["stripe_customer_id"] == "cus_xyz"
             assert call_kwargs["stripe_subscription_id"] == "sub_abc"
+            assert call_kwargs["clear_cancellation"] is True
             mock_sync.assert_awaited_once_with(
                 "cus_xyz",
                 user_id="user-123",
                 allow_empty=False,
                 source="checkout.session.completed",
             )
+
+    @pytest.mark.asyncio
+    async def test_checkout_completed_skips_lifetime_user(self):
+        """checkout.session.completed does not overwrite lifetime users."""
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("checkout.session.completed", {
+            "metadata": {"user_id": "user-life"},
+            "subscription": "sub_life",
+            "customer": "cus_life",
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b'payload'
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value={"is_lifetime": True}), \
+             patch("app.features.payment.router.stripe.Subscription.retrieve") as mock_retrieve, \
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch("app.features.payment.router.sync_entitlements_from_stripe", new_callable=AsyncMock) as mock_sync:
+
+            result = await stripe_webhook(mock_request)
+
+            assert result == {"received": True}
+            mock_retrieve.assert_not_called()
+            mock_upsert.assert_not_called()
+            mock_sync.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_checkout_completed_missing_metadata(self):
@@ -447,6 +476,46 @@ class TestWebhookHandler:
             # Identity sync: status + period, no plan when no customer id is present.
             assert call_kwargs["status"] == "canceled"
             assert "plan" not in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_subscription_updated_stores_scheduled_cancellation(self):
+        """subscription.updated stores period-end cancellation state while active."""
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("customer.subscription.updated", {
+            "metadata": {"user_id": "user-123"},
+            "id": "sub_abc",
+            "customer": "cus_xyz",
+            "status": "active",
+            "cancel_at_period_end": False,
+            "cancel_at": 1783794504,
+            "canceled_at": 1781204039,
+            "items": {"data": [{"current_period_end": 1783794504}]},
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b'payload'
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        existing = {"user_id": "user-123", "stripe_customer_id": "cus_xyz"}
+        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=existing), \
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch(
+                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 return_value={"synced": True},
+             ):
+
+            result = await stripe_webhook(mock_request)
+
+        assert result == {"received": True}
+        call_kwargs = mock_upsert.call_args[1]
+        assert call_kwargs["status"] == "active"
+        assert call_kwargs["cancel_at_period_end"] is False
+        assert call_kwargs["cancel_at"] == "2026-07-11T18:28:24+00:00"
+        assert call_kwargs["canceled_at"] == "2026-06-11T18:53:59+00:00"
+        assert call_kwargs["clear_cancellation"] is False
 
     @pytest.mark.asyncio
     async def test_subscription_updated_compensates_entitlements_when_customer_present(self):
@@ -511,6 +580,7 @@ class TestWebhookHandler:
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
             assert call_kwargs["status"] == "active"
+            assert call_kwargs["clear_cancellation"] is True
             # Plan is determined by entitlements webhook, not here
             assert "plan" not in call_kwargs
 

@@ -741,6 +741,7 @@ async def get_dashboard(
         sort_dir=clean_sort_dir,
     )
     activity_task = _fetch_activity(30)
+
     dashboard_result, activity_result = await asyncio.gather(
         dashboard_task,
         activity_task,
@@ -748,6 +749,7 @@ async def get_dashboard(
     )
 
     activity = activity_result if isinstance(activity_result, dict) else _empty_activity(30)
+
     if isinstance(dashboard_result, dict):
         dashboard_result["activity"] = activity
         return dashboard_result

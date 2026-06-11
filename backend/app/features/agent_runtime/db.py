@@ -30,6 +30,7 @@ async def get_session(
     limit: int | None = None,
     after_created_at: str | None = None,
     after_id: str | None = None,
+    all_events: bool = False,
 ) -> dict[str, Any] | None:
     """Read durable session snapshot + events.
 
@@ -48,6 +49,8 @@ async def get_session(
         "session_id": session_id,
         "limit": str(limit),
     }
+    if all_events:
+        params["all"] = "true"
     if after_created_at and after_id:
         params["after_created_at"] = after_created_at
         params["after_id"] = after_id
@@ -70,6 +73,54 @@ async def get_session(
             data.get("error") or result.get("text"),
         )
     return None
+
+
+async def list_user_sessions(*, user_id: str) -> dict[str, Any]:
+    """List all runtime sessions with visible messages for one user."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        _FUNCTION_NAME,
+        method="GET",
+        params={"action": "list_user_sessions", "user_id": user_id},
+        timeout=30.0,
+        extra_headers=_headers(),
+    )
+    data = result.get("data", {})
+    if data.get("success"):
+        payload = data.get("data") or {}
+        return {
+            "conversations": payload.get("conversations", []),
+            "total": int(payload.get("total") or 0),
+        }
+    logger.warning(
+        "agent runtime list_user_sessions failed: status=%s error=%s",
+        result.get("status_code"),
+        data.get("error") or result.get("text"),
+    )
+    return {"conversations": [], "total": 0}
+
+
+async def get_user_conversation_stats() -> list[dict[str, Any]]:
+    """Return per-user runtime conversation stats for admin dashboards."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        _FUNCTION_NAME,
+        method="GET",
+        params={"action": "stats_by_user"},
+        timeout=30.0,
+        extra_headers=_headers(),
+    )
+    data = result.get("data", {})
+    if data.get("success"):
+        payload = data.get("data") or {}
+        rows = payload.get("stats", [])
+        return rows if isinstance(rows, list) else []
+    logger.warning(
+        "agent runtime stats_by_user failed: status=%s error=%s",
+        result.get("status_code"),
+        data.get("error") or result.get("text"),
+    )
+    return []
 
 
 async def append_entries(

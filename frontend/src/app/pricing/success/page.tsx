@@ -1,10 +1,12 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { track } from '@vercel/analytics';
 import { getAccessTokenAsync, useAuth } from '@/contexts/AuthContext';
 import { queryKeys } from '@/hooks/queries/query-keys';
+import { trackProductEvent } from '@/lib/product-analytics';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const ACTIVATION_TIMEOUT_MS = 30_000;
@@ -79,6 +81,7 @@ function CheckoutSuccessContent() {
   const [status, setStatus] = useState<'activating' | 'ready' | 'timeout'>('activating');
   const target = normalizeNext(params.get('next'));
   const tier = normalizeTier(params.get('tier'), target);
+  const frankPaymentTrackedRef = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -109,6 +112,16 @@ function CheckoutSuccessContent() {
           if (isActivationReady(sub, ents.entitlements || [], tier)) {
             await queryClient.invalidateQueries({ queryKey: queryKeys.featureFlags.all });
             if (cancelled) return;
+            if (target.startsWith('/frank-agent') && !frankPaymentTrackedRef.current) {
+              const properties = {
+                source: 'frank_agent_beta',
+                tier: tier || sub.plan,
+                user_id: user?.id,
+              };
+              track('frank_beta_payment_completed', properties);
+              trackProductEvent('frank_beta_payment_completed', properties);
+              frankPaymentTrackedRef.current = true;
+            }
             setStatus('ready');
             redirectTimer = setTimeout(() => {
               if (!cancelled) router.replace(target);

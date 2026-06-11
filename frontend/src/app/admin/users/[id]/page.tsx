@@ -89,16 +89,26 @@ export interface PersonalDigestSummary {
 export interface ConversationSummary {
   id: string;
   user_id: string;
+  agent_id: string;
+  session_id: string;
+  agent_kind: string | null;
+  persona_username?: string | null;
   title: string | null;
   message_count: number;
+  user_message_count?: number;
+  assistant_message_count?: number;
   created_at: string;
   updated_at: string;
+  last_message_at?: string | null;
 }
 
 export interface ConversationMessage {
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "tool";
   content?: string;
   text?: string;
+  event_type?: string;
+  created_at?: string;
+  turn_id?: string | null;
   // Some flows store rich payloads — keep this open-ended.
   [k: string]: unknown;
 }

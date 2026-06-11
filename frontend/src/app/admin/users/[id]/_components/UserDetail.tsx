@@ -150,7 +150,7 @@ export function UserDetail({
         method: 'POST',
         body: JSON.stringify({ user_id: data.user_id, days: grantDays, plan: 'max' }),
       });
-      if (result.success && data.subscription) {
+      if (result.success) {
         setData((d) => ({
           ...d,
           subscription: d.subscription ? {
@@ -1205,6 +1205,15 @@ function ConversationsSection({
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const totalMessages = conversations.reduce((sum, c) => sum + (c.message_count ?? 0), 0);
+  const agentLabel = (conversation: ConversationSummary) => {
+    if (conversation.agent_kind === 'kol_research') {
+      return conversation.persona_username
+        ? `KOL · @${conversation.persona_username}`
+        : 'KOL Agent';
+    }
+    if (conversation.agent_kind === 'research') return 'Research Agent';
+    return conversation.agent_id || 'Agent';
+  };
 
   const loadAll = useCallback(async () => {
     setLoadingAll(true);
@@ -1229,7 +1238,7 @@ function ConversationsSection({
     setExpandedFull(null);
     setLoadingDetail(true);
     try {
-      const result = await crmFetch(`/users/${userId}/conversations/${id}`);
+      const result = await crmFetch(`/users/${userId}/conversations/${encodeURIComponent(id)}`);
       if (result.conversation) {
         setExpandedFull(result.conversation as ConversationFull);
       }
@@ -1267,7 +1276,7 @@ function ConversationsSection({
                     {c.title || '(未命名对话)'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {c.message_count} 条消息 · {formatDateTime(c.updated_at)}
+                    {agentLabel(c)} · {c.message_count} 条消息 · {formatDateTime(c.updated_at)}
                   </p>
                 </div>
                 <span className="text-xs text-emerald-600 ml-3 shrink-0">
@@ -1316,6 +1325,13 @@ function ConversationMessages({ messages }: { messages: ConversationMessage[] | 
           JSON.stringify(msg.content ?? msg, null, 2);
         const role = msg.role ?? 'system';
         const isUser = role === 'user';
+        const label = isUser
+          ? '用户'
+          : role === 'assistant'
+            ? 'Agent'
+            : role === 'tool'
+              ? 'Tool'
+              : 'System';
         return (
           <div
             key={i}
@@ -1328,7 +1344,12 @@ function ConversationMessages({ messages }: { messages: ConversationMessage[] | 
             <div className={`text-[10px] font-medium uppercase tracking-wider mb-1 ${
               isUser ? 'text-emerald-700' : 'text-muted-foreground'
             }`}>
-              {isUser ? '用户' : role === 'assistant' ? 'Agent' : role}
+              {label}
+              {msg.created_at ? (
+                <span className="normal-case tracking-normal font-normal ml-2">
+                  {formatDateTime(msg.created_at)}
+                </span>
+              ) : null}
             </div>
             <pre className="whitespace-pre-wrap text-foreground font-sans">
               {text}

@@ -89,6 +89,7 @@ function ProfileContent(): ReactNode {
   const {
     plan, isLoading: subLoading, status,
     currentPeriodEnd, accessExpiresAt,
+    cancelAtPeriodEnd, cancelAt,
     openBillingPortal,
     portalError,
   } = useSubscription();
@@ -228,6 +229,8 @@ function ProfileContent(): ReactNode {
   const isDisplayPro = hasActivePlan && normalizedPlan === 'pro';
   const isPaid = hasActivePlan && daysLeft === null;
   const isPaidPro = isPaid && isDisplayPro;
+  const scheduledCancelDate = cancelAt || currentPeriodEnd;
+  const isCancellationScheduled = isPaid && (cancelAtPeriodEnd || Boolean(cancelAt));
   const isTrial = hasActivePlan && daysLeft !== null;
   const isCanceled = !hasActivePlan && status === 'canceled';
   const tierLabel = isDisplayMax ? 'Max' : hasActivePlan ? 'Pro' : null;
@@ -358,11 +361,12 @@ function ProfileContent(): ReactNode {
                 <span className="w-12 h-5 rounded-full bg-muted animate-pulse" />
               ) : (
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-                  hasActivePlan ? urgencyStyles.badge
+                  isCancellationScheduled ? 'bg-amber-400/10 border-amber-400/30 text-amber-400'
+                    : hasActivePlan ? urgencyStyles.badge
                     : isCanceled ? 'bg-amber-400/10 border-amber-400/30 text-amber-400'
                     : 'bg-muted border-border/50 text-muted-foreground'
                 }`}>
-                  {hasActivePlan ? tierLabel : isCanceled ? '已取消' : '免费版'}
+                  {isCancellationScheduled ? '已取消' : hasActivePlan ? tierLabel : isCanceled ? '已取消' : '免费版'}
                 </span>
               )}
             </div>
@@ -426,15 +430,30 @@ function ProfileContent(): ReactNode {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">{tierLabel} 会员</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{isDisplayMax ? PRICING.maxPerMonth : PRICING.proPerMonth} · 自动续费</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isCancellationScheduled
+                          ? `已取消 · 权益有效至 ${scheduledCancelDate ? formatDate(scheduledCancelDate) : '当前周期结束'}`
+                          : `${isDisplayMax ? PRICING.maxPerMonth : PRICING.proPerMonth} · 自动续费`}
+                      </p>
                     </div>
                   </div>
 
+                  {isCancellationScheduled && (
+                    <div className="mb-4 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2.5">
+                      <p className="text-sm font-medium text-amber-300">订阅已取消</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        你仍可使用 {tierLabel} 权限{scheduledCancelDate ? `至 ${formatDate(scheduledCancelDate)}` : '到当前计费周期结束'}，到期后将自动回到免费版。
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-2.5 mb-4">
-                    {currentPeriodEnd && (
+                    {(isCancellationScheduled ? scheduledCancelDate : currentPeriodEnd) && (
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">下次续费</span>
-                        <span className="text-foreground font-medium">{formatDate(currentPeriodEnd)}</span>
+                        <span className="text-muted-foreground">{isCancellationScheduled ? '权益有效至' : '下次续费'}</span>
+                        <span className="text-foreground font-medium">
+                          {formatDate((isCancellationScheduled ? scheduledCancelDate : currentPeriodEnd) as string)}
+                        </span>
                       </div>
                     )}
                     <div className="flex items-center justify-between text-sm">
@@ -443,7 +462,9 @@ function ProfileContent(): ReactNode {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">状态</span>
-                      <span className={`font-medium ${isDisplayMax ? 'text-amber-400' : 'text-primary'}`}>活跃</span>
+                      <span className={`font-medium ${isCancellationScheduled ? 'text-amber-400' : isDisplayMax ? 'text-amber-400' : 'text-primary'}`}>
+                        {isCancellationScheduled ? '已取消' : '活跃'}
+                      </span>
                     </div>
                   </div>
 

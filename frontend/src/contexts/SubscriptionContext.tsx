@@ -14,6 +14,9 @@ interface SubscriptionStatus {
   status: string;
   current_period_end: string | null;
   access_expires_at: string | null;
+  cancel_at_period_end?: boolean;
+  cancel_at?: string | null;
+  canceled_at?: string | null;
 }
 
 interface SubscriptionContextType {
@@ -27,6 +30,9 @@ interface SubscriptionContextType {
   status: string;
   currentPeriodEnd: string | null;
   accessExpiresAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
+  canceledAt: string | null;
   createCheckout: (tier?: 'pro' | 'max', returnPath?: string) => Promise<void>;
   openBillingPortal: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
@@ -117,6 +123,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const status = data?.status || 'none';
   const currentPeriodEnd = data?.current_period_end || null;
   const accessExpiresAt = data?.access_expires_at || null;
+  const cancelAtPeriodEnd = data?.cancel_at_period_end || false;
+  const cancelAt = data?.cancel_at || null;
+  const canceledAt = data?.canceled_at || null;
   const isActive = hasActiveAccessStatus(status) && !isExpired(accessExpiresAt);
 
   const isPro = !PAYWALL_ENABLED || ((plan === 'pro' || plan === 'max') && isActive);
@@ -218,13 +227,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       status,
       currentPeriodEnd,
       accessExpiresAt,
+      cancelAtPeriodEnd,
+      cancelAt,
+      canceledAt,
       createCheckout,
       openBillingPortal,
       refreshSubscription,
     }),
     [
       isPro, isMax, isLoading, isCheckoutLoading, checkoutError, portalError,
-      plan, status, currentPeriodEnd, accessExpiresAt,
+      plan, status, currentPeriodEnd, accessExpiresAt, cancelAtPeriodEnd, cancelAt, canceledAt,
       createCheckout, openBillingPortal, refreshSubscription,
     ]
   );
