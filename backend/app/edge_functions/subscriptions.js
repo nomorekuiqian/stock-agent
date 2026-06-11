@@ -2,7 +2,7 @@ module.exports = async function(request) {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Internal-Secret",
   };
 
   if (request.method === "OPTIONS") {
@@ -42,6 +42,25 @@ module.exports = async function(request) {
       offset += PAGE;
     }
     return { data: all, error: null };
+  }
+
+  function parseBoundedInt(value, fallback, min, max) {
+    const parsed = Number.parseInt(value || "", 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(Math.max(parsed, min), max);
+  }
+
+  function parseTags(url) {
+    const repeated = url.searchParams.getAll("tag").filter(Boolean);
+    if (repeated.length > 0) return repeated;
+    const raw = url.searchParams.get("tags") || "";
+    return raw.split(",").map((tag) => tag.trim()).filter(Boolean);
+  }
+
+  function internalUnauthorized(request) {
+    const expectedSecret = Deno.env.get("EDGE_FUNCTION_SECRET");
+    if (!expectedSecret) return false;
+    return request.headers.get("X-Internal-Secret") !== expectedSecret;
   }
 
   try {
@@ -163,6 +182,49 @@ module.exports = async function(request) {
             last_date: row && row.last_date ? String(row.last_date).slice(0, 10) : null,
           },
         }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=list_dashboard&page=1&page_size=50&category=all&tag=m:digest&search=x&sort_key=last_active_at&sort_dir=desc
+    // Returns one filtered/sorted page plus global summary and facet counts.
+    // The heavy merge/filter work lives in Postgres (admin_dashboard_query)
+    // so the admin page does not transfer every user row to FastAPI/React.
+    if (request.method === "GET" && action === "list_dashboard") {
+      if (internalUnauthorized(request)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const page = parseBoundedInt(url.searchParams.get("page"), 1, 1, 100000);
+      const pageSize = parseBoundedInt(url.searchParams.get("page_size"), 50, 1, 200);
+      const category = url.searchParams.get("category") || "all";
+      const search = url.searchParams.get("search") || "";
+      const sortKey = url.searchParams.get("sort_key") || "last_active_at";
+      const sortDir = url.searchParams.get("sort_dir") || "desc";
+      const tags = parseTags(url);
+
+      const { data, error } = await client.database.rpc("admin_dashboard_query", {
+        page_num: page,
+        page_size: pageSize,
+        category_filter: category,
+        tag_filters: tags,
+        search_query: search,
+        sort_key: sortKey,
+        sort_dir: sortDir,
+      });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: data || {} }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

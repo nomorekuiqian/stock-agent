@@ -47,10 +47,10 @@ export interface UserRecord {
   contact_feedback_rating: string | null;
   has_questionnaire: boolean;
   questionnaire_background: string | null;
-  // Personal digest aggregates (carried by subscriptions list_all edge function)
+  // Personal digest aggregates (carried by the admin dashboard query)
   personal_digest_count_30d?: number;
   personal_digest_last_date?: string | null;
-  // Real-time subscription status (Resend audience membership, set by /admin/dashboard)
+  // Entitlement-derived email subscription status, set by /admin/dashboard
   personal_digest_subscribed?: boolean;
 }
 
@@ -84,6 +84,20 @@ export interface DashboardData {
     trial_expired: number;
     never_trialed: number;
   };
+  engagement: {
+    with_conversations: number;
+    with_feedback: number;
+    total_conversations: number;
+    total_messages: number;
+    personal_digest_subscribers: number;
+  };
+  chip_counts: Record<string, number>;
+  pagination: {
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+  };
   users: UserRecord[];
   activity?: DashboardActivity;
   error?: string;
@@ -91,7 +105,13 @@ export interface DashboardData {
 
 async function getDashboardData(accessToken: string): Promise<DashboardData | null> {
   try {
-    const res = await fetch(`${API_BASE}/admin/dashboard`, {
+    const params = new URLSearchParams({
+      page: '1',
+      page_size: '50',
+      sort_key: 'last_active_at',
+      sort_dir: 'desc',
+    });
+    const res = await fetch(`${API_BASE}/admin/dashboard?${params.toString()}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: 'no-store',
     });
