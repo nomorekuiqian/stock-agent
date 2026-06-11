@@ -13,6 +13,12 @@ from app.core.database import get_insforge_service
 from app.core.deps import verify_admin_user, verify_user_token_with_email
 from app.core.logging import get_logger
 from app.features.admin.cache import get_list_all
+from app.features.feedback.db import (
+    get_email_feedback_list,
+    get_feedback_stats,
+    get_user_feedback_list,
+)
+from app.utils.timezone import days_ago, today_str
 
 logger = get_logger(__name__)
 
@@ -320,6 +326,79 @@ async def get_admin_status(
     """Return whether the current authenticated user is an admin. Used by the frontend to gate admin UI."""
     email = (user_info.get("email") or "").lower()
     return {"is_admin": email in ADMIN_EMAILS}
+
+
+@router.get("/feedback")
+async def get_feedback_dashboard(
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD), defaults to 30 days ago"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD), defaults to today"),
+    page: int = Query(1, ge=1, description="Contact feedback page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Contact feedback page size"),
+    _admin: dict = Depends(verify_admin_user),
+):
+    """Return email and contact feedback data for the admin dashboard."""
+    if not end_date:
+        end_date = today_str()
+    if not start_date:
+        start_date = days_ago(30)
+
+    stats_result, user_result, email_list_result = await asyncio.gather(
+        get_feedback_stats(start_date=start_date, end_date=end_date),
+        get_user_feedback_list(page=page, page_size=page_size),
+        get_email_feedback_list(start_date=start_date, end_date=end_date),
+        return_exceptions=True,
+    )
+
+    if not isinstance(stats_result, dict) or not stats_result.get("success"):
+        detail = (
+            stats_result.get("error", "Failed to get email feedback stats")
+            if isinstance(stats_result, dict)
+            else "Failed to get email feedback stats"
+        )
+        raise HTTPException(status_code=502, detail=detail)
+
+    if not isinstance(user_result, dict) or not user_result.get("success"):
+        detail = (
+            user_result.get("error", "Failed to get contact feedback list")
+            if isinstance(user_result, dict)
+            else "Failed to get contact feedback list"
+        )
+        raise HTTPException(status_code=502, detail=detail)
+
+    if isinstance(email_list_result, dict) and email_list_result.get("success"):
+        email_list = {
+            "data": email_list_result.get("data", []),
+            "total_records": email_list_result.get("total_records", 0),
+            "_error": None,
+        }
+    else:
+        email_list = {
+            "data": [],
+            "total_records": 0,
+            "_error": (
+                email_list_result.get("error", "Failed to get email feedback records")
+                if isinstance(email_list_result, dict)
+                else "Failed to get email feedback records"
+            ),
+        }
+
+    return {
+        "date_range": {"start_date": start_date, "end_date": end_date},
+        "stats": {
+            "total": stats_result.get("total", 0),
+            "breakdown": stats_result.get("breakdown", {}),
+            "satisfaction_rate": stats_result.get("satisfaction_rate", 0),
+            "daily": stats_result.get("daily", []),
+        },
+        "userFeedback": {
+            "data": user_result.get("data", []),
+            "total": user_result.get("total", 0),
+            "page": user_result.get("page", page),
+            "page_size": user_result.get("page_size", page_size),
+            "total_pages": user_result.get("total_pages", 0),
+        },
+        "emailList": email_list,
+    }
 
 
 @router.get("/activity")
