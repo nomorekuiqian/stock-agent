@@ -200,3 +200,31 @@ async def append_events(
         data.get("error") or result.get("text"),
     )
     return False
+
+
+async def update_message_feedback(
+    *,
+    user_id: str,
+    agent_id: str,
+    session_id: str,
+    sentiment: int,
+    reason: str | None = None,
+    feedback_payload: dict[str, Any] | None = None,
+    turn_id: str | None = None,
+    client_event_id: str | None = None,
+    message_event_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Update thumbs feedback on one assistant_message event row."""
+    from app.shared.agent_runtime_feedback import update_agent_message_feedback
+
+    return await update_agent_message_feedback(
+        user_id=user_id,
+        agent_id=agent_id,
+        session_id=session_id,
+        sentiment=sentiment,
+        reason=reason,
+        feedback_payload=feedback_payload,
+        turn_id=turn_id,
+        client_event_id=client_event_id,
+        message_event_id=message_event_id,
+    )

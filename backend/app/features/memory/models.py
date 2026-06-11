@@ -26,11 +26,17 @@ class FeedbackInput(BaseModel):
         "action_bar_headline",
         "action_bar_chip",
         "top_event",
+        "research_agent_answer",
     ]
     target_id: str = Field(..., min_length=1, max_length=200)
-    sentiment: Literal[1, -1]
+    sentiment: Literal[1, -1, 0]
     reason: Optional[str] = Field(None, max_length=100)
     snapshot: Optional[dict] = None  # trimmed to <=1KB by frontend
+    agent_id: Optional[Literal["research_agent", "kol_research_agent"]] = None
+    session_id: Optional[str] = Field(None, max_length=200)
+    turn_id: Optional[str] = Field(None, max_length=200)
+    client_event_id: Optional[str] = Field(None, max_length=240)
+    message_event_id: Optional[str] = Field(None, max_length=200)
 
 
 class FeedbackRow(BaseModel):

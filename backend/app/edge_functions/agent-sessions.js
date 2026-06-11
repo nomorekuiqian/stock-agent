@@ -6,6 +6,7 @@
 //   GET  ?action=get&user_id=...&agent_id=...&session_id=...
 //   POST ?action=append_entries body={user_id, agent_id, session_id, metadata?, entries:[{role, content, metadata?}]}
 //   POST ?action=append_events  body={user_id, agent_id, session_id, metadata?, events:[{event_type, role?, content?, payload?}]}
+//   POST ?action=update_feedback body={user_id, agent_id, session_id, turn_id|client_event_id|message_event_id, sentiment(1|-1|0), reason?, feedback_payload?}
 //
 // The backend authenticates users before calling this function. If
 // EDGE_FUNCTION_SECRET is configured, calls must include X-Internal-Secret.
@@ -140,7 +141,7 @@ module.exports = async function(request) {
         const result = await fetchAllChunked(
           () => client.database
             .from(EVENTS)
-            .select("id, event_type, role, content, payload, token_estimate, turn_id, client_event_id, client_ts, created_at")
+            .select("id, event_type, role, content, payload, token_estimate, turn_id, client_event_id, client_ts, feedback_sentiment, feedback_reason, feedback_at, feedback_payload, created_at")
             .eq("user_id", user_id)
             .eq("agent_id", agent_id)
             .eq("session_id", session_id),
@@ -154,7 +155,7 @@ module.exports = async function(request) {
       } else {
         let eventsQuery = client.database
           .from(EVENTS)
-          .select("id, event_type, role, content, payload, token_estimate, turn_id, client_event_id, client_ts, created_at")
+          .select("id, event_type, role, content, payload, token_estimate, turn_id, client_event_id, client_ts, feedback_sentiment, feedback_reason, feedback_at, feedback_payload, created_at")
           .eq("user_id", user_id)
           .eq("agent_id", agent_id)
           .eq("session_id", session_id);
@@ -201,6 +202,10 @@ module.exports = async function(request) {
           turn_id: e.turn_id || null,
           client_event_id: e.client_event_id || null,
           client_ts: e.client_ts || null,
+          feedback_sentiment: e.feedback_sentiment === undefined ? null : e.feedback_sentiment,
+          feedback_reason: e.feedback_reason || null,
+          feedback_at: e.feedback_at || null,
+          feedback_payload: e.feedback_payload || {},
           created_at: e.created_at,
           id: e.id,
         }));
@@ -490,6 +495,58 @@ module.exports = async function(request) {
       }
 
       return ok({ session_id, inserted: rows.length });
+    }
+
+    if (request.method === "POST" && action === "update_feedback") {
+      const body = await request.json();
+      const user_id = body.user_id;
+      const agent_id = body.agent_id;
+      const session_id = body.session_id;
+      const missing = requireIdentity(user_id, agent_id, session_id);
+      if (missing) return fail(400, missing);
+
+      const sentiment = Number(body.sentiment);
+      if (![1, -1, 0].includes(sentiment)) {
+        return fail(400, "sentiment must be 1, -1, or 0");
+      }
+
+      const messageEventId = body.message_event_id || body.event_id || null;
+      const clientEventId = body.client_event_id || null;
+      const turnId = body.turn_id || null;
+      if (!messageEventId && !clientEventId && !turnId) {
+        return fail(400, "message_event_id, client_event_id, or turn_id required");
+      }
+
+      const updateRow = {
+        feedback_sentiment: sentiment === 0 ? null : sentiment,
+        feedback_reason: sentiment === 0 ? null : body.reason || null,
+        feedback_at: new Date().toISOString(),
+        feedback_payload: body.feedback_payload || {},
+      };
+
+      let query = client.database
+        .from(EVENTS)
+        .update(updateRow)
+        .eq("user_id", user_id)
+        .eq("agent_id", agent_id)
+        .eq("session_id", session_id)
+        .eq("event_type", "assistant_message");
+
+      if (messageEventId) {
+        query = query.eq("id", messageEventId);
+      } else if (clientEventId) {
+        query = query.eq("client_event_id", clientEventId);
+      } else {
+        query = query.eq("turn_id", turnId);
+      }
+
+      const { data, error } = await query
+        .select("id, feedback_sentiment, feedback_reason, feedback_at, feedback_payload")
+        .maybeSingle();
+
+      if (error) return fail(500, error.message);
+      if (!data) return fail(404, "assistant_message not found");
+      return ok(data);
     }
 
     return fail(400, `Unknown action: ${action}`);
