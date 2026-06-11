@@ -195,6 +195,7 @@ export default function TickerDetail({ username, ticker }: Props) {
             价格 × 提及时间线
           </p>
           <PriceTimelineChart
+            ticker={detail.ticker}
             priceSeries={detail.price_series}
             tweets={detail.tweets}
           />

@@ -10,6 +10,7 @@ import {
   useStockAnalysisCache,
   useGenerateStockAnalysis,
 } from '@/hooks/queries/use-stock-data';
+import { formatCurrencyAmount, formatStockPrice } from '@/lib/currency';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,17 +35,27 @@ interface StockResearchViewProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatPrice(val: number | null | undefined): string {
-  if (val == null || isNaN(val)) return '-';
-  return `$${val.toFixed(2)}`;
+function formatPrice(
+  val: number | null | undefined,
+  symbol: string,
+  currency?: string | null,
+): string {
+  const formatted = formatStockPrice(val, symbol, currency, { compactPrice: true });
+  return formatted === '--' ? '-' : formatted;
 }
 
-function formatMarketCap(val: number | null | undefined): string {
-  if (val == null || isNaN(val)) return '-';
-  if (val >= 1e12) return `$${(val / 1e12).toFixed(1)}T`;
-  if (val >= 1e9) return `$${(val / 1e9).toFixed(1)}B`;
-  if (val >= 1e6) return `$${(val / 1e6).toFixed(0)}M`;
-  return `$${val.toFixed(0)}`;
+function formatMarketCap(
+  val: number | null | undefined,
+  symbol: string,
+  currency?: string | null,
+): string {
+  const formatted = formatCurrencyAmount(val, {
+    symbol,
+    currency,
+    compact: true,
+    maximumFractionDigits: 1,
+  });
+  return formatted === '--' ? '-' : formatted;
 }
 
 function formatPercent(val: number | null | undefined): string {
@@ -96,6 +107,7 @@ export default function StockResearchView({
   const profile = stockData?.profile;
   const quote = stockData?.quote;
   const fundamentals = stockData?.fundamentals;
+  const currency = typeof profile?.currency === 'string' ? profile.currency : null;
 
   // AI analysis content
   const aiAnalysis = analysisCache || generateAnalysis.data;
@@ -199,7 +211,7 @@ export default function StockResearchView({
           </div>
           <div className="text-right shrink-0">
             <div className="font-data text-2xl font-semibold text-foreground tabular-nums tracking-tight">
-              {formatPrice(quote?.price)}
+              {formatPrice(quote?.price, symbol, currency)}
             </div>
             <div className="text-xs text-muted-foreground/70 mt-0.5">
               USD
@@ -209,7 +221,7 @@ export default function StockResearchView({
 
         {/* Key stats strip */}
         <div className="flex items-center gap-1 mt-4">
-          <StatPill label="市值" value={formatMarketCap(quote?.market_cap)} />
+          <StatPill label="市值" value={formatMarketCap(quote?.market_cap, symbol, currency)} />
           {(fundamentals?.valuation?.pe ?? fundamentals?.valuation?.forward_pe) != null && (
             <StatPill label={fundamentals?.valuation?.pe != null ? "PE" : "Fwd PE"} value={formatRatio((fundamentals!.valuation.pe ?? fundamentals!.valuation.forward_pe)!)} />
           )}
@@ -263,6 +275,8 @@ export default function StockResearchView({
       {/* Fundamental content */}
       <div className="px-5 py-5 space-y-5">
         <FundamentalTab
+          symbol={symbol}
+          currency={currency}
           fundamentals={fundamentals}
           financials={stockData?.financials}
           analysis={aiAnalysis}
@@ -296,12 +310,16 @@ function StatPill({ label, value, accent }: { label: string; value: string; acce
 
 /** Fundamental tab: key metrics + quarterly + AI analysis */
 function FundamentalTab({
+  symbol,
+  currency,
   fundamentals,
   financials,
   analysis,
   generating,
   onGenerate,
 }: {
+  symbol: string;
+  currency?: string | null;
   fundamentals: Record<string, Record<string, number | null | undefined>> | null | undefined;
   financials: { quarters?: Array<Record<string, unknown>> } | null | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -411,13 +429,13 @@ function FundamentalTab({
                         {q.fiscal_year ? `FY${String(q.fiscal_year).slice(-2)} ` : ''}{(q.fiscal_quarter as string) || (q.period as string) || '-'}
                       </td>
                       <td className="py-2 px-3 text-right font-data text-foreground tabular-nums">
-                        {formatMarketCap(is?.revenue)}
+                        {formatMarketCap(is?.revenue, symbol, currency)}
                       </td>
                       <td className="py-2 px-3 text-right font-data text-foreground tabular-nums">
-                        {formatMarketCap(is?.net_income)}
+                        {formatMarketCap(is?.net_income, symbol, currency)}
                       </td>
                       <td className="py-2 px-3 text-right font-data text-foreground tabular-nums">
-                        {is?.eps != null ? `$${is.eps.toFixed(2)}` : '-'}
+                        {formatPrice(is?.eps, symbol, currency)}
                       </td>
                     </tr>
                   );

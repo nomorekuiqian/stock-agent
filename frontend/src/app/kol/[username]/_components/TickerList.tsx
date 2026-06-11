@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Search, X, TrendingUp, TrendingDown } from 'lucide-react';
 
 import type { KolCockpitTickerSummary } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 
 interface Props {
   tickers: KolCockpitTickerSummary[];
@@ -120,7 +121,7 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
                         </span>
                       ) : null}
                     </span>
-                    <PriceMini price={t.price} change={t.daily_change} />
+                    <PriceMini ticker={t.ticker} price={t.price} change={t.daily_change} />
                   </div>
                   {/* Thesis 1-line — matches chain mini card for visual consistency */}
                   {t.summary?.thesis ? (
@@ -152,7 +153,7 @@ export default function TickerList({ tickers, selected, onSelect }: Props) {
   );
 }
 
-function PriceMini({ price, change }: { price: number | null; change: number | null }) {
+function PriceMini({ ticker, price, change }: { ticker: string; price: number | null; change: number | null }) {
   if (price == null) {
     return (
       <span className="text-sm font-medium text-muted-foreground">
@@ -171,7 +172,7 @@ function PriceMini({ price, change }: { price: number | null; change: number | n
       : 'text-destructive';
   return (
     <span className={`flex items-center gap-1 font-data text-xs font-medium tabular-nums ${color}`}>
-      {price.toFixed(2)}
+      {formatStockPrice(price, ticker, undefined, { compactPrice: true })}
       {hasChange && ChangeIcon ? (
         <span className="inline-flex items-center gap-0.5 transition-transform duration-200 group-hover/row:-translate-y-px">
           <ChangeIcon className="h-2.5 w-2.5" />

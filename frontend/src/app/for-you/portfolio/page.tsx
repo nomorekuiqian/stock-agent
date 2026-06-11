@@ -15,7 +15,7 @@ import { usePortfolio, useSavePortfolio } from '@/hooks/queries/use-portfolio';
 import StockSearchDropdown from '@/components/StockSearchDropdown';
 import { Button } from '@/components/ui/button';
 import { STOCK_NAMES } from '@/lib/stock-names';
-import { getCurrency } from '@/lib/currency';
+import { formatStockPrice, getCurrency } from '@/lib/currency';
 import type { HoldingInput, HoldingView } from '@/lib/api';
 import { QuickThesisInput } from '@/components/memory/QuickThesisInput';
 
@@ -484,7 +484,7 @@ function PortfolioEditorContent() {
                 <div key={sym} className="flex items-center justify-between text-xs">
                   <span className="font-medium text-foreground">{sym}</span>
                   <span className="text-muted-foreground">
-                    按 ${info.entry_price.toFixed(2)} 折算 &rarr; {info.shares.toFixed(2)} 股
+                    按 {formatStockPrice(info.entry_price, sym, undefined, { compactPrice: true })} 折算 &rarr; {info.shares.toFixed(2)} 股
                   </span>
                 </div>
               ))}

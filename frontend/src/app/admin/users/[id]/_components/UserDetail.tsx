@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { getAccessTokenSync, getAccessTokenAsync } from '@/contexts/AuthContext';
+import { formatStockPrice } from '@/lib/currency';
 import type {
   UserDetailData,
   UserProfile,
@@ -1425,10 +1426,10 @@ function HoldingsSection({
                 </span>
                 <div className="flex-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                   {p.shares != null && <span>{Number(p.shares).toLocaleString(undefined, { maximumFractionDigits: 4 })} 股</span>}
-                  {p.cost_basis != null && <span>成本 ${Number(p.cost_basis).toLocaleString()}</span>}
-                  {p.entry_price != null && <span>入价 ${Number(p.entry_price).toLocaleString()}</span>}
-                  {p.target != null && <span>目标 ${Number(p.target).toLocaleString()}</span>}
-                  {p.stop_loss != null && <span>止损 ${Number(p.stop_loss).toLocaleString()}</span>}
+                  {p.cost_basis != null && <span>成本 {formatStockPrice(Number(p.cost_basis), p.symbol, undefined, { maximumFractionDigits: 0 })}</span>}
+                  {p.entry_price != null && <span>入价 {formatStockPrice(Number(p.entry_price), p.symbol, undefined, { compactPrice: true })}</span>}
+                  {p.target != null && <span>目标 {formatStockPrice(Number(p.target), p.symbol, undefined, { compactPrice: true })}</span>}
+                  {p.stop_loss != null && <span>止损 {formatStockPrice(Number(p.stop_loss), p.symbol, undefined, { compactPrice: true })}</span>}
                   {p.conviction != null && <span>信心 {p.conviction}/5</span>}
                 </div>
                 {p.thesis && (

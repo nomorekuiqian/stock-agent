@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { AiChatLink } from '@/components/AiChatLink';
 import { addRecentStock } from '@/lib/recent-stocks';
+import { formatCurrencyAmount, resolveCurrency } from '@/lib/currency';
 
 const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
 import {
@@ -396,11 +397,18 @@ export function formatNumber(value: number | null | undefined, options?: {
   minimumFractionDigits?: number;
   maximumFractionDigits?: number;
   compact?: boolean;
+  compactPrice?: boolean;
   currency?: string;
 }): string {
   if (value === null || value === undefined) return '--';
 
-  const { style = 'decimal', minimumFractionDigits = 0, maximumFractionDigits = 2, compact = false } = options || {};
+  const {
+    style = 'decimal',
+    minimumFractionDigits = 0,
+    maximumFractionDigits = 2,
+    compact = false,
+    compactPrice = false,
+  } = options || {};
 
   if (style === 'percent') {
     return `${(value * 100).toFixed(1)}%`;
@@ -408,27 +416,13 @@ export function formatNumber(value: number | null | undefined, options?: {
 
   if (style === 'currency') {
     const cur = options?.currency || 'USD';
-    // Zero-decimal currencies (no cents)
-    const zeroDecimal = ['JPY', 'KRW', 'VND', 'IDR', 'CLP', 'TWD'].includes(cur);
-    // Extract symbol from Intl (works for any currency)
-    const sym = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur })
-      .formatToParts(0).find(p => p.type === 'currency')?.value || cur;
-    if (compact && Math.abs(value) >= 1e12) {
-      return `${sym}${(value / 1e12).toFixed(2)}T`;
-    }
-    if (compact && Math.abs(value) >= 1e9) {
-      return `${sym}${(value / 1e9).toFixed(2)}B`;
-    }
-    if (compact && Math.abs(value) >= 1e6) {
-      return `${sym}${(value / 1e6).toFixed(2)}M`;
-    }
-    const fd = zeroDecimal ? 0 : undefined;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
+    return formatCurrencyAmount(value, {
       currency: cur,
-      minimumFractionDigits: fd ?? minimumFractionDigits,
-      maximumFractionDigits: fd ?? maximumFractionDigits,
-    }).format(value);
+      compact,
+      compactPrice,
+      minimumFractionDigits,
+      maximumFractionDigits,
+    });
   }
 
   if (compact && Math.abs(value) >= 1e9) {
@@ -1150,6 +1144,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
   const quote = data?.quote;
   const fundamentals = data?.fundamentals;
   const financials = data?.financials;
+  const currency = resolveCurrency(symbol, profile?.currency).code;
 
   const priceChange = quote?.change_percent ?? 0;
   const isPositive = priceChange >= 0;
@@ -1216,7 +1211,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                 {quote?.price != null && (
                   <div className="flex items-baseline gap-2 flex-shrink-0">
                     <span className="text-xl font-data font-bold text-foreground">
-                      {formatNumber(quote.price, { style: 'currency', currency: profile?.currency })}
+                      {formatNumber(quote.price, { style: 'currency', currency, compactPrice: true })}
                     </span>
                     <span className={`text-sm font-data font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                       {isPositive ? '+' : ''}{priceChange.toFixed(2)}%
@@ -1308,7 +1303,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
           <OverviewTab
             symbol={symbol}
             companyName={profile?.company_name || symbol}
-            currency={profile?.currency}
+            currency={currency}
             quote={quote}
             fundamentals={fundamentals}
             financials={financials}
@@ -1329,7 +1324,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             <EarningsTab
               symbol={symbol}
               companyName={profile?.company_name || symbol}
-              currency={profile?.currency}
+              currency={currency}
               earningsHistory={earningsData?.earnings_history ?? []}
               revenueSegments={earningsData?.revenue_segments ?? []}
               revenueGeoSegments={earningsData?.revenue_geo_segments}

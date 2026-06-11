@@ -1,6 +1,7 @@
 'use client';
 
 import type { MarketOverviewResponse } from '@/hooks/queries/use-stock-data';
+import { formatStockPrice } from '@/lib/currency';
 
 function formatPct(v: number | null | undefined, digits = 1): string {
   if (v == null || !isFinite(v)) return '—';
@@ -8,9 +9,9 @@ function formatPct(v: number | null | undefined, digits = 1): string {
   return `${sign}${v.toFixed(digits)}%`;
 }
 
-function formatPrice(v: number | null | undefined): string {
+function formatPrice(v: number | null | undefined, symbol: string): string {
   if (v == null || !isFinite(v)) return '—';
-  return `$${v.toFixed(2)}`;
+  return formatStockPrice(v, symbol, undefined, { compactPrice: true });
 }
 
 function KpiCard({
@@ -69,7 +70,7 @@ export function MarketKpiRow({
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <KpiCard
         label="现价"
-        value={formatPrice(k.current_price)}
+        value={formatPrice(k.current_price, overview.symbol)}
         sub="实时行情"
       />
       <KpiCard

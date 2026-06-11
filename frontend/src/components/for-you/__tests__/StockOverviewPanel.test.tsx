@@ -82,6 +82,39 @@ describe('StockOverviewPanel — holdings-sourced 我的持仓', () => {
     expect(rows.length).toBeGreaterThan(0);
   });
 
+  it('displays local currency for non-US holdings', () => {
+    const holdings = [
+      makeHolding({ symbol: '7203.T', shares: 10, price: 2000, market_value: 20000, effective_weight_pct: 100 }),
+    ];
+
+    render(<StockOverviewPanel stocks={[]} holdings={holdings} />);
+
+    const rows = screen.getAllByText((_, el) =>
+      !!el && /10.*股.*JPY 2,000.*¥20,000/.test(el.textContent ?? ''),
+    );
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it('does not label mixed-currency portfolio totals as USD', () => {
+    const holdings = [
+      makeHolding({ symbol: 'AAPL', shares: 10, price: 180, market_value: 1800, effective_weight_pct: 50 }),
+      makeHolding({ symbol: '7203.T', shares: 10, price: 2000, market_value: 20000, effective_weight_pct: 50 }),
+    ];
+
+    render(
+      <StockOverviewPanel
+        stocks={[]}
+        holdings={holdings}
+        totalMarketValue={21800}
+        totalDailyChange={100}
+        totalDailyChangePct={0.5}
+      />,
+    );
+
+    expect(screen.getByText('多币种组合')).toBeInTheDocument();
+    expect(screen.queryByText('$21,800')).not.toBeInTheDocument();
+  });
+
   it('handles $CASH row: shows market_value, hides shares × price', () => {
     const holdings = [
       makeHolding({

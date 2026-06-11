@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { X } from 'lucide-react';
+import { formatStockPrice } from '@/lib/currency';
 
 export interface StockQuoteData {
   symbol: string;
@@ -125,7 +126,7 @@ export default function StockCard({
           {price !== undefined ? (
             <>
               <span className="font-mono text-sm font-medium text-foreground tabular-nums">
-                ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {formatStockPrice(price, quote?.symbol || symbol, undefined, { compactPrice: true })}
               </span>
               {dailyChange !== undefined && (
                 <span className={`font-mono text-xs tabular-nums ${

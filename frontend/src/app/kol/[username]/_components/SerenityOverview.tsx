@@ -17,6 +17,7 @@ import {
   useKolCockpitTickers,
 } from '@/hooks/queries/use-kol-data';
 import type { KolCockpitTickerSummary } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 import OverviewMiniPreview from './OverviewMiniPreview';
 
 interface Props {
@@ -191,7 +192,7 @@ export default function SerenityOverview({ username }: Props) {
                       {t.count} 次
                     </span>
                   </span>
-                  <PriceMini price={t.price} change={t.daily_change} />
+                  <PriceMini ticker={t.ticker} price={t.price} change={t.daily_change} />
                 </li>
               ))}
             </ul>
@@ -298,9 +299,11 @@ function MiniLoading({ rows }: { rows: number }) {
 }
 
 function PriceMini({
+  ticker,
   price,
   change,
 }: {
+  ticker: string;
   price: number | null;
   change: number | null;
 }) {
@@ -320,7 +323,7 @@ function PriceMini({
     <div
       className={`shrink-0 text-right font-data text-xs tabular-nums ${color}`}
     >
-      <div>{price.toFixed(2)}</div>
+      <div>{formatStockPrice(price, ticker, undefined, { compactPrice: true })}</div>
       {hasChange && ChangeIcon ? (
         <div className="flex items-center justify-end gap-0.5">
           <ChangeIcon className="h-3 w-3" />

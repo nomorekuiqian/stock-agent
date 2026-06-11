@@ -8,6 +8,7 @@ import {
   DigestBriefNews,
   DigestEvent,
 } from '@/lib/api';
+import { formatCurrencyAmount, formatStockPrice, resolveCurrency } from '@/lib/currency';
 import { sortByVolatility, isNotableMove, parseChangePercent } from '@/lib/digest-utils';
 import { formatCalendarDate, isMarketToday } from '@/lib/timezone';
 import { STOCK_NAMES } from '@/lib/stock-names';
@@ -77,6 +78,11 @@ function filterBySymbol<T extends { related_symbols: string[] }>(
 ): T[] {
   if (!items || items.length === 0) return [];
   return items.filter((i) => i.related_symbols?.includes(symbol));
+}
+
+function getSingleCurrencyCode(symbols: string[]): string | null {
+  const codes = new Set(symbols.map((symbol) => resolveCurrency(symbol).code));
+  return codes.size === 1 ? [...codes][0] : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -152,8 +158,8 @@ function HoldingFallbackPanel({
               <>
                 <span className="text-muted-foreground/70">持仓</span>
                 <span className="text-right text-foreground">
-                  {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 × $
-                  {holding.price.toFixed(2)}
+                  {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 ×{' '}
+                  {formatStockPrice(holding.price, holding.symbol, undefined, { compactPrice: true })}
                 </span>
               </>
             )}
@@ -161,7 +167,7 @@ function HoldingFallbackPanel({
               <>
                 <span className="text-muted-foreground/70">市值</span>
                 <span className="text-right text-foreground font-semibold">
-                  ${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {formatStockPrice(holding.market_value, holding.symbol, undefined, { maximumFractionDigits: 0 })}
                 </span>
               </>
             )}
@@ -169,10 +175,10 @@ function HoldingFallbackPanel({
               <>
                 <span className="text-muted-foreground/70">成本</span>
                 <span className="text-right text-foreground">
-                  ${holding.cost_basis.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {formatStockPrice(holding.cost_basis, holding.symbol, undefined, { maximumFractionDigits: 0 })}
                   {holding.entry_price && holding.entry_price > 0 && (
                     <span className="text-muted-foreground/60 ml-1">
-                      (@ ${holding.entry_price.toFixed(2)})
+                      (@ {formatStockPrice(holding.entry_price, holding.symbol, undefined, { compactPrice: true })})
                     </span>
                   )}
                 </span>
@@ -186,7 +192,7 @@ function HoldingFallbackPanel({
                     pnl >= 0 ? 'text-emerald-500' : 'text-red-500'
                   }`}
                 >
-                  {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {pnl >= 0 ? '+' : '-'}{formatStockPrice(Math.abs(pnl), holding.symbol, undefined, { maximumFractionDigits: 0 })}
                   {pnlPct != null && (
                     <span className="ml-1 font-normal">
                       ({pnl >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
@@ -203,7 +209,7 @@ function HoldingFallbackPanel({
         <div className="rounded-lg border border-border/30 bg-card/40 p-3 mb-3 text-xs">
           <span className="text-muted-foreground/70">现金头寸</span>
           <span className="ml-2 text-foreground font-data font-semibold">
-            ${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            {formatStockPrice(holding.market_value, holding.symbol, undefined, { maximumFractionDigits: 0 })}
           </span>
         </div>
       )}
@@ -404,21 +410,21 @@ function HoldingRow({ holding, digestStock, isSelected, onSelect }: HoldingRowPr
         <span className="truncate">{displayName}</span>
         <span className="shrink-0 ml-2">
           {isCash ? (
-            holding.market_value != null ? `$${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'
+            holding.market_value != null ? formatStockPrice(holding.market_value, holding.symbol, undefined, { maximumFractionDigits: 0 }) : '—'
           ) : holding.shares != null && holding.price != null ? (
             <>
-              {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 × $
-              {holding.price.toFixed(2)} ={' '}
+              {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 ×{' '}
+              {formatStockPrice(holding.price, holding.symbol, undefined, { compactPrice: true })} ={' '}
               <span className="text-foreground font-medium">
-                ${(holding.market_value ?? holding.shares * holding.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {formatStockPrice(holding.market_value ?? holding.shares * holding.price, holding.symbol, undefined, { maximumFractionDigits: 0 })}
               </span>
             </>
           ) : holding.market_value != null ? (
             <span className="text-foreground font-medium">
-              ${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {formatStockPrice(holding.market_value, holding.symbol, undefined, { maximumFractionDigits: 0 })}
             </span>
           ) : holding.cost_basis != null ? (
-            <>成本 ${holding.cost_basis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</>
+            <>成本 {formatStockPrice(holding.cost_basis, holding.symbol, undefined, { maximumFractionDigits: 0 })}</>
           ) : (
             '—'
           )}
@@ -472,7 +478,7 @@ function MobileStockItem({
         </div>
 
         <div className="flex items-center gap-2 shrink-0 ml-2">
-          <span className="text-xs font-data text-muted-foreground">${(stock.price ?? 0).toFixed(2)}</span>
+          <span className="text-xs font-data text-muted-foreground">{formatStockPrice(stock.price ?? 0, stock.symbol, undefined, { compactPrice: true })}</span>
           <span className={`text-xs font-data font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
             {stock.daily_change}
           </span>
@@ -603,21 +609,21 @@ function MobileHoldingItem({
 
         <div className="text-[11px] font-data text-muted-foreground/80 tabular-nums pl-4">
           {isCash ? (
-            holding.market_value != null ? `$${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'
+            holding.market_value != null ? formatStockPrice(holding.market_value, holding.symbol, undefined, { maximumFractionDigits: 0 }) : '—'
           ) : holding.shares != null && holding.price != null ? (
             <>
-              {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 × $
-              {holding.price.toFixed(2)} ={' '}
+              {holding.shares.toLocaleString(undefined, { maximumFractionDigits: 2 })} 股 ×{' '}
+              {formatStockPrice(holding.price, holding.symbol, undefined, { compactPrice: true })} ={' '}
               <span className="text-foreground font-medium">
-                ${(holding.market_value ?? holding.shares * holding.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {formatStockPrice(holding.market_value ?? holding.shares * holding.price, holding.symbol, undefined, { maximumFractionDigits: 0 })}
               </span>
             </>
           ) : holding.market_value != null ? (
             <span className="text-foreground font-medium">
-              ${holding.market_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {formatStockPrice(holding.market_value, holding.symbol, undefined, { maximumFractionDigits: 0 })}
             </span>
           ) : holding.cost_basis != null ? (
-            <>成本 ${holding.cost_basis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</>
+            <>成本 {formatStockPrice(holding.cost_basis, holding.symbol, undefined, { maximumFractionDigits: 0 })}</>
           ) : (
             '—'
           )}
@@ -671,15 +677,18 @@ function PortfolioHeader({
   totalMarketValue,
   totalDailyChange,
   totalDailyChangePct,
+  totalCurrency,
   portfolioSummary,
 }: {
   count: number;
   totalMarketValue?: number;
   totalDailyChange?: number;
   totalDailyChangePct?: number;
+  totalCurrency?: string | null;
   portfolioSummary?: string;
 }) {
   const isPositive = (totalDailyChangePct ?? 0) >= 0;
+  const canShowCurrencyTotal = totalMarketValue != null && totalCurrency;
   return (
     <div className="mb-3">
       <div className="flex items-center justify-between mb-2">
@@ -689,10 +698,17 @@ function PortfolioHeader({
         </div>
         {totalMarketValue != null && (
           <div className="text-right">
-            <div className="text-lg font-semibold font-data text-foreground">${totalMarketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+            <div className="text-lg font-semibold font-data text-foreground">
+              {canShowCurrencyTotal
+                ? formatCurrencyAmount(totalMarketValue, { currency: totalCurrency, maximumFractionDigits: 0 })
+                : '多币种组合'}
+            </div>
             {totalDailyChange != null && totalDailyChangePct != null && (
               <div className={`text-xs font-data ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
-                {isPositive ? '+' : ''}${totalDailyChange.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({isPositive ? '+' : ''}{totalDailyChangePct.toFixed(1)}%) 今日
+                {canShowCurrencyTotal
+                  ? `${isPositive ? '+' : '-'}${formatCurrencyAmount(Math.abs(totalDailyChange), { currency: totalCurrency, maximumFractionDigits: 0 })} `
+                  : ''}
+                ({isPositive ? '+' : ''}{totalDailyChangePct.toFixed(1)}%) 今日
               </div>
             )}
           </div>
@@ -913,6 +929,14 @@ export default function StockOverviewPanel({
     () => (holdings ?? []).filter(isVisibleHolding),
     [holdings],
   );
+  const holdingsCurrency = useMemo(
+    () => getSingleCurrencyCode(
+      visibleHoldings
+        .filter((h) => h.market_value != null || h.cost_basis != null || h.price != null)
+        .map((h) => h.symbol),
+    ),
+    [visibleHoldings],
+  );
 
   // Effective portfolio symbol set: prefer the holdings-derived set; fall
   // back to the legacy `portfolioSymbols` prop for callers that pass it.
@@ -995,6 +1019,7 @@ export default function StockOverviewPanel({
             totalMarketValue={totalMarketValue}
             totalDailyChange={totalDailyChange}
             totalDailyChangePct={totalDailyChangePct}
+            totalCurrency={holdingsCurrency}
             portfolioSummary={portfolioSummary}
           />
           <HoldingsGroup
@@ -1017,6 +1042,7 @@ export default function StockOverviewPanel({
           first wave of V2 callers that haven't migrated. */}
       {!useHoldingsPath && hasPortfolio && (() => {
         const portfolioStocks = sorted.filter((s) => effectivePortfolioSymbols!.has(s.symbol));
+        const portfolioCurrency = getSingleCurrencyCode(portfolioStocks.map((s) => s.symbol));
         return (
           <>
             <PortfolioHeader
@@ -1024,6 +1050,7 @@ export default function StockOverviewPanel({
               totalMarketValue={totalMarketValue}
               totalDailyChange={totalDailyChange}
               totalDailyChangePct={totalDailyChangePct}
+              totalCurrency={portfolioCurrency}
               portfolioSummary={portfolioSummary}
             />
             {portfolioStocks.length === 0 ? (

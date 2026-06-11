@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useEarningsData, useTranscript } from '@/hooks/queries/use-stock-data';
 import { SectionCard } from '@/app/stock/[symbol]/_components/StockDetailContent';
+import { formatCurrencyAmount, resolveCurrency } from '@/lib/currency';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,13 +15,10 @@ function fmt(v: number | null | undefined, opts?: { pct?: boolean; bn?: boolean;
     const s = (v * 100).toFixed(1);
     return opts.sign && v > 0 ? `+${s}%` : `${s}%`;
   }
-  const sym = opts?.currency && opts.currency !== 'USD' ? opts.currency : '$';
   if (opts?.bn) {
-    if (Math.abs(v) >= 1e9) return `${sym}${(v / 1e9).toFixed(1)}B`;
-    if (Math.abs(v) >= 1e6) return `${sym}${(v / 1e6).toFixed(0)}M`;
-    return `${sym}${v.toFixed(0)}`;
+    return formatCurrencyAmount(v, { currency: opts?.currency, compact: true, maximumFractionDigits: 0 });
   }
-  return v.toFixed(2);
+  return opts?.currency ? formatCurrencyAmount(v, { currency: opts.currency }) : v.toFixed(2);
 }
 
 function fmtStmt(v: unknown, key: string, currency?: string): string {
@@ -28,10 +26,7 @@ function fmtStmt(v: unknown, key: string, currency?: string): string {
   const n = Number(v);
   if (isNaN(n)) return '--';
   if (key.includes('shares')) return `${(n / 1e6).toFixed(0)}M`;
-  const sym = currency && currency !== 'USD' ? currency : '$';
-  if (Math.abs(n) >= 1e9) return `${sym}${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `${sym}${(n / 1e6).toFixed(0)}M`;
-  return `${sym}${n.toFixed(0)}`;
+  return formatCurrencyAmount(n, { currency, compact: true, maximumFractionDigits: 0 });
 }
 
 function colorForGrowth(v: number | null | undefined): string {
@@ -156,7 +151,7 @@ function SegmentTable({ segment, prev, type, currency }: {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function PanelEarningsTab({ symbol, stockData }: { symbol: string; stockData: any }) {
   const { data: earningsData } = useEarningsData(symbol);
-  const currency = stockData?.profile?.currency || 'USD';
+  const currency = resolveCurrency(symbol, stockData?.profile?.currency).code;
   // Financial statements come from the earnings-data API, not the stock detail API
   const incomeStatements: Array<Record<string, unknown>> = earningsData?.income_statements || [];
   const cashflowStatements: Array<Record<string, unknown>> = earningsData?.cashflow_statements || [];
@@ -291,7 +286,7 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
           <SectionCard title="本季表现" titleEn={activeQuarter ? (quarterLabelMap.get(activeQuarter) || qLabel(activeQuarter)) : ''} numberLabel="01">
             <div className="grid grid-cols-2 gap-3">
               <MetricBox label="EPS"
-                value={(() => { const v = selectedEps?.eps_actual as number | null; return v != null ? `$${v.toFixed(2)}` : '--'; })()}
+                value={(() => { const v = selectedEps?.eps_actual as number | null; return v != null ? fmt(v, { currency }) : '--'; })()}
                 positive={(() => { const v = selectedEps?.surprise_percent as number | null; return v != null ? v >= 0 : undefined; })()} />
               <MetricBox label="营收 YoY" value={fmt(selectedGrowth?.revenueGrowth as number | null, { pct: true, sign: true })}
                 positive={(selectedGrowth?.revenueGrowth as number | null) != null ? (selectedGrowth?.revenueGrowth as number) >= 0 : undefined} />
@@ -348,8 +343,8 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
                     {earningsHistory.slice(0, 8).map((item: Record<string, unknown>, i: number) => (
                       <tr key={item.quarter as string} className={`border-t border-border/20 ${i === 0 ? 'bg-card/30' : ''}`}>
                         <td className="py-2 px-3 font-data text-foreground/90">{qLabel(item.quarter as string)}</td>
-                        <td className="py-2 px-3 text-right font-data text-foreground">${fmt(item.eps_actual as number | null)}</td>
-                        <td className="py-2 px-3 text-right font-data text-muted-foreground">${fmt(item.eps_estimate as number | null)}</td>
+                        <td className="py-2 px-3 text-right font-data text-foreground">{fmt(item.eps_actual as number | null, { currency })}</td>
+                        <td className="py-2 px-3 text-right font-data text-muted-foreground">{fmt(item.eps_estimate as number | null, { currency })}</td>
                         <td className={`py-2 px-3 text-right font-data font-medium ${colorForGrowth(item.surprise_percent as number | null)}`}>
                           {fmt(item.surprise_percent as number | null, { pct: true, sign: true })}
                         </td>
