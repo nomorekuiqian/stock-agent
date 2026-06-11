@@ -192,6 +192,23 @@ def test_agent_sessions_edge_function_preserves_batch_event_order():
     assert "created_at: new Date(nowMs + idx).toISOString()" in source
 
 
+def test_agent_sessions_edge_function_supports_message_feedback_updates():
+    """Feedback updates must target one assistant message and support clearing."""
+    edge_path = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "edge_functions"
+        / "agent-sessions.js"
+    )
+    source = edge_path.read_text()
+
+    assert 'action === "update_feedback"' in source
+    assert "message_event_id, client_event_id, or turn_id required" in source
+    assert ".eq(\"event_type\", \"assistant_message\")" in source
+    assert "feedback_sentiment: sentiment === 0 ? null : sentiment" in source
+    assert ".select(\"id, feedback_sentiment, feedback_reason, feedback_at, feedback_payload\")" in source
+
+
 @pytest.mark.asyncio
 async def test_picker_conversation_store_reads_existing_messages(monkeypatch):
     async def fake_get_conversation(conversation_id: str, user_id: str):

@@ -83,6 +83,23 @@ describe('SEND_MESSAGE', () => {
     expect(state.messages[0].content).toBe('find me stocks');
   });
 
+  it('stores runtime identity on the user message', () => {
+    const state = researchReducer(initialState, {
+      type: 'SEND_MESSAGE',
+      message: 'find me stocks',
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+    });
+
+    expect(state.messages[0]).toEqual(
+      expect.objectContaining({
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        clientEventId: 'turn-1:user_message',
+      }),
+    );
+  });
+
   it('sets isLoading true and clears error', () => {
     const prev = { ...initialState, error: 'old error' };
     const state = researchReducer(prev, {
@@ -169,6 +186,25 @@ describe('RECEIVE_RESPONSE', () => {
     const result = makeResult({ options: [] });
     const state = researchReducer(prev, { type: 'RECEIVE_RESPONSE', result });
     expect(state.messages[1].options).toBeUndefined();
+  });
+
+  it('stores runtime identity on appended assistant messages', () => {
+    const prev = chatState();
+    const state = researchReducer(prev, {
+      type: 'RECEIVE_RESPONSE',
+      result: makeResult({ message: 'answer' }),
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+    });
+
+    expect(state.messages[1]).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        clientEventId: 'turn-1:assistant_message',
+      }),
+    );
   });
 
   // --- Candidates ---
@@ -896,6 +932,31 @@ describe('STREAM_DELTA', () => {
     expect(state.messages[1].content).toBe('answer text');
   });
 
+  it('carries runtime identity through streaming placeholder updates', () => {
+    let state = researchReducer(chatState(), {
+      type: 'STREAM_DELTA',
+      kind: 'thinking',
+      text: 'thinking ',
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+    });
+    state = researchReducer(state, {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'answer',
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+    });
+
+    expect(state.messages[1]).toEqual(
+      expect.objectContaining({
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        clientEventId: 'turn-1:assistant_message',
+      }),
+    );
+  });
+
   it('does not append to a non-streaming assistant message', () => {
     // Last message is assistant but NOT streaming (e.g. an older turn that
     // already finalized).  STREAM_DELTA should create a fresh placeholder
@@ -952,6 +1013,32 @@ describe('RECEIVE_RESPONSE with streaming placeholder', () => {
     expect(state.messages).toHaveLength(2);
     expect(state.messages[1].streaming).toBe(false);
     expect(state.messages[1].content).toBe('final canonical answer');
+  });
+
+  it('preserves runtime identity when finalizing a streaming placeholder', () => {
+    let state = researchReducer(chatState(), {
+      type: 'STREAM_DELTA',
+      kind: 'message',
+      text: 'partial answer',
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+    });
+
+    state = researchReducer(state, {
+      type: 'RECEIVE_RESPONSE',
+      result: makeResult({ message: 'final answer' }),
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+    });
+
+    expect(state.messages[1]).toEqual(
+      expect.objectContaining({
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        clientEventId: 'turn-1:assistant_message',
+        streaming: false,
+      }),
+    );
   });
 
   it('preserves placeholder content if result.message is empty', () => {

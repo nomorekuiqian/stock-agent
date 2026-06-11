@@ -387,8 +387,8 @@ test.describe('Screener page (/research)', () => {
 
     await page.goto('/research');
 
-    const sidebar = page.getByTestId('research-conversation-sidebar');
     const shell = page.getByTestId('research-chat-shell');
+    const sidebar = shell.getByTestId('research-conversation-sidebar');
     const chatScroll = page.getByTestId('research-chat-scroll');
 
     await expect(page.getByText('long 用户消息 36')).toBeVisible({ timeout: 15000 });
@@ -404,7 +404,7 @@ test.describe('Screener page (/research)', () => {
     await expect(page.locator('body')).toHaveJSProperty('scrollTop', 0);
     await expect(page.locator('html')).toHaveJSProperty('scrollTop', 0);
 
-    await page.getByText('短对话').click();
+    await sidebar.getByText('短对话').click();
     await expect(page.getByText('short 用户消息 2')).toBeVisible({ timeout: 15000 });
 
     const afterBox = await sidebar.boundingBox();
@@ -534,8 +534,9 @@ test.describe('Screener page (/research)', () => {
     });
 
     await page.goto('/research');
-    await expect(page.getByText('Runtime KOL')).toBeVisible({ timeout: 15000 });
-    await page.getByText('Runtime KOL').click();
+    const runtimeConversation = page.getByRole('button', { name: 'Runtime KOL 刚刚' });
+    await expect(runtimeConversation).toBeVisible({ timeout: 15000 });
+    await runtimeConversation.click();
 
     await expect(page.getByText('runtime only answer from KOL')).toBeVisible({ timeout: 10000 });
     expect(runtimeAgentCalls).toEqual(['research_agent', 'kol_research_agent']);
