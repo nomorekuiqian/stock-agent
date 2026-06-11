@@ -17,6 +17,7 @@ const PUBLIC_ROUTES = [
   '/auth/callback',
   '/email-test',
   '/pricing',
+  '/frank-agent',
   '/webview-check',
   '/macro',
   '/research',

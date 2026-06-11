@@ -15,7 +15,7 @@
 | `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest / getLatestTeaser) | 否（全文需 Max） |
 | `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
 | `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
-| `/frank-agent` | Frank Agent Beta 落地页 | 静态文案 + Auth/Subscription context | 否 |
+| `/frank-agent` | Qinbafrank Agent Waitlist 落地页 | 静态文案 + Auth context | 否 |
 | `/kol/[username]` | KOL 博主研究室概览 | skill 资产 + Backend (kolResearch cockpit/feed) | 浏览否；对话需登录 |
 | `/kol/[username]/chat` | KOL 对话入口 | Backend (kolResearch chatStream) | 发送需登录 |
 | `/kol/[username]/highlights` | KOL 精华观点 | Backend (kolResearch feed/topics) | 否 |
@@ -111,13 +111,13 @@
 - Max 用户调用 `api.twitterDigest.listArchive(limit, offset)`；未登录 / 非 Max 用户调用 `listArchiveTeaser`
 - 卡片链接到 `/twitter-digest/[date]`，非 Max 仍只看到 teaser
 
-### `/frank-agent` Frank Agent Beta 落地页
-- Server page + Client Component,公开访问，不默认放入主导航；主要承接 Frank 的 Twitter/UTM 流量
-- 页面按三段组织：一句话介绍 Frank；说明 Agent 可查旧观点、判断新闻、用框架看股票并整理下一步清单；最后用 Max 早期价承接 Beta CTA
-- 首屏标题直接写 `Frank AI 投研助手 Beta`，右侧展示产品入口卡、三项核心能力、语料覆盖数字和 `/kol/qinbafrank` 观点库入口，不再使用“Agent 工作流程”式预览
-- CTA 逻辑：未登录跳 `/login?redirect=/frank-agent`；已登录非 Max 调 `createCheckout('max', '/frank-agent')`；Max 用户跳 `/research?agent=kol&persona=qinbafrank`
-- 埋点：`frank_beta_landing_view`、`frank_beta_cta_click`、`frank_beta_checkout_started`、`frank_beta_signup`、`frank_beta_secondary_cta_click`、`frank_beta_cockpit_click`、`frank_beta_example_question_click`
-- 文案强调“在 TheMarketBrew 里复用 Frank 公开研究框架”，必须保留可退款、非投资建议、Frank 本人不会逐条人工回复的边界
+### `/frank-agent` Qinbafrank Agent Waitlist 落地页
+- Server page + Client Component,公开访问，不默认放入主导航；主要承接 Qinbafrank 的 Twitter/UTM 流量
+- 页面按三段组织：一句话介绍 Qinbafrank；说明 Agent 可直接提问、查阅过往内容库、使用专属投研工作流、通过博主视角看市场；最后引导加入 waitlist
+- 首屏标题直接写 `Qinbafrank AI 投研助手 Waitlist`，右侧展示产品入口卡、四项核心能力和 `/kol/qinbafrank` 观点库入口，不展示未解释口径的统计数字
+- CTA 逻辑：未登录跳 `/login?mode=signup&redirect=/request-access?source=qinbafrank-agent`；已登录跳 `/request-access?source=qinbafrank-agent`
+- 埋点：`qinbafrank_waitlist_landing_view`、`qinbafrank_waitlist_cta_click`、`qinbafrank_waitlist_signup_started`、`qinbafrank_waitlist_secondary_cta_click`、`qinbafrank_waitlist_library_click`
+- 文案强调“在 TheMarketBrew 里复用 Qinbafrank 公开研究框架”，必须保留非投资建议、Qinbafrank 本人不会逐条人工回复的边界；本页不触发 checkout、不展示价格、不承诺正式开放时间
 
 ### `/kol/qinbafrank` qinbafrank 博主研究室
 - Server page + Client Component,页面浏览不要求登录；KOL Research Agent 对话需要登录并开启 `kol_research_agent` flag
