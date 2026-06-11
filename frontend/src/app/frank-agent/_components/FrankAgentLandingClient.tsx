@@ -8,19 +8,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
   CheckCircle2,
-  CircleDollarSign,
+  ClipboardList,
   History,
-  ListChecks,
   Newspaper,
-  SearchCheck,
+  PanelTopOpen,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
-import { PRICING, STRIPE_LIVE } from '@/lib/pricing';
 import { trackProductEvent } from '@/lib/product-analytics';
 
-type CtaLocation = 'hero' | 'features' | 'beta_offer' | 'final_cta';
+type CtaLocation = 'hero' | 'waitlist_offer';
 type Tone = 'emerald' | 'amber' | 'sky' | 'neutral';
 
 const TONE_CLASS: Record<Tone, {
@@ -55,22 +53,7 @@ const TONE_CLASS: Record<Tone, {
   },
 };
 
-const FRANK_TAGS = ['宏观', '美股科技', 'AI 供应链', 'Crypto'];
-
-const FRANK_FACTS = [
-  {
-    value: '1048',
-    label: '条公开内容语料',
-  },
-  {
-    value: '22+',
-    label: '个股 playbook',
-  },
-  {
-    value: '7',
-    label: '产业主线',
-  },
-] as const;
+const QINBAFRANK_TAGS = ['宏观', '美股科技', 'AI 供应链', 'Crypto'];
 
 const AGENT_CAPABILITIES: Array<{
   icon: LucideIcon;
@@ -79,43 +62,36 @@ const AGENT_CAPABILITIES: Array<{
   body: string;
 }> = [
   {
-    icon: History,
+    icon: PanelTopOpen,
     tone: 'emerald',
-    title: '查 Frank 旧观点',
-    body: '输入 ticker 或主题，找到相关历史观点和原文证据。',
+    title: '向博主 Agent 直接提问',
+    body: '用自然语言问股票、新闻、财报或市场问题。',
   },
   {
-    icon: SearchCheck,
+    icon: History,
     tone: 'amber',
-    title: '判断新闻有没有用',
-    body: '贴新闻或财报，判断它是否改变公司故事。',
+    title: '查阅过往内容库',
+    body: '回看 Qinbafrank 过去讲过什么，必要时打开原文。',
+  },
+  {
+    icon: Workflow,
+    tone: 'sky',
+    title: '使用专属投研工作流',
+    body: '把问题拆成框架、证据、变量和下一步清单。',
   },
   {
     icon: Newspaper,
-    tone: 'sky',
-    title: '用框架看股票',
-    body: '把个股放回产业链、估值、业绩和逻辑里拆。',
-  },
-  {
-    icon: ListChecks,
     tone: 'neutral',
-    title: '整理下一步清单',
-    body: '留下还要核对的数据、风险和打脸条件。',
+    title: '用博主视角看市场',
+    body: '从宏观、产业链和个股逻辑里理解当下变化。',
   },
 ];
 
-const QUESTION_BANK = [
-  'Frank 以前怎么看 PLTR？',
-  '这条新闻会改变公司故事吗？',
-  'NVDA 下跌是杀估值、杀业绩还是杀逻辑？',
-  'HOOD 财报里哪个数字最关键？',
-];
-
-const BETA_BENEFITS = [
-  'Frank Agent Beta',
-  'TheMarketBrew Max',
-  '早期价',
-  '可退款',
+const WAITLIST_BENEFITS = [
+  'Qinbafrank Agent 试用申请',
+  '早期体验名额',
+  '观点库与 Agent 入口',
+  '反馈优先收集',
 ];
 
 function getAttribution(searchParams: { get: (name: string) => string | null }) {
@@ -127,103 +103,69 @@ function getAttribution(searchParams: { get: (name: string) => string | null }) 
   };
 }
 
-export default function FrankAgentLandingClient() {
+export default function QinbafrankAgentLandingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const {
-    isMax,
-    isLoading: subLoading,
-    isCheckoutLoading,
-    checkoutError,
-    createCheckout,
-  } = useSubscription();
   const [ctaLocation, setCtaLocation] = useState<CtaLocation | null>(null);
   const attribution = useMemo(() => getAttribution(searchParams), [searchParams]);
-  const loading = authLoading || subLoading;
-  const agentHref = '/research?agent=kol&persona=qinbafrank';
+  const waitlistHref = '/request-access?source=qinbafrank-agent';
 
   useEffect(() => {
     const properties = {
-      source: 'frank_agent_beta',
+      source: 'qinbafrank_agent_waitlist',
       path: '/frank-agent',
       ...attribution,
     };
-    track('frank_beta_landing_view', properties);
-    trackProductEvent('frank_beta_landing_view', properties);
+    track('qinbafrank_waitlist_landing_view', properties);
+    trackProductEvent('qinbafrank_waitlist_landing_view', properties);
   }, [attribution]);
 
   async function handlePrimaryCta(location: CtaLocation) {
     const properties = {
-      source: 'frank_agent_beta',
+      source: 'qinbafrank_agent_waitlist',
       location,
-      tier: 'max',
       authenticated: isAuthenticated,
-      already_max: isMax,
-      stripe_live: STRIPE_LIVE,
       ...attribution,
     };
-    track('frank_beta_cta_click', properties);
-    trackProductEvent('frank_beta_cta_click', properties);
+    track('qinbafrank_waitlist_cta_click', properties);
+    trackProductEvent('qinbafrank_waitlist_cta_click', properties);
 
-    if (isMax) {
-      router.push(agentHref);
-      return;
-    }
-
+    setCtaLocation(location);
     if (!isAuthenticated) {
-      trackProductEvent('frank_beta_signup', {
-        source: 'frank_agent_beta',
+      trackProductEvent('qinbafrank_waitlist_signup_started', {
+        source: 'qinbafrank_agent_waitlist',
         location,
         ...attribution,
       });
-      router.push('/login?redirect=/frank-agent');
+      router.push(`/login?mode=signup&redirect=${encodeURIComponent(waitlistHref)}`);
       return;
     }
 
-    if (!STRIPE_LIVE) {
-      router.push('/pricing');
-      return;
-    }
-
-    setCtaLocation(location);
-    track('frank_beta_checkout_started', properties);
-    trackProductEvent('frank_beta_checkout_started', properties);
-    await createCheckout('max', '/frank-agent');
-    setCtaLocation(null);
+    router.push(waitlistHref);
   }
 
-  const ctaLabel = isMax ? '打开 Frank Agent' : isAuthenticated ? '加入 Frank Agent Beta' : '登录后加入 Beta';
-  const ctaBusy = isCheckoutLoading || ctaLocation !== null;
+  const ctaLabel = '注册加入 waitlist';
+  const ctaBusy = ctaLocation !== null;
 
   return (
     <main className="min-h-screen bg-background font-editorial text-foreground">
       <section className="relative overflow-hidden border-b border-border/35 bg-[linear-gradient(135deg,rgba(16,185,129,0.04),transparent_44%,rgba(245,158,11,0.025))]">
         <div className="mx-auto grid max-w-6xl gap-9 px-4 py-12 md:grid-cols-[minmax(0,1fr)_420px] md:px-6 md:py-16 lg:py-20">
           <div className="flex flex-col justify-center">
-            <div className="mb-5 flex flex-wrap items-center gap-3">
-              <span className="rounded-lg border border-primary/20 bg-primary/[0.06] px-3 py-1.5 text-xs font-medium tracking-[0.12em] text-primary">
-                TheMarketBrew
-              </span>
-              <span className="rounded-lg border border-border/45 bg-card/25 px-3 py-1.5 text-sm text-muted-foreground">
-                Frank Agent Beta
-              </span>
-            </div>
-
             <h1 className="max-w-3xl text-balance font-editorial text-4xl leading-tight text-foreground md:text-5xl lg:text-6xl">
-              <span className="block">Frank AI</span>
-              <span className="block">投研助手 Beta</span>
+              Qinbafrank AI 投研助手 Waitlist
             </h1>
 
             <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
-              在 TheMarketBrew 里查 Frank 旧观点，用他的框架看新闻、财报和股票。
+              在 TheMarketBrew 里查 Qinbafrank 旧观点，用他的框架看新闻、财报和股票。
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={() => handlePrimaryCta('hero')}
-                disabled={loading || ctaBusy}
+                disabled={authLoading || ctaBusy}
                 className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-primary/90 px-5 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-70 motion-reduce:transform-none"
               >
                 {ctaBusy && ctaLocation === 'hero' ? '正在跳转...' : ctaLabel}
@@ -233,8 +175,8 @@ export default function FrankAgentLandingClient() {
                 href="#features"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-border/50 bg-card/20 px-5 py-3 text-sm font-medium text-foreground transition hover:border-primary/25 hover:bg-primary/[0.035] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transform-none"
                 onClick={() => {
-                  trackProductEvent('frank_beta_secondary_cta_click', {
-                    source: 'frank_agent_beta',
+                  trackProductEvent('qinbafrank_waitlist_secondary_cta_click', {
+                    source: 'qinbafrank_agent_waitlist',
                     location: 'hero_features',
                     ...attribution,
                   });
@@ -247,11 +189,7 @@ export default function FrankAgentLandingClient() {
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-primary/75" />
-                限量 Beta
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-primary/75" />
-                可退款
+                试用 waitlist
               </span>
               <span className="inline-flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-primary/75" />
@@ -260,18 +198,18 @@ export default function FrankAgentLandingClient() {
             </div>
           </div>
 
-          <FrankSnapshot attribution={attribution} />
+          <QinbafrankSnapshot attribution={attribution} />
         </div>
       </section>
 
-      <section id="frank" className="border-b border-border/35 bg-card/[0.055]">
+      <section id="qinbafrank" className="border-b border-border/35 bg-card/[0.055]">
         <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 md:grid-cols-[300px_minmax(0,1fr)] md:px-6 md:py-12">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary/80">
-              Why Frank
+              Why Qinbafrank
             </p>
             <h2 className="mt-3 text-balance font-editorial text-3xl leading-tight md:text-4xl">
-              Frank 是谁
+              Qinbafrank 是谁
             </h2>
           </div>
           <div>
@@ -279,7 +217,7 @@ export default function FrankAgentLandingClient() {
               中文 X 上长期研究宏观、美股科技、AI 供应链和 Crypto 的内容创作者。我们整理的是他的公开内容和方法论，不是本人代答。
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {FRANK_TAGS.map((tag) => (
+              {QINBAFRANK_TAGS.map((tag) => (
                 <span
                   key={tag}
                   className="rounded-lg border border-border/40 bg-background/45 px-3 py-1.5 text-sm text-muted-foreground"
@@ -302,32 +240,8 @@ export default function FrankAgentLandingClient() {
               Agent 能做什么
             </h2>
             <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground">
-              查原文，套框架，给清单。不替你做买卖决定。
+              四个入口，围绕 Qinbafrank 的公开内容和方法论做研究。
             </p>
-
-            <div id="questions" className="mt-6 rounded-lg border border-border/40 bg-card/[0.18] p-4">
-              <p className="text-sm font-medium text-foreground">可以直接这样问</p>
-              <div className="mt-3 grid gap-2">
-                {QUESTION_BANK.map((question) => (
-                  <button
-                    key={question}
-                    type="button"
-                    onClick={() => {
-                      trackProductEvent('frank_beta_example_question_click', {
-                        source: 'frank_agent_beta',
-                        question,
-                        ...attribution,
-                      });
-                      handlePrimaryCta('features');
-                    }}
-                    className="group flex min-h-[42px] items-center justify-between gap-3 rounded-lg border border-border/35 bg-background/40 px-3 py-2 text-left text-sm text-muted-foreground transition hover:border-primary/25 hover:bg-primary/[0.035] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
-                  >
-                    <span>{question}</span>
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary/70 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none" />
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -338,20 +252,20 @@ export default function FrankAgentLandingClient() {
         </div>
       </section>
 
-      <section id="beta" className="border-y border-border/35 bg-card/[0.065]">
+      <section id="waitlist" className="border-y border-border/35 bg-card/[0.065]">
         <div className="mx-auto grid max-w-6xl gap-7 px-4 py-10 md:grid-cols-[minmax(0,1fr)_360px] md:px-6 md:py-12">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary/80">
-              Beta Offer
+              Waitlist
             </p>
             <h2 className="mt-3 max-w-2xl text-balance font-editorial text-3xl leading-tight md:text-4xl">
-              Beta 权益
+              加入试用 waitlist
             </h2>
             <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground">
-              小范围内测。你的反馈会影响下一版。
+              先注册账号，再用 1 分钟填写申请。我们会优先邀请最匹配的用户试用。
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {BETA_BENEFITS.map((item) => (
+              {WAITLIST_BENEFITS.map((item) => (
                 <div key={item} className="flex gap-3 text-sm text-foreground">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary/75" />
                   <span>{item}</span>
@@ -359,7 +273,7 @@ export default function FrankAgentLandingClient() {
               ))}
             </div>
             <p className="mt-6 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              TheMarketBrew 基于 Frank 公开内容和投研框架整理。Frank 本人不会逐条人工回复；内容仅供学习和研究，不构成投资建议。
+              TheMarketBrew 基于 Qinbafrank 公开内容和投研框架整理。Qinbafrank 本人不会逐条人工回复；内容仅供学习和研究，不构成投资建议。
             </p>
           </div>
 
@@ -367,74 +281,51 @@ export default function FrankAgentLandingClient() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h3 className="font-editorial text-xl font-semibold text-foreground">
-                  Frank Agent Beta
+                  Qinbafrank Agent Waitlist
                 </h3>
-                <p className="mt-1 text-sm text-muted-foreground">TheMarketBrew Max 早期价</p>
+                <p className="mt-1 text-sm text-muted-foreground">试用申请通道</p>
               </div>
-              <CircleDollarSign className="h-6 w-6 text-primary/75" />
+              <ClipboardList className="h-6 w-6 text-primary/75" />
             </div>
-            <div className="mt-6 flex items-end gap-2">
-              <span className="text-4xl font-medium tabular-nums text-foreground">{PRICING.max}</span>
-              <span className="pb-1 text-sm text-muted-foreground">{PRICING.interval}</span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              早期版本，可退款。后续价格和权益可能调整。
+            <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
+              这不是正式发布，也不是付费销售页。我们会根据申请信息和反馈节奏，分批开放试用。
             </p>
             <button
               type="button"
-              onClick={() => handlePrimaryCta('beta_offer')}
-              disabled={loading || ctaBusy}
+              onClick={() => handlePrimaryCta('waitlist_offer')}
+              disabled={authLoading || ctaBusy}
               className="mt-6 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-primary/90 px-5 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-70 motion-reduce:transform-none"
             >
-              {ctaBusy && ctaLocation === 'beta_offer' ? '正在跳转...' : ctaLabel}
+              {ctaBusy && ctaLocation === 'waitlist_offer' ? '正在跳转...' : ctaLabel}
               <ArrowRight className="h-4 w-4" />
             </button>
-            {checkoutError && (
-              <p className="mt-3 text-sm leading-relaxed text-red-400">{checkoutError}</p>
-            )}
           </div>
         </div>
-      </section>
-
-      <section className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 md:flex-row md:items-center md:justify-between md:px-6">
-        <div>
-          <p className="text-sm font-medium text-foreground">TheMarketBrew Frank Agent Beta</p>
-          <p className="mt-1 text-sm text-muted-foreground">查旧观点，问框架，做复盘。</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => handlePrimaryCta('final_cta')}
-          disabled={loading || ctaBusy}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-primary/90 px-5 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-70 motion-reduce:transform-none"
-        >
-          {ctaBusy && ctaLocation === 'final_cta' ? '正在跳转...' : ctaLabel}
-          <ArrowRight className="h-4 w-4" />
-        </button>
       </section>
     </main>
   );
 }
 
-function FrankSnapshot({ attribution }: { attribution: ReturnType<typeof getAttribution> }) {
+function QinbafrankSnapshot({ attribution }: { attribution: ReturnType<typeof getAttribution> }) {
   return (
     <aside className="self-start rounded-lg border border-border/40 bg-card/30 p-5 shadow-sm shadow-black/5">
       <div className="flex items-start gap-4">
         <Image
           src="/kol-avatars/qinbafrank.png"
-          alt="qinbafrank"
+          alt="Qinbafrank"
           width={58}
           height={58}
           className="rounded-lg border border-border/45 bg-background/50"
           priority
         />
         <div>
-          <p className="text-lg font-semibold text-foreground">TheMarketBrew Frank Agent</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">AI 投研助手 Beta</p>
+          <p className="text-lg font-semibold text-foreground">TheMarketBrew Qinbafrank Agent</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">AI 投研助手 Waitlist</p>
         </div>
       </div>
 
       <div className="mt-5 grid gap-2">
-        {['查 Frank 旧观点', '判断新闻有没有用', '整理下一步清单'].map((item) => (
+        {['直接提问', '查过往内容', '跑投研工作流', '用博主视角看市场'].map((item) => (
           <div
             key={item}
             className="flex items-center gap-2 rounded-lg border border-border/35 bg-background/40 px-3 py-2 text-sm text-foreground"
@@ -445,27 +336,18 @@ function FrankSnapshot({ attribution }: { attribution: ReturnType<typeof getAttr
         ))}
       </div>
 
-      <div className="mt-5 hidden grid-cols-3 gap-2 sm:grid">
-        {FRANK_FACTS.map((fact) => (
-          <div key={fact.label} className="rounded-lg border border-border/35 bg-background/40 p-3">
-            <p className="text-2xl font-medium tabular-nums text-foreground">{fact.value}</p>
-            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{fact.label}</p>
-          </div>
-        ))}
-      </div>
-
       <Link
         href="/kol/qinbafrank"
         className="mt-5 inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-lg border border-border/45 bg-background/45 px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-primary/25 hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
         onClick={() => {
-          trackProductEvent('frank_beta_cockpit_click', {
-            source: 'frank_agent_beta',
+          trackProductEvent('qinbafrank_waitlist_library_click', {
+            source: 'qinbafrank_agent_waitlist',
             location: 'hero_snapshot',
             ...attribution,
           });
         }}
       >
-        先看 Frank 观点库
+        先看 Qinbafrank 观点库
         <ArrowRight className="h-4 w-4" />
       </Link>
     </aside>

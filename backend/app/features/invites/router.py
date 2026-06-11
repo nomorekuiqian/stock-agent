@@ -147,6 +147,7 @@ async def api_qualify(
             properties={
                 "background": body.background,
                 "trading_style": body.trading_style,
+                "source": body.source,
             },
         )
     return QualifyResponse(success=True, invite_code=invite_code)

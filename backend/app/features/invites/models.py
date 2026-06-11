@@ -33,6 +33,7 @@ class QualifyInput(BaseModel):
     trading_style: list[str] = []
     pain_points: list[str] = []
     feedback: str = ""
+    source: Optional[str] = None
 
 
 class QualifyResponse(BaseModel):

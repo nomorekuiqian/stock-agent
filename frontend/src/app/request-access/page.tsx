@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAccessTokenAsync as getAccessToken } from "@/contexts/AuthContext";
@@ -51,6 +51,7 @@ export default function RequestAccessPage(): ReactNode {
   const [tradingStyle, setTradingStyle] = useState<string[]>([]);
   const [painPoints, setPainPoints] = useState<string[]>([]);
   const [feedback, setFeedback] = useState("");
+  const [source, setSource] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -63,6 +64,12 @@ export default function RequestAccessPage(): ReactNode {
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     );
   };
+
+  useEffect(() => {
+    setSource(new URLSearchParams(window.location.search).get("source") || "");
+  }, []);
+
+  const isQinbafrankWaitlist = source === "qinbafrank-agent";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +89,7 @@ export default function RequestAccessPage(): ReactNode {
           trading_style: tradingStyle,
           pain_points: painPoints,
           feedback: feedback.trim(),
+          source: source || undefined,
         }),
       });
       const data = await res.json();
@@ -111,10 +119,12 @@ export default function RequestAccessPage(): ReactNode {
               </svg>
             </div>
             <h1 className="text-2xl font-editorial text-foreground mb-2">
-              感谢你的反馈!
+              {isQinbafrankWaitlist ? "已加入 waitlist" : "感谢你的反馈!"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              你的意见对我们非常重要，我们会不断改进产品体验。
+              {isQinbafrankWaitlist
+                ? "我们会根据申请信息分批开放 Qinbafrank Agent 试用。"
+                : "你的意见对我们非常重要，我们会不断改进产品体验。"}
             </p>
           </div>
 
@@ -148,7 +158,9 @@ export default function RequestAccessPage(): ReactNode {
           </p>
           <h1 className="text-2xl font-editorial text-foreground">帮助我们了解你</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            花 1 分钟告诉我们你的投资偏好，帮助我们为你提供更好的体验。
+            {isQinbafrankWaitlist
+              ? "花 1 分钟告诉我们你的投研习惯，用于 Qinbafrank Agent 试用名额筛选。"
+              : "花 1 分钟告诉我们你的投资偏好，帮助我们为你提供更好的体验。"}
           </p>
         </div>
 
@@ -297,7 +309,7 @@ export default function RequestAccessPage(): ReactNode {
                 提交中...
               </>
             ) : (
-              "提交问卷"
+              isQinbafrankWaitlist ? "加入 waitlist" : "提交问卷"
             )}
           </button>
         </form>
