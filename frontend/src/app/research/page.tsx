@@ -14,6 +14,7 @@ import type { ConversationSummary, ResearchRequest, ResearchResult } from '@/lib
 import {
   researchReducer,
   initialState,
+  buildKolPersistedMessages,
   loadState,
   saveState,
   STORAGE_KEY,
@@ -235,15 +236,6 @@ function ScreenerContent() {
   // overwriting the conversation's kol_chunks / persona_username on backend.
   const personaUsername = state.personaUsername;
   const agentKind: AgentKind = personaUsername ? 'kol_research' : 'research';
-  const setPersonaUsername = useCallback((u: string | null) => {
-    dispatch({ type: 'SET_PERSONA', personaUsername: u });
-  }, []);
-  // setAgentKind is preserved as a no-op shim for call sites that used to set
-  // it directly; the actual source of truth is personaUsername.
-  const setAgentKind = useCallback((_kind: AgentKind) => {
-    // Intentional no-op. agentKind is derived from personaUsername; callers
-    // should setPersonaUsername(null) to switch off KOL mode.
-  }, []);
   // KOL citation chunks now live in reducer state (state.kolChunks) so they
   // survive sessionStorage rehydration and LOAD_CONVERSATION. The cast is
   // a thin bridge from the loose reducer type to the typed api shape.
@@ -560,13 +552,6 @@ function ScreenerContent() {
 
     if (agentParam !== 'kol' || !personaParam) return;
 
-    // Always re-assert agent kind + persona on every KOL URL visit. If the
-    // user toggled away via PersonaSelector and then came back through a
-    // same-URL link, gating these by signature would leave agentKind stuck
-    // on 'research'. React's setState bails out on unchanged values, so this
-    // is free when nothing changed.
-    setAgentKind('kol_research');
-
     // Seed gate fires once per (persona, q) tuple — prevents the same
     // starter URL from RESET-ing the conversation again if the user
     // navigates away and back without changing q. Empty q is never seeded.
@@ -579,7 +564,7 @@ function ScreenerContent() {
     }
     if (!seedQ) {
       if (state.personaUsername !== personaParam) {
-        setPersonaUsername(personaParam);
+        dispatch({ type: 'SWITCH_PERSONA', personaUsername: personaParam });
       }
       return;
     }
@@ -588,7 +573,7 @@ function ScreenerContent() {
 
     if (!userId) {
       if (state.personaUsername !== personaParam) {
-        setPersonaUsername(personaParam);
+        dispatch({ type: 'SWITCH_PERSONA', personaUsername: personaParam });
       }
       return;
     }
@@ -622,16 +607,14 @@ function ScreenerContent() {
       pendingSeed.current = null;
       handleSendRef.current?.(msg);
     }, 250);
-  }, [searchParams, setAgentKind, setPersonaUsername, state.phase, state.personaUsername, state.messages, userId]);
+  }, [searchParams, state.phase, state.personaUsername, state.messages, userId]);
 
   const handlePersonaChange = useCallback((next: {
     agentKind: AgentKind;
     personaUsername: string | null;
   }) => {
     manualPersonaUrlOverride.current = next;
-    setAgentKind(next.agentKind);
-    setPersonaUsername(next.personaUsername);
-    dispatch({ type: 'SET_KOL_CHUNKS', chunks: [] });
+    dispatch({ type: 'SWITCH_PERSONA', personaUsername: next.personaUsername });
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete('q');
@@ -645,7 +628,7 @@ function ScreenerContent() {
     }
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : (pathname || '/research'), { scroll: false });
-  }, [pathname, router, searchParams, setAgentKind, setPersonaUsername]);
+  }, [pathname, router, searchParams]);
 
   // Persist state to sessionStorage on change
   useEffect(() => {
@@ -1311,11 +1294,12 @@ function ScreenerContent() {
         // then append the current user + assistant manually — otherwise we
         // double-record the turn (which is exactly the bug that caused every
         // saved KOL conversation to grow at 2× the visible rate).
-        const allMessages = [
-          ...state.messages,
-          { id: `u-${Date.now()}`, role: 'user' as const, content: message },
-          { id: `a-${Date.now()}`, role: 'assistant' as const, content: finalMessage },
-        ];
+        const allMessages = buildKolPersistedMessages({
+          existingMessages: state.messages,
+          isFirstTurn,
+          userMessage: message,
+          assistantMessage: finalMessage,
+        });
         const convData: Record<string, unknown> = {
           messages: allMessages,
           kol_chunks: chunksToPersist,

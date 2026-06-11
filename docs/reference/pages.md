@@ -15,7 +15,16 @@
 | `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest / getLatestTeaser) | 否（全文需 Max） |
 | `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
 | `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
-| `/kol/qinbafrank` | qinbafrank 博主研究室 | skill 资产 + Backend (kolResearch cockpit/chatStream) | 浏览否；对话需登录 |
+| `/frank-agent` | Frank Agent Beta 落地页 | 静态文案 + Auth/Subscription context | 否 |
+| `/kol/[username]` | KOL 博主研究室概览 | skill 资产 + Backend (kolResearch cockpit/feed) | 浏览否；对话需登录 |
+| `/kol/[username]/chat` | KOL 对话入口 | Backend (kolResearch chatStream) | 发送需登录 |
+| `/kol/[username]/highlights` | KOL 精华观点 | Backend (kolResearch feed/topics) | 否 |
+| `/kol/[username]/history` | KOL 历史链接兼容页 | 重定向/兼容 | 否 |
+| `/kol/[username]/latest` | KOL 最新内容库 | Backend (kolResearch feed) | 否 |
+| `/kol/[username]/macro` | KOL 宏观框架 | Backend (kolResearch profile/topics) | 否 |
+| `/kol/[username]/sectors` | KOL 板块观点 | Backend (kolResearch sectors) | 否 |
+| `/kol/[username]/stocks` | KOL 个股观点 | Backend (kolResearch tickers) | 否 |
+| `/kol/serenity` | Serenity persona 入口 | 静态/Persona route | 否 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -39,7 +48,7 @@
 | `/onboarding` | 用户引导 | 无 API 调用 | 否 |
 | `/pricing` | 定价页 | Backend (payment API) | 否 |
 | `/pricing/success` | 支付成功 | Backend (payment API) | 否 |
-| `/request-access` | 申请邀请码 | Backend (invites/request) | 否 |
+| `/request-access` | 申请邀请码 | Backend (invites/qualify) | 是（middleware cookie gate） |
 | `/contact` | 联系/反馈 | Backend (feedback/user) | 否 |
 | `/feedback` | 邮件反馈处理 | Backend (feedback) | 否 |
 | `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
@@ -49,6 +58,7 @@
 | `/research/gallery` | 投研画廊 | Backend (screener API) | 是 |
 | `/settings` | 用户设置 | Backend (notification API) | 是 |
 | `/admin` | 管理后台 | Backend (admin API) | 是 (admin) |
+| `/admin/activity` | 活跃趋势后台 | Backend (admin/activity API) | 是 (admin) |
 | `/admin/users/[id]` | 用户管理详情 | Backend (admin API) | 是 (admin) |
 | `/admin/flags` | Feature Flag 管理 | Backend (admin/flags API) | 是 (admin) |
 | `/admin/llm-usage` | LLM 用量与费用面板 | Backend (admin/llm-usage API) | 是 (admin) |
@@ -100,6 +110,14 @@
 - Client Component,分页加载
 - Max 用户调用 `api.twitterDigest.listArchive(limit, offset)`；未登录 / 非 Max 用户调用 `listArchiveTeaser`
 - 卡片链接到 `/twitter-digest/[date]`，非 Max 仍只看到 teaser
+
+### `/frank-agent` Frank Agent Beta 落地页
+- Server page + Client Component,公开访问，不默认放入主导航；主要承接 Frank 的 Twitter/UTM 流量
+- 页面按三段组织：一句话介绍 Frank；说明 Agent 可查旧观点、判断新闻、用框架看股票并整理下一步清单；最后用 Max 早期价承接 Beta CTA
+- 首屏标题直接写 `Frank AI 投研助手 Beta`，右侧展示产品入口卡、三项核心能力、语料覆盖数字和 `/kol/qinbafrank` 观点库入口，不再使用“Agent 工作流程”式预览
+- CTA 逻辑：未登录跳 `/login?redirect=/frank-agent`；已登录非 Max 调 `createCheckout('max', '/frank-agent')`；Max 用户跳 `/research?agent=kol&persona=qinbafrank`
+- 埋点：`frank_beta_landing_view`、`frank_beta_cta_click`、`frank_beta_checkout_started`、`frank_beta_signup`、`frank_beta_secondary_cta_click`、`frank_beta_cockpit_click`、`frank_beta_example_question_click`
+- 文案强调“在 TheMarketBrew 里复用 Frank 公开研究框架”，必须保留可退款、非投资建议、Frank 本人不会逐条人工回复的边界
 
 ### `/kol/qinbafrank` qinbafrank 博主研究室
 - Server page + Client Component,页面浏览不要求登录；KOL Research Agent 对话需要登录并开启 `kol_research_agent` flag

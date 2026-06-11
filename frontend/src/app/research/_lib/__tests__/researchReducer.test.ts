@@ -3,6 +3,7 @@ import type { ResearchResult } from '@/lib/api';
 import {
   researchReducer,
   initialState,
+  buildKolPersistedMessages,
   loadState,
   saveState,
   nextMsgId,
@@ -506,6 +507,60 @@ describe('RESET', () => {
 });
 
 // ---------------------------------------------------------------------------
+// SWITCH_PERSONA
+// ---------------------------------------------------------------------------
+
+describe('SWITCH_PERSONA', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it('starts a clean KOL conversation when switching from research', () => {
+    const prev = chatState({
+      conversationId: 'research-conv',
+      conversationTitle: '旧 Research 对话',
+      kolChunks: [{ stale: true }],
+      candidates: [{ symbol: 'AAPL' }],
+      activeContent: {
+        type: 'stock',
+        label: 'AAPL 个股研究',
+        summary: 'AAPL',
+        params: { symbol: 'AAPL' },
+        available_actions: [],
+      },
+    });
+
+    const state = researchReducer(prev, {
+      type: 'SWITCH_PERSONA',
+      personaUsername: 'qinbafrank',
+    });
+
+    expect(state).toEqual({
+      ...initialState,
+      personaUsername: 'qinbafrank',
+    });
+  });
+
+  it('clears sessionStorage when switching persona context', () => {
+    sessionStorage.setItem(STORAGE_KEY, 'stale conversation');
+    researchReducer(chatState(), {
+      type: 'SWITCH_PERSONA',
+      personaUsername: 'qinbafrank',
+    });
+    expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('does not reset when selecting the already active persona', () => {
+    const prev = chatState({ personaUsername: 'qinbafrank' });
+    const state = researchReducer(prev, {
+      type: 'SWITCH_PERSONA',
+      personaUsername: 'qinbafrank',
+    });
+    expect(state).toBe(prev);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // saveState / loadState (sessionStorage persistence)
 // ---------------------------------------------------------------------------
 
@@ -957,6 +1012,50 @@ describe('SET_KOL_CHUNKS', () => {
     });
     expect(state.candidates).toEqual([{ symbol: 'AAPL' }]);
     expect(state.messages).toBe(prev.messages);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildKolPersistedMessages
+// ---------------------------------------------------------------------------
+
+describe('buildKolPersistedMessages', () => {
+  it('drops stale research messages when saving the first KOL turn', () => {
+    const messages = buildKolPersistedMessages({
+      existingMessages: [
+        { id: 'old-research', role: 'user', content: '帮我解读市场日报' },
+      ],
+      isFirstTurn: true,
+      userMessage: '怎样看 INTU',
+      assistantMessage: 'INTU 回答',
+      timestamp: 123,
+    });
+
+    expect(messages).toEqual([
+      { id: 'u-123', role: 'user', content: '怎样看 INTU' },
+      { id: 'a-123', role: 'assistant', content: 'INTU 回答' },
+    ]);
+  });
+
+  it('keeps prior KOL messages when saving follow-up turns', () => {
+    const existing = [
+      { id: 'u1', role: 'user' as const, content: '第一问' },
+      { id: 'a1', role: 'assistant' as const, content: '第一答' },
+    ];
+
+    const messages = buildKolPersistedMessages({
+      existingMessages: existing,
+      isFirstTurn: false,
+      userMessage: '第二问',
+      assistantMessage: '第二答',
+      timestamp: 456,
+    });
+
+    expect(messages).toEqual([
+      ...existing,
+      { id: 'u-456', role: 'user', content: '第二问' },
+      { id: 'a-456', role: 'assistant', content: '第二答' },
+    ]);
   });
 });
 

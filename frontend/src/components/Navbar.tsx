@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ChevronDown, LockKeyhole } from 'lucide-react';
 import { NavAuth } from '@/components/NavAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MobileMenu } from '@/components/MobileMenu';
@@ -10,6 +11,11 @@ import { Logo } from '@/components/Logo';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useIsAdmin } from '@/hooks/use-is-admin';
+import {
+  getMainNavSections,
+  isNavHrefActive,
+  type NavChild,
+} from '@/components/navigation';
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -18,6 +24,11 @@ export function Navbar() {
   const { has: hasEntitlement } = useEntitlements();
   const isAdmin = useIsAdmin();
   const isHome = pathname === '/';
+  const navSections = getMainNavSections({
+    forYouV2: hasFlag('for_you_v2'),
+    watchlistExtended: hasEntitlement('watchlist_extended'),
+    isAdmin,
+  });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,7 +40,7 @@ export function Navbar() {
   }, []);
 
   const navBase = 'fixed top-0 left-0 right-0 z-50 transition-all duration-500';
-  const navScrolled = 'bg-background/95 backdrop-blur-md border-b border-border/40 shadow-sm shadow-black/5';
+  const navScrolled = 'bg-background border-b border-border/40';
   const navTransparentHome = 'bg-transparent border-b border-transparent';
 
   return (
@@ -58,71 +69,29 @@ export function Navbar() {
           </Link>
 
           {/* Navigation Links */}
-          <div className="hidden md:flex items-stretch h-16 gap-0">
-            <NavDropdown
-              label="日报"
-              items={[
-                { href: '/morning', label: '早报' },
-                { href: '/today', label: '晚报' },
-                { href: '/twitter-digest', label: '推特日报' },
-              ]}
-            />
-            <NavLinkHighlight href="/research">投研助手</NavLinkHighlight>
-            {/* kol_chat flag fully rolled out — entry visible to all users.
-                Replace `true` with `hasFlag('kol_chat')` to re-gate. */}
-            {true && (
-              <NavDropdown
-                label="博主研究室"
-                href="/kol/qinbafrank"
-                items={[
-                  { href: '/kol/qinbafrank', label: 'qinbafrank' },
-                ]}
-              />
-            )}
-            {hasFlag('for_you_v2') ? (
-              <NavDropdown
-                label="专属"
-                href="/for-you"
-                items={[
-                  { href: '/for-you', label: '专属日报' },
-                  { href: '/for-you/onboarding', label: '投资画像' },
-                  { href: '/for-you/watchlist', label: '关注列表' },
-                  { href: '/for-you/portfolio', label: '模拟持仓', locked: !hasEntitlement('watchlist_extended') },
-                  { href: '/for-you/health', label: '持仓体检', locked: !hasEntitlement('watchlist_extended') },
-                ]}
-              />
-            ) : (
-              <NavDropdown
-                label="专属"
-                href="/for-you"
-                items={[
-                  { href: '/for-you', label: '专属日报' },
-                  { href: '/for-you/watchlist', label: '我的自选股' },
-                ]}
-              />
-            )}
-            <NavLink href="/stock">个股</NavLink>
-            <NavLink href="/macro">宏观</NavLink>
-            <NavLink href="/pricing">高级订阅</NavLink>
-            <NavLink href="/contact">联系</NavLink>
-            {isAdmin && (
-              <NavDropdown
-                label="管理"
-                href="/admin"
-                items={[
-                  { href: '/admin', label: '用户管理' },
-                  { href: '/admin/activity', label: '活跃对比' },
-                  { href: '/admin/flags', label: '灰度管理' },
-                  { href: '/admin/llm-usage', label: 'LLM 用量' },
-                  { href: '/email-test', label: '邮件预览' },
-                  { href: '/dev/feedback', label: '邮件反馈' },
-                ]}
-              />
+          <div className="hidden lg:flex items-center gap-1">
+            {navSections.map((section) =>
+              section.children ? (
+                <NavDropdown
+                  key={section.href}
+                  label={section.label}
+                  href={section.href}
+                  items={section.children}
+                />
+              ) : section.highlight ? (
+                <NavLinkHighlight key={section.href} href={section.href}>
+                  {section.label}
+                </NavLinkHighlight>
+              ) : (
+                <NavLink key={section.href} href={section.href}>
+                  {section.label}
+                </NavLink>
+              ),
             )}
           </div>
 
           {/* Right Side Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <a
               href="https://x.com/golden_pan1"
               target="_blank"
@@ -133,7 +102,7 @@ export function Navbar() {
               <XLogo className="h-3.5 w-3.5" />
             </a>
             <ThemeToggle />
-            <div className="hidden md:flex items-center">
+            <div className="hidden lg:flex items-center">
               <NavAuth />
             </div>
             <MobileMenu />
@@ -160,58 +129,38 @@ function XLogo({ className }: { className?: string }) {
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname();
-  const isActive = pathname === href || pathname.startsWith(href + '/');
+  const isActive = isNavHrefActive(pathname, href);
 
   return (
     <Link
       href={href}
-      className={`group flex items-center px-4 transition-colors duration-200 ${
+      className={`group flex h-9 items-center rounded-lg px-3.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
         isActive
-          ? 'text-foreground'
-          : 'text-muted-foreground hover:text-foreground'
+          ? 'bg-muted/45 text-foreground'
+          : 'text-muted-foreground hover:bg-muted/35 hover:text-foreground'
       }`}
     >
-      <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
-        {children}
-        {isActive && (
-          <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
-            <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
-          </span>
-        )}
-      </span>
+      {children}
     </Link>
   );
 }
 
 function NavLinkHighlight({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname();
-  const isActive = pathname === href || pathname.startsWith(href + '/');
+  const isActive = isNavHrefActive(pathname, href);
 
   return (
     <Link
       href={href}
-      className={`group flex items-center px-4 transition-colors duration-200 rounded-none ${
+      className={`group flex h-9 items-center rounded-lg px-3.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
         isActive
-          ? 'text-primary'
-          : 'text-primary/70 hover:text-primary hover:bg-primary/5'
+          ? 'bg-primary/10 text-primary'
+          : 'text-primary hover:bg-primary/10'
       }`}
     >
-      <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
-        {children}
-        {isActive && (
-          <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
-            <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
-          </span>
-        )}
-      </span>
+      {children}
     </Link>
   );
-}
-
-interface DropdownItem {
-  href: string;
-  label: string;
-  locked?: boolean;
 }
 
 function NavDropdown({
@@ -221,14 +170,16 @@ function NavDropdown({
 }: {
   label: string;
   href?: string;
-  items: DropdownItem[];
+  items: NavChild[];
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuId = `nav-dropdown-${label}`;
-  const isActive = items.some(item => pathname === item.href || pathname.startsWith(item.href + '/'));
+  const isActive =
+    (href ? isNavHrefActive(pathname, href) : false) ||
+    items.some(item => isNavHrefActive(pathname, item.href));
 
   const handleMouseEnter = useCallback(() => {
     if (timeoutRef.current) {
@@ -274,27 +225,18 @@ function NavDropdown({
           aria-haspopup="true"
           aria-controls={menuId}
           onKeyDown={handleKeyDown}
-          className={`group h-full flex items-center gap-1 px-4 transition-colors duration-200 ${
-            isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          className={`group flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+            isActive
+              ? 'bg-muted/45 text-foreground'
+              : 'text-muted-foreground hover:bg-muted/35 hover:text-foreground'
           }`}
         >
-          <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
-            {label}
-            {isActive && (
-              <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
-                <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
-              </span>
-            )}
-          </span>
-          <svg
+          <span>{label}</span>
+          <ChevronDown
             aria-hidden="true"
-            className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+            className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            strokeWidth={1.8}
+          />
         </Link>
       ) : (
         <button
@@ -303,38 +245,29 @@ function NavDropdown({
           aria-haspopup="true"
           aria-controls={menuId}
           onKeyDown={handleKeyDown}
-          className={`group h-full flex items-center gap-1 px-4 transition-colors duration-200 ${
-            isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          className={`group flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+            isActive
+              ? 'bg-muted/45 text-foreground'
+              : 'text-muted-foreground hover:bg-muted/35 hover:text-foreground'
           }`}
         >
-          <span className="relative text-sm font-medium tracking-wide transition-[letter-spacing] duration-300 group-hover:tracking-[0.06em]">
-            {label}
-            {isActive && (
-              <span className="absolute -bottom-1.5 left-0 right-0 flex justify-center">
-                <span className="block w-4 h-[2px] rounded-full bg-primary animate-indicator-in" />
-              </span>
-            )}
-          </span>
-          <svg
+          <span>{label}</span>
+          <ChevronDown
             aria-hidden="true"
-            className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+            className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            strokeWidth={1.8}
+          />
         </button>
       )}
       <div
         id={menuId}
         role="menu"
-        className={`absolute top-full left-1/2 -translate-x-1/2 mt-1 py-1.5 min-w-[120px] bg-background/95 backdrop-blur-md border border-border/50 rounded-lg shadow-lg shadow-black/10 transition-all duration-200 ${
+        className={`absolute left-1/2 top-full mt-2 min-w-[180px] -translate-x-1/2 rounded-xl border border-border/50 bg-card/95 p-1.5 shadow-xl shadow-black/15 backdrop-blur-xl transition-all duration-200 ${
           open ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-1 invisible'
         }`}
       >
         {items.map((item) => {
-          const itemActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          const itemActive = isNavHrefActive(pathname, item.href);
           return (
             <Link
               key={item.href}
@@ -342,17 +275,15 @@ function NavDropdown({
               role="menuitem"
               onClick={() => setOpen(false)}
               onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
-              className={`flex items-center justify-between px-4 py-2 text-sm transition-colors whitespace-nowrap ${
+              className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                 itemActive
-                  ? 'text-foreground bg-muted/50'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                  ? 'bg-muted/55 text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/35 hover:text-foreground'
               }`}
             >
               {item.label}
               {item.locked && (
-                <svg className="w-3 h-3 text-amber-500 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                <LockKeyhole className="h-3.5 w-3.5 text-amber-500" strokeWidth={1.8} />
               )}
             </Link>
           );

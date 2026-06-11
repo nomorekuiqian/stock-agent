@@ -485,7 +485,7 @@ function DefaultIntro({
     setExpandedId((prev) => (prev === id ? null : id));
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-4xl flex-col justify-center px-4 py-6 sm:px-6 sm:py-8">
+    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-4xl flex-col justify-start px-4 pb-6 pt-[clamp(5.5rem,20vh,14rem)] sm:px-6 sm:pb-8">
       <div className="mb-5 flex justify-center text-center sm:mb-6 animate-fade-in-up">
         <h1 className="font-editorial text-2xl leading-snug text-foreground sm:text-3xl md:text-4xl">
           今天想研究什么
@@ -507,18 +507,12 @@ function DefaultIntro({
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
-        {CAPABILITIES.map((card, i) => (
-          <CapabilityCardView
-            key={card.id}
-            card={card}
-            expanded={expandedId === card.id}
-            onToggle={() => toggle(card.id)}
-            onSubmit={onSelect}
-            index={i}
-          />
-        ))}
-      </div>
+      <CapabilityCardGrid
+        cards={CAPABILITIES}
+        expandedId={expandedId}
+        onToggle={toggle}
+        onSubmit={onSelect}
+      />
     </div>
   );
 }
@@ -534,6 +528,44 @@ interface CapabilityCardViewProps {
   onToggle: () => void;
   onSubmit: (value: string) => void;
   index: number;
+}
+
+function CapabilityCardGrid({
+  cards,
+  expandedId,
+  onToggle,
+  onSubmit,
+}: {
+  cards: CapabilityCard[];
+  expandedId: CardId | null;
+  onToggle: (id: CardId) => void;
+  onSubmit: (value: string) => void;
+}) {
+  const positionedCards = cards.map((card, index) => ({ card, index }));
+  const leftColumn = positionedCards.filter(({ index }) => index % 2 === 0);
+  const rightColumn = positionedCards.filter(({ index }) => index % 2 === 1);
+
+  const renderCard = ({ card, index }: { card: CapabilityCard; index: number }) => (
+    <CapabilityCardView
+      key={card.id}
+      card={card}
+      expanded={expandedId === card.id}
+      onToggle={() => onToggle(card.id)}
+      onSubmit={onSubmit}
+      index={index}
+    />
+  );
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
+      <div className="contents sm:flex sm:flex-col sm:gap-3">
+        {leftColumn.map(renderCard)}
+      </div>
+      <div className="contents sm:flex sm:flex-col sm:gap-3">
+        {rightColumn.map(renderCard)}
+      </div>
+    </div>
+  );
 }
 
 function CapabilityCardView({
@@ -552,7 +584,7 @@ function CapabilityCardView({
           ? `${a.borderActive} ${a.bgTint}`
           : `border-border/50 ${a.borderActiveHover} ${a.bgTintHover}`
       }`}
-      style={{ animationDelay: `${index * 60}ms` }}
+      style={{ animationDelay: `${index * 60}ms`, order: index + 1 }}
     >
       {/* Ambient corner glow — only on expand. Sits below content, doesn't catch clicks. */}
       <div
@@ -603,31 +635,40 @@ function CapabilityCardView({
         </div>
       </button>
 
-      {expanded && (
-        <div
-          id={`card-body-${card.id}`}
-          className="relative px-5 pb-5 border-t border-border/30 animate-fade-in-up"
-        >
-          {card.mode === 'ticker' ? (
-            <TickerEntry
-              chips={card.chips}
-              accent={a}
-              onSubmit={(ticker) => onSubmit(card.tickerPrompt ? card.tickerPrompt(ticker) : `深入分析 ${ticker}`)}
-            />
-          ) : (
-            <OptionGrid
-              options={card.options}
-              accent={a}
-              freeInputPlaceholder={card.freeInputPlaceholder}
-              onSubmit={onSubmit}
-              onFreeSubmit={card.freeInputPrompt ? (value) => {
-                const prompt = card.freeInputPrompt?.(value);
-                if (prompt) onSubmit(prompt);
-              } : undefined}
-            />
-          )}
+      <div
+        id={`card-body-${card.id}`}
+        aria-hidden={!expanded}
+        className={`relative grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+          expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className={`min-h-0 overflow-hidden ${expanded ? 'visible' : 'invisible'}`}>
+          <div
+            className={`border-t border-border/30 px-5 pb-5 transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none motion-reduce:transform-none ${
+              expanded ? 'translate-y-0 opacity-100' : '-translate-y-1.5 opacity-0'
+            }`}
+          >
+            {card.mode === 'ticker' ? (
+              <TickerEntry
+                chips={card.chips}
+                accent={a}
+                onSubmit={(ticker) => onSubmit(card.tickerPrompt ? card.tickerPrompt(ticker) : `深入分析 ${ticker}`)}
+              />
+            ) : (
+              <OptionGrid
+                options={card.options}
+                accent={a}
+                freeInputPlaceholder={card.freeInputPlaceholder}
+                onSubmit={onSubmit}
+                onFreeSubmit={card.freeInputPrompt ? (value) => {
+                  const prompt = card.freeInputPrompt?.(value);
+                  if (prompt) onSubmit(prompt);
+                } : undefined}
+              />
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -839,7 +880,7 @@ function PersonaIntro({
   const avatarSrc = `/kol-avatars/${persona.displayName.toLowerCase()}.png`;
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-5xl flex-col justify-center px-4 py-6 text-center sm:px-6 sm:py-8">
+    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-5xl flex-col justify-start px-4 pb-6 pt-[clamp(3.5rem,12vh,8rem)] text-center sm:px-6 sm:pb-8">
       <div className="mx-auto mb-5 flex max-w-2xl flex-col items-center sm:mb-6">
         <div className="relative mb-3 animate-scale-in" style={{ animationDelay: '60ms' }}>
           <div
@@ -923,18 +964,12 @@ function PersonaLensActions({
       className="w-full max-w-4xl text-left animate-fade-in-up"
       style={{ animationDelay: '360ms' }}
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
-        {cards.map((card, i) => (
-          <CapabilityCardView
-            key={card.id}
-            card={card}
-            expanded={expandedId === card.id}
-            onToggle={() => toggle(card.id)}
-            onSubmit={onSelect}
-            index={i}
-          />
-        ))}
-      </div>
+      <CapabilityCardGrid
+        cards={cards}
+        expandedId={expandedId}
+        onToggle={toggle}
+        onSubmit={onSelect}
+      />
     </section>
   );
 }

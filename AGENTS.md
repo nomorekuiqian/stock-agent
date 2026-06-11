@@ -37,37 +37,76 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 
 **Backend**:
 - `backend/app/core/.context.md` -- Core infrastructure
-- `backend/app/features/agent_runtime/.context.md` -- Shared Agent runtime/session/context layer
-- `backend/app/features/daily_report/.context.md` -- Market daily report
-- `backend/app/features/morning_report/.context.md` -- Pre-market morning report
-- `backend/app/features/brew/.context.md` -- Personalized summary (Brew)
-- `backend/app/features/stock/.context.md` -- Individual stock research
-- `backend/app/features/macro/liquidity/.context.md` -- Liquidity monitoring
-- `backend/app/features/macro/weekly/.context.md` -- Macro weekly report
-- `backend/app/features/macro/cache/.context.md` -- Macro data cache system
-- `backend/app/features/macro/risk/.context.md` -- Macro risk assessment
-- `backend/app/features/screener/.context.md` -- Stock Screener data layer
-- `backend/app/features/sector/.context.md` -- Sector analysis
-- `backend/app/features/subscription/.context.md` -- Email subscription management
-- `backend/app/features/notification/.context.md` -- Email sending & broadcast
-- `backend/app/features/feedback/.context.md` -- User feedback
-- `backend/app/features/payment/.context.md` -- Stripe payments
-- `backend/app/features/webhooks/.context.md` -- Third-party webhook ingestion
 - `backend/app/edge_functions/.context.md` -- Insforge Edge Functions
+- `backend/app/frank_mcp/.context.md` -- Market Lens MCP server
+- `backend/app/utils/.context.md` -- Backend time/date utilities
 - `backend/app/shared/.context.md` -- Cross-module shared services
 - `backend/app/shared/data_tools/.context.md` -- Data fetching tool layer
+- `backend/app/shared/kol_persona/.context.md` -- KOL persona registry and tools
+- `backend/app/features/admin/.context.md` -- Admin dashboard and CRM APIs
+- `backend/app/features/agent_runtime/.context.md` -- Shared Agent runtime/session/context layer
+- `backend/app/features/brew/.context.md` -- Personalized summary (Brew)
+- `backend/app/features/daily_report/.context.md` -- Market daily report
+- `backend/app/features/feedback/.context.md` -- User feedback
+- `backend/app/features/flags/.context.md` -- Feature flags
+- `backend/app/features/for_you/.context.md` -- For-You action bar aggregation
+- `backend/app/features/holdings_sync/.context.md` -- Holdings statement sync
+- `backend/app/features/invites/.context.md` -- Invite codes and trial access
+- `backend/app/features/kol_research/.context.md` -- KOL persona research APIs
+- `backend/app/features/morning_report/.context.md` -- Pre-market morning report
+- `backend/app/features/macro/cache/.context.md` -- Macro data cache system
+- `backend/app/features/macro/liquidity/.context.md` -- Liquidity monitoring
+- `backend/app/features/macro/risk/.context.md` -- Macro risk assessment
+- `backend/app/features/macro/weekly/.context.md` -- Macro weekly report
+- `backend/app/features/memory/.context.md` -- User memory and feedback learning
+- `backend/app/features/notification/.context.md` -- Email sending & broadcast
+- `backend/app/features/onboarding/.context.md` -- User onboarding status
+- `backend/app/features/payment/.context.md` -- Stripe payments
+- `backend/app/features/portfolio/.context.md` -- Portfolio holdings/profile
+- `backend/app/features/portfolio_health/.context.md` -- Portfolio health analysis
+- `backend/app/features/quota/.context.md` -- Usage quota enforcement
+- `backend/app/features/research_kb/.context.md` -- Research knowledge-base chat
+- `backend/app/features/screener/.context.md` -- Stock Screener data layer
+- `backend/app/features/stock/.context.md` -- Individual stock research
+- `backend/app/features/stock/agent/.context.md` -- Stock AI analysis agents
+- `backend/app/features/subscription/.context.md` -- Email subscription management
+- `backend/app/features/twitter/.context.md` -- KOL tweet ingestion and methodology extraction
 - `backend/app/features/twitter/methodologies/.context.md` -- KOL methodology distillation artifacts
+- `backend/app/features/twitter/methodology_v3/.context.md` -- Persona methodology v3 offline scripts
+- `backend/app/features/twitter_digest/.context.md` -- Twitter/KOL daily digest
+- `backend/app/features/vector/.context.md` -- Generic vector indexing and retrieval
+- `backend/app/features/webhooks/.context.md` -- Third-party webhook ingestion
+- `backend/app/features/wechat/.context.md` -- WeChat Mini Program auth
 
 **Frontend**:
+- `frontend/src/app/.context.md` -- App Router shell, root layout, home page
+- `frontend/src/app/admin/.context.md` -- Admin dashboard pages
+- `frontend/src/app/api/auth/.context.md` -- Server Proxy auth routes
+- `frontend/src/app/auth/.context.md` -- OAuth callback route
+- `frontend/src/app/contact/.context.md` -- Contact/feedback form
+- `frontend/src/app/dev/.context.md` -- Local development helper pages
+- `frontend/src/app/email-test/.context.md` -- Email preview/test page
+- `frontend/src/app/feedback/.context.md` -- Email feedback landing page
+- `frontend/src/app/forgot-password/.context.md` -- Password reset request page
+- `frontend/src/app/frank-agent/.context.md` -- Frank Agent Beta landing page
 - `frontend/src/app/today/.context.md` -- Market daily report page
 - `frontend/src/app/morning/.context.md` -- Pre-market morning report page
 - `frontend/src/app/for-you/.context.md` -- Personalized Brew page
-- `frontend/src/app/stock/.context.md` -- Stock research page
 - `frontend/src/app/kol/.context.md` -- KOL persona pages
+- `frontend/src/app/login/.context.md` -- Login/register page
 - `frontend/src/app/macro/.context.md` -- Macro dashboard page
-- `frontend/src/app/sectors/.context.md` -- Sector analysis page
-- `frontend/src/app/screener/.context.md` -- Stock screener page
-- `frontend/src/app/api/auth/.context.md` -- Server Proxy auth routes
+- `frontend/src/app/onboarding/.context.md` -- New-user onboarding page
+- `frontend/src/app/pricing/.context.md` -- Pricing and checkout success pages
+- `frontend/src/app/profile/.context.md` -- User profile and subscription settings
+- `frontend/src/app/request-access/.context.md` -- Invite/access request page
+- `frontend/src/app/research/.context.md` -- Research Desk page
+- `frontend/src/app/reset-password/.context.md` -- Password reset completion page
+- `frontend/src/app/settings/.context.md` -- User settings page
+- `frontend/src/app/stock/.context.md` -- Stock research page
+- `frontend/src/app/twitter-digest/.context.md` -- Twitter/KOL digest pages
+- `frontend/src/app/unsubscribe/.context.md` -- Email unsubscribe page
+- `frontend/src/app/verify-email/.context.md` -- Email verification page
+- `frontend/src/app/webview-check/.context.md` -- WebView session diagnostics
 - `frontend/src/lib/.context.md` -- Shared utilities (api/auth/insforge)
 - `frontend/src/components/.context.md` -- Shared component library
 - `frontend/src/contexts/.context.md` -- React Context (Auth/Subscription)
@@ -77,8 +116,8 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 **Other docs**:
 - `docs/constraints/reliability.md` -- Engineering reliability
 - `docs/constraints/auth.md` -- Auth flow
-- `docs/references/pages.md` -- Frontend page routes
-- `docs/references/components.md` -- Frontend components & libraries
+- `docs/reference/pages.md` -- Frontend page routes
+- `docs/reference/components.md` -- Frontend components & libraries
 - `docs/constraints/design-system.md` -- Design system spec
 - `mcp/themarketbrew/.context.md` -- Market Lens MCP installable package
 
@@ -140,18 +179,64 @@ Backend `backend/.env` (full definitions in `backend/app/core/config.py`):
 ```
 GOOGLE_API_KEY=xxx              # Required - Google ADK Agent
 OPENAI_API_KEY=xxx              # OpenAI (backup)
+OPENROUTER_API_KEY=xxx          # OpenRouter / embedding gateway
+DEEPSEEK_API_KEY=xxx            # DeepSeek backup/experiments
 FMP_API_KEY=xxx                 # Required - Treasury rates, news
 FRED_API_KEY=xxx                # Liquidity indicators
+TWITTER_API_KEY=xxx             # KOL tweet ingestion
 STRIPE_SECRET_KEY=xxx           # Stripe payments
 STRIPE_WEBHOOK_SECRET=xxx       # Stripe Webhook signature
 STRIPE_PRO_PRICE_ID=xxx         # Pro subscription price ID
+STRIPE_MAX_PRICE_ID=xxx         # Max subscription price ID
 RESEND_API_KEY=xxx              # Resend email
+RESEND_WEBHOOK_SECRET=xxx       # Resend webhook signature
+RESEND_SEGMENT_MORNING=xxx      # Resend morning report segment
+RESEND_SEGMENT_EVENING=xxx      # Resend daily/evening report segment
+RESEND_SEGMENT_WEEKLY=xxx       # Resend weekly report segment
+RESEND_SEGMENT_DAILY_FREE_CTA=xxx   # Free daily CTA segment
+RESEND_SEGMENT_DAILY_PAID_CTA=xxx   # Paid daily CTA segment
+RESEND_AUDIENCE_TWITTER_DIGEST=xxx  # Twitter digest audience
+RESEND_SEGMENT_TWITTER_DIGEST=xxx   # Twitter digest segment
 CRON_SECRET=xxx                 # Cron job auth
 INSFORGE_ANON_KEY=xxx           # Insforge anon key
+INSFORGE_SERVICE_KEY=xxx        # Insforge service/admin key
+EDGE_FUNCTION_SECRET=xxx        # Internal edge function secret (defaults to CRON_SECRET)
 ENVIRONMENT=production          # Required - affects broadcast safety routing
 FRONTEND_URL=https://xxx        # Production CORS
 INSFORGE_BASE_URL=https://xxx   # Insforge instance URL
+CORS_ALLOWED_ORIGIN_REGEX=xxx   # Vercel preview CORS regex
+POSTHOG_PROJECT_TOKEN=xxx       # PostHog analytics
+POSTHOG_HOST=https://xxx        # PostHog host
+WECHAT_APP_ID=xxx               # WeChat Mini Program app id
+WECHAT_APP_SECRET=xxx           # WeChat Mini Program secret
+WECHAT_JWT_SECRET=xxx           # WeChat JWT signing secret
+INVITE_CODES=xxx                # Comma-separated invite codes
+FRANK_LENS_DEV_INVITE_CODE=xxx  # Frank Lens dev invite code
+ADMIN_EMAILS=xxx                # Comma-separated admin email whitelist
+EMAIL_PRO_GATE=false            # Restrict broadcasts to Pro/Max when true
+AGENT_RUNTIME_REQUEST_HISTORY=fallback
+AGENT_RUNTIME_INMEMORY_MAX_SESSIONS=256
+AGENT_RUNTIME_INMEMORY_MAX_TRANSCRIPT=64
+AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT=60000
+AGENT_RUNTIME_TOOL_CACHE_TTL=300
+AGENT_RUNTIME_TOOL_CACHE_MAXSIZE=2048
+AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN=1
+AGENT_RUNTIME_MAX_KOL_TWEET_SEARCH_PER_TURN=3
+AGENT_RUNTIME_RESEARCH_TIMEOUT_S=75
+AGENT_RUNTIME_KOL_TIMEOUT_S=120
+AGENT_RUNTIME_HISTORY_FETCH_LIMIT=200
+AGENT_RUNTIME_TOOL_RESULT_MAX_CHARS=1024
+AGENT_RUNTIME_BUDGET_INPUT_GUARD=6000
+AGENT_RUNTIME_BUDGET_ACTIVE_MEMORY=1800
+AGENT_RUNTIME_BUDGET_ATTACHED_WORKSPACE=6000
+AGENT_RUNTIME_BUDGET_HISTORY=20000
+AGENT_RUNTIME_BUDGET_CONTENT_CONTEXT=8000
+AGENT_RUNTIME_BUDGET_INFERRED_MEMORY=800
+VECTOR_EMBEDDING_MODEL=openai/text-embedding-3-small
+RAG_EMBEDDING_MODEL=openai/text-embedding-3-small  # Legacy fallback for VECTOR_EMBEDDING_MODEL
 ```
+
+`GOOGLE_GENAI_API_KEY` is auto-derived from `GOOGLE_API_KEY` when absent.
 
 Frontend `frontend/.env.local`:
 ```
@@ -221,16 +306,16 @@ Find auth endpoints: `grep -r "verify_user_token" backend/app/features/*/router.
 
 ```
 frontend/src/
-├── app/             # Next.js App Router (31 page.tsx files)
+├── app/             # Next.js App Router (59 page.tsx files)
 ├── components/      # Shared component library
 ├── contexts/        # AuthContext + SubscriptionContext
 ├── hooks/           # useStockSearch + hooks/queries/ (TanStack Query)
 └── lib/             # api.ts / auth.ts / insforge.ts / utils
 ```
 
-- Route table: `docs/references/pages.md`
+- Route table: `docs/reference/pages.md`
 - Auth flow: `docs/constraints/auth.md`
-- Component list: `docs/references/components.md`
+- Component list: `docs/reference/components.md`
 - Design spec: `docs/constraints/design-system.md`
 
 ## Testing Architecture

@@ -89,7 +89,9 @@ export type ResearchAction =
   // KOL agent: replace the latest-turn citation chunks (right-panel data).
   | { type: 'SET_KOL_CHUNKS'; chunks: Record<string, unknown>[] }
   // KOL agent: set or clear the active persona. null clears KOL mode.
-  | { type: 'SET_PERSONA'; personaUsername: string | null };
+  | { type: 'SET_PERSONA'; personaUsername: string | null }
+  // KOL/default assistant switch: starts a clean conversation for the target mode.
+  | { type: 'SWITCH_PERSONA'; personaUsername: string | null };
 
 export interface LoadConversationData {
   conversationId: string;
@@ -192,6 +194,27 @@ export function loadState(): ResearchState {
   } catch {
     return initialState;
   }
+}
+
+export function buildKolPersistedMessages({
+  existingMessages,
+  isFirstTurn,
+  userMessage,
+  assistantMessage,
+  timestamp = Date.now(),
+}: {
+  existingMessages: ChatMsg[];
+  isFirstTurn: boolean;
+  userMessage: string;
+  assistantMessage: string;
+  timestamp?: number;
+}): ChatMsg[] {
+  const baseMessages = isFirstTurn ? [] : existingMessages;
+  return [
+    ...baseMessages,
+    { id: `u-${timestamp}`, role: 'user', content: userMessage },
+    { id: `a-${timestamp}`, role: 'assistant', content: assistantMessage },
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -424,6 +447,14 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
 
     case 'SET_PERSONA':
       return { ...state, personaUsername: action.personaUsername };
+
+    case 'SWITCH_PERSONA':
+      if (state.personaUsername === action.personaUsername) return state;
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      return {
+        ...initialState,
+        personaUsername: action.personaUsername,
+      };
 
     // Research Desk: content panel navigation
     case 'PUSH_CONTENT':

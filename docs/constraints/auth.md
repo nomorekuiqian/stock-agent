@@ -90,7 +90,7 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
   -> AuthContext 通过 /api/auth/session 决定真实登录态
 ```
 
-当前由 `middleware` 首层保护的页面包括：`/for-you`、`/profile`、`/macro`、`/sectors`、`/screener`
+`middleware` 当前维护的是 `PUBLIC_ROUTES` 白名单：`/`、`/today`、`/morning`、`/stock`、`/contact`、`/feedback`、`/unsubscribe`、`/login`、`/verify-email`、`/forgot-password`、`/reset-password`、`/auth/callback`、`/email-test`、`/pricing`、`/webview-check`、`/macro`、`/research`、`/twitter-digest`、`/kol` 等公开前缀直接放行。其它页面先经过 cookie gate；例如 `/for-you`、`/profile`、`/settings`、`/admin`、`/onboarding`、`/request-access` 会在没有 `app_access_token` / `app_refresh_token` 时跳 `/login?redirect=...`。权威鉴权仍在 `/api/auth/session` 和后端 `verify_user_token` / admin API 中完成。
 
 ## Session 与 Token
 
@@ -192,7 +192,7 @@ OAuth callback 现在是服务端 route handler，避免客户端 SDK callback �
 3. 直接手动访问 `/login`
 4. 未登录直接访问 `/for-you`，被重定向到 `/login`
 5. 未登录直接访问 `/profile`，被重定向到 `/login`
-6. 未登录直接访问 `/screener`，被重定向到 `/login`
+6. 未登录直接访问 `/settings`，被重定向到 `/login`
 
 每个入口都要验证两件事：
 

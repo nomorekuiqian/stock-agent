@@ -2,21 +2,22 @@
 
 ## 组件分类总览
 
-| 分类 | 数量 | 说明 |
-|------|------|------|
-| UI 基础 | 14 | shadcn/ui 组件 (Avatar, Badge, Button, Card, Collapsible, Dialog, DropdownMenu, Progress, RadioGroup, Separator, Skeleton, Slider, Switch, Tooltip) |
-| 导航布局 | 5 | Navbar, NavAuth, MobileMenu, Logo, ThemeToggle |
-| 数据展示 | 5 | ReportContent, ReportTabs, InsightBanner, MacroPageHeader, PageShell |
-| 图表 | 9 | 各类金融图表 (基于 Lightweight Charts) + FredAreaChart, FredBarChart |
-| 风险指标 | 4 | RiskGauge, NFCIGauge, RiskSummaryBar, LiquidityCard |
-| 个股 | 4 | StockCard, StockAnalysisCard, StockSearchDropdown, WatchlistPanel |
-| 技术分析 | 1 | TechnicalChart |
-| 个性化 (for-you) | 7 | ActionBar, ForYouBreadcrumb, DigestInlineReport, RecentReports, StockDetailPanel, StockListItem, StockOverviewPanel |
-| 订阅 | 2 | SubscribeForm, PaywallGuard |
-| 装饰 | 3 | TrustBadges, LogoMarquee, ProductShowcase |
-| 全局 | 4 | Providers, TradingViewWidget, AuthSubscriptionSync, FeatureSections |
-| Auth 表单 | 2 | PasswordField, InviteCodeModal |
-| 其他 | 1 | AiChatLink |
+| 分类 | 说明 |
+|------|------|
+| UI 基础 | shadcn/ui 组件 (Avatar, Badge, Button, Card, Collapsible, Dialog, DropdownMenu, Progress, RadioGroup, Separator, Skeleton, Slider, Switch, Tooltip) |
+| 导航布局 | Navbar, NavAuth, MobileMenu, Logo, ThemeToggle |
+| 数据展示 | ReportContent, ReportTabs, InsightBanner, MacroPageHeader, PageShell |
+| 图表 | 各类金融图表 (基于 Lightweight Charts) + FredAreaChart, FredBarChart |
+| 风险指标 | RiskGauge, NFCIGauge, RiskSummaryBar, LiquidityCard |
+| 个股 | StockCard, StockAnalysisCard, StockSearchDropdown, WatchlistPanel |
+| 技术分析 | TechnicalChart |
+| 个性化 (for-you) | ActionBar, ForYouBreadcrumb, DigestInlineReport, RecentReports, StockDetailPanel, StockListItem, StockOverviewPanel |
+| 持仓同步 | HoldingsSyncDialog |
+| 订阅 | SubscribeForm, PaywallGuard |
+| 装饰 | TrustBadges, LogoMarquee, ProductShowcase |
+| 全局 | Providers, TradingViewWidget, AuthSubscriptionSync, FeatureSections |
+| Auth 表单 | PasswordField |
+| 其他 | AiChatLink |
 
 ---
 
@@ -61,6 +62,11 @@ AI 个股分析卡片，支持三种状态。
 付费墙守卫组件，根据订阅状态控制内容访问。
 - **功能**: 检查用户订阅状态，未订阅时显示升级提示
 - **使用场景**: Pro 功能入口
+
+### UnlockCTA
+升级/解锁 CTA 组件。
+- **功能**: 引导用户登录或升级到对应权益
+- **使用场景**: 付费内容 preview / locked states
 
 ### PasswordField
 认证表单共用密码输入组件。
@@ -120,10 +126,10 @@ AI 个股分析卡片，支持三种状态。
 - **操作**: 日报 CRUD、Watchlist CRUD、Digest CRUD
 - **表**: market_reports, user_watchlists, personal_digests
 
-### auth.ts — 认证 SDK 封装
-- **功能**: Insforge Auth 的封装 (signIn/signUp/signOut/OAuth)
-- **OAuth**: Google 登录走 Insforge SDK 默认回调链路
-- **密码重置**: 完整的重置流程 (发送邮件 -> 验证码 -> 重置)
+### auth-cookies.ts / auth-redirect.ts / auth-verification.ts — 认证辅助
+- **auth-cookies.ts**: server-cookie bridge 的 cookie 读写、PKCE verifier cookie
+- **auth-redirect.ts**: 登录 redirect path sanitize + sessionStorage 管理
+- **auth-verification.ts**: 邮箱验证 pending 状态和 verify path 构造
 
 ### timezone.ts — 时区工具
 - **核心**: UTC -> 用户本地时区转换
@@ -168,6 +174,14 @@ AI 个股分析卡片，支持三种状态。
 - 统一的页面布局包装器 (标题 + 内容区)
 - 跨多个页面复用
 
+### PostHogProvider.tsx — PostHog Provider
+- 客户端 PostHog 初始化和 provider 包裹
+- 使用场景: `Providers`
+
+### MarkdownBody.tsx — Markdown 内容渲染
+- 统一 Markdown 正文样式
+- 使用场景: 报告、AI 输出、研究面板
+
 ### ReportTabs.tsx — 报告入口标签页
 - 早报 / 晚报 / 推特三个报告入口，高亮当前 `/morning`、`/today` 或 `/twitter-digest` 路径
 - 使用场景: `/today`, `/morning`
@@ -175,10 +189,6 @@ AI 个股分析卡片，支持三种状态。
 ### ProductShowcase.tsx — 产品展示组件
 - 首页产品功能截图/预览展示
 - 使用场景: `/`
-
-### InviteCodeModal.tsx — 邀请码弹窗
-- 邀请码输入和兑换弹窗
-- 使用场景: `/login`, `/onboarding`
 
 ### AiChatLink.tsx — AI 对话入口链接
 - 跳转到 AI 对话功能的快捷入口组件
