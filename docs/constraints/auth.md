@@ -120,6 +120,12 @@ access cookie 过期后**并发**打这个端点，第一个成功的会让其�
 业务侧 chatStream（`api.research.chatStream` / `api.kolResearch.chatStream`）收到 401 时
 也会 `refreshSession()` 后重试一次，让瞬时 null token 自愈而不是弹"登录已过期"。
 
+Research/KOL 历史对话接口是用户私有数据：`/api/research/conversations*`、
+`/api/kol_research/conversations*` 必须带 Bearer token，后端使用
+`verify_user_token` / `verify_user_token_with_email` 或 feature gate 校验。匿名、token
+缺失或 token 验证失败必须返回认证错误，不能返回空列表或静默 skip；否则前端会把临时
+auth 失败误判成“没有历史对话”并写入历史列表缓存。
+
 ### OAuth Callback 处理
 
 OAuth callback 现在是服务端 route handler，避免客户端 SDK callback 与 session refresh 竞态：
