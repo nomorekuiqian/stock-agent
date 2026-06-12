@@ -18,6 +18,10 @@ from pydantic import BaseModel
 from app.core.deps import optional_user_token, verify_cron_secret, verify_user_token
 from app.features.payment.entitlements import has_entitlement
 from app.features.subscription.models import BroadcastResponse
+from app.features.subscription.broadcast_runs import (
+    acquire_broadcast_run,
+    complete_broadcast_run,
+)
 from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
@@ -318,6 +322,26 @@ async def broadcast_morning_report(
 
         email_service = get_email_service()
         today = today_str()
+        lock = {"acquired": True}
+        if ENVIRONMENT == "production":
+            lock = await acquire_broadcast_run(
+                "morning_report",
+                today,
+                {"endpoint": "/api/morning/broadcast"},
+            )
+            if not lock.get("acquired"):
+                logger.warning(
+                    "Skipping duplicate morning_report broadcast for %s; existing=%s",
+                    today,
+                    (lock.get("data") or {}).get("id"),
+                )
+                return BroadcastResponse(
+                    success=True,
+                    channel="daily_report",
+                    sent=0,
+                    failed=0,
+                    errors=[{"reason": "duplicate_broadcast_skipped", "date": today}],
+                )
         report_data = None
 
         if not force:
@@ -389,7 +413,24 @@ async def broadcast_morning_report(
         if not broadcast_result.get("success"):
             error_msg = broadcast_result.get("error", "Failed to broadcast morning report")
             logger.error("Morning report broadcast failed: %s", error_msg)
+            if ENVIRONMENT == "production" and lock.get("lock_token"):
+                await complete_broadcast_run(
+                    "morning_report",
+                    lock["lock_token"],
+                    today,
+                    status="failed",
+                    details={"error": error_msg},
+                )
             raise HTTPException(status_code=500, detail=error_msg)
+
+        if ENVIRONMENT == "production" and lock.get("lock_token"):
+            await complete_broadcast_run(
+                "morning_report",
+                lock["lock_token"],
+                today,
+                broadcast_id=broadcast_result.get("broadcast_id"),
+                details=broadcast_result,
+            )
 
         return BroadcastResponse(
             success=True,
