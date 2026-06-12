@@ -2678,7 +2678,7 @@ export const api = {
         { headers },
       );
       if (!response.ok) {
-        if (response.status === 404 || response.status === 502) return null;
+        if (response.status === 404) return null;
         await throwProtectedApiError(response, 'Failed to restore agent session');
       }
       const data = (await response.json()) as AgentRuntimeSession;
@@ -2813,8 +2813,7 @@ export const api = {
 
     conversations: {
       list: async (opts: { limit?: number; offset?: number; search?: string } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
-        const headers = await _authHeaders({});
-        const hasAuth = !!headers['Authorization'];
+        const headers = await _authHeaders({}, { required: true });
         const params = new URLSearchParams();
         if (opts.limit !== undefined) params.set('limit', String(opts.limit));
         if (opts.offset !== undefined) params.set('offset', String(opts.offset));
@@ -2823,14 +2822,13 @@ export const api = {
         const url = `${API_BASE_URL}/research/conversations${qs ? `?${qs}` : ''}`;
         const response = await fetch(url, { headers });
         if (!response.ok) {
-          if (!hasAuth) return { conversations: [], has_more: false };
           await throwProtectedApiError(response, 'Failed to fetch conversations');
         }
         return response.json();
       },
 
       get: async (id: string): Promise<Record<string, unknown>> => {
-        const headers = await _authHeaders({});
+        const headers = await _authHeaders({}, { required: true });
         const response = await fetch(`${API_BASE_URL}/research/conversations/${id}`, { headers });
         if (!response.ok) {
           await throwProtectedApiError(response, 'Failed to fetch conversation');
@@ -2839,37 +2837,33 @@ export const api = {
       },
 
       create: async (req: ConversationSaveRequest): Promise<{ id: string }> => {
-        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
-        const hasAuth = !!headers['Authorization'];
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
         const response = await fetch(`${API_BASE_URL}/research/conversations`, {
           method: 'POST',
           headers,
           body: JSON.stringify(req),
         });
         if (!response.ok) {
-          if (!hasAuth) return { id: '' };
           await throwProtectedApiError(response, 'Failed to create conversation');
         }
         return response.json();
       },
 
       update: async (id: string, req: ConversationSaveRequest): Promise<{ success: boolean }> => {
-        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
-        const hasAuth = !!headers['Authorization'];
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
         const response = await fetch(`${API_BASE_URL}/research/conversations/${id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(req),
         });
         if (!response.ok) {
-          if (!hasAuth) return { success: false };
           await throwProtectedApiError(response, 'Failed to update conversation');
         }
         return response.json();
       },
 
       delete: async (id: string): Promise<{ success: boolean }> => {
-        const headers = await _authHeaders({});
+        const headers = await _authHeaders({}, { required: true });
         const response = await fetch(`${API_BASE_URL}/research/conversations/${id}`, {
           method: 'DELETE',
           headers,
@@ -3120,7 +3114,7 @@ export const api = {
 
     conversations: {
       list: async (opts: { limit?: number; offset?: number } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
-        const headers = await _authHeaders({});
+        const headers = await _authHeaders({}, { required: true });
         const params = new URLSearchParams();
         if (opts.limit !== undefined) params.set('limit', String(opts.limit));
         if (opts.offset !== undefined) params.set('offset', String(opts.offset));
@@ -3128,14 +3122,13 @@ export const api = {
         const url = `${API_BASE_URL}/kol_research/conversations${qs ? `?${qs}` : ''}`;
         const response = await fetch(url, { headers });
         if (!response.ok) {
-          if (response.status === 403) return { conversations: [], has_more: false };
           await throwProtectedApiError(response, 'Failed to fetch conversations');
         }
         return response.json();
       },
 
       get: async (id: string): Promise<Record<string, unknown>> => {
-        const headers = await _authHeaders({});
+        const headers = await _authHeaders({}, { required: true });
         const response = await fetch(`${API_BASE_URL}/kol_research/conversations/${id}`, { headers });
         if (!response.ok) {
           await throwProtectedApiError(response, 'Failed to fetch conversation');
@@ -3144,7 +3137,7 @@ export const api = {
       },
 
       create: async (req: KolConversationSaveRequest): Promise<{ id: string }> => {
-        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
         const response = await fetch(`${API_BASE_URL}/kol_research/conversations`, {
           method: 'POST',
           headers,
@@ -3157,7 +3150,7 @@ export const api = {
       },
 
       update: async (id: string, req: KolConversationSaveRequest): Promise<{ success: boolean }> => {
-        const headers = await _authHeaders({ 'Content-Type': 'application/json' });
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
         const response = await fetch(`${API_BASE_URL}/kol_research/conversations/${id}`, {
           method: 'PUT',
           headers,
@@ -3170,7 +3163,7 @@ export const api = {
       },
 
       delete: async (id: string): Promise<{ success: boolean }> => {
-        const headers = await _authHeaders({});
+        const headers = await _authHeaders({}, { required: true });
         const response = await fetch(`${API_BASE_URL}/kol_research/conversations/${id}`, {
           method: 'DELETE',
           headers,

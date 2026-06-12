@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, MessageSquare, Search, X } from 'lucide-react';
+import { Loader2, MessageSquare, RefreshCw, Search, X } from 'lucide-react';
 import type { ConversationSearchMatch, ConversationSummary } from '@/lib/api';
 import {
   Dialog,
@@ -79,14 +79,18 @@ interface ConversationSearchDialogProps {
   onQueryChange: (query: string) => void;
   recentConversations: ConversationSummary[];
   recentLoading?: boolean;
+  recentError?: string | null;
   searchResults: ConversationSummary[];
   searchLoading?: boolean;
+  searchError?: string | null;
   hasMoreRecent?: boolean;
   loadingMoreRecent?: boolean;
   onLoadMoreRecent?: () => void;
+  onRetryRecent?: () => void;
   hasMoreSearch?: boolean;
   loadingMoreSearch?: boolean;
   onLoadMoreSearch?: () => void;
+  onRetrySearch?: () => void;
   onLoad: (id: string) => void;
   requestInFlight?: boolean;
 }
@@ -98,14 +102,18 @@ export default function ConversationSearchDialog({
   onQueryChange,
   recentConversations,
   recentLoading = false,
+  recentError = null,
   searchResults,
   searchLoading = false,
+  searchError = null,
   hasMoreRecent = false,
   loadingMoreRecent = false,
   onLoadMoreRecent,
+  onRetryRecent,
   hasMoreSearch = false,
   loadingMoreSearch = false,
   onLoadMoreSearch,
+  onRetrySearch,
   onLoad,
   requestInFlight = false,
 }: ConversationSearchDialogProps) {
@@ -113,9 +121,11 @@ export default function ConversationSearchDialog({
   const isSearching = terms.length > 0;
   const list = isSearching ? searchResults : recentConversations;
   const loading = isSearching ? searchLoading : recentLoading;
+  const error = isSearching ? searchError : recentError;
   const hasMore = isSearching ? hasMoreSearch : hasMoreRecent;
   const loadingMore = isSearching ? loadingMoreSearch : loadingMoreRecent;
   const onLoadMore = isSearching ? onLoadMoreSearch : onLoadMoreRecent;
+  const onRetry = isSearching ? onRetrySearch : onRetryRecent;
 
   const handleSelect = (id: string) => {
     if (requestInFlight) return;
@@ -178,6 +188,21 @@ export default function ConversationSearchDialog({
                   <div className="h-2.5 w-4/5 rounded bg-muted/30 animate-pulse" />
                 </div>
               ))}
+            </div>
+          ) : error ? (
+            <div className="px-3 py-12 text-center">
+              <MessageSquare className="mx-auto h-5 w-5 text-muted-foreground/50" aria-hidden="true" />
+              <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                >
+                  <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                  重新加载
+                </button>
+              )}
             </div>
           ) : list.length === 0 ? (
             <div className="px-3 py-12 text-center">

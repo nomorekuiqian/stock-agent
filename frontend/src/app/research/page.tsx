@@ -108,6 +108,15 @@ function writeStoredConversations(userId: string, data: ConversationListInfinite
   }
 }
 
+function removeStoredConversations(userId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(getConversationStorageKey(userId));
+  } catch {
+    // Browser storage can be unavailable; React Query refetch still handles recovery.
+  }
+}
+
 function dedupeConversations(pages: ConversationListPage[]): ConversationSummary[] {
   const seen = new Set<string>();
   const result: ConversationSummary[] = [];
@@ -298,6 +307,7 @@ function ScreenerContent() {
   // closure-captured controller.signal.aborted (not a shared flag), so a rapid
   // cancel-then-resend can't let an older turn's late AbortError clobber the new turn.
   const abortRef = useRef<AbortController | null>(null);
+  const conversationListNetworkSuccessUserRef = useRef<string | null>(null);
   const conversationUserId = userId ?? 'anonymous';
   const conversationListQueryKey = useMemo(
     () => queryKeys.research.conversations(conversationUserId, CONVERSATIONS_PAGE_SIZE),
@@ -325,10 +335,14 @@ function ScreenerContent() {
     number
   >({
     queryKey: conversationListQueryKey,
-    queryFn: ({ pageParam }) => api.research.conversations.list({
-      limit: CONVERSATIONS_PAGE_SIZE,
-      offset: pageParam,
-    }),
+    queryFn: async ({ pageParam }) => {
+      const page = await api.research.conversations.list({
+        limit: CONVERSATIONS_PAGE_SIZE,
+        offset: pageParam,
+      });
+      conversationListNetworkSuccessUserRef.current = conversationUserId;
+      return page;
+    },
     enabled: shouldLoadConversations,
     initialPageParam: 0,
     initialData: storedConversationList?.data,
@@ -339,7 +353,9 @@ function ScreenerContent() {
     },
     staleTime: CONVERSATIONS_STALE_TIME_MS,
     gcTime: CONVERSATIONS_GC_TIME_MS,
-    refetchOnWindowFocus: false,
+    retry: 2,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
   const conversations = useMemo(
     () => dedupeConversations(conversationsQuery.data?.pages ?? []),
@@ -366,14 +382,25 @@ function ScreenerContent() {
     },
     staleTime: CONVERSATIONS_STALE_TIME_MS,
     gcTime: CONVERSATIONS_GC_TIME_MS,
-    refetchOnWindowFocus: false,
+    retry: 2,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
   const searchConversations = useMemo(
     () => dedupeConversations(searchConversationsQuery.data?.pages ?? []),
     [searchConversationsQuery.data],
   );
-  const conversationsLoaded =
-    !!conversationsQuery.data || !shouldLoadConversations || !conversationsQuery.isLoading;
+  const conversationsLoading =
+    shouldLoadConversations &&
+    conversations.length === 0 &&
+    (conversationsQuery.isLoading || conversationsQuery.isFetching);
+  const conversationsLoaded = !shouldLoadConversations || conversations.length > 0 || !conversationsLoading;
+  const conversationListError = conversationsQuery.isError && conversations.length === 0
+    ? '历史对话加载失败，请重试'
+    : null;
+  const conversationSearchError = searchConversationsQuery.isError && searchConversations.length === 0
+    ? '搜索失败，请重试'
+    : null;
   const hasMoreConversations = !!conversationsQuery.hasNextPage;
   const loadingMoreConversations = conversationsQuery.isFetchingNextPage;
   const hasMoreSearchConversations = !!searchConversationsQuery.hasNextPage;
@@ -742,8 +769,40 @@ function ScreenerContent() {
   // re-fetch the same lightweight history page on every mount.
   useEffect(() => {
     if (!userId || !conversationsQuery.data) return;
+    if (conversationListNetworkSuccessUserRef.current !== userId) return;
+    if (storedConversationList && !conversationsQuery.isFetchedAfterMount) return;
     writeStoredConversations(userId, conversationsQuery.data);
-  }, [userId, conversationsQuery.data]);
+  }, [
+    userId,
+    conversationsQuery.data,
+    conversationsQuery.dataUpdatedAt,
+    conversationsQuery.isFetchedAfterMount,
+    storedConversationList,
+  ]);
+
+  // localStorage is only a first-paint cache. Always reconcile it with the
+  // authenticated backend after mount so an old empty cache cannot become sticky.
+  useEffect(() => {
+    if (!shouldLoadConversations || !storedConversationList || conversationsQuery.isFetchedAfterMount) return;
+    if (conversationsQuery.isFetching) return;
+    void conversationsQuery.refetch();
+  }, [
+    shouldLoadConversations,
+    storedConversationList,
+    conversationsQuery.isFetchedAfterMount,
+    conversationsQuery.isFetching,
+    conversationsQuery.refetch,
+    conversationsQuery,
+  ]);
+
+  const handleRetryConversations = useCallback(() => {
+    if (userId) removeStoredConversations(userId);
+    void conversationsQuery.refetch();
+  }, [conversationsQuery, userId]);
+
+  const handleRetryConversationSearch = useCallback(() => {
+    void searchConversationsQuery.refetch();
+  }, [searchConversationsQuery]);
 
   // Load the next page of conversations on "加载更多".
   // Appends to existing list and dedupes on id — protects against the rare
@@ -1776,27 +1835,55 @@ function ScreenerContent() {
     //      missed a save mid-conversation.
     //   4. If runtime has no session row, the picker payload is used as-is,
     //      matching the pre-runtime behavior.
+    const failConversationLoad = () => {
+      dispatch({
+        type: 'LOAD_CONVERSATION',
+        data: {
+          conversationId,
+          title: summary?.title || '历史对话',
+          messages: [{
+            id: `conversation-load-error-${Date.now()}`,
+            role: 'assistant',
+            content: '历史对话加载失败，请重试',
+            isError: true,
+          }],
+          accumulatedFilters: [],
+          candidates: [],
+          candidateCount: 0,
+          universeSize: 0,
+          recommendations: [],
+          funnelSteps: [],
+        },
+      });
+    };
+
     try {
-      const picker = await api.research.conversations.get(conversationId).catch(() => null);
+      let picker: Record<string, unknown> | null = null;
+      try {
+        picker = await api.research.conversations.get(conversationId);
+      } catch {
+        picker = null;
+      }
       const pickerData = ((picker?.data || {}) as Record<string, unknown>);
       const inferredAgentId: 'research_agent' | 'kol_research_agent' =
         typeof pickerData.persona_username === 'string' && pickerData.persona_username
           ? 'kol_research_agent'
           : 'research_agent';
-      let runtimeSession = await api.agentRuntime
-        .getSession(conversationId, inferredAgentId)
-        .catch(() => null);
+      let runtimeSession = null;
+      try {
+        runtimeSession = await api.agentRuntime.getSession(conversationId, inferredAgentId);
+      } catch (runtimeError) {
+        if (!picker) throw runtimeError;
+      }
       if (!runtimeSession && !picker) {
         const alternateAgentId = inferredAgentId === 'research_agent'
           ? 'kol_research_agent'
           : 'research_agent';
-        runtimeSession = await api.agentRuntime
-          .getSession(conversationId, alternateAgentId)
-          .catch(() => null);
+        runtimeSession = await api.agentRuntime.getSession(conversationId, alternateAgentId);
       }
 
       if (!runtimeSession && !picker) {
-        if (summary) dispatch({ type: 'RESET' });
+        failConversationLoad();
         return;
       }
 
@@ -1837,7 +1924,7 @@ function ScreenerContent() {
       convCache.current.set(conversationId, merged);
       loadConversationData(conversationId, merged);
     } catch {
-      if (summary) dispatch({ type: 'RESET' });
+      failConversationLoad();
     } finally {
       loadingConversationRef.current = false;
     }
@@ -1971,12 +2058,18 @@ function ScreenerContent() {
       redirectToLogin();
       return;
     }
+    if (conversationListError || conversations.length === 0) {
+      handleRetryConversations();
+    }
     setConversationSearchOpen(true);
-  }, [redirectToLogin, userId]);
+  }, [conversationListError, conversations.length, handleRetryConversations, redirectToLogin, userId]);
 
   const openHistorySidebar = useCallback(() => {
+    if (userId && (conversationListError || conversations.length === 0)) {
+      handleRetryConversations();
+    }
     setHistoryOpen(true);
-  }, []);
+  }, [conversationListError, conversations.length, handleRetryConversations, userId]);
 
   const closeHistoryOnNarrowScreen = useCallback(() => {
     if (!isDesktopViewport()) {
@@ -2050,14 +2143,18 @@ function ScreenerContent() {
       onQueryChange={setConversationSearch}
       recentConversations={conversations}
       recentLoading={!conversationsLoaded}
+      recentError={conversationListError}
       searchResults={searchConversations}
       searchLoading={searchLoading}
+      searchError={conversationSearchError}
       hasMoreRecent={hasMoreConversations}
       loadingMoreRecent={loadingMoreConversations}
       onLoadMoreRecent={handleLoadMoreConversations}
+      onRetryRecent={handleRetryConversations}
       hasMoreSearch={hasMoreSearchConversations}
       loadingMoreSearch={loadingMoreSearchConversations}
       onLoadMoreSearch={handleLoadMoreSearchConversations}
+      onRetrySearch={handleRetryConversationSearch}
       onLoad={handleSidebarLoadConversation}
       requestInFlight={state.isLoading}
     />
@@ -2079,6 +2176,7 @@ function ScreenerContent() {
         <ConversationSidebar
           conversations={conversations}
           loading={historyOpen && !conversationsLoaded}
+          error={conversationListError}
           currentId={state.conversationId}
           onLoad={handleSidebarLoadConversation}
           onDelete={handleDeleteConversation}
@@ -2093,6 +2191,7 @@ function ScreenerContent() {
           loadingMore={loadingMoreConversations}
           onLoadMore={handleLoadMoreConversations}
           onSearchOpen={handleSidebarSearchOpen}
+          onRetry={handleRetryConversations}
         />
       </div>
       <button
@@ -2143,6 +2242,7 @@ function ScreenerContent() {
           <ConversationSidebar
             conversations={conversations}
             loading={!conversationsLoaded}
+            error={conversationListError}
             currentId={state.conversationId}
             onLoad={handleSidebarLoadConversation}
             onDelete={handleDeleteConversation}
@@ -2157,6 +2257,7 @@ function ScreenerContent() {
             loadingMore={loadingMoreConversations}
             onLoadMore={handleLoadMoreConversations}
             onSearchOpen={handleSidebarSearchOpen}
+            onRetry={handleRetryConversations}
           />
         </div>
         {conversationSearchDialog}
@@ -2252,6 +2353,7 @@ function ScreenerContent() {
             <ConversationSidebar
               conversations={conversations}
               loading={historyOpen && !conversationsLoaded}
+              error={conversationListError}
               currentId={state.conversationId}
               onLoad={handleSidebarLoadConversation}
               onDelete={handleDeleteConversation}
@@ -2266,6 +2368,7 @@ function ScreenerContent() {
               loadingMore={loadingMoreConversations}
               onLoadMore={handleLoadMoreConversations}
               onSearchOpen={handleSidebarSearchOpen}
+              onRetry={handleRetryConversations}
             />
           </div>
           {/* Chat panel */}

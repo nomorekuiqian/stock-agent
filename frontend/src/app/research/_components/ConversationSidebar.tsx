@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, Pencil, Search, X } from 'lucide-react';
+import { Check, Pencil, RefreshCw, Search, X } from 'lucide-react';
 import type { ConversationSummary } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +29,7 @@ function formatRelativeTime(dateStr: string): string {
 interface ConversationSidebarProps {
   conversations: ConversationSummary[];
   loading?: boolean;
+  error?: string | null;
   currentId?: string | null;
   onLoad: (id: string) => void;
   onDelete: (id: string) => void;
@@ -47,11 +48,13 @@ interface ConversationSidebarProps {
   /** Pagination: handler invoked when the user clicks "加载更多". */
   onLoadMore?: () => void;
   onSearchOpen?: () => void;
+  onRetry?: () => void;
 }
 
 export default function ConversationSidebar({
   conversations,
   loading = false,
+  error = null,
   currentId,
   onLoad,
   onDelete,
@@ -66,6 +69,7 @@ export default function ConversationSidebar({
   loadingMore = false,
   onLoadMore,
   onSearchOpen,
+  onRetry,
 }: ConversationSidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
@@ -196,6 +200,20 @@ export default function ConversationSidebar({
                 <div className="h-2 bg-muted/20 rounded animate-pulse w-1/2" />
               </div>
             ))}
+          </div>
+        ) : error ? (
+          <div className="px-3 py-6 text-center">
+            <p className="text-xs text-muted-foreground/70">{error}</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              >
+                <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                重新加载
+              </button>
+            )}
           </div>
         ) : conversations.length === 0 ? (
           <div className="px-3 py-6 text-center">

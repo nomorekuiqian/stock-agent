@@ -1013,6 +1013,24 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('agentRuntime.getSession', () => {
+    it('returns null on a missing runtime session', async () => {
+      mockFetchError(404, 'not found');
+
+      const result = await api.agentRuntime.getSession('missing-session', 'research_agent');
+
+      expect(result).toBeNull();
+    });
+
+    it('throws on transient runtime restore failures instead of treating them as missing data', async () => {
+      mockFetchError(502, 'Auth service unavailable');
+
+      await expect(
+        api.agentRuntime.getSession('session-id', 'research_agent')
+      ).rejects.toThrow('Auth service unavailable');
+    });
+  });
+
   describe('kolResearch.chatStream', () => {
     // Minimal SSE-style 200 response whose ReadableStream yields `lines` then ends.
     function streamOk(lines: string[]) {
@@ -1107,6 +1125,14 @@ describe('api (post cache removal)', () => {
 
       await expect(api.research.conversations.list()).rejects.toThrow(/登录/);
     });
+
+    it('fails fast without sending an anonymous history request when no token is available', async () => {
+      vi.mocked(getAccessToken).mockResolvedValue(null);
+      globalThis.fetch = vi.fn();
+
+      await expect(api.research.conversations.list()).rejects.toThrow(/登录/);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
   });
 
   describe('research.conversations.create', () => {
@@ -1198,6 +1224,22 @@ describe('api (post cache removal)', () => {
       await expect(api.research.conversations.delete('bad-id')).rejects.toThrow(
         'Conversation not found'
       );
+    });
+  });
+
+  describe('kolResearch.conversations.list', () => {
+    it('throws on 403 instead of caching a fake empty history', async () => {
+      mockFetchError(403, 'Forbidden');
+
+      await expect(api.kolResearch.conversations.list()).rejects.toThrow('Forbidden');
+    });
+
+    it('fails fast without fetch when no token is available', async () => {
+      vi.mocked(getAccessToken).mockResolvedValue(null);
+      globalThis.fetch = vi.fn();
+
+      await expect(api.kolResearch.conversations.list()).rejects.toThrow(/登录/);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     });
   });
 
