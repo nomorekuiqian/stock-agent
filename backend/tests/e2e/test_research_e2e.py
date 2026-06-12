@@ -169,18 +169,16 @@ class TestResearchChatEndpoint:
 
 @pytest.mark.e2e
 class TestResearchConversationsEndpoint:
-    """Tests for /api/research/conversations (open with optional auth)."""
+    """Tests for /api/research/conversations authenticated contract."""
 
     @pytest.mark.asyncio
-    async def test_list_anonymous_returns_empty(self, client):
-        """GET /api/research/conversations without auth returns empty list."""
+    async def test_list_requires_auth(self, client):
+        """GET /api/research/conversations returns 401 without auth."""
         resp = await client.get(
             "/api/research/conversations",
             timeout=10,
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["conversations"] == []
+        assert resp.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_requires_auth(self, client):
@@ -192,28 +190,24 @@ class TestResearchConversationsEndpoint:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_create_anonymous_skipped(self, client):
-        """POST /api/research/conversations without auth is silently skipped."""
+    async def test_create_requires_auth(self, client):
+        """POST /api/research/conversations returns 401 without auth."""
         resp = await client.post(
             "/api/research/conversations",
             json={"title": "Test", "data": {}, "message_count": 0},
             timeout=10,
         )
-        assert resp.status_code == 201
-        data = resp.json()
-        assert data.get("skipped") is True
+        assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_update_anonymous_skipped(self, client):
-        """PUT /api/research/conversations/{id} without auth is silently skipped."""
+    async def test_update_requires_auth(self, client):
+        """PUT /api/research/conversations/{id} returns 401 without auth."""
         resp = await client.put(
             "/api/research/conversations/some-id",
             json={"title": "Test", "data": {}, "message_count": 0},
             timeout=10,
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data.get("skipped") is True
+        assert resp.status_code == 401
 
     @pytest.mark.asyncio
     async def test_delete_requires_auth(self, client):

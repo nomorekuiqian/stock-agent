@@ -901,37 +901,30 @@ async def research_chat(
 
 @research_router.get("/conversations")
 async def research_list_conversations(
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
     limit: int = 20,
     offset: int = 0,
     search: str | None = None,
 ):
-    """List research conversations. Anonymous users get empty list."""
-    if not user_id:
-        return {"conversations": [], "has_more": False}
+    """List research conversations for the authenticated user."""
     return await list_conversations(user_id, limit=limit, offset=offset, search=search)
 
 
 @research_router.get("/conversations/{conversation_id}")
 async def research_get_conversation(
     conversation_id: str,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
     """Get a single conversation."""
-    if not user_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=401, detail="Login required to load conversations")
     return await get_conversation(conversation_id, user_id)
 
 
 @research_router.post("/conversations", status_code=201)
 async def research_create_conversation(
     req: ConversationSaveRequest,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
-    """Create a research conversation. Silently skip for anonymous."""
-    if not user_id:
-        return {"id": None, "skipped": True}
+    """Create a research conversation for the authenticated user."""
     return await create_conversation(req, user_id)
 
 
@@ -939,23 +932,18 @@ async def research_create_conversation(
 async def research_update_conversation(
     conversation_id: str,
     req: ConversationSaveRequest,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
-    """Update a research conversation. Silently skip for anonymous."""
-    if not user_id:
-        return {"success": True, "skipped": True}
+    """Update a research conversation for the authenticated user."""
     return await update_conversation(conversation_id, req, user_id)
 
 
 @research_router.delete("/conversations/{conversation_id}")
 async def research_delete_conversation(
     conversation_id: str,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
     """Delete a research conversation."""
-    if not user_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=401, detail="Login required")
     return await delete_conversation(conversation_id, user_id)
 
 
