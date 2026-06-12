@@ -63,13 +63,23 @@ class TestMeEntitlements:
         "app.features.payment.router.get_subscription",
         new_callable=AsyncMock,
     )
+    @patch(
+        "app.features.payment.router.sync_subscription_from_stripe",
+        new_callable=AsyncMock,
+    )
     @patch("app.features.payment.router.invalidate_subscription_cache")
     @patch(
         "app.features.payment.entitlements.get_user_entitlements",
         new_callable=AsyncMock,
     )
-    def test_fresh_invalidates_cache(self, mock_get_ents, mock_invalidate, mock_get_sub):
-        """?fresh=true should call invalidate_subscription_cache before fetching."""
+    def test_fresh_invalidates_cache(
+        self,
+        mock_get_ents,
+        mock_invalidate,
+        mock_sync_subscription,
+        mock_get_sub,
+    ):
+        """?fresh=true should invalidate cache and sync Stripe before fetching."""
         self._override_auth("user-ent-002")
         mock_get_ents.return_value = {"today_website"}
         mock_get_sub.return_value = {"plan": "pro", "status": "active"}
@@ -78,6 +88,10 @@ class TestMeEntitlements:
 
         assert resp.status_code == 200
         mock_invalidate.assert_called_once_with("user-ent-002")
+        mock_sync_subscription.assert_awaited_once_with(
+            "user-ent-002",
+            source="me-entitlements.fresh",
+        )
 
     # ------------------------------------------------------------------
     # 3. Empty entitlements for free user

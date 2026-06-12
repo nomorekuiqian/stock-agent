@@ -193,7 +193,6 @@ export default function Home() {
               <div className="flex items-baseline gap-2 mb-5">
                 <span className="text-2xl font-data font-bold text-foreground">{PRICING.pro}</span>
                 <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                <span className="text-sm text-muted-foreground/70 line-through font-data">{PRICING.proOriginal}</span>
               </div>
               <div className="space-y-3 mb-6">
                 {[
@@ -230,20 +229,11 @@ export default function Home() {
               <div className="relative">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-lg font-semibold text-foreground">Max</h3>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-                    <span className="text-xs font-medium text-primary">推荐</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 light:bg-amber-600" />
-                    <span className="text-xs font-medium text-amber-400 light:text-amber-600">抢先体验价</span>
-                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">全部功能解锁</p>
                 <div className="flex items-baseline gap-2 mb-5">
                   <span className="text-2xl font-data font-bold text-foreground">{PRICING.max}</span>
                   <span className="text-sm text-muted-foreground">{PRICING.interval}</span>
-                  <span className="text-sm text-muted-foreground/70 line-through font-data">{PRICING.maxOriginal}</span>
-                  <span className="text-xs font-medium text-primary">{PRICING.maxDiscount}</span>
                 </div>
                 <div className="space-y-3 mb-6">
                   {[
@@ -251,7 +241,7 @@ export default function Home() {
                     '推特简报 · 300+ 美股博主高质量观点聚合',
                     'AI 投研引擎 · 无限对话与选股',
                     'AI 深度个股分析 · 无限使用',
-                    '优先支持与新功能抢先体验',
+                    '组合管理与持仓健康分析',
                   ].map((text) => (
                     <div key={text} className="flex items-center gap-2.5">
                       <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -273,8 +263,6 @@ export default function Home() {
           {/* Social proof bar */}
           <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
             <span>34 位用户正在使用</span>
-            <span className="w-1 h-1 rounded-full bg-border" />
-            <span>前 {PRICING.earlyAccessTotal} 名抢先体验</span>
             <span className="w-1 h-1 rounded-full bg-border" />
             <span>
               <Link href="/pricing" className="text-primary hover:text-primary/80 transition-colors py-2 inline-flex items-center min-h-[44px]">

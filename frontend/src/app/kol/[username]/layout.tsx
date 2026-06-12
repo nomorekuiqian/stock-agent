@@ -4,6 +4,7 @@ import { use } from 'react';
 import { usePathname } from 'next/navigation';
 
 import LoginGate from '@/components/LoginGate';
+import PaywallGuard from '@/components/PaywallGuard';
 import {
   useKolCockpitProfile,
   useKolCockpitTickers,
@@ -41,19 +42,44 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   // breathe. The loading shell must match — otherwise the page visibly jumps
   // from max-w-7xl to full bleed on every navigation / refresh.
   const u = username.toLowerCase();
+  const isFrankRoot =
+    u === 'qinbafrank' &&
+    (pathname === `/kol/${username}` || pathname === `/kol/${username}/`);
   const isWideWorkspace = u === 'qinbafrank' || u === 'aleabitoreddit';
   const shellWidth = isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl';
 
   // qinbafrank sub-pages (sectors / highlights / stocks / latest / macro /
-  // history / chat) are gated behind a free login wall — the persona root
-  // (`/kol/qinbafrank`) stays public so Frank's Twitter promo lands without a
-  // friction bump. Wrap only the main content with LoginGate; Hero + SubNav
-  // chrome stays visible so users can still see where they are.
+  // history / chat) require the paid Ultra pack. The persona root
+  // (`/kol/qinbafrank`) stays public so cold traffic can inspect the product
+  // before paying. Hero + SubNav chrome stays visible so users retain context.
   const isFrankSubpage =
     username.toLowerCase() === 'qinbafrank' &&
     pathname !== `/kol/${username}` &&
     Boolean(pathname?.startsWith(`/kol/${username}/`));
-  const gatedChildren = isFrankSubpage ? <LoginGate>{children}</LoginGate> : children;
+  const gatedChildren = isFrankSubpage ? (
+    <LoginGate
+      title="登录后解锁 Qinbafrank 研究室 Ultra"
+      description="先登录账户，再开通 Qinbafrank 投研资料包 + TheMarketBrew Max。"
+    >
+      <PaywallGuard
+        requiredFeature="kol_pack_qinbafrank"
+        checkoutProduct="ultra"
+        lockTitle="解锁 Qinbafrank 研究室 Ultra"
+        lockDescription="完整资料库、精选主题、个股档案、原文证据、AI 追问和 TheMarketBrew Max 投研能力。"
+        lockCtaLabel="解锁 Ultra"
+      >
+        {children}
+      </PaywallGuard>
+    </LoginGate>
+  ) : children;
+
+  if (isFrankRoot) {
+    return (
+      <div className="min-h-screen bg-background">
+        {children}
+      </div>
+    );
+  }
 
   if (!ready) {
     return (

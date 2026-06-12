@@ -88,7 +88,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `frontend/src/app/email-test/.context.md` -- Email preview/test page
 - `frontend/src/app/feedback/.context.md` -- Email feedback landing page
 - `frontend/src/app/forgot-password/.context.md` -- Password reset request page
-- `frontend/src/app/frank-agent/.context.md` -- Frank Agent Beta landing page
+- `frontend/src/app/qinbafrank/.context.md` -- Qinbafrank legacy redirect
 - `frontend/src/app/today/.context.md` -- Market daily report page
 - `frontend/src/app/morning/.context.md` -- Pre-market morning report page
 - `frontend/src/app/for-you/.context.md` -- Personalized Brew page
@@ -188,6 +188,7 @@ STRIPE_SECRET_KEY=xxx           # Stripe payments
 STRIPE_WEBHOOK_SECRET=xxx       # Stripe Webhook signature
 STRIPE_PRO_PRICE_ID=xxx         # Pro subscription price ID
 STRIPE_MAX_PRICE_ID=xxx         # Max subscription price ID
+STRIPE_ULTRA_PRICE_ID=xxx       # Ultra subscription price ID (Max + Qinbafrank pack)
 RESEND_API_KEY=xxx              # Resend email
 RESEND_WEBHOOK_SECRET=xxx       # Resend webhook signature
 RESEND_SEGMENT_MORNING=xxx      # Resend morning report segment
@@ -411,7 +412,7 @@ Critical lessons from production incidents. **Read these before making changes t
 
 This project uses [InsForge](https://insforge.dev): an all-in-one, open-source Postgres-based backend (BaaS) that gives this app a database, authentication, file storage, edge functions, realtime, an AI model gateway, and payments through one platform.
 
-- **Project:** **stock-agent** (API base `https://9wmhxyi4.us-east.insforge.app`)
+- **Project:** **TheMarketBrew Production** (API base `https://9wmhxyi4.us-east.insforge.app`)
 - **Skills:** these InsForge skills are installed for supported coding agents. Reach for them before implementing any InsForge feature instead of guessing the API:
   - `insforge`: app code with the `@insforge/sdk` client (database CRUD, auth, storage, edge functions, realtime, AI, email, and Stripe payments).
   - `insforge-cli`: backend and infrastructure via the `insforge` CLI (projects, SQL, migrations, RLS policies, storage buckets, functions, secrets, payment setup, schedules, deploys).

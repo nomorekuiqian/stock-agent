@@ -63,7 +63,7 @@
 ```css
 /* 定义在 globals.css @theme 块 */
 --font-serif:  "LXGW WenKai", var(--font-instrument-serif), "Songti SC", Georgia, serif;
---font-sans:   "HarmonyOS Sans SC", var(--font-dm-sans), "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+--font-sans:   "LXGW WenKai", "HarmonyOS Sans SC", var(--font-dm-sans), "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
 --font-mono:   var(--font-jetbrains-mono), monospace;
 ```
 
@@ -72,8 +72,8 @@
 | 元素 | 字体类 | 说明 | 示例 |
 |------|--------|------|------|
 | 页面大标题 | `.font-editorial` | serif, weight 400, tracking -0.02em | 日报标题、Hero |
-| 区块标题 | 默认 (sans) | weight 500, tracking -0.025em | "基本面分析" |
-| 正文/描述 | 默认 (sans) | weight 400 | 公司简介、分析内容 |
+| 区块标题 | 默认 (sans) | LXGW WenKai-first, weight 500, tracking -0.025em | "基本面分析" |
+| 正文/描述 | 默认 (sans) | LXGW WenKai-first, weight 400 | 公司简介、分析内容 |
 | 价格/数值 | `.font-data` | mono, tabular-nums, tracking -0.01em | $138.50、+2.35% |
 | 股票代码 | `.font-data` | | NVDA、AAPL |
 | 日期/时间 | `.font-data` | | 2025-01-19、14:30 |

@@ -89,6 +89,7 @@ function ProfileContent(): ReactNode {
   const {
     plan, isLoading: subLoading, status,
     currentPeriodEnd, accessExpiresAt,
+    cancelAtPeriodEnd, cancelAt,
     openBillingPortal,
     portalError,
   } = useSubscription();
@@ -221,16 +222,21 @@ function ProfileContent(): ReactNode {
     ? Math.round((daysLeft / INVITE_DAYS) * 100)
     : 0;
 
-  const normalizedPlan = plan === 'max' || plan === 'pro' ? plan : 'free';
+  const normalizedPlan = plan === 'ultra' || plan === 'max' || plan === 'pro' ? plan : 'free';
   const hasActiveAccessStatus = status === 'active' || status === 'trialing';
   const hasActivePlan = hasActiveAccessStatus && normalizedPlan !== 'free' && (daysLeft === null || daysLeft > 0);
+  const isDisplayUltra = hasActivePlan && normalizedPlan === 'ultra';
   const isDisplayMax = hasActivePlan && normalizedPlan === 'max';
   const isDisplayPro = hasActivePlan && normalizedPlan === 'pro';
   const isPaid = hasActivePlan && daysLeft === null;
   const isPaidPro = isPaid && isDisplayPro;
+  const isPaidMax = isPaid && isDisplayMax;
+  const scheduledCancelDate = cancelAt || currentPeriodEnd;
+  const isCancellationScheduled = isPaid && (cancelAtPeriodEnd || Boolean(cancelAt));
   const isTrial = hasActivePlan && daysLeft !== null;
   const isCanceled = !hasActivePlan && status === 'canceled';
-  const tierLabel = isDisplayMax ? 'Max' : hasActivePlan ? 'Pro' : null;
+  const tierLabel = isDisplayUltra ? 'Ultra' : isDisplayMax ? 'Max' : hasActivePlan ? 'Pro' : null;
+  const tierPrice = isDisplayUltra ? PRICING.ultraPerMonth : isDisplayMax ? PRICING.maxPerMonth : PRICING.proPerMonth;
 
   const urgency = daysLeft !== null
     ? daysLeft <= 3 ? 'red'
@@ -265,7 +271,9 @@ function ProfileContent(): ReactNode {
                 <span className="shrink-0 w-8 h-4 rounded bg-muted animate-pulse" />
               ) : hasActivePlan ? (
                 <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-micro font-medium uppercase tracking-wide ${
-                  isDisplayMax ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20' : 'bg-primary/15 text-primary border border-primary/20'
+                  isDisplayUltra ? 'bg-sky-500/15 text-sky-400 border border-sky-500/20'
+                    : isDisplayMax ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                    : 'bg-primary/15 text-primary border border-primary/20'
                 }`}>
                   {tierLabel}
                 </span>
@@ -358,11 +366,12 @@ function ProfileContent(): ReactNode {
                 <span className="w-12 h-5 rounded-full bg-muted animate-pulse" />
               ) : (
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-                  hasActivePlan ? urgencyStyles.badge
+                  isCancellationScheduled ? 'bg-amber-400/10 border-amber-400/30 text-amber-400'
+                    : hasActivePlan ? urgencyStyles.badge
                     : isCanceled ? 'bg-amber-400/10 border-amber-400/30 text-amber-400'
                     : 'bg-muted border-border/50 text-muted-foreground'
                 }`}>
-                  {hasActivePlan ? tierLabel : isCanceled ? '已取消' : '免费版'}
+                  {isCancellationScheduled ? '已取消' : hasActivePlan ? tierLabel : isCanceled ? '已取消' : '免费版'}
                 </span>
               )}
             </div>
@@ -416,25 +425,50 @@ function ProfileContent(): ReactNode {
                   </div>
                 </div>
               ) : isPaid ? (
-                /* ── Paid (Pro or Max) ── */
+                /* ── Paid (Pro, Max, or Ultra) ── */
                 <div className="p-5">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDisplayMax ? 'bg-amber-400/10' : 'bg-primary/10'}`}>
-                      <svg className={`w-4 h-4 ${isDisplayMax ? 'text-amber-400' : 'text-primary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                      isCancellationScheduled ? 'bg-amber-400/10'
+                        : isDisplayUltra ? 'bg-sky-400/10'
+                        : isDisplayMax ? 'bg-amber-400/10'
+                        : 'bg-primary/10'
+                    }`}>
+                      <svg className={`w-4 h-4 ${
+                        isCancellationScheduled ? 'text-amber-400'
+                          : isDisplayUltra ? 'text-sky-400'
+                          : isDisplayMax ? 'text-amber-400'
+                          : 'text-primary'
+                      }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">{tierLabel} 会员</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{isDisplayMax ? PRICING.maxPerMonth : PRICING.proPerMonth} · 自动续费</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isCancellationScheduled
+                          ? `已取消 · 权益有效至 ${scheduledCancelDate ? formatDate(scheduledCancelDate) : '当前周期结束'}`
+                          : `${tierPrice} · 自动续费`}
+                      </p>
                     </div>
                   </div>
 
+                  {isCancellationScheduled && (
+                    <div className="mb-4 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2.5">
+                      <p className="text-sm font-medium text-amber-300">订阅已取消</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        你仍可使用 {tierLabel} 权限{scheduledCancelDate ? `至 ${formatDate(scheduledCancelDate)}` : '到当前计费周期结束'}，到期后将自动回到免费版。
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-2.5 mb-4">
-                    {currentPeriodEnd && (
+                    {(isCancellationScheduled ? scheduledCancelDate : currentPeriodEnd) && (
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">下次续费</span>
-                        <span className="text-foreground font-medium">{formatDate(currentPeriodEnd)}</span>
+                        <span className="text-muted-foreground">{isCancellationScheduled ? '权益有效至' : '下次续费'}</span>
+                        <span className="text-foreground font-medium">
+                          {formatDate((isCancellationScheduled ? scheduledCancelDate : currentPeriodEnd) as string)}
+                        </span>
                       </div>
                     )}
                     <div className="flex items-center justify-between text-sm">
@@ -443,7 +477,14 @@ function ProfileContent(): ReactNode {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">状态</span>
-                      <span className={`font-medium ${isDisplayMax ? 'text-amber-400' : 'text-primary'}`}>活跃</span>
+                      <span className={`font-medium ${
+                        isCancellationScheduled ? 'text-amber-400'
+                          : isDisplayUltra ? 'text-sky-400'
+                          : isDisplayMax ? 'text-amber-400'
+                          : 'text-primary'
+                      }`}>
+                        {isCancellationScheduled ? '已取消' : '活跃'}
+                      </span>
                     </div>
                   </div>
 
@@ -454,6 +495,14 @@ function ProfileContent(): ReactNode {
                       className="block w-full px-4 py-2.5 mb-3 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-600/90 transition-colors text-center"
                     >
                       升级到 Max
+                    </Link>
+                  )}
+                  {isPaidMax && (
+                    <Link
+                      href="/pricing"
+                      className="block w-full px-4 py-2.5 mb-3 bg-sky-600 text-white rounded-lg text-sm font-medium hover:bg-sky-600/90 transition-colors text-center"
+                    >
+                      升级到 Ultra
                     </Link>
                   )}
 

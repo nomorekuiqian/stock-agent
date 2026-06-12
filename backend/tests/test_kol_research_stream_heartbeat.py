@@ -61,7 +61,7 @@ def _post_stream_and_collect(silence_seconds: float) -> list[tuple[float, str]]:
                 "/api/kol_research/chat/stream",
                 json={
                     "message": "test",
-                    "persona_username": "qinbafrank",
+                    "persona_username": "aleabitoreddit",
                     "history": [],
                     "turn_id": "t1",
                 },
@@ -130,7 +130,7 @@ def test_no_heartbeat_when_events_flow_normally():
                 "/api/kol_research/chat/stream",
                 json={
                     "message": "test",
-                    "persona_username": "qinbafrank",
+                    "persona_username": "aleabitoreddit",
                     "history": [],
                     "turn_id": "t2",
                 },

@@ -30,6 +30,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockSearchParams.delete('next');
   mockSearchParams.delete('tier');
+  mockSearchParams.delete('product');
+  mockSearchParams.delete('session_id');
   mockSearchParams.set('next', '/research?agent=kol&persona=qinbafrank');
   mockSearchParams.set('tier', 'max');
   mockUseAuth.mockReturnValue({
@@ -87,6 +89,101 @@ describe('CheckoutSuccessPage', () => {
       },
     );
 
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/research?agent=kol&persona=qinbafrank');
+    });
+  });
+
+  it('waits for qinbafrank pack entitlement before redirecting after ultra checkout', async () => {
+    mockSearchParams.set('next', '/kol/qinbafrank?welcome=1');
+    mockSearchParams.set('tier', 'ultra');
+    mockSearchParams.set('product', 'ultra');
+
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/payment/subscription-status?fresh=true')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            plan: 'ultra',
+            status: 'active',
+            current_period_end: null,
+            access_expires_at: null,
+          }),
+        } as Response);
+      }
+      if (url.includes('/payment/me/entitlements?fresh=true')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            entitlements: ['ai_research_engine', 'kol_pack_qinbafrank'],
+            trial_eligible: false,
+          }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response);
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('订阅已激活，正在跳转...')).toBeDefined();
+    });
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/kol/qinbafrank?welcome=1');
+    });
+  });
+
+  it('completes a returned checkout session before polling activation', async () => {
+    mockSearchParams.set('session_id', 'cs_test_123');
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/payment/checkout-session/complete')) {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBe(JSON.stringify({ session_id: 'cs_test_123' }));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            success: true,
+            plan: 'max',
+            status: 'active',
+            entitlements: ['ai_research_engine'],
+          }),
+        } as Response);
+      }
+      if (url.includes('/payment/subscription-status?fresh=true')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            plan: 'max',
+            status: 'active',
+            current_period_end: null,
+            access_expires_at: null,
+          }),
+        } as Response);
+      }
+      if (url.includes('/payment/me/entitlements?fresh=true')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            entitlements: ['ai_research_engine'],
+            trial_eligible: false,
+          }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response);
+    });
+    globalThis.fetch = fetchMock;
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/payment/checkout-session/complete'),
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/research?agent=kol&persona=qinbafrank');
     });

@@ -10,7 +10,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 const ACTIVATION_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 1_000;
 
-type CheckoutTier = 'pro' | 'max';
+type CheckoutTier = 'pro' | 'max' | 'ultra';
+type CheckoutProduct = CheckoutTier;
 
 interface SubscriptionStatus {
   plan: string;
@@ -34,9 +35,14 @@ function normalizeNext(raw: string | null): string {
 }
 
 function normalizeTier(raw: string | null, nextPath: string): CheckoutTier | null {
-  if (raw === 'pro' || raw === 'max') return raw;
+  if (raw === 'pro' || raw === 'max' || raw === 'ultra') return raw;
   if (nextPath.startsWith('/research')) return 'max';
   return null;
+}
+
+function normalizeProduct(raw: string | null, tier: CheckoutTier | null): CheckoutProduct | null {
+  if (raw === 'ultra' || raw === 'creator_max_qinbafrank') return 'ultra';
+  return tier;
 }
 
 function isActiveSubscription(sub: SubscriptionStatus): boolean {
@@ -49,15 +55,19 @@ function isActivationReady(
   sub: SubscriptionStatus,
   entitlements: string[],
   tier: CheckoutTier | null,
+  product: CheckoutProduct | null,
 ): boolean {
   if (!isActiveSubscription(sub)) return false;
+  if (product === 'ultra') {
+    return sub.plan === 'ultra' && entitlements.includes('kol_pack_qinbafrank');
+  }
   if (tier === 'max') {
-    return sub.plan === 'max' && entitlements.includes('ai_research_engine');
+    return (sub.plan === 'max' || sub.plan === 'ultra') && entitlements.includes('ai_research_engine');
   }
   if (tier === 'pro') {
-    return (sub.plan === 'pro' || sub.plan === 'max') && entitlements.length > 0;
+    return (sub.plan === 'pro' || sub.plan === 'max' || sub.plan === 'ultra') && entitlements.length > 0;
   }
-  if (sub.plan === 'max') return entitlements.includes('ai_research_engine');
+  if (sub.plan === 'max' || sub.plan === 'ultra') return entitlements.includes('ai_research_engine');
   return sub.plan === 'pro' && entitlements.length > 0;
 }
 
@@ -71,6 +81,20 @@ async function fetchJson<T>(path: string, token: string): Promise<T> {
   return res.json();
 }
 
+async function completeCheckoutSession(sessionId: string, token: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/payment/checkout-session/complete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+  if (!res.ok) {
+    throw new Error(`Checkout completion failed: ${res.status}`);
+  }
+}
+
 function CheckoutSuccessContent() {
   const router = useRouter();
   const params = useSearchParams();
@@ -79,6 +103,8 @@ function CheckoutSuccessContent() {
   const [status, setStatus] = useState<'activating' | 'ready' | 'timeout'>('activating');
   const target = normalizeNext(params.get('next'));
   const tier = normalizeTier(params.get('tier'), target);
+  const product = normalizeProduct(params.get('product'), tier);
+  const sessionId = params.get('session_id');
 
   useEffect(() => {
     if (authLoading) return;
@@ -94,6 +120,14 @@ function CheckoutSuccessContent() {
       }
 
       const deadline = Date.now() + ACTIVATION_TIMEOUT_MS;
+      if (sessionId) {
+        try {
+          await completeCheckoutSession(sessionId, token);
+        } catch {
+          // Keep polling. Stripe webhooks or fresh subscription sync may still
+          // finish activation even if the explicit session sync is delayed.
+        }
+      }
       while (!cancelled && Date.now() < deadline) {
         try {
           const [sub, ents] = await Promise.all([
@@ -106,7 +140,7 @@ function CheckoutSuccessContent() {
             queryClient.setQueryData(queryKeys.subscriptionStatus.byUser(user.id), sub);
           }
 
-          if (isActivationReady(sub, ents.entitlements || [], tier)) {
+          if (isActivationReady(sub, ents.entitlements || [], tier, product)) {
             await queryClient.invalidateQueries({ queryKey: queryKeys.featureFlags.all });
             if (cancelled) return;
             setStatus('ready');
@@ -130,7 +164,7 @@ function CheckoutSuccessContent() {
       cancelled = true;
       if (redirectTimer) clearTimeout(redirectTimer);
     };
-  }, [authLoading, queryClient, router, target, tier, user?.id]);
+  }, [authLoading, product, queryClient, router, sessionId, target, tier, user?.id]);
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">

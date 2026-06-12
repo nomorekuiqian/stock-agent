@@ -31,8 +31,15 @@ MAX_ONLY_FEATURES: Set[str] = {
     "twitter_digest",
 }
 
+KOL_PACK_QINBAFRANK = "kol_pack_qinbafrank"
+
+KOL_PACK_FEATURES: Set[str] = {
+    KOL_PACK_QINBAFRANK,
+}
+
 MAX_FEATURES: Set[str] = PRO_FEATURES | MAX_ONLY_FEATURES
-ALL_FEATURES: Set[str] = MAX_FEATURES
+ULTRA_FEATURES: Set[str] = MAX_FEATURES | KOL_PACK_FEATURES
+ALL_FEATURES: Set[str] = MAX_FEATURES | KOL_PACK_FEATURES
 
 
 def _is_access_expired(access_expires_at: str | None) -> bool:
