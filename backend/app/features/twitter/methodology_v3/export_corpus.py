@@ -64,6 +64,14 @@ MONTH_RANGES: list[tuple[str, str]] = [
 ]
 
 EXCLUDED_CONTENT_TYPES = {"noise"}
+KEEP_QUALITIES = {"keep", "high", "medium"}
+DROP_QUALITIES = {"drop", "low", "noise"}
+
+
+def _normalized_str(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    return value.strip().lower()
 
 
 def passes_filter(tweet: dict) -> tuple[bool, str | None]:
@@ -71,11 +79,18 @@ def passes_filter(tweet: dict) -> tuple[bool, str | None]:
     if not isinstance(symbols, dict):
         return False, "symbols_missing"
     content_type = symbols.get("content_type")
-    if not content_type:
-        return False, "content_type_missing"
-    if content_type in EXCLUDED_CONTENT_TYPES:
-        return False, f"content_type={content_type!r}"
-    return True, None
+    content_type_norm = _normalized_str(content_type)
+    if content_type_norm:
+        if content_type_norm in EXCLUDED_CONTENT_TYPES:
+            return False, f"content_type={content_type_norm!r}"
+        return True, None
+
+    quality = _normalized_str(symbols.get("quality"))
+    if quality in KEEP_QUALITIES:
+        return True, None
+    if quality in DROP_QUALITIES:
+        return False, f"quality={quality!r}"
+    return False, "content_type_or_quality_missing"
 
 
 async def fetch_tweets(db, username: str, since: str, until: str) -> list:
@@ -99,6 +114,10 @@ async def fetch_tweets(db, username: str, since: str, until: str) -> list:
 
 def normalize_tweet(t: dict) -> dict:
     symbols = t.get("symbols") or {}
+    quality = _normalized_str(symbols.get("quality"))
+    content_type = symbols.get("content_type")
+    if not content_type and quality in KEEP_QUALITIES:
+        content_type = f"legacy_{quality}"
     return {
         "tweet_id": str(t.get("id")),
         "created_at": t.get("created_at"),
@@ -111,7 +130,8 @@ def normalize_tweet(t: dict) -> dict:
         "symbols": {
             "tickers": symbols.get("tickers") or [],
             "sectors": symbols.get("sectors") or [],
-            "content_type": symbols.get("content_type"),
+            "quality": symbols.get("quality"),
+            "content_type": content_type,
             "key_claim": symbols.get("key_claim"),
             "ticker_stances": symbols.get("ticker_stances") or [],
             "enriched_model": symbols.get("enriched_model"),
@@ -197,7 +217,12 @@ async def run(persona_key: str) -> None:
         "source": "insforge_db_via_kol-tweets_edge_function",
         "filter": {
             "exclude_content_type": sorted(EXCLUDED_CONTENT_TYPES),
-            "note": "quality field is not populated by current enrichment; signal is content_type",
+            "include_legacy_quality": sorted(KEEP_QUALITIES),
+            "exclude_legacy_quality": sorted(DROP_QUALITIES),
+            "note": (
+                "newer enrichment uses content_type; legacy digest rows may only "
+                "have quality, so keep/high/medium are included as legacy_*"
+            ),
         },
         "month_ranges": [{"since": s, "until": u} for s, u in MONTH_RANGES],
         "stats": {

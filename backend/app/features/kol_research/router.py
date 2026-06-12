@@ -908,7 +908,7 @@ async def _mcp_search_chunks(
     k: int,
     threshold: float,
 ):
-    """Search live vector_chunks for KOL tweet evidence."""
+    """Search indexed vector_chunks for KOL tweet evidence."""
     result = await vector_search(
         VectorSearchRequest(
             query=query,

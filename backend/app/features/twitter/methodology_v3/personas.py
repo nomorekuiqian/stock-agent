@@ -41,6 +41,7 @@ QINBAFRANK_TICKERS: dict[str, list[str]] = {
     "ASML": ["阿斯麦", "ASML"],
     "MU": ["美光", "Micron", "MU"],
     "AVGO": ["博通", "Broadcom", "AVGO"],
+    "MRVL": ["Marvell", "MRVL", "马维尔"],
     "AMD": ["超微", "AMD"],
     "INTC": ["英特尔", "Intel", "INTC"],
     "ARM": ["ARM"],
@@ -278,6 +279,7 @@ PERSONAS: dict[str, PersonaConfig] = {
     "qinbafrank-skill-v3": {
         "username": "qinbafrank",
         "draft_dir": "qinbafrank-skill-v3",
+        "root_dir": "qinbafrank",
         "ticker_aliases": QINBAFRANK_TICKERS,
         "sector_keywords": QINBAFRANK_SECTORS,
         "macro_keywords": QINBAFRANK_MACRO,

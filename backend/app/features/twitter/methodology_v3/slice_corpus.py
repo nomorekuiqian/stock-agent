@@ -20,7 +20,11 @@ import argparse
 import json
 
 from app.core.logging import get_logger
-from app.features.twitter.methodology_v3.personas import evidence_dir, get_persona
+from app.features.twitter.methodology_v3.personas import (
+    evidence_dir,
+    get_persona,
+    material_root,
+)
 
 logger = get_logger(__name__)
 
@@ -30,6 +34,12 @@ MIN_TICKER_MENTIONS = 5  # tickers below this get a marker, not a playbook
 def run(persona_key: str) -> None:
     cfg = get_persona(persona_key)
     material_evidence_dir = evidence_dir(cfg)
+    promoted_ticker_dir = material_root(cfg) / "ticker"
+    promoted_tickers = (
+        {path.stem.upper() for path in promoted_ticker_dir.glob("*.md")}
+        if promoted_ticker_dir.exists()
+        else set()
+    )
     slices_dir = material_evidence_dir / "slices"
     slices_dir.mkdir(exist_ok=True)
 
@@ -71,7 +81,8 @@ def run(persona_key: str) -> None:
 
     skipped = []
     for ticker, data in ticker_index.items():
-        if data["count"] < MIN_TICKER_MENTIONS:
+        is_promoted = ticker.upper() in promoted_tickers
+        if data["count"] < MIN_TICKER_MENTIONS and not is_promoted:
             skipped.append((ticker, data["count"]))
             continue
         n = write_slice(f"ticker__{ticker}.jsonl", data["tweet_ids"])
