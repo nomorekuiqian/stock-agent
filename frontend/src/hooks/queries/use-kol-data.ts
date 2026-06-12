@@ -32,10 +32,12 @@ export function useKolCockpitFeed(username: string, opts: KolCockpitFeedOpts = {
   const sector = opts.sector ?? null;
   const ticker = opts.ticker ?? null;
   const topic = opts.topic ?? null;
+  const tickers = opts.tickers ?? [];
+  const keywords = opts.keywords ?? [];
   const limit = opts.limit ?? 20;
   const offset = opts.offset ?? 0;
   return useQuery({
-    queryKey: queryKeys.kol.feed(username, sector, ticker, limit, offset, topic),
+    queryKey: queryKeys.kol.feed(username, sector, ticker, limit, offset, topic, tickers, keywords),
     queryFn: () => api.kolResearch.cockpitFeed(username, opts),
     enabled: ENABLED(username),
   });

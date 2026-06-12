@@ -190,5 +190,33 @@ describe('queryKeys', () => {
         'high-conviction',
       ]);
     });
+
+    it('feed() includes ticker and keyword filters in cache key', () => {
+      expect(
+        queryKeys.kol.feed(
+          'qinbafrank',
+          'crypto',
+          null,
+          1500,
+          0,
+          null,
+          ['HOOD', 'COIN'],
+          ['RWA', '代币化'],
+        ),
+      ).toEqual([
+        'kol',
+        'qinbafrank',
+        'feed',
+        {
+          sector: 'crypto',
+          ticker: null,
+          topic: null,
+          tickers: ['HOOD', 'COIN'],
+          keywords: ['RWA', '代币化'],
+          limit: 1500,
+          offset: 0,
+        },
+      ]);
+    });
   });
 });

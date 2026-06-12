@@ -592,22 +592,26 @@ async def cockpit_feed(
     offset: int = 0,
     sector: str | None = None,
     ticker: str | None = None,
+    tickers: str | None = None,
+    keywords: str | None = None,
     topic: str | None = None,
 ):
     """Time-desc tweet feed for the Live Feed module.
 
     Query params:
-      limit  (default 20, max 50)
+      limit  (default 20, max 1500)
       offset (default 0)
       sector — group label or short alias: 'AI 算力链' / 'ai' / '加密·稳定币' / 'crypto' / '宏观' / 'macro'
       ticker — exact ticker symbol (case-insensitive), matches via alias dict
+      tickers — comma-separated ticker symbols, OR matched against per-tweet ticker list
+      keywords — comma-separated text terms, OR matched against tweet text/title/tickers/topics
       topic  — topic-tree node key: 'industry', 'industry/ai_infra', 'macro', 'rules', ...
                See cockpit.get_topic_tree() for the full set.
     """
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
-    limit = max(1, min(limit, 50))
+    limit = max(1, min(limit, 1500))
     offset = max(0, offset)
     return await cockpit.get_feed(
         username,
@@ -615,6 +619,8 @@ async def cockpit_feed(
         offset=offset,
         sector=sector,
         ticker=ticker,
+        tickers=[item.strip() for item in tickers.split(",") if item.strip()] if tickers else None,
+        keywords=[item.strip() for item in keywords.split(",") if item.strip()] if keywords else None,
         topic=topic,
     )
 
@@ -1359,7 +1365,7 @@ async def cockpit_ticker_detail(username: str, ticker: str):
 
 
 @router.get("/personas/{username}/tickers/{ticker}/timeline")
-async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
+async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 1500):
     """Per-ticker vertical opinion timeline. Picks the most informative
     enrichment-annotated mentions and returns them newest-first.
 
@@ -1372,7 +1378,7 @@ async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
         raise HTTPException(status_code=404, detail="Persona not found")
     if not _is_skill_cockpit(username):
         return {"ticker": ticker.upper(), "items": []}
-    limit = max(3, min(limit, 20))
+    limit = max(3, min(limit, 1500))
     result = await cockpit.get_ticker_timeline(username, ticker, limit=limit)
     if result is None:
         raise HTTPException(status_code=404, detail="Ticker not covered")

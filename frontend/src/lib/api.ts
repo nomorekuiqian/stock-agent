@@ -1436,6 +1436,8 @@ export interface KolCockpitFeedOpts {
   offset?: number;
   sector?: string | null;
   ticker?: string | null;
+  tickers?: string[] | null;
+  keywords?: string[] | null;
   topic?: string | null;
 }
 
@@ -2948,6 +2950,8 @@ export const api = {
       if (opts.offset !== undefined) params.set('offset', String(opts.offset));
       if (opts.sector) params.set('sector', opts.sector);
       if (opts.ticker) params.set('ticker', opts.ticker);
+      if (opts.tickers?.length) params.set('tickers', opts.tickers.join(','));
+      if (opts.keywords?.length) params.set('keywords', opts.keywords.join(','));
       if (opts.topic) params.set('topic', opts.topic);
       const qs = params.toString();
       const url = `${API_BASE_URL}/kol_research/personas/${username}/feed${qs ? `?${qs}` : ''}`;

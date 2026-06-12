@@ -124,7 +124,7 @@ test.describe('KOL page login gate', () => {
 
   test('keeps qinbafrank root public but gates sub-pages behind login', async ({ page }) => {
     await page.goto('/kol/qinbafrank');
-    await expect(page.getByRole('heading', { name: 'Qinbafrank 研究室 Ultra', exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Qinbafrank 研究室', exact: true })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('登录后解锁 Qinbafrank 研究室 Ultra')).not.toBeVisible();
     await page.waitForLoadState('networkidle');
 

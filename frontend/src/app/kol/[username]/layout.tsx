@@ -42,8 +42,9 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   // breathe. The loading shell must match — otherwise the page visibly jumps
   // from max-w-7xl to full bleed on every navigation / refresh.
   const u = username.toLowerCase();
+  const isFrank = u === 'qinbafrank';
   const isFrankRoot =
-    u === 'qinbafrank' &&
+    isFrank &&
     (pathname === `/kol/${username}` || pathname === `/kol/${username}/`);
   const isWideWorkspace = u === 'qinbafrank' || u === 'aleabitoreddit';
   const shellWidth = isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl';
@@ -51,9 +52,10 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   // qinbafrank sub-pages (sectors / highlights / stocks / latest / macro /
   // history / chat) require the paid Ultra pack. The persona root
   // (`/kol/qinbafrank`) stays public so cold traffic can inspect the product
-  // before paying. Hero + SubNav chrome stays visible so users retain context.
+  // before paying. qinbafrank pages use the same SubNav-first shell as the
+  // sales root; page-level headers provide the content title.
   const isFrankSubpage =
-    username.toLowerCase() === 'qinbafrank' &&
+    isFrank &&
     pathname !== `/kol/${username}` &&
     Boolean(pathname?.startsWith(`/kol/${username}/`));
   const gatedChildren = isFrankSubpage ? (
@@ -73,10 +75,32 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
     </LoginGate>
   ) : children;
 
-  if (isFrankRoot) {
+  if (isFrank) {
+    const frankTickerCount = tickersQ.data?.tickers.length ?? null;
+    const frankTotalTweets = feedQ.data?.raw_total ?? feedQ.data?.total ?? null;
+    const mainClassName = isFrankRoot
+      ? 'min-w-0'
+      : 'min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6';
+
     return (
       <div className="min-h-screen bg-background">
-        {children}
+        <div className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${shellWidth}`}>
+          <aside className="lg:border-r lg:border-border/60 lg:pr-2">
+            <SubNav
+              username={username}
+              displayName="qinbafrank"
+              avatarUrl="/kol-avatars/qinbafrank.png"
+              kpis={{
+                latestCount: frankTotalTweets,
+                sectorCount: 5,
+                tickerCount: frankTickerCount,
+              }}
+            />
+          </aside>
+          <main className={mainClassName}>
+            {gatedChildren}
+          </main>
+        </div>
       </div>
     );
   }

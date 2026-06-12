@@ -105,18 +105,18 @@ const FRANK_ITEMS: NavItem[] = [
     href: (u) => `/kol/${u}`,
   },
   {
-    key: "sectors",
-    label: "板块观点",
-    icon: Layers,
-    kpi: () => "5 个板块观点",
-    href: (u) => `/kol/${u}/sectors`,
-  },
-  {
     key: "highlights",
     label: "精华",
     icon: BookOpenText,
     kpi: () => "7 个主题完整归档",
     href: (u) => `/kol/${u}/highlights`,
+  },
+  {
+    key: "sectors",
+    label: "板块观点",
+    icon: Layers,
+    kpi: () => "5 个板块观点",
+    href: (u) => `/kol/${u}/sectors`,
   },
   {
     key: "stocks",

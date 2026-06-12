@@ -118,8 +118,8 @@
 
 ### `/kol/qinbafrank` qinbafrank 博主研究室
 - Server page + Client Component,根页面浏览不要求登录；`/kol/qinbafrank/*` 子页先要求登录，再要求 `kol_pack_qinbafrank` Ultra entitlement。
-- 根页是 Qinbafrank 研究室 Ultra 销售首页，首屏标题为 `Qinbafrank 研究室 Ultra`，核心 offer 是 `Qinbafrank Research Pack + TheMarketBrew Max`。CTA 逻辑：未登录跳 `/login?mode=signup&redirect=/kol/qinbafrank?checkout=ultra`；已登录调用 `createCheckout("ultra", "/kol/qinbafrank?welcome=1")`。登录回跳后支持 `checkout=ultra` 自动打开 Stripe 付费流程。
-- 根页包含资料包内容、适合/不适合人群、示例问题和 Ultra offer；文案强调“基于公开内容整理”，必须保留非投资建议、Agent 不代表 Qinbafrank 本人观点的边界。
+- 根页是 Qinbafrank 研究室销售首页，首屏标题为 `Qinbafrank 研究室`，核心 offer 是 `Qinbafrank资料包 + AI投研助手`，并保留和子页一致的左侧 `SubNav` / 移动横向导航。CTA 逻辑：未登录跳 `/login?mode=signup&redirect=/kol/qinbafrank?checkout=ultra`；已登录调用 `createCheckout("ultra", "/kol/qinbafrank?welcome=1")`。登录回跳后支持 `checkout=ultra` 自动打开 Stripe 付费流程。
+- 根页包含紧凑资料库入口、资料包内容、适合/不适合人群、示例问题和 Ultra offer；文案强调“基于公开内容整理”，必须保留非投资建议、研究助手不代表 Qinbafrank 本人观点的边界。
 - `/kol/qinbafrank/sectors` 为板块观点页，左侧 5 个板块入口，右侧按左侧「分析框架 / 分析维度切换 / 可展开 Frank 原观点逻辑」+ 右侧「倒序观点时间线」展示；AI 产业额外拆为 8 个子板块，入口桌面端为 4 列 x 2 行网格，子板块详情同样为左侧分析框架 + 右侧观点时间线；完整原文阅读在 `/kol/qinbafrank/highlights`；`/kol/qinbafrank/history` 仅作为旧链接重定向到 `/highlights?topic=market-rules`；`/kol/qinbafrank/stocks` 为个股并结合价格验证；`/kol/qinbafrank/latest` 为全量内容库（过往精华 + 全量原文）
 - `/kol/qinbafrank/sectors` 颜色只表达板块 / 子板块 / 分析维度 / 最新观点状态，交互反馈保持轻量 hover lift 与箭头位移，不做大面积装饰动画
 - 方法论与技能默认来自 `backend/app/features/twitter/methodologies/qinbafrank/`
