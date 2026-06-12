@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -25,6 +26,10 @@ from app.features.subscription.service import (
     SubscriptionChannel,
 )
 from app.features.subscription.email_service import get_email_service
+from app.features.subscription.broadcast_runs import (
+    acquire_broadcast_run,
+    complete_broadcast_run,
+)
 from app.features.subscription.models import (
     SubscribeRequest,
     UnsubscribeRequest,
@@ -332,6 +337,26 @@ async def broadcast_to_channel(
 
         if channel == SubscriptionChannel.DAILY_REPORT:
             today = today_str()
+            lock = {"acquired": True}
+            if ENVIRONMENT == "production":
+                lock = await acquire_broadcast_run(
+                    "daily_report",
+                    today,
+                    {"endpoint": "/api/subscriptions/daily_report/broadcast"},
+                )
+                if not lock.get("acquired"):
+                    logger.warning(
+                        "Skipping duplicate daily_report broadcast for %s; existing=%s",
+                        today,
+                        (lock.get("data") or {}).get("id"),
+                    )
+                    return BroadcastResponse(
+                        success=True,
+                        channel=channel.value,
+                        sent=0,
+                        failed=0,
+                        errors=[{"reason": "duplicate_broadcast_skipped", "date": today}],
+                    )
             report_data = None
 
             # Use cached report only when not forcing regeneration
@@ -418,7 +443,24 @@ async def broadcast_to_channel(
             if not broadcast_result.get("success"):
                 error_msg = broadcast_result.get("error", "Failed to broadcast daily report")
                 logger.error("Daily report broadcast failed: %s", error_msg)
+                if ENVIRONMENT == "production" and lock.get("lock_token"):
+                    await complete_broadcast_run(
+                        "daily_report",
+                        lock["lock_token"],
+                        today,
+                        status="failed",
+                        details={"error": error_msg},
+                    )
                 raise HTTPException(status_code=500, detail=error_msg)
+
+            if ENVIRONMENT == "production" and lock.get("lock_token"):
+                await complete_broadcast_run(
+                    "daily_report",
+                    lock["lock_token"],
+                    today,
+                    broadcast_id=broadcast_result.get("broadcast_id"),
+                    details=broadcast_result,
+                )
 
             return BroadcastResponse(
                 success=True,
@@ -430,13 +472,51 @@ async def broadcast_to_channel(
             )
 
         elif channel.value == "personal_digest":
+            today = today_str()
+            lock = {"acquired": True}
+            if ENVIRONMENT == "production":
+                lock = await acquire_broadcast_run(
+                    "personal_digest",
+                    today,
+                    {"endpoint": "/api/subscriptions/personal_digest/broadcast"},
+                )
+                if not lock.get("acquired"):
+                    logger.warning(
+                        "Skipping duplicate personal_digest broadcast for %s; existing=%s",
+                        today,
+                        (lock.get("data") or {}).get("id"),
+                    )
+                    return BroadcastResponse(
+                        success=True,
+                        channel=channel.value,
+                        sent=0,
+                        failed=0,
+                        errors=[{"reason": "duplicate_broadcast_skipped", "date": today}],
+                    )
+
             # Broadcast personal digests (parallel processing)
             broadcast_result = await email_service.broadcast_personal_digests(max_concurrent=5)
 
             if not broadcast_result.get("success"):
                 error_msg = broadcast_result.get("error", "Failed to broadcast personal digests")
                 logger.error("Personal digest broadcast failed: %s", error_msg)
+                if ENVIRONMENT == "production" and lock.get("lock_token"):
+                    await complete_broadcast_run(
+                        "personal_digest",
+                        lock["lock_token"],
+                        today,
+                        status="failed",
+                        details={"error": error_msg},
+                    )
                 raise HTTPException(status_code=500, detail=error_msg)
+
+            if ENVIRONMENT == "production" and lock.get("lock_token"):
+                await complete_broadcast_run(
+                    "personal_digest",
+                    lock["lock_token"],
+                    today,
+                    details=broadcast_result,
+                )
 
             return BroadcastResponse(
                 success=True,

@@ -22,7 +22,6 @@ const JOBS = {
       timeoutMs: 600000,
       validate: function(body) {
         if (body && body.success === false) return "success=false";
-        if (body && Number(body.sent || 0) === 0) return "sent=0";
         return null;
       },
     }],
