@@ -27,10 +27,7 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
 
-# TODO: Switch to "portfolio_management" after Stripe entitlement is configured.
-# Currently using "watchlist_extended" (Pro feature) as temporary gate.
-# Primary Max gate is frontend PaywallGuard(requiredPlan="max").
-_PORTFOLIO_FEATURE = "watchlist_extended"
+_PORTFOLIO_FEATURE = "portfolio_management"
 
 
 async def _require_portfolio_entitlement(user_id: str) -> None:

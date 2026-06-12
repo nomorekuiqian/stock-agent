@@ -15,6 +15,7 @@ import PanelOverviewTab from './PanelOverviewTab';
 import PanelEarningsTab from './PanelEarningsTab';
 import PanelTechnicalTab from './PanelTechnicalTab';
 import PanelMarketTab from './PanelMarketTab';
+import { formatCurrencyAmount, resolveCurrency } from '@/lib/currency';
 
 export interface StockPanelContextPayload {
   type: 'stock';
@@ -45,17 +46,14 @@ const TABS: { key: StockTab; label: string }[] = [
   { key: 'market', label: '市场面' },
 ];
 
-function formatPrice(val: number | null | undefined): string {
+function formatPrice(val: number | null | undefined, currency: string): string {
   if (val == null || isNaN(val)) return '-';
-  return `$${val.toFixed(2)}`;
+  return formatCurrencyAmount(val, { currency, compactPrice: true });
 }
 
-function formatMarketCap(val: number | null | undefined): string {
+function formatMarketCap(val: number | null | undefined, currency: string): string {
   if (val == null || isNaN(val)) return '-';
-  if (val >= 1e12) return `$${(val / 1e12).toFixed(1)}T`;
-  if (val >= 1e9) return `$${(val / 1e9).toFixed(1)}B`;
-  if (val >= 1e6) return `$${(val / 1e6).toFixed(0)}M`;
-  return `$${val.toFixed(0)}`;
+  return formatCurrencyAmount(val, { currency, compact: true, maximumFractionDigits: 0 });
 }
 
 export default function StockPanelView({
@@ -93,6 +91,7 @@ export default function StockPanelView({
   const profile = stockData?.profile;
   const quote = stockData?.quote;
   const fundamentals = stockData?.fundamentals;
+  const currency = resolveCurrency(symbol, profile?.currency).code;
 
   // Context payload for Agent — includes data from all tabs
   useEffect(() => {
@@ -170,10 +169,10 @@ export default function StockPanelView({
           </div>
           <div className="text-right shrink-0">
             <div className="font-data text-2xl font-semibold text-foreground tabular-nums tracking-tight">
-              {formatPrice(quote?.price)}
+              {formatPrice(quote?.price, currency)}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              {formatMarketCap(quote?.market_cap)}
+              {formatMarketCap(quote?.market_cap, currency)}
             </div>
           </div>
         </div>

@@ -14,8 +14,10 @@ Usage:
 
 import pytest
 import pytest_asyncio
+from unittest.mock import AsyncMock, patch
 from httpx import AsyncClient, ASGITransport
 
+from app.core.deps import verify_user_token
 from app.main import app
 
 
@@ -124,11 +126,21 @@ class TestTechnicalAnalysisGeneration:
     @pytest.mark.generate
     async def test_generate_daily_analysis(self, client):
         """Generate daily technical analysis for AAPL."""
-        resp = await client.post(
-            "/api/stocks/AAPL/technical",
-            params={"timeframe": "daily"},
-            timeout=120,
-        )
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                resp = await client.post(
+                    "/api/stocks/AAPL/technical",
+                    params={"timeframe": "daily"},
+                    headers={"Authorization": "Bearer test-token"},
+                    timeout=120,
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -145,17 +157,40 @@ class TestTechnicalAnalysisGeneration:
     @pytest.mark.asyncio
     async def test_invalid_timeframe(self, client):
         """Invalid timeframe returns 422."""
-        resp = await client.post(
-            "/api/stocks/AAPL/technical",
-            params={"timeframe": "monthly"},
-            timeout=10,
-        )
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                resp = await client.post(
+                    "/api/stocks/AAPL/technical",
+                    params={"timeframe": "monthly"},
+                    headers={"Authorization": "Bearer test-token"},
+                    timeout=10,
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
     async def test_invalid_symbol(self, client):
         """Overly long symbol returns 400."""
-        resp = await client.post("/api/stocks/TOOLONGSYMBOL/technical", timeout=10)
+        app.dependency_overrides[verify_user_token] = lambda: "test-max-user"
+        try:
+            with patch(
+                "app.features.stock.router.has_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                resp = await client.post(
+                    "/api/stocks/TOOLONGSYMBOL/technical",
+                    headers={"Authorization": "Bearer test-token"},
+                    timeout=10,
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         assert resp.status_code == 400
 
 

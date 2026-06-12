@@ -97,3 +97,11 @@ export function useKolEvidenceTweets(username: string, ids: string[]) {
     enabled: ENABLED(username) && stableIds.length > 0,
   });
 }
+
+export function useKolCockpitHighConviction(username: string) {
+  return useQuery({
+    queryKey: queryKeys.kol.highConviction(username),
+    queryFn: () => api.kolResearch.cockpitHighConviction(username),
+    enabled: ENABLED(username),
+  });
+}

@@ -24,6 +24,15 @@ export interface ChatMsg {
   streaming?: boolean;
   /** Chain-of-thought chunks accumulated during streaming (KOL agent). */
   thinking?: string;
+  /** Runtime turn identity for mapping UI feedback back to agent_session_events. */
+  sessionId?: string | null;
+  turnId?: string | null;
+  clientEventId?: string | null;
+  messageEventId?: string | null;
+  feedbackSentiment?: 1 | -1 | null;
+  feedbackReason?: string | null;
+  feedbackAt?: string | null;
+  feedbackPayload?: Record<string, unknown>;
 }
 
 export interface FilterStep {
@@ -65,13 +74,14 @@ export interface ResearchState {
 }
 
 export type ResearchAction =
-  | { type: 'SEND_MESSAGE'; message: string }
-  | { type: 'RECEIVE_RESPONSE'; result: ResearchResult }
+  | { type: 'SEND_MESSAGE'; message: string; sessionId?: string | null; turnId?: string | null }
+  | { type: 'RECEIVE_RESPONSE'; result: ResearchResult; sessionId?: string | null; turnId?: string | null }
   | { type: 'SET_ERROR'; error: string }
   | { type: 'SET_LOADING'; loading: boolean }
   | { type: 'VIEW_RESULTS' }
   | { type: 'RESET' }
   | { type: 'SET_CONVERSATION_ID'; id: string }
+  | { type: 'SET_CONVERSATION_TITLE'; title: string }
   | { type: 'LOAD_CONVERSATION'; data: LoadConversationData }
   // Research Desk: content panel navigation
   | { type: 'PUSH_CONTENT'; content: ContentContext }
@@ -84,11 +94,13 @@ export type ResearchAction =
   // SSE streaming: token-level delta to the in-progress assistant message
   // (created by SEND_MESSAGE setting isLoading=true; we append/upsert the
   // assistant placeholder on first delta).
-  | { type: 'STREAM_DELTA'; kind: 'message' | 'thinking'; text: string }
+  | { type: 'STREAM_DELTA'; kind: 'message' | 'thinking'; text: string; sessionId?: string | null; turnId?: string | null }
   // KOL agent: replace the latest-turn citation chunks (right-panel data).
   | { type: 'SET_KOL_CHUNKS'; chunks: Record<string, unknown>[] }
   // KOL agent: set or clear the active persona. null clears KOL mode.
-  | { type: 'SET_PERSONA'; personaUsername: string | null };
+  | { type: 'SET_PERSONA'; personaUsername: string | null }
+  // KOL/default assistant switch: starts a clean conversation for the target mode.
+  | { type: 'SWITCH_PERSONA'; personaUsername: string | null };
 
 export interface LoadConversationData {
   conversationId: string;
@@ -193,6 +205,27 @@ export function loadState(): ResearchState {
   }
 }
 
+export function buildKolPersistedMessages({
+  existingMessages,
+  isFirstTurn,
+  userMessage,
+  assistantMessage,
+  timestamp = Date.now(),
+}: {
+  existingMessages: ChatMsg[];
+  isFirstTurn: boolean;
+  userMessage: string;
+  assistantMessage: string;
+  timestamp?: number;
+}): ChatMsg[] {
+  const baseMessages = isFirstTurn ? [] : existingMessages;
+  return [
+    ...baseMessages,
+    { id: `u-${timestamp}`, role: 'user', content: userMessage },
+    { id: `a-${timestamp}`, role: 'assistant', content: assistantMessage },
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Reducer
 // ---------------------------------------------------------------------------
@@ -204,6 +237,9 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
         id: nextMsgId(),
         role: 'user',
         content: action.message,
+        sessionId: action.sessionId ?? null,
+        turnId: action.turnId ?? null,
+        clientEventId: action.turnId ? `${action.turnId}:user_message` : null,
       };
 
       // Mark the previous assistant message's option as selected (if user clicked a chip)
@@ -243,12 +279,19 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
             content: result.message || last.content,
             options: result.options.length > 0 ? result.options : last.options,
             streaming: false,
+            sessionId: last.sessionId ?? action.sessionId ?? null,
+            turnId: last.turnId ?? action.turnId ?? null,
+            clientEventId: last.clientEventId
+              ?? (action.turnId ? `${action.turnId}:assistant_message` : null),
           }
         : {
             id: nextMsgId(),
             role: 'assistant',
             content: result.message,
             options: result.options.length > 0 ? result.options : undefined,
+            sessionId: action.sessionId ?? null,
+            turnId: action.turnId ?? null,
+            clientEventId: action.turnId ? `${action.turnId}:assistant_message` : null,
           };
       const baseMessages = upgradeStreaming
         ? [...state.messages.slice(0, lastIdx), assistantMsg]
@@ -328,16 +371,27 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
           content: action.kind === 'message' ? action.text : '',
           thinking: action.kind === 'thinking' ? action.text : undefined,
           streaming: true,
+          sessionId: action.sessionId ?? null,
+          turnId: action.turnId ?? null,
+          clientEventId: action.turnId ? `${action.turnId}:assistant_message` : null,
         });
       } else if (action.kind === 'thinking') {
         messages[messages.length - 1] = {
           ...last,
           thinking: (last.thinking || '') + action.text,
+          sessionId: last.sessionId ?? action.sessionId ?? null,
+          turnId: last.turnId ?? action.turnId ?? null,
+          clientEventId: last.clientEventId
+            ?? (action.turnId ? `${action.turnId}:assistant_message` : null),
         };
       } else {
         messages[messages.length - 1] = {
           ...last,
           content: last.content + action.text,
+          sessionId: last.sessionId ?? action.sessionId ?? null,
+          turnId: last.turnId ?? action.turnId ?? null,
+          clientEventId: last.clientEventId
+            ?? (action.turnId ? `${action.turnId}:assistant_message` : null),
         };
       }
       return { ...state, messages };
@@ -389,6 +443,9 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
     case 'SET_CONVERSATION_ID':
       return { ...state, conversationId: action.id };
 
+    case 'SET_CONVERSATION_TITLE':
+      return { ...state, conversationTitle: action.title };
+
     case 'LOAD_CONVERSATION':
       return {
         ...initialState,
@@ -420,6 +477,14 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
 
     case 'SET_PERSONA':
       return { ...state, personaUsername: action.personaUsername };
+
+    case 'SWITCH_PERSONA':
+      if (state.personaUsername === action.personaUsername) return state;
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      return {
+        ...initialState,
+        personaUsername: action.personaUsername,
+      };
 
     // Research Desk: content panel navigation
     case 'PUSH_CONTENT':

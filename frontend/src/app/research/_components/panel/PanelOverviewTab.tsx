@@ -11,6 +11,7 @@ import {
   SectionCard,
   formatNumber,
 } from '@/app/stock/[symbol]/_components/StockDetailContent';
+import { resolveCurrency } from '@/lib/currency';
 
 const StockPriceChart = dynamic(
   () => import('@/components/StockPriceChart').then(m => ({ default: m.StockPriceChart })),
@@ -72,7 +73,7 @@ export default function PanelOverviewTab({ symbol, stockData }: { symbol: string
   const quote = stockData?.quote;
   const fundamentals: StockFundamentals | null = stockData?.fundamentals;
   const financials = stockData?.financials;
-  const currency = stockData?.profile?.currency || 'USD';
+  const currency = resolveCurrency(symbol, stockData?.profile?.currency).code;
 
   const { data: priceHistory, isLoading: priceLoading } = usePriceHistory(symbol, 365);
   const { data: valuationData, isLoading: valuationLoading } = useValuationComparison(symbol);
@@ -166,9 +167,9 @@ export default function PanelOverviewTab({ symbol, stockData }: { symbol: string
                     style={{ left: `${Math.min(Math.max(pos, 2), 98)}%`, transform: 'translateX(-50%)' }} />
                 </div>
                 <div className="flex justify-between text-xs font-data text-muted-foreground">
-                  <span>{formatNumber(quote.week_52_low, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
-                  <span className="text-foreground font-medium">{formatNumber(quote.price, { style: 'currency', currency })}</span>
-                  <span>{formatNumber(quote.week_52_high, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
+                  <span>{formatNumber(quote.week_52_low, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })}</span>
+                  <span className="text-foreground font-medium">{formatNumber(quote.price, { style: 'currency', currency, compactPrice: true })}</span>
+                  <span>{formatNumber(quote.week_52_high, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })}</span>
                 </div>
               </div>
             );

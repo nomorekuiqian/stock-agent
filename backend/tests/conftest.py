@@ -140,6 +140,8 @@ DB_WRITE_FUNCTIONS = [
     ("app.features.flags.db", "delete_assignment"),
     # Agent runtime durable session writes
     ("app.features.agent_runtime.db", "append_entries"),
+    ("app.features.agent_runtime.db", "update_message_feedback"),
+    ("app.shared.agent_runtime_feedback", "update_agent_message_feedback"),
 ]
 
 

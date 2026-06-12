@@ -2,8 +2,8 @@
 skill: sector/ai-infrastructure
 analyst: qinbafrank
 layer: sector
-sources: sector__ai-infrastructure (278 tweets) + legacy lens-ai-infrastructure
-last_updated: 2026-06-03
+sources: sector__ai-infrastructure (373 tweets) + legacy lens-ai-infrastructure
+last_updated: 2026-06-11
 ---
 
 # Skill: AI Infrastructure
@@ -101,6 +101,15 @@ L5 物理 AI: Robotaxi, 人形机器人, 工业自动化
 - 杀估值：产业故事没坏，市场只是嫌贵。
 - 杀业绩：订单、收入、利润或增长开始变差。
 - 杀逻辑：AI 基建需求这个故事本身被事实推翻。
+
+## 2026-05-25 后增量证据
+
+- `2058767543398252890` — AI 电力链条继续收紧，PJM 电价大涨，电网和并网点成为硬瓶颈。
+- `2058865598210470061` — 华为"韬（tau）定律"与英伟达 / 台积电先进封装路径底层逻辑一致。
+- `2060037239120511305` / `2061718814254100559` — MRVL 进入 AI 数据中心互联、custom silicon、光互联和 NVLink Fusion 框架。
+- `2060560681984991697` — 光互连节奏拆分：2026 年 LPO/NPO/1.6T，2027 年 Lumentum CPO 激光器，2028 年 CPO 大规模放量。
+- `2061107928606908855` — Rubin VR200 NVL72 首次交付，验证下一代 AI 平台量产节奏和 HBM4 / 液冷 / 电力供应链。
+- `2062912854983086556` / `2063103873867452886` — AI 硬件趋势未坏，但黄仁勋点名带来的抛物线式上涨进入交易过热区间。
 
 ## Evidence Map
 

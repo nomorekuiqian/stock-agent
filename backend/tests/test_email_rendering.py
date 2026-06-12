@@ -639,19 +639,19 @@ class TestBroadcastWeeklyUsesSegmentOrAudience:
             assert "audience_id" not in create_params
 
 
-class TestWelcomeQrCode:
-    """Test that _format_welcome_html() includes the QR code community section."""
+class TestWelcomeNoWechatQrCode:
+    """Test that _format_welcome_html() does not include WeChat QR codes."""
 
-    def test_qrcode_image_in_html(self, email_svc):
-        """QR code img tag with insforge storage URL is present in welcome email."""
+    def test_qrcode_image_not_in_html(self, email_svc):
+        """WeChat QR storage URLs should not be present in welcome email."""
         html = email_svc._format_welcome_html(first_name="Tester")
-        assert "insforge.app/api/storage/buckets/community/objects/wechat-qr-0510.jpg" in html
-        assert "<img" in html
+        assert "api/storage/buckets/community/objects/wechat-qr" not in html
+        assert "api/storage/buckets/community/objects/wechat-personal-qr" not in html
 
-    def test_community_section_header(self, email_svc):
-        """Welcome email contains the community section header text."""
+    def test_community_section_header_removed(self, email_svc):
+        """Welcome email should not invite users into the WeChat community."""
         html = email_svc._format_welcome_html(first_name="Tester")
-        assert "\u52a0\u5165\u793e\u7fa4" in html  # "加入社群"
+        assert "加入社群" not in html
 
 
 class TestResolveAudience:

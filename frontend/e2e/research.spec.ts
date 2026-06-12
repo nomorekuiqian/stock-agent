@@ -263,7 +263,7 @@ test.describe('Screener page (/research)', () => {
   test('displays WelcomeScreen with all key elements', async ({ page }) => {
     await page.goto('/research');
 
-    await expect(page.getByText('Hi，Playwright User')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: '今天想研究什么' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('button', { name: /一句话选股/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /个股研究台/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /宏观仪表盘/ })).toBeVisible();
@@ -387,8 +387,8 @@ test.describe('Screener page (/research)', () => {
 
     await page.goto('/research');
 
-    const sidebar = page.getByTestId('research-conversation-sidebar');
     const shell = page.getByTestId('research-chat-shell');
+    const sidebar = shell.getByTestId('research-conversation-sidebar');
     const chatScroll = page.getByTestId('research-chat-scroll');
 
     await expect(page.getByText('long 用户消息 36')).toBeVisible({ timeout: 15000 });
@@ -404,7 +404,7 @@ test.describe('Screener page (/research)', () => {
     await expect(page.locator('body')).toHaveJSProperty('scrollTop', 0);
     await expect(page.locator('html')).toHaveJSProperty('scrollTop', 0);
 
-    await page.getByText('短对话').click();
+    await sidebar.getByText('短对话').click();
     await expect(page.getByText('short 用户消息 2')).toBeVisible({ timeout: 15000 });
 
     const afterBox = await sidebar.boundingBox();
@@ -534,8 +534,9 @@ test.describe('Screener page (/research)', () => {
     });
 
     await page.goto('/research');
-    await expect(page.getByText('Runtime KOL')).toBeVisible({ timeout: 15000 });
-    await page.getByText('Runtime KOL').click();
+    const runtimeConversation = page.getByRole('button', { name: 'Runtime KOL 刚刚' });
+    await expect(runtimeConversation).toBeVisible({ timeout: 15000 });
+    await runtimeConversation.click();
 
     await expect(page.getByText('runtime only answer from KOL')).toBeVisible({ timeout: 10000 });
     expect(runtimeAgentCalls).toEqual(['research_agent', 'kol_research_agent']);
@@ -888,7 +889,7 @@ test.describe('Screener page (/research)', () => {
     await expect(page.getByRole('button', { name: /一句话选股/ })).toBeVisible();
   });
 
-  test('unauthenticated user can view the public research landing', async ({ browser }) => {
+  test('unauthenticated user can browse research and is redirected on send', async ({ browser }) => {
     // Fresh context without login.
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -927,7 +928,12 @@ test.describe('Screener page (/research)', () => {
     await page.goto('/research');
 
     await expect(page).toHaveURL(/\/research/, { timeout: 15000 });
-    await expect(page.getByLabel('消息输入')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '今天想研究什么' })).toBeVisible();
+    const input = page.getByLabel('消息输入');
+    await expect(input).toBeVisible();
+    await input.fill('帮我看看今天市场');
+    await input.press('Enter');
+    await expect(page).toHaveURL(/\/login\?redirect=%2Fresearch/, { timeout: 10000 });
 
     await context.close();
   });

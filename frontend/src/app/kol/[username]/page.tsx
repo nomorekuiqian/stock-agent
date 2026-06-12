@@ -27,6 +27,7 @@ import {
   useKolCockpitSectors,
 } from '@/hooks/queries/use-kol-data';
 import type { KolCockpitFeedItem, KolCockpitTickerSummary } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 import {
   FRANK_COMPANY_RECOMMENDATIONS,
   FRANK_FEATURED_CONTENT,
@@ -35,6 +36,7 @@ import {
   type FrankHighlightTopicId,
 } from './_components/frankContentData';
 import OverviewMiniPreview from './_components/OverviewMiniPreview';
+import SerenityOverview from './_components/SerenityOverview';
 import { relativeTimeCN } from './_components/relativeTime';
 
 type FrankHomeSectorId =
@@ -155,11 +157,13 @@ export default function OverviewPage({
   const sectors = sectorsQ.data?.sectors ?? [];
   const macroSummary = sectors.find((sector) => sector.layer === 'macro' || sector.key === 'macro-regime');
   const sectorOnly = sectors.filter((sector) => sector.layer === 'sector');
-  const isFrank = username.toLowerCase() === 'qinbafrank';
+  const u = username.toLowerCase();
+  const isFrank = u === 'qinbafrank';
+  const isSerenity = u === 'aleabitoreddit';
   const loading = profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading || (!isFrank && sectorsQ.isLoading);
 
   const displayName = profile?.persona.display_name ?? username;
-  const titleName = username.toLowerCase() === 'qinbafrank' ? 'qinbafrank' : displayName;
+  const titleName = isFrank ? 'qinbafrank' : displayName;
   const lensPositioning =
     isFrank
       ? '把 @qinbafrank 的公开观点、原文证据和当前数据，整理成可追问的内容档案馆。'
@@ -175,6 +179,10 @@ export default function OverviewPage({
         loading={profileQ.isLoading || tickersQ.isLoading || feedQ.isLoading}
       />
     );
+  }
+
+  if (isSerenity) {
+    return <SerenityOverview username={username} />;
   }
 
   return (
@@ -327,7 +335,7 @@ export default function OverviewPage({
                       {t.count} 次提及
                     </div>
                   </div>
-                  <PriceMini price={t.price} change={t.daily_change} />
+                  <PriceMini ticker={t.ticker} price={t.price} change={t.daily_change} />
                 </li>
               ))}
             </ul>
@@ -566,7 +574,7 @@ function FrankOverview({
                       {company.name}
                     </span>
                   </span>
-                  <PriceMini price={live?.price ?? null} change={live?.daily_change ?? null} />
+                  <PriceMini ticker={company.ticker} price={live?.price ?? null} change={live?.daily_change ?? null} />
                 </li>
               ))}
             </ul>
@@ -714,7 +722,7 @@ function MiniLoading({ rows }: { rows: number }) {
   );
 }
 
-function PriceMini({ price, change }: { price: number | null; change: number | null }) {
+function PriceMini({ ticker, price, change }: { ticker: string; price: number | null; change: number | null }) {
   if (price == null) return null;
   const hasChange = change != null;
   const up = (change ?? 0) > 0;
@@ -728,7 +736,7 @@ function PriceMini({ price, change }: { price: number | null; change: number | n
   const ChangeIcon = hasChange && (change ?? 0) !== 0 ? (up ? TrendingUp : TrendingDown) : null;
   return (
     <div className={`shrink-0 text-right font-data text-xs tabular-nums ${color}`}>
-      <div>{price.toFixed(2)}</div>
+      <div>{formatStockPrice(price, ticker, undefined, { compactPrice: true })}</div>
       {hasChange && ChangeIcon ? (
         <div className="flex items-center justify-end gap-0.5">
           <ChangeIcon className="h-3 w-3" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { getAccessTokenSync, getAccessTokenAsync } from '@/contexts/AuthContext';
 import type { DashboardData, UserRecord } from '../page';
@@ -45,7 +45,6 @@ const BADGE_STYLES: Record<string, string> = {
 interface FilterChip {
   tag: string;
   label: string;
-  match: (u: UserRecord) => boolean;
 }
 
 interface FilterGroup {
@@ -59,51 +58,43 @@ const FILTER_GROUPS: FilterGroup[] = [
     key: 'mail',
     label: '邮件',
     chips: [
-      { tag: 'm:digest',   label: '订阅专属日报', match: (u) => !!u.personal_digest_subscribed },
-      { tag: 'm:no_digest', label: '未订阅专属',  match: (u) => !u.personal_digest_subscribed },
-      { tag: 'm:morning',  label: 'Pro 早报权限', match: (u) => (u.entitlements ?? []).includes('morning_report_email') },
-      { tag: 'm:weekly',   label: 'Pro 周报权限', match: (u) => (u.entitlements ?? []).includes('weekly_report_email') },
+      { tag: 'm:digest',   label: '订阅专属日报' },
+      { tag: 'm:no_digest', label: '未订阅专属' },
+      { tag: 'm:morning',  label: 'Pro 早报权限' },
+      { tag: 'm:weekly',   label: 'Pro 周报权限' },
     ],
   },
   {
     key: 'engagement',
     label: '互动',
     chips: [
-      { tag: 'e:conv',     label: '有对话',     match: (u) => u.conversations > 0 },
-      { tag: 'e:email_fb', label: '有邮件反馈', match: (u) => u.feedback_count > 0 },
-      { tag: 'e:api',      label: '有API',      match: (u) => u.api_calls > 0 },
-      { tag: 'e:none',     label: '零互动',     match: (u) => !u.conversations && !u.feedback_count && !u.api_calls },
+      { tag: 'e:conv',     label: '有对话' },
+      { tag: 'e:email_fb', label: '有邮件反馈' },
+      { tag: 'e:api',      label: '有API' },
+      { tag: 'e:none',     label: '零互动' },
     ],
   },
   {
     key: 'feedback',
     label: '反馈',
     chips: [
-      { tag: 'f:quest',   label: '有问卷',     match: (u) => u.has_questionnaire },
-      { tag: 'f:contact',  label: '有联系反馈', match: (u) => u.contact_feedback_count > 0 },
+      { tag: 'f:quest',   label: '有问卷' },
+      { tag: 'f:contact',  label: '有联系反馈' },
     ],
   },
   {
     key: 'ops',
     label: '运营',
     chips: [
-      { tag: 'o:待联系', label: '待联系', match: (u) => (u.ops_status ?? '待联系') === '待联系' },
-      { tag: 'o:已联系', label: '已联系', match: (u) => u.ops_status === '已联系' },
-      { tag: 'o:跟进中', label: '跟进中', match: (u) => u.ops_status === '跟进中' },
-      { tag: 'o:已反馈', label: '已反馈', match: (u) => u.ops_status === '已反馈' },
-      { tag: 'o:活跃',   label: '活跃',   match: (u) => u.ops_status === '活跃' },
-      { tag: 'o:流失',   label: '流失',   match: (u) => u.ops_status === '流失' },
+      { tag: 'o:待联系', label: '待联系' },
+      { tag: 'o:已联系', label: '已联系' },
+      { tag: 'o:跟进中', label: '跟进中' },
+      { tag: 'o:已反馈', label: '已反馈' },
+      { tag: 'o:活跃',   label: '活跃' },
+      { tag: 'o:流失',   label: '流失' },
     ],
   },
 ];
-
-// Build a flat lookup for quick access
-const CHIP_LOOKUP = new Map<string, FilterChip>();
-for (const group of FILTER_GROUPS) {
-  for (const chip of group.chips) {
-    CHIP_LOOKUP.set(chip.tag, chip);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -163,21 +154,101 @@ function formatNumber(value: number): string {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
 const OPS_STATUSES = ['待联系', '已联系', '跟进中', '已反馈', '活跃', '流失'] as const;
+const PAGE_SIZE = 50;
 
 export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
   const [data, setData] = useState(initialData);
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+  // `searchInput` is the immediate controlled-input value; `search` is the
+  // debounced value sent to the server-side dashboard query.
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('last_active_at');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [page, setPage] = useState(initialData.pagination?.page ?? 1);
   const [copyFeedback, setCopyFeedback] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const didMountRef = useRef(false);
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
 
+  const fetchDashboard = useCallback(async (signal?: AbortSignal) => {
+    const token = getAccessTokenSync() ?? await getAccessTokenAsync();
+    if (!token) {
+      setLoadError('登录状态已失效，请重新登录');
+      return;
+    }
+
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(PAGE_SIZE),
+      category: activeCategory,
+      search,
+      sort_key: sortKey,
+      sort_dir: sortAsc ? 'asc' : 'desc',
+      include_activity: 'false',
+    });
+    for (const tag of Array.from(activeTags).sort()) {
+      params.append('tag', tag);
+    }
+
+    setIsLoading(true);
+    setLoadError('');
+    try {
+      const res = await fetch(`${API_BASE}/admin/dashboard?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal,
+      });
+      if (signal?.aborted) return;
+      if (!res.ok) {
+        setLoadError('加载失败，请稍后重试');
+        return;
+      }
+      const nextData = await res.json();
+      if (signal?.aborted) return;
+      if (nextData.error) {
+        setLoadError(nextData.error);
+        return;
+      }
+      setData((prev) => ({
+        ...nextData,
+        activity: nextData.activity ?? prev.activity,
+      }));
+      setSelectedIds(new Set());
+      setExpandedUser(null);
+    } catch {
+      if (!signal?.aborted) setLoadError('加载失败，请稍后重试');
+    } finally {
+      if (!signal?.aborted) setIsLoading(false);
+    }
+  }, [activeCategory, activeTags, page, search, sortAsc, sortKey]);
+
+  // Debounce search so typing doesn't issue a request on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(1);
+      setSearch(searchInput.trim());
+    }, 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    const controller = new AbortController();
+    void fetchDashboard(controller.signal);
+    return () => controller.abort();
+  }, [fetchDashboard, reloadNonce]);
+
   const toggleTag = useCallback((tag: string) => {
+    setPage(1);
     setActiveTags((prev) => {
       const next = new Set(prev);
       if (next.has(tag)) {
@@ -190,8 +261,10 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
   }, []);
 
   const clearFilters = useCallback(() => {
+    setPage(1);
     setActiveCategory('all');
     setActiveTags(new Set());
+    setSearchInput('');
     setSearch('');
   }, []);
 
@@ -231,95 +304,28 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
           ),
         }));
         setSelectedIds(new Set());
+        setReloadNonce((n) => n + 1);
       }
     } finally {
       setBulkSaving(false);
     }
   }, [selectedIds]);
 
-  const hasActiveFilters = activeCategory !== 'all' || activeTags.size > 0 || search.trim().length > 0;
-
-  const filteredUsers = useMemo(() => {
-    let list = data.users;
-
-    // Category filter (from top cards)
-    if (activeCategory !== 'all') {
-      list = list.filter((u) => u.category === activeCategory);
-    }
-
-    // Chip-based filters: group active tags by prefix, OR within group, AND across groups
-    if (activeTags.size > 0) {
-      const grouped: Record<string, FilterChip[]> = {};
-      for (const tag of activeTags) {
-        const prefix = tag.split(':')[0];
-        const chip = CHIP_LOOKUP.get(tag);
-        if (chip) {
-          if (!grouped[prefix]) grouped[prefix] = [];
-          grouped[prefix].push(chip);
-        }
-      }
-
-      for (const chips of Object.values(grouped)) {
-        list = list.filter((u) => chips.some((chip) => chip.match(u)));
-      }
-    }
-
-    // Search
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (u) =>
-          u.email?.toLowerCase().includes(q) ||
-          u.name?.toLowerCase().includes(q) ||
-          u.user_id.toLowerCase().includes(q) ||
-          u.invite_code?.toLowerCase().includes(q)
-      );
-    }
-
-    // Sort
-    list = [...list].sort((a, b) => {
-      let va: string | number | null;
-      let vb: string | number | null;
-
-      if (sortKey === 'email') {
-        va = a.email ?? ''; vb = b.email ?? '';
-      } else if (sortKey === 'last_active_at' || sortKey === 'created_at') {
-        va = a[sortKey] ?? ''; vb = b[sortKey] ?? '';
-      } else {
-        va = a[sortKey] ?? 0; vb = b[sortKey] ?? 0;
-      }
-
-      if (va < vb) return sortAsc ? -1 : 1;
-      if (va > vb) return sortAsc ? 1 : -1;
-      return 0;
-    });
-
-    return list;
-  }, [data.users, activeCategory, activeTags, search, sortKey, sortAsc]);
-
-  const { summary } = data;
-
-  const engagementStats = useMemo(() => {
-    const users = data.users;
-    return {
-      withConversations: users.filter((u) => u.conversations > 0).length,
-      withFeedback: users.filter((u) => u.feedback_count > 0).length,
-      totalConversations: users.reduce((sum, u) => sum + u.conversations, 0),
-      totalMessages: users.reduce((sum, u) => sum + u.messages, 0),
-      personalDigestSubscribers: users.filter((u) => u.personal_digest_subscribed).length,
-    };
-  }, [data.users]);
-
-  // Per-chip count over the full user set, recomputed when users change.
-  const chipCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const group of FILTER_GROUPS) {
-      for (const chip of group.chips) {
-        counts.set(chip.tag, data.users.filter(chip.match).length);
-      }
-    }
-    return counts;
-  }, [data.users]);
+  const hasActiveFilters = activeCategory !== 'all' || activeTags.size > 0 || searchInput.trim().length > 0;
+  const { summary, pagination } = data;
+  const users = data.users ?? [];
+  const pageSize = pagination?.page_size ?? PAGE_SIZE;
+  const currentPage = pagination?.page ?? page;
+  const pageCount = Math.max(1, pagination?.total_pages ?? 1);
+  const matchingTotal = pagination?.total ?? users.length;
+  const chipCounts = useMemo(() => new Map(Object.entries(data.chip_counts ?? {})), [data.chip_counts]);
+  const engagementStats = data.engagement ?? {
+    with_conversations: 0,
+    with_feedback: 0,
+    total_conversations: 0,
+    total_messages: 0,
+    personal_digest_subscribers: 0,
+  };
 
   const cards: { key: Category; count: number }[] = [
     { key: 'all', count: summary.total },
@@ -331,6 +337,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
   ];
 
   function handleSort(key: SortKey) {
+    setPage(1);
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }
   }
@@ -342,7 +349,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">用户管理看板</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            共 {summary.total} 位用户 · {engagementStats.withConversations} 人有对话 · {engagementStats.totalMessages} 条消息 · {engagementStats.personalDigestSubscribers} 人订阅专属日报
+            共 {summary.total} 位用户 · {engagementStats.with_conversations} 人有对话 · {engagementStats.total_messages} 条消息 · {engagementStats.personal_digest_subscribers} 人订阅专属日报
           </p>
         </div>
       </div>
@@ -355,7 +362,10 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
           return (
             <button
               key={key}
-              onClick={() => setActiveCategory(activeCategory === key ? 'all' : key)}
+              onClick={() => {
+                setPage(1);
+                setActiveCategory(activeCategory === key ? 'all' : key);
+              }}
               className={`rounded-lg px-3 py-3 text-left transition-all border ${
                 isActive ? 'border-foreground/20 shadow-sm' : 'border-transparent hover:border-border'
               } ${cfg.bg}`}
@@ -373,14 +383,14 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           placeholder="搜索邮箱、用户 ID、邀请码..."
           className="w-full md:w-72 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50"
         />
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-xs text-muted-foreground tabular-nums">
-            {filteredUsers.length} / {summary.total}
+            {matchingTotal} / {summary.total}
           </span>
           {hasActiveFilters && (
             <button
@@ -392,21 +402,31 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
           )}
           <button
             onClick={() => {
-              const emails = filteredUsers
+              const emails = users
                 .map((u) => u.email)
                 .filter(Boolean)
                 .join(', ');
               navigator.clipboard.writeText(emails).then(() => {
-                setCopyFeedback(`${filteredUsers.filter((u) => u.email).length} 个邮箱已复制`);
+                setCopyFeedback(`${users.filter((u) => u.email).length} 个邮箱已复制`);
                 setTimeout(() => setCopyFeedback(''), 2000);
               });
             }}
             className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
           >
-            {copyFeedback || '复制邮箱'}
+            {copyFeedback || '复制本页邮箱'}
           </button>
         </div>
       </div>
+
+      {(isLoading || loadError) && (
+        <div className={`rounded-md border px-3 py-2 text-xs ${
+          loadError
+            ? 'border-red-200 bg-red-50 text-red-700'
+            : 'border-border bg-muted/50 text-muted-foreground'
+        }`}>
+          {loadError || '加载中...'}
+        </div>
+      )}
 
       {/* Chip filters */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -482,8 +502,8 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
                 <th className="w-10 px-3 py-2.5">
                   <input
                     type="checkbox"
-                    checked={filteredUsers.length > 0 && filteredUsers.every((u) => selectedIds.has(u.user_id))}
-                    onChange={() => toggleSelectAll(filteredUsers.map((u) => u.user_id))}
+                    checked={users.length > 0 && users.every((u) => selectedIds.has(u.user_id))}
+                    onChange={() => toggleSelectAll(users.map((u) => u.user_id))}
                     className="rounded border-border accent-emerald-600"
                   />
                 </th>
@@ -501,12 +521,12 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredUsers.length === 0 ? (
+              {users.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">暂无数据</td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                users.map((user) => (
                   <UserRowGroup
                     key={user.user_id}
                     user={user}
@@ -521,6 +541,32 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground tabular-nums">
+            第 {matchingTotal === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, matchingTotal)} / {matchingTotal}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={isLoading || currentPage <= 1}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-muted transition-colors"
+            >
+              上一页
+            </button>
+            <span className="text-xs text-muted-foreground tabular-nums">{currentPage} / {pageCount}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={isLoading || currentPage >= pageCount}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-muted transition-colors"
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

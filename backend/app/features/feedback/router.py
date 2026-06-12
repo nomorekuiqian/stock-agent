@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+import app.core.posthog_client as posthog
 from fastapi.responses import RedirectResponse
 
 from app.core.config import FRONTEND_URL
@@ -164,6 +166,12 @@ async def record_email_feedback(
 
         if result.get("success"):
             is_duplicate = result.get("is_duplicate", False)
+            if not is_duplicate and posthog.posthog_client:
+                posthog.posthog_client.capture(
+                    distinct_id=email,
+                    event="email_feedback_submitted",
+                    properties={"rating": rating},
+                )
             status = "duplicate" if is_duplicate else "success"
             return RedirectResponse(
                 url=f"{FRONTEND_URL}/feedback?status={status}&rating={rating}",
@@ -299,6 +307,12 @@ async def submit_user_feedback_endpoint(feedback: UserFeedbackInput):
         )
 
         if result.get("success"):
+            if posthog.posthog_client:
+                posthog.posthog_client.capture(
+                    distinct_id=feedback.email,
+                    event="user_feedback_submitted",
+                    properties={"rating": feedback.rating, "has_message": bool(feedback.message)},
+                )
             return {
                 "success": True,
                 "data": result.get("data"),

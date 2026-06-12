@@ -1,6 +1,7 @@
 'use client';
 
 import { StockAnalysis } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 import { parseChangePercent } from '@/lib/digest-utils';
 
 interface StockListItemProps {
@@ -64,7 +65,7 @@ export default function StockListItem({
 
       <div className="flex items-center gap-2 shrink-0 ml-2">
         <span className="text-xs font-data text-muted-foreground">
-          ${stock.price.toFixed(2)}
+          {formatStockPrice(stock.price, stock.symbol, undefined, { compactPrice: true })}
         </span>
         <span
           className={`text-xs font-data font-medium ${

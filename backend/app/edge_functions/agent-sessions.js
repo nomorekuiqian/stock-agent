@@ -6,6 +6,7 @@
 //   GET  ?action=get&user_id=...&agent_id=...&session_id=...
 //   POST ?action=append_entries body={user_id, agent_id, session_id, metadata?, entries:[{role, content, metadata?}]}
 //   POST ?action=append_events  body={user_id, agent_id, session_id, metadata?, events:[{event_type, role?, content?, payload?}]}
+//   POST ?action=update_feedback body={user_id, agent_id, session_id, turn_id|client_event_id|message_event_id, sentiment(1|-1|0), reason?, feedback_payload?}
 //
 // The backend authenticates users before calling this function. If
 // EDGE_FUNCTION_SECRET is configured, calls must include X-Internal-Secret.
@@ -50,11 +51,66 @@ module.exports = async function(request) {
     return null;
   }
 
+  async function fetchAllChunked(makeQuery, orderCols) {
+    const PAGE = 1000;
+    let all = [];
+    let offset = 0;
+    for (let guard = 0; guard < 1000; guard++) {
+      let q = makeQuery();
+      for (const spec of orderCols || []) {
+        const column = typeof spec === "string" ? spec : spec.column;
+        const ascending = typeof spec === "string" ? true : spec.ascending !== false;
+        q = q.order(column, { ascending });
+      }
+      const { data, error } = await q.range(offset, offset + PAGE - 1);
+      if (error) return { data: null, error };
+      const rows = data || [];
+      all = all.concat(rows);
+      if (rows.length < PAGE) break;
+      offset += PAGE;
+    }
+    return { data: all, error: null };
+  }
+
+  function sessionKey(agentId, sessionId) {
+    return `${agentId || ""}:${sessionId || ""}`;
+  }
+
+  function publicSessionMetadata(session) {
+    const metadata = session && typeof session.metadata === "object" && session.metadata
+      ? session.metadata
+      : {};
+    return {
+      agent_kind: metadata.agent_kind || null,
+      persona_username: metadata.persona_username || null,
+      restore_version: metadata.restore_version || null,
+    };
+  }
+
+  function runtimeConversationTitle(session, firstUserMessage) {
+    const metadata = session && typeof session.metadata === "object" && session.metadata
+      ? session.metadata
+      : {};
+    const storedTitle = metadata.title || (session && session.title);
+    if (storedTitle) return String(storedTitle);
+    const fallback = String(firstUserMessage || "").replace(/\s+/g, " ").trim();
+    if (!fallback) return null;
+    return fallback.length > 80 ? `${fallback.slice(0, 77)}...` : fallback;
+  }
+
+  function compareIsoDesc(a, b) {
+    const av = a || "";
+    const bv = b || "";
+    if (av === bv) return 0;
+    return av < bv ? 1 : -1;
+  }
+
   try {
     if (request.method === "GET" && action === "get") {
       const user_id = url.searchParams.get("user_id");
       const agent_id = url.searchParams.get("agent_id");
       const session_id = url.searchParams.get("session_id");
+      const allEvents = url.searchParams.get("all") === "true";
       const limitRaw = parseInt(url.searchParams.get("limit") || "80", 10);
       // Allow up to 500 events per restore so long-running sessions don't
       // silently drop turns from the head of the transcript. The Python side
@@ -79,40 +135,63 @@ module.exports = async function(request) {
 
       if (sessionError) return fail(500, sessionError.message);
 
-      let eventsQuery = client.database
-        .from(EVENTS)
-        .select("id, event_type, role, content, payload, token_estimate, turn_id, client_event_id, client_ts, created_at")
-        .eq("user_id", user_id)
-        .eq("agent_id", agent_id)
-        .eq("session_id", session_id);
-
-      if (useCursor) {
-        // Over-fetch by a small margin so the post-filter for (created_at, id)
-        // boundary still leaves us with up to `limit` events after dedup.
-        eventsQuery = eventsQuery
-          .gte("created_at", afterCreatedAt)
-          .order("created_at", { ascending: true })
-          .order("id", { ascending: true })
-          .limit(limit + 20);
+      let events;
+      let eventsError;
+      if (allEvents) {
+        const result = await fetchAllChunked(
+          () => client.database
+            .from(EVENTS)
+            .select("id, event_type, role, content, payload, token_estimate, turn_id, client_event_id, client_ts, feedback_sentiment, feedback_reason, feedback_at, feedback_payload, created_at")
+            .eq("user_id", user_id)
+            .eq("agent_id", agent_id)
+            .eq("session_id", session_id),
+          [
+            { column: "created_at", ascending: true },
+            { column: "id", ascending: true },
+          ],
+        );
+        events = result.data;
+        eventsError = result.error;
       } else {
-        eventsQuery = eventsQuery
-          .order("created_at", { ascending: false })
-          .order("id", { ascending: false })
-          .limit(limit);
-      }
+        let eventsQuery = client.database
+          .from(EVENTS)
+          .select("id, event_type, role, content, payload, token_estimate, turn_id, client_event_id, client_ts, feedback_sentiment, feedback_reason, feedback_at, feedback_payload, created_at")
+          .eq("user_id", user_id)
+          .eq("agent_id", agent_id)
+          .eq("session_id", session_id);
 
-      const { data: events, error: eventsError } = await eventsQuery;
+        if (useCursor) {
+          // Over-fetch by a small margin so the post-filter for (created_at, id)
+          // boundary still leaves us with up to `limit` events after dedup.
+          eventsQuery = eventsQuery
+            .gte("created_at", afterCreatedAt)
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .limit(limit + 20);
+        } else {
+          eventsQuery = eventsQuery
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .limit(limit);
+        }
+
+        const result = await eventsQuery;
+        events = result.data;
+        eventsError = result.error;
+      }
 
       if (eventsError) return fail(500, eventsError.message);
 
-      let orderedEvents = useCursor ? (events || []) : (events || []).reverse();
+      let orderedEvents = allEvents || useCursor ? (events || []) : (events || []).reverse();
       if (useCursor) {
         orderedEvents = orderedEvents.filter(e => (
           e.created_at > afterCreatedAt ||
           (e.created_at === afterCreatedAt && String(e.id) > afterId)
         ));
       }
-      orderedEvents = orderedEvents.slice(0, limit);
+      if (!allEvents) {
+        orderedEvents = orderedEvents.slice(0, limit);
+      }
       const lastEvent = orderedEvents.length > 0 ? orderedEvents[orderedEvents.length - 1] : null;
       const entries = orderedEvents
         .filter(e => e.event_type === "user_message" || e.event_type === "assistant_message")
@@ -123,6 +202,10 @@ module.exports = async function(request) {
           turn_id: e.turn_id || null,
           client_event_id: e.client_event_id || null,
           client_ts: e.client_ts || null,
+          feedback_sentiment: e.feedback_sentiment === undefined ? null : e.feedback_sentiment,
+          feedback_reason: e.feedback_reason || null,
+          feedback_at: e.feedback_at || null,
+          feedback_payload: e.feedback_payload || {},
           created_at: e.created_at,
           id: e.id,
         }));
@@ -140,6 +223,150 @@ module.exports = async function(request) {
           ? { created_at: lastMessage.created_at, id: lastMessage.id }
           : null,
       });
+    }
+
+    if (request.method === "GET" && action === "list_user_sessions") {
+      const user_id = url.searchParams.get("user_id");
+      if (!user_id) return fail(400, "user_id required");
+
+      const sessionsRes = await fetchAllChunked(
+        () => client.database
+          .from(SESSIONS)
+          .select("id, session_id, user_id, agent_id, status, title, metadata, created_at, updated_at")
+          .eq("user_id", user_id),
+        [
+          { column: "created_at", ascending: true },
+          { column: "id", ascending: true },
+        ],
+      );
+      if (sessionsRes.error) return fail(500, sessionsRes.error.message);
+
+      const eventsRes = await fetchAllChunked(
+        () => client.database
+          .from(EVENTS)
+          .select("id, user_id, agent_id, session_id, event_type, role, content, created_at")
+          .eq("user_id", user_id)
+          .in("event_type", ["user_message", "assistant_message"]),
+        [
+          { column: "created_at", ascending: true },
+          { column: "id", ascending: true },
+        ],
+      );
+      if (eventsRes.error) return fail(500, eventsRes.error.message);
+
+      const sessionMap = {};
+      for (const session of sessionsRes.data || []) {
+        sessionMap[sessionKey(session.agent_id, session.session_id)] = session;
+      }
+
+      const grouped = {};
+      for (const event of eventsRes.data || []) {
+        const key = sessionKey(event.agent_id, event.session_id);
+        if (!grouped[key]) {
+          grouped[key] = {
+            user_id: event.user_id,
+            agent_id: event.agent_id,
+            session_id: event.session_id,
+            message_count: 0,
+            user_message_count: 0,
+            assistant_message_count: 0,
+            first_user_message: null,
+            created_at: event.created_at,
+            updated_at: event.created_at,
+          };
+        }
+        const item = grouped[key];
+        item.message_count += 1;
+        if (event.event_type === "user_message") {
+          item.user_message_count += 1;
+          if (!item.first_user_message && event.content) {
+            item.first_user_message = event.content;
+          }
+        }
+        if (event.event_type === "assistant_message") {
+          item.assistant_message_count += 1;
+        }
+        if (!item.created_at || event.created_at < item.created_at) {
+          item.created_at = event.created_at;
+        }
+        if (!item.updated_at || event.created_at > item.updated_at) {
+          item.updated_at = event.created_at;
+        }
+      }
+
+      const conversations = Object.values(grouped).map(item => {
+        const session = sessionMap[sessionKey(item.agent_id, item.session_id)] || {};
+        const metadata = publicSessionMetadata(session);
+        const updatedAt = item.updated_at || session.updated_at || session.created_at || null;
+        return {
+          id: sessionKey(item.agent_id, item.session_id),
+          user_id: item.user_id,
+          agent_id: item.agent_id,
+          session_id: item.session_id,
+          agent_kind: metadata.agent_kind,
+          persona_username: metadata.persona_username,
+          title: runtimeConversationTitle(session, item.first_user_message),
+          message_count: item.message_count,
+          user_message_count: item.user_message_count,
+          assistant_message_count: item.assistant_message_count,
+          created_at: item.created_at || session.created_at || updatedAt,
+          updated_at: updatedAt,
+          last_message_at: item.updated_at || null,
+          status: session.status || "active",
+        };
+      }).sort((a, b) => compareIsoDesc(a.updated_at, b.updated_at));
+
+      return ok({ conversations, total: conversations.length });
+    }
+
+    if (request.method === "GET" && action === "stats_by_user") {
+      const eventsRes = await fetchAllChunked(
+        () => client.database
+          .from(EVENTS)
+          .select("id, user_id, agent_id, session_id, event_type, created_at")
+          .in("event_type", ["user_message", "assistant_message"]),
+        [
+          { column: "user_id", ascending: true },
+          { column: "created_at", ascending: true },
+          { column: "id", ascending: true },
+        ],
+      );
+      if (eventsRes.error) return fail(500, eventsRes.error.message);
+
+      const grouped = {};
+      for (const event of eventsRes.data || []) {
+        const userId = event.user_id;
+        if (!grouped[userId]) {
+          grouped[userId] = {
+            user_id: userId,
+            conversation_count: 0,
+            total_messages: 0,
+            last_conversation_at: null,
+            _sessions: {},
+          };
+        }
+        const item = grouped[userId];
+        const key = sessionKey(event.agent_id, event.session_id);
+        if (!item._sessions[key]) {
+          item._sessions[key] = true;
+          item.conversation_count += 1;
+        }
+        item.total_messages += 1;
+        if (!item.last_conversation_at || event.created_at > item.last_conversation_at) {
+          item.last_conversation_at = event.created_at;
+        }
+      }
+
+      const stats = Object.values(grouped)
+        .map(item => ({
+          user_id: item.user_id,
+          conversation_count: item.conversation_count,
+          total_messages: item.total_messages,
+          last_conversation_at: item.last_conversation_at,
+        }))
+        .sort((a, b) => compareIsoDesc(a.last_conversation_at, b.last_conversation_at));
+
+      return ok({ stats });
     }
 
     if (request.method === "POST" && (action === "append_entries" || action === "append_events")) {
@@ -268,6 +495,58 @@ module.exports = async function(request) {
       }
 
       return ok({ session_id, inserted: rows.length });
+    }
+
+    if (request.method === "POST" && action === "update_feedback") {
+      const body = await request.json();
+      const user_id = body.user_id;
+      const agent_id = body.agent_id;
+      const session_id = body.session_id;
+      const missing = requireIdentity(user_id, agent_id, session_id);
+      if (missing) return fail(400, missing);
+
+      const sentiment = Number(body.sentiment);
+      if (![1, -1, 0].includes(sentiment)) {
+        return fail(400, "sentiment must be 1, -1, or 0");
+      }
+
+      const messageEventId = body.message_event_id || body.event_id || null;
+      const clientEventId = body.client_event_id || null;
+      const turnId = body.turn_id || null;
+      if (!messageEventId && !clientEventId && !turnId) {
+        return fail(400, "message_event_id, client_event_id, or turn_id required");
+      }
+
+      const updateRow = {
+        feedback_sentiment: sentiment === 0 ? null : sentiment,
+        feedback_reason: sentiment === 0 ? null : body.reason || null,
+        feedback_at: new Date().toISOString(),
+        feedback_payload: body.feedback_payload || {},
+      };
+
+      let query = client.database
+        .from(EVENTS)
+        .update(updateRow)
+        .eq("user_id", user_id)
+        .eq("agent_id", agent_id)
+        .eq("session_id", session_id)
+        .eq("event_type", "assistant_message");
+
+      if (messageEventId) {
+        query = query.eq("id", messageEventId);
+      } else if (clientEventId) {
+        query = query.eq("client_event_id", clientEventId);
+      } else {
+        query = query.eq("turn_id", turnId);
+      }
+
+      const { data, error } = await query
+        .select("id, feedback_sentiment, feedback_reason, feedback_at, feedback_payload")
+        .maybeSingle();
+
+      if (error) return fail(500, error.message);
+      if (!data) return fail(404, "assistant_message not found");
+      return ok(data);
     }
 
     return fail(400, `Unknown action: ${action}`);

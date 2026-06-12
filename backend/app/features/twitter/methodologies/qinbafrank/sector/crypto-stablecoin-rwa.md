@@ -2,8 +2,8 @@
 skill: sector/crypto-stablecoin-rwa
 analyst: qinbafrank
 layer: sector
-sources: sector__crypto-stablecoin-rwa (361 tweets) + legacy lens-crypto
-last_updated: 2026-05-27
+sources: sector__crypto-stablecoin-rwa (510 tweets) + legacy lens-crypto
+last_updated: 2026-06-11
 ---
 
 # Skill: Crypto / Stablecoin / RWA
@@ -136,6 +136,15 @@ qinbafrank 看 crypto 的角度跟币圈完全不同——他不信"crypto nativ
 4. **把 MSTR / BMNR 当成长期持有稳态** — 错。他在 legacy stock_analysis.yaml 里明确警告"借微策略之名实则大股东抛售运作"的 DAT 类标的，"模式没风险不代表股价没风险"。
 5. **把 ETF 流入流出当唯一信号** — 错。需要叠加美元流动性 + 监管节点 + 做市商动作。
 6. **把"AI × Crypto"误读为"crypto 拯救者"** — 错。他的视角是 crypto 因为 AI agent 支付需求而变成"基建"，不是反过来。
+
+## 2026-05-25 后增量证据
+
+- `2059145745228578863` — OKX ExchangeOS 强调交易所从交易界面升级为资产发行、交易和流转操作系统。
+- `2059652602539966660` — Bitget rToken 作为 1:1 真实资产背书的美股代币，解决流动性、股息和 DeFi 可组合性问题。
+- `2060905508119400559` — 美股代币化会吸走山寨币资金，CEX 需要面对用户和资金迁移。
+- `2060963237101982195` — rToken 可进一步封装期权、合约和统一保证金。
+- `2062912854983086556` / `2063103873867452886` — AI 资产过热、SpaceX IPO 和宏观事件会共同影响 crypto 风险偏好。
+
 ## Evidence Map
 
 加密资产应用场景定义：

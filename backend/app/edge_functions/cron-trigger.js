@@ -59,8 +59,17 @@ const JOBS = {
       },
     }],
   },
+  payment_reconcile_expired_grants: {
+    description: "Expire non-Stripe subscription grants and sync email segments",
+    steps: [{
+      name: "payment_reconcile_expired_grants",
+      path: "/api/payment/reconcile-expired-grants",
+      timeoutMs: 300000,
+      validate: validateSuccessField,
+    }],
+  },
   onboarding_drip: {
-    description: "Day 3/7/14 onboarding drip emails",
+    description: "Legacy onboarding drip cron; backend returns disabled no-op",
     steps: [{
       name: "onboarding_drip",
       path: "/api/cron/onboarding-emails",
@@ -226,8 +235,10 @@ function summarizeBody(body) {
     "sent",
     "failed",
     "processed",
+    "expired",
     "skipped_already",
     "skipped_other",
+    "skipped",
     "errors",
     "from_cache",
     "tier",

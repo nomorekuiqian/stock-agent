@@ -35,7 +35,7 @@ vi.mock('@/hooks/use-feature-flags', () => ({
   useFeatureFlags: () => ({
     flags: new Set<string>(),
     isLoading: false,
-    has: (_flag: string) => false,
+    has: () => false,
   }),
 }));
 
@@ -47,8 +47,8 @@ vi.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({
     entitlements: new Set<string>(),
     isLoading: false,
-    has: (_feature: string) => false,
-    refresh: async (_opts?: { fresh?: boolean }) => {},
+    has: () => false,
+    refresh: async () => {},
   }),
 }));
 
@@ -76,14 +76,15 @@ describe('Navbar', () => {
   it('renders navigation links', () => {
     render(<Navbar />);
     // Navigation links may appear in both desktop and mobile menus
-    expect(screen.getAllByText('日报').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('专属').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('个股').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('宏观').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('联系').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('每日简报').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('AI 研究助手').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('投研').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('我的').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('定价').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('联系')).toBeNull();
   });
 
-  it('shows KOL research entry after kol_chat rollout even when flag is false', () => {
+  it('shows KOL research under the research menu after rollout', () => {
     render(<Navbar />);
 
     expect(screen.getAllByText('博主研究室').length).toBeGreaterThanOrEqual(1);

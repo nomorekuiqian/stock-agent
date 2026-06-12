@@ -3,6 +3,7 @@
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 import type { KolCockpitTickerSummary } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 
 interface Props {
   tickers: KolCockpitTickerSummary[];
@@ -53,6 +54,7 @@ export default function HotTickersRail({ tickers, activeTicker, onSelectTicker }
                       ${t.ticker}
                     </span>
                     <PriceMeta
+                      ticker={t.ticker}
                       price={t.price}
                       change={t.daily_change}
                     />
@@ -81,7 +83,7 @@ export default function HotTickersRail({ tickers, activeTicker, onSelectTicker }
   );
 }
 
-function PriceMeta({ price, change }: { price: number | null; change: number | null }) {
+function PriceMeta({ ticker, price, change }: { ticker: string; price: number | null; change: number | null }) {
   if (price == null) {
     return (
       <span className="font-data text-[11px] text-muted-foreground/70">无报价</span>
@@ -100,7 +102,7 @@ function PriceMeta({ price, change }: { price: number | null; change: number | n
         : 'text-destructive';
   return (
     <span className={`flex items-center gap-1 font-data text-[11px] tabular-nums ${colorCls}`}>
-      {price.toFixed(2)}
+      {formatStockPrice(price, ticker, undefined, { compactPrice: true })}
       {hasChange ? (
         <span className="inline-flex items-center gap-0.5">
           <ChangeIcon className="h-3 w-3" />

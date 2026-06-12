@@ -82,6 +82,9 @@ function subState(overrides = {}) {
     status: 'none',
     currentPeriodEnd: null,
     accessExpiresAt: null,
+    cancelAtPeriodEnd: false,
+    cancelAt: null,
+    canceledAt: null,
     createCheckout: vi.fn(),
     openBillingPortal: vi.fn(),
     refreshSubscription: vi.fn(),
@@ -181,6 +184,25 @@ describe('ProfilePage subscription states', () => {
 
     expect(screen.getByText('订阅已取消')).toBeDefined();
     expect(screen.getByRole('button', { name: '查看订阅方案' })).toBeDefined();
+  });
+
+  it('renders scheduled cancellation indicator while paid access remains active', () => {
+    mockUseSubscription.mockReturnValue(subState({
+      isPro: true,
+      plan: 'max',
+      status: 'active',
+      currentPeriodEnd: '2026-07-11T18:28:24+00:00',
+      cancelAt: '2026-07-11T18:28:24+00:00',
+      canceledAt: '2026-06-11T18:53:59+00:00',
+    }));
+
+    render(<ProfilePage />);
+
+    expect(screen.getByText('Max 会员')).toBeDefined();
+    expect(screen.getAllByText('已取消').length).toBeGreaterThan(0);
+    expect(screen.getByText('权益有效至')).toBeDefined();
+    expect(screen.getByText(/到期后将自动回到免费版/)).toBeDefined();
+    expect(screen.queryByText('下次续费')).toBeNull();
   });
 
   it('shows correct badge per state', () => {

@@ -147,6 +147,63 @@ const FRANK_ITEMS: NavItem[] = [
   },
 ];
 
+// Serenity-specific nav. Same shape/UX as Frank's rail, but labels reflect her
+// supply-chain operating system: 「供应链」 replaces 「过往精华」 because her
+// alpha lives in the bottleneck rotation, not in topic archives. 「内容库」
+// stays a single-tab landing for evidence-tweet snippets (live feed unavailable
+// until ingestion lands).
+const SERENITY_ITEMS: NavItem[] = [
+  {
+    key: "overview",
+    label: "主页",
+    icon: LayoutDashboard,
+    kpi: () => "Serenity 投研驾驶舱",
+    href: (u) => `/kol/${u}`,
+  },
+  {
+    key: "sectors",
+    label: "供应链",
+    icon: Layers,
+    kpi: (k) =>
+      k.sectorCount != null
+        ? `${k.sectorCount} 个瓶颈环节`
+        : "AI capex 漏斗 · 瓶颈轮动",
+    href: (u) => `/kol/${u}/sectors`,
+  },
+  {
+    key: "stocks",
+    label: "个股",
+    icon: CandlestickChart,
+    kpi: (k) =>
+      k.tickerCount != null ? `${k.tickerCount} 票覆盖` : "小盘 niche · 公司解码",
+    href: (u) => `/kol/${u}/stocks`,
+  },
+  {
+    key: "macro",
+    label: "AI 周期",
+    icon: Radar,
+    kpi: () => "AI capex + 地缘宏观",
+    href: (u) => `/kol/${u}/macro`,
+  },
+  {
+    key: "latest",
+    label: "内容库",
+    icon: Rss,
+    kpi: (k) =>
+      k.latestCount != null ? `${k.latestCount} 条证据原文` : "skill 证据原文",
+    href: (u) => `/kol/${u}/latest`,
+  },
+  {
+    key: "chat",
+    label: "追问",
+    icon: MessageCircle,
+    kpi: () => "Serenity 研究助手",
+    href: (u) => `/research?agent=kol&persona=${encodeURIComponent(u)}`,
+    activePath: () => "/research",
+    emphasized: true,
+  },
+];
+
 /**
  * Sub-nav that adapts shape to screen size:
  *   - Mobile (< lg): horizontal sticky strip, icon + label + KPI sub-line (md+).
@@ -161,8 +218,14 @@ export default function SubNav({
   kpis = {},
 }: Props) {
   const pathname = usePathname();
-  const isFrank = username.toLowerCase() === "qinbafrank";
-  const items = isFrank ? FRANK_ITEMS : GENERIC_ITEMS;
+  const u = username.toLowerCase();
+  const isFrank = u === "qinbafrank";
+  const isSerenity = u === "aleabitoreddit";
+  const items = isFrank
+    ? FRANK_ITEMS
+    : isSerenity
+      ? SERENITY_ITEMS
+      : GENERIC_ITEMS;
   const navTitle = isFrank ? "qinbafrank" : displayName;
 
   return (
@@ -215,7 +278,9 @@ export default function SubNav({
         <ul
           className={`
             grid auto-cols-[minmax(5.75rem,1fr)] grid-flow-col overflow-x-auto divide-x divide-border/40
-            md:auto-cols-auto md:grid-flow-row md:grid-cols-6
+            md:auto-cols-auto md:grid-flow-row ${
+              items.length === 5 ? "md:grid-cols-5" : "md:grid-cols-6"
+            }
             lg:flex lg:overflow-visible lg:flex-col lg:divide-x-0 lg:divide-y lg:py-2
           `}
         >

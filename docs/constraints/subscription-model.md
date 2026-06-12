@@ -12,7 +12,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 | Pro | `plan="pro"` | `entitlements` 含 PRO_FEATURES, `access_expires_at=NULL` |
 | Max | `plan="max"` | `entitlements` 含 MAX_FEATURES, `access_expires_at=NULL` |
 | Lifetime | `is_lifetime=true` | 永久全功能 (覆盖 Max) |
-| 老 trial (过渡) | `invite_code='AUTO_TRIAL'` + `access_expires_at` 未来 | 让现有 trial 自然走完, 到期后降 Free; 期间被识别为 "真付费" 走 PAID CTA 分流 |
+| 非 Stripe grant (过渡/赠送) | `access_expires_at` 未来 + `plan/status/entitlements` | 读时按 `access_expires_at` 失效；每日 reconciliation 清成 Free/expired |
 
 ## 功能边界
 
@@ -27,6 +27,14 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 | 推特日报 (`twitter_digest`) | 前 3 封 intro 完整版 (注册 D0/D1/D2 自然日), 之后停 | 锁 | 每天完整 |
 | `morning_report_email` / `weekly_report_email` / `personal_digest_email` | 无 | 有 | 有 |
 | 个股深度研究 (`stock_research`) | 无 | 锁 | 无限 |
+
+后端安全边界必须和上表一致。前端 PaywallGuard 只负责展示/导航，不能作为权限保护。
+
+必须后端 gate 的付费内容：
+- Stock AI 内容（缓存读取 + 生成）：`/api/stocks/{symbol}/analysis/cache`, `/analysis`, `/technical`, `/news`, `/macro`, `/market-analysis`, `/earnings` 必须 `verify_user_token` + `stock_research`。
+- Portfolio 写入和体检：必须 `portfolio_management`。
+- For You Action Bar：必须 `for_you_website`。
+- 邮件偏好开启付费频道：必须按对应 entitlement 校验。
 
 ## 设计原则
 
@@ -67,7 +75,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 新增字段 (Phase 0 migration):
 
 - `subscriptions.lifecycle_state` (JSONB, default `{}`):
-  - `onboarding_sent`: `{day_int: ISO_timestamp}` — 每封 onboarding 邮件发送时间, 防重复
+  - `onboarding_sent`: `{day_int: ISO_timestamp}` — legacy onboarding drip 发送记录；当前 Day 3/7/14 drip 邮件已删除，cron no-op 不再写入
   - `intro_sent_count`: int — 已发推特日报 intro 数 (max 3)
   - `triggered_at`: `{trigger_key: ISO_timestamp}` — 行为触发邮件 cooldown (Phase 4)
 - `subscriptions.reactivation_state` (TEXT, default NULL): enum `NULL` / `cohort_a` / `cohort_b` / `cohort_c` / `cold` (Phase 3 使用)
@@ -81,7 +89,18 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 
 1. `is_lifetime=true` → **True**
 2. `entitlements` 为空 → **False**
-3. 否则 → **True** (**取消旧 `access_expires_at` 分支** — 因为取消 trial 后该字段不再是试用信号; 老 trial 用户期间也走 PAID 分流, 让他们感觉一致, 自然退场)
+3. `access_expires_at` 非空 → **False**（非 Stripe grant / 试用用户进入 Free CTA）
+4. 否则 → **True**（有 entitlements 且无 grant expiry，视作真付费）
+
+## Grant 到期与同步
+
+- 真付费订阅通过 Stripe Subscription + Entitlements webhook 同步 `plan/status/entitlements`。
+- Webhook compensation：`checkout.session.completed`、`customer.subscription.updated`、`customer.subscription.deleted` 会调用同一个 entitlement sync，减少 webhook 乱序或漏投造成的漂移。
+- Stripe entitlement sync 写入 `plan/status/entitlements` 时必须清理旧 `access_expires_at`，避免历史 grant 到期字段拦住真实付费订阅。
+- 非 Stripe grant 仍保存在同一张 `subscriptions` 表，用 `access_expires_at` 表达到期时间。
+- 权限读取时必须检查 `access_expires_at`；每日 `POST /api/payment/reconcile-expired-grants` 只是把已过期 grant 的展示状态清理成 `plan="free"`, `status="expired"`, `entitlements=[]`，并同步 Resend。查询/写入失败必须让 cron 返回失败，不能假装 0 条成功。
+- 新增试用优先使用 Stripe Trial Subscription，这样到期、取消和 entitlement 清理都走 Stripe webhook；`access_expires_at` 主要作为历史/手动 grant 兜底。
+- Stripe `trialing` subscription 也代表 active access；前端 display/activation 和 deleted webhook replacement-sub 检查都必须兼容 `trialing`。
 
 ## Onboarding 流程 (强制)
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { createChart, IChartApi, ISeriesApi, CandlestickSeries, AreaSeries, Time } from 'lightweight-charts';
+import { formatStockPrice, resolveCurrency } from '@/lib/currency';
 
 interface PriceData {
   date: string;
@@ -37,6 +38,12 @@ export function StockPriceChart({
   const seriesRef = useRef<ISeriesApi<any> | null>(null);
   const [chartType, setChartType] = useState<ChartType>('area');
   const [timeRange, setTimeRange] = useState<string>('1Y');
+  const currency = useMemo(() => resolveCurrency(symbol), [symbol]);
+  const chartPriceFormat = useMemo(() => ({
+    type: 'custom' as const,
+    minMove: currency.zeroDecimal ? 1 : 0.01,
+    formatter: (price: number) => formatStockPrice(price, symbol, undefined, { compactPrice: true }),
+  }), [currency.zeroDecimal, symbol]);
 
   // Filter data by time range
   const filteredData = useMemo(() => {
@@ -165,6 +172,7 @@ export function StockPriceChart({
         borderDownColor: '#ef4444',
         wickUpColor: '#10b981',
         wickDownColor: '#ef4444',
+        priceFormat: chartPriceFormat,
       });
 
       const candleData = filteredData.map(d => ({
@@ -183,11 +191,7 @@ export function StockPriceChart({
         topColor,
         bottomColor,
         lineWidth: 2,
-        priceFormat: {
-          type: 'price',
-          precision: 2,
-          minMove: 0.01,
-        },
+        priceFormat: chartPriceFormat,
       });
 
       const areaData = filteredData.map(d => ({
@@ -200,7 +204,7 @@ export function StockPriceChart({
     }
 
     chartRef.current.timeScale().fitContent();
-  }, [filteredData, chartType, priceStats?.isPositive]);
+  }, [filteredData, chartType, priceStats?.isPositive, chartPriceFormat]);
 
   const timeRanges = ['1W', '1M', '3M', '6M', '1Y', '5Y'];
 

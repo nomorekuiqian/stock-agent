@@ -15,6 +15,8 @@ function createFakeJwt(): string {
   ].join('.');
 }
 
+const BACKEND_API_URL_RE = /http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/.*/;
+
 /**
  * Mock browser-side auth config calls. Login/register/verify now use Next
  * server actions, so Playwright enables E2E_AUTH_MOCK in playwright.config.ts
@@ -196,7 +198,7 @@ async function setupAuthMocks(page: Page) {
 
 /** Stub out all backend API calls so /for-you and other pages load without errors. */
 async function mockBackendApis(page: Page) {
-  await page.route('http://localhost:8000/api/**', async (route: Route) => {
+  await page.route(BACKEND_API_URL_RE, async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/watchlist') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ symbols: [] }) });
@@ -273,12 +275,13 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     await expect(page).toHaveURL(/\/login.*redirect.*profile/, { timeout: 10000 });
   });
 
-  test('keeps unauthenticated /research public', async ({ page }) => {
+  test('allows unauthenticated user to browse /research welcome', async ({ page }) => {
     await setupAuthMocks(page);
     await page.goto('/research');
 
     await expect(page).toHaveURL(/\/research/, { timeout: 10000 });
-    await expect(page.getByPlaceholder('随便问点什么...')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '今天想研究什么' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByLabel('消息输入')).toBeVisible();
   });
 
   // ── Section J: Post-logout redirect ─────────────────────────────────────────
@@ -311,7 +314,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     auth.mockLoginSuccess();
 
     const capturedAuthHeaders: string[] = [];
-    await page.route('http://localhost:8000/api/**', async (route: Route) => {
+    await page.route(BACKEND_API_URL_RE, async (route: Route) => {
       capturedAuthHeaders.push(route.request().headers()['authorization'] ?? '');
       const path = new URL(route.request().url()).pathname;
       if (path === '/api/watchlist') {
@@ -366,7 +369,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
     const auth = await setupAuthMocks(page);
     auth.mockLoginSuccess();
 
-    await page.route('http://localhost:8000/api/watchlist', async (route: Route) => {
+    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/watchlist$/, async (route: Route) => {
       await route.fulfill({
         status: 401,
         contentType: 'application/json',
@@ -374,7 +377,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
       });
     });
 
-    await page.route('http://localhost:8000/api/digests?*', async (route: Route) => {
+    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/digests(?:\?.*)?$/, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -382,7 +385,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
       });
     });
 
-    await page.route('http://localhost:8000/api/payment/me/entitlements', async (route: Route) => {
+    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/payment\/me\/entitlements$/, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -390,7 +393,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
       });
     });
 
-    await page.route('http://localhost:8000/api/flags', async (route: Route) => {
+    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/flags$/, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -398,7 +401,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
       });
     });
 
-    await page.route('http://localhost:8000/api/portfolio', async (route: Route) => {
+    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/portfolio$/, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -406,7 +409,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
       });
     });
 
-    await page.route('http://localhost:8000/api/profile', async (route: Route) => {
+    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/profile$/, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -414,7 +417,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
       });
     });
 
-    await page.route('http://localhost:8000/api/subscriptions/**', async (route: Route) => {
+    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/subscriptions\/.*/, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

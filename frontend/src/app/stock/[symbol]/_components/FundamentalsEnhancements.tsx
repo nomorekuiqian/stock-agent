@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { formatCurrencyAmount } from '@/lib/currency';
 
 // =============================================================================
 // Sparkline Component
@@ -11,19 +12,18 @@ interface SparklineProps {
   label: string;
   format?: 'currency' | 'percent' | 'number';
   color?: string;
+  currency?: string;
 }
 
-function formatSparklineValue(value: number, format: string): string {
+function formatSparklineValue(value: number, format: string, currency?: string): string {
   if (format === 'currency') {
-    if (Math.abs(value) >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-    if (Math.abs(value) >= 1e6) return `$${(value / 1e6).toFixed(0)}M`;
-    return `$${value.toFixed(0)}`;
+    return formatCurrencyAmount(value, { currency, compact: true, maximumFractionDigits: 0 });
   }
   if (format === 'percent') return `${(value * 100).toFixed(1)}%`;
   return value.toFixed(1);
 }
 
-export function Sparkline({ data, label, format = 'currency', color = 'rgb(16, 185, 129)' }: SparklineProps) {
+export function Sparkline({ data, label, format = 'currency', color = 'rgb(16, 185, 129)', currency }: SparklineProps) {
   const { path, lastValue, trend } = useMemo(() => {
     if (data.length < 2) return { path: '', lastValue: data[0] ?? 0, trend: 0 };
 
@@ -56,12 +56,12 @@ export function Sparkline({ data, label, format = 'currency', color = 'rgb(16, 1
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-muted-foreground">{label}</span>
         <span className={`text-xs font-data ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-          {isUp ? '+' : ''}{format === 'percent' ? `${(trend * 100).toFixed(1)}pp` : formatSparklineValue(trend, format)}
+          {isUp ? '+' : ''}{format === 'percent' ? `${(trend * 100).toFixed(1)}pp` : formatSparklineValue(trend, format, currency)}
         </span>
       </div>
       <div className="flex items-end gap-2">
         <span className="text-sm font-data font-medium text-foreground">
-          {formatSparklineValue(lastValue, format)}
+          {formatSparklineValue(lastValue, format, currency)}
         </span>
         <svg viewBox="0 0 100 32" className="flex-1 h-6" preserveAspectRatio="none">
           <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
@@ -71,11 +71,12 @@ export function Sparkline({ data, label, format = 'currency', color = 'rgb(16, 1
   );
 }
 
-export function SparklineRow({ quarters }: {
+export function SparklineRow({ quarters, currency }: {
   quarters: Array<{
     income_statement?: { revenue?: number; gross_profit?: number; net_income?: number };
     cash_flow?: { free_cash_flow?: number };
   }>;
+  currency?: string;
 }) {
   const reversed = useMemo(() => [...quarters].reverse(), [quarters]);
 
@@ -92,10 +93,10 @@ export function SparklineRow({ quarters }: {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-      <Sparkline data={revenue} label="季度营收" format="currency" color="rgb(16, 185, 129)" />
-      <Sparkline data={netIncome} label="季度净利" format="currency" color="rgb(59, 130, 246)" />
+      <Sparkline data={revenue} label="季度营收" format="currency" color="rgb(16, 185, 129)" currency={currency} />
+      <Sparkline data={netIncome} label="季度净利" format="currency" color="rgb(59, 130, 246)" currency={currency} />
       <Sparkline data={grossMargin} label="毛利率" format="percent" color="rgb(245, 158, 11)" />
-      <Sparkline data={fcf} label="自由现金流" format="currency" color="rgb(139, 92, 246)" />
+      <Sparkline data={fcf} label="自由现金流" format="currency" color="rgb(139, 92, 246)" currency={currency} />
     </div>
   );
 }
@@ -185,9 +186,10 @@ interface FairValueBarProps {
   targetMedian: number | null;
   targetHigh: number | null;
   dcfValue: number | null;
+  currency?: string;
 }
 
-export function FairValueBar({ currentPrice, targetLow, targetMedian, targetHigh, dcfValue }: FairValueBarProps) {
+export function FairValueBar({ currentPrice, targetLow, targetMedian, targetHigh, dcfValue, currency }: FairValueBarProps) {
   if (!targetLow || !targetHigh) return null;
 
   const min = Math.min(targetLow, currentPrice) * 0.95;
@@ -247,16 +249,16 @@ export function FairValueBar({ currentPrice, targetLow, targetMedian, targetHigh
 
       {/* Labels */}
       <div className="flex justify-between text-xs font-data text-muted-foreground">
-        <span>${targetLow.toFixed(0)}</span>
-        {targetMedian && <span className="text-violet-400">${targetMedian.toFixed(0)}</span>}
-        <span>${targetHigh.toFixed(0)}</span>
+        <span>{formatCurrencyAmount(targetLow, { currency, maximumFractionDigits: 0 })}</span>
+        {targetMedian && <span className="text-violet-400">{formatCurrencyAmount(targetMedian, { currency, maximumFractionDigits: 0 })}</span>}
+        <span>{formatCurrencyAmount(targetHigh, { currency, maximumFractionDigits: 0 })}</span>
       </div>
 
       {/* DCF reference */}
       {dcfValue !== null && (
         <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between text-xs">
           <span className="text-muted-foreground">DCF 估值</span>
-          <span className="font-data text-foreground">${dcfValue.toFixed(2)}</span>
+          <span className="font-data text-foreground">{formatCurrencyAmount(dcfValue, { currency })}</span>
         </div>
       )}
     </div>

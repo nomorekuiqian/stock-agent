@@ -198,20 +198,20 @@ function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue, currency
               />
             </div>
             <div className="flex justify-between text-xs font-data text-muted-foreground mt-0.5">
-              <span>{formatNumber(tLow, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
+              <span>{formatNumber(tLow, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })}</span>
               {upside && (
                 <span className={Number(upside) > 0 ? 'text-emerald-400' : 'text-red-400'}>
                   {Number(upside) > 0 ? '+' : ''}{upside}%
                 </span>
               )}
-              <span>{formatNumber(tHigh, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
+              <span>{formatNumber(tHigh, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })}</span>
             </div>
           </div>
         )}
         {dcfValue && (
           <div className="flex justify-between text-xs mt-1">
             <span className="text-muted-foreground">DCF 估值</span>
-            <span className="font-data text-foreground">{formatNumber(dcfValue, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
+            <span className="font-data text-foreground">{formatNumber(dcfValue, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })}</span>
           </div>
         )}
       </div>
@@ -264,8 +264,8 @@ function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue, currency
               />
             </div>
             <div className="flex justify-between text-xs font-data text-muted-foreground">
-              <span>{formatNumber(w52Low, { style: 'currency', currency, maximumFractionDigits: 0 })} (52周低)</span>
-              <span>{formatNumber(w52High, { style: 'currency', currency, maximumFractionDigits: 0 })} (52周高)</span>
+              <span>{formatNumber(w52Low, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })} (52周低)</span>
+              <span>{formatNumber(w52High, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })} (52周高)</span>
             </div>
           </div>
         )}
@@ -460,9 +460,9 @@ export function OverviewTab({
                         style={{ left: `${Math.min(Math.max(pos, 2), 98)}%`, transform: 'translateX(-50%)' }} />
                     </div>
                     <div className="flex justify-between text-xs font-data text-muted-foreground">
-                      <span>{formatNumber(quote.week_52_low, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
-                      <span className="text-foreground font-medium">{formatNumber(quote.price, { style: 'currency', currency })}</span>
-                      <span>{formatNumber(quote.week_52_high, { style: 'currency', currency, maximumFractionDigits: 0 })}</span>
+                      <span>{formatNumber(quote.week_52_low, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })}</span>
+                      <span className="text-foreground font-medium">{formatNumber(quote.price, { style: 'currency', currency, compactPrice: true })}</span>
+                      <span>{formatNumber(quote.week_52_high, { style: 'currency', currency, maximumFractionDigits: 0, compactPrice: true })}</span>
                     </div>
                   </div>
                 );

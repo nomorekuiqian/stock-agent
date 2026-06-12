@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { StockAnalysis } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 import { FeedbackBar } from '@/components/memory/FeedbackBar';
 import { QuickThesisInput } from '@/components/memory/QuickThesisInput';
 
@@ -31,7 +32,7 @@ export default function StockDetailPanel({ stock, digestDate, thesis, onThesisSa
       {/* Price + Changes */}
       <div className="flex items-center gap-4 text-sm mb-3">
         <span className="text-foreground font-medium font-data text-base">
-          ${(stock.price ?? 0).toFixed(2)}
+          {formatStockPrice(stock.price ?? 0, stock.symbol, undefined, { compactPrice: true })}
         </span>
         <span
           className={`font-data ${isPositiveDaily ? 'text-emerald-400' : 'text-red-400'}`}

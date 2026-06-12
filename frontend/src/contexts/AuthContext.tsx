@@ -20,13 +20,38 @@ export type { User } from '@/app/actions/auth';
 // --- Module-level access token cache ---
 
 let _cachedAccessToken: string | null = null;
+const ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000;
+
+function isJwtExpiringSoon(token: string): boolean {
+  const [, payload] = token.split('.');
+  if (!payload) return false;
+
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const decoded = globalThis.atob?.(padded);
+    if (!decoded) return false;
+
+    const parsed = JSON.parse(decoded) as { exp?: unknown };
+    if (typeof parsed.exp !== 'number') return false;
+
+    return parsed.exp * 1000 <= Date.now() + ACCESS_TOKEN_REFRESH_SKEW_MS;
+  } catch {
+    return false;
+  }
+}
 
 export function getAccessTokenSync(): string | null {
+  if (_cachedAccessToken && isJwtExpiringSoon(_cachedAccessToken)) {
+    return null;
+  }
   return _cachedAccessToken;
 }
 
 export async function getAccessTokenAsync(): Promise<string | null> {
-  if (_cachedAccessToken) return _cachedAccessToken;
+  if (_cachedAccessToken && !isJwtExpiringSoon(_cachedAccessToken)) {
+    return _cachedAccessToken;
+  }
   const session = await fetchSession();
   _cachedAccessToken = session.accessToken;
   return _cachedAccessToken;
@@ -35,21 +60,40 @@ export async function getAccessTokenAsync(): Promise<string | null> {
 /** Refresh the session and return the new access token, or null if refresh failed. */
 export async function refreshSession(): Promise<string | null> {
   const session = await fetchSession();
-  if (session.accessToken) {
-    _cachedAccessToken = session.accessToken;
-  }
+  _cachedAccessToken = session.accessToken;
   return session.accessToken;
 }
 
 // --- Session fetch ---
 
-async function fetchSession(): Promise<{ user: User | null; accessToken: string | null }> {
+type SessionResult = { user: User | null; accessToken: string | null };
+
+// Single-flight de-dup: many callers can ask for the session at once — the
+// 12-min refresh interval, the visibilitychange handler, getAccessTokenAsync /
+// refreshSession, plus subscription/entitlement contexts. Without de-dup an
+// expired 15-min access cookie triggers several concurrent /api/auth/session
+// calls, each rotating the refresh token; the first to land invalidates the
+// token the others presented, so the losers fail and clear cookies — logging a
+// genuinely-logged-in user out. Sharing one in-flight round-trip removes the
+// rotation thundering herd entirely.
+let _sessionInFlight: Promise<SessionResult> | null = null;
+
+async function fetchSession(): Promise<SessionResult> {
+  if (_sessionInFlight) return _sessionInFlight;
+  const inFlight = (async (): Promise<SessionResult> => {
+    try {
+      const res = await fetch('/api/auth/session');
+      if (!res.ok) return { user: null, accessToken: null };
+      return await res.json();
+    } catch {
+      return { user: null, accessToken: null };
+    }
+  })();
+  _sessionInFlight = inFlight;
   try {
-    const res = await fetch('/api/auth/session');
-    if (!res.ok) return { user: null, accessToken: null };
-    return await res.json();
-  } catch {
-    return { user: null, accessToken: null };
+    return await inFlight;
+  } finally {
+    _sessionInFlight = null;
   }
 }
 

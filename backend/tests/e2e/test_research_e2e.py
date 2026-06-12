@@ -76,55 +76,55 @@ class TestResearchAgent:
 
 @pytest.mark.e2e
 class TestResearchChatEndpoint:
-    """Tests for POST /api/research/chat (open with quota)."""
+    """Tests for POST /api/research/chat (login required + quota)."""
 
     @pytest.mark.asyncio
-    async def test_chat_anonymous_not_401(self, client):
-        """Endpoint accepts anonymous requests (quota-gated, not auth-gated).
+    async def test_chat_anonymous_requires_auth(self, client):
+        """Endpoint rejects anonymous requests with 401 (login required).
 
-        We mock pick_stocks because this test is checking the auth/quota
-        contract, not the LLM agent behavior. Without the mock the endpoint
-        kicks off real outbound LLM HTTPS requests that outlive the ASGI
-        client fixture, producing SSLWantReadError + Event loop closed
-        warnings during teardown.
+        The research agent used to allow anonymous trial via optional auth;
+        it is now login-gated server-side so the API can't be driven
+        anonymously even if the frontend login wall is bypassed.
         """
-        from app.features.screener.models import ResearchResult
-
-        with patch(
-            "app.features.screener.router.pick_stocks",
-            new_callable=AsyncMock,
-            return_value=ResearchResult(success=True),
-        ):
-            resp = await client.post(
-                "/api/research/chat",
-                json={"message": "hello"},
-                timeout=10,
-            )
-        # Should get 200 or 429 (quota), never 401
-        assert resp.status_code != 401
+        resp = await client.post(
+            "/api/research/chat",
+            json={"message": "hello"},
+            timeout=10,
+        )
+        assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_chat_no_body_returns_422(self, client):
-        """No message field returns 422 validation error."""
+    async def test_chat_no_body(self, client):
+        """No message field returns 401 (auth checked) or 422 (validation)."""
         resp = await client.post(
             "/api/research/chat",
             json={},
             timeout=10,
         )
-        assert resp.status_code == 422
+        assert resp.status_code in (401, 422)
 
     @pytest.mark.asyncio
     async def test_chat_response_structure(self, client):
-        """Response has expected fields (even if cache is empty)."""
+        """Response has expected fields when authenticated (even if cache is empty).
+
+        Overrides verify_user_token so no real Insforge auth round-trip is
+        needed; the test pins the response contract, not auth.
+        """
+        from app.core.deps import verify_user_token
+
+        app.dependency_overrides[verify_user_token] = lambda: "test-user"
         try:
             resp = await client.post(
                 "/api/research/chat",
                 json={"message": "test"},
+                headers={"Authorization": "Bearer test-token"},
                 timeout=60,
             )
         except Exception as exc:
             pytest.skip(f"Insforge Edge Function unreachable: {exc}")
             return
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
         if resp.status_code == 200:
             data = resp.json()
             assert "success" in data
@@ -136,28 +136,34 @@ class TestResearchChatEndpoint:
 
     @pytest.mark.asyncio
     async def test_chat_with_history(self, client):
-        """Endpoint accepts history and accumulated_filters in body.
+        """Endpoint accepts history and accumulated_filters in body when authed.
 
-        Mocks the agent for the same reason as test_chat_anonymous_not_401.
-        We want to check schema acceptance, not the LLM response.
+        Mocks the agent (checking schema/quota acceptance, not the LLM
+        response) and overrides verify_user_token to simulate a signed-in user.
         """
+        from app.core.deps import verify_user_token
         from app.features.screener.models import ResearchResult
 
-        with patch(
-            "app.features.screener.router.pick_stocks",
-            new_callable=AsyncMock,
-            return_value=ResearchResult(success=True),
-        ):
-            resp = await client.post(
-                "/api/research/chat",
-                json={
-                    "message": "more options",
-                    "history": [{"role": "user", "content": "hi"}],
-                    "accumulated_filters": [{"field": "roe", "op": "gt", "value": 15}],
-                },
-                timeout=10,
-            )
-        # Should not crash; 200, 429 (quota) both acceptable
+        app.dependency_overrides[verify_user_token] = lambda: "test-user"
+        try:
+            with patch(
+                "app.features.screener.router.pick_stocks",
+                new_callable=AsyncMock,
+                return_value=ResearchResult(success=True),
+            ):
+                resp = await client.post(
+                    "/api/research/chat",
+                    json={
+                        "message": "more options",
+                        "history": [{"role": "user", "content": "hi"}],
+                        "accumulated_filters": [{"field": "roe", "op": "gt", "value": 15}],
+                    },
+                    headers={"Authorization": "Bearer test-token"},
+                    timeout=10,
+                )
+        finally:
+            app.dependency_overrides.pop(verify_user_token, None)
+        # Should not crash; 200 (mocked agent) or 429 (quota) both acceptable.
         assert resp.status_code in (200, 429)
 
 

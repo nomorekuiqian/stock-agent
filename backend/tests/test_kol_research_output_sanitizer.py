@@ -54,3 +54,17 @@ def test_sanitizer_downgrades_trading_action_language():
     assert "不适合追高" in out
     assert "更稳的是等待" in out
     assert "分批评估" in out
+
+
+def test_sanitizer_preserves_frank_methodology_terms_for_frank_persona():
+    out = _sanitize_user_facing_markdown(
+        "Frank 的三杀框架里，这更像杀估值，不是杀业绩或杀逻辑。",
+        persona_username="qinbafrank",
+    )
+
+    assert "三杀" in out
+    assert "杀估值" in out
+    assert "杀业绩" in out
+    assert "杀逻辑" in out
+    assert "判断状态" not in out
+    assert "估值回撤" not in out

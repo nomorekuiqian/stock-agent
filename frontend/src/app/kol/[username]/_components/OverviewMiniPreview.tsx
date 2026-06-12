@@ -38,7 +38,7 @@ export default function OverviewMiniPreview({
       ? 'border-amber-400/25 bg-amber-400/10 text-amber-400 light:text-amber-700'
       : 'border-primary/20 bg-primary/10 text-primary';
   const sharedClass =
-    `hover-glow group flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card/35 transition duration-200 ${className}`;
+    `group flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card/35 transition duration-200 ${className}`;
   const header = (
     <header className="border-b border-border/40 p-4 pb-3 md:p-5 md:pb-4">
       {eyebrow ? (

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { useStockQuotes } from '@/hooks/queries/use-stock-data';
+import { formatStockPrice } from '@/lib/currency';
 import { STOCK_NAMES } from '@/lib/stock-names';
 import {
   DigestLockedBlur,
@@ -204,7 +205,7 @@ function HoldingPlaceholder({
             '—'
           ) : price != null ? (
             <>
-              ${price.toFixed(2)}
+              {formatStockPrice(price, symbol, undefined, { compactPrice: true })}
               {hasChange && (
                 <span className="ml-1.5">
                   {up ? '+' : ''}

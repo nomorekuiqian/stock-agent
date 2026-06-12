@@ -10,6 +10,13 @@ interface LoginGateProps {
   children: React.ReactNode;
   title?: string;
   description?: string;
+  /**
+   * Where to send the user back to after login. Defaults to the current
+   * pathname. Pass a full `path?query` string when the query string carries
+   * meaningful state (e.g. `/research?agent=kol&persona=qinbafrank&q=...`) so
+   * the destination is reconstructed faithfully after authentication.
+   */
+  redirectTo?: string;
 }
 
 /**
@@ -26,6 +33,7 @@ export default function LoginGate({
   children,
   title = '登录后查看完整内容',
   description = '该页面需要登录账户。注册免费，无需付费。',
+  redirectTo,
 }: LoginGateProps) {
   const pathname = usePathname();
   const { isAuthenticated, isLoading } = useAuth();
@@ -42,7 +50,7 @@ export default function LoginGate({
     return <>{children}</>;
   }
 
-  const redirect = encodeURIComponent(pathname || '/');
+  const redirect = encodeURIComponent(redirectTo || pathname || '/');
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-16 text-center">

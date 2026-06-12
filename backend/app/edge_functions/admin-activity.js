@@ -38,10 +38,18 @@ module.exports = async function(request) {
 
   const rawDays = Number.parseInt(url.searchParams.get("days") || "30", 10);
   const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 90) : 30;
-  const [activityResult, growthResult] = await Promise.all([
-    client.database.rpc("admin_daily_activity", { days_back: days }),
-    client.database.rpc("admin_growth_metrics", { days_back: days }),
-  ]);
+  const includeGrowth = url.searchParams.get("include_growth") !== "false";
+
+  let activityResult;
+  let growthResult = { data: null, error: null };
+  if (includeGrowth) {
+    [activityResult, growthResult] = await Promise.all([
+      client.database.rpc("admin_daily_activity", { days_back: days }),
+      client.database.rpc("admin_growth_metrics", { days_back: days }),
+    ]);
+  } else {
+    activityResult = await client.database.rpc("admin_daily_activity", { days_back: days });
+  }
 
   if (activityResult.error) {
     return new Response(
@@ -55,8 +63,8 @@ module.exports = async function(request) {
       success: true,
       days,
       data: activityResult.data || [],
-      growth_metrics: growthResult.error ? null : growthResult.data,
-      growth_metrics_error: growthResult.error ? growthResult.error.message : null,
+      growth_metrics: includeGrowth && growthResult.error ? null : growthResult.data,
+      growth_metrics_error: includeGrowth && growthResult.error ? growthResult.error.message : null,
     }),
     { status: 200, headers: jsonHeaders }
   );

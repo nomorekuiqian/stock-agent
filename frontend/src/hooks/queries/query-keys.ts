@@ -87,7 +87,11 @@ export const queryKeys = {
   },
   research: {
     all: ['research'] as const,
-    conversations: (userId: string, pageSize: number) => ['research', 'conversations', userId, pageSize] as const,
+    conversations: (userId: string, pageSize: number, search = '') => (
+      search
+        ? ['research', 'conversations', userId, pageSize, search] as const
+        : ['research', 'conversations', userId, pageSize] as const
+    ),
   },
   subscriptions: {
     all: ['subscriptions'] as const,
@@ -128,5 +132,7 @@ export const queryKeys = {
       ['kol', username, 'ticker-timeline', ticker] as const,
     evidenceTweets: (username: string, ids: string[]) =>
       ['kol', username, 'evidence-tweets', ids.join(',')] as const,
+    highConviction: (username: string) =>
+      ['kol', username, 'high-conviction'] as const,
   },
 };

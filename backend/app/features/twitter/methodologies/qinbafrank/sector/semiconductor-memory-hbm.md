@@ -2,8 +2,8 @@
 skill: sector/semiconductor-memory-hbm
 analyst: qinbafrank
 layer: sector
-sources: sector__semiconductor-memory-hbm (103 tweets) + legacy lens-ai-infrastructure HBM segments
-last_updated: 2026-05-27
+sources: sector__semiconductor-memory-hbm (143 tweets) + legacy lens-ai-infrastructure HBM segments
+last_updated: 2026-06-11
 ---
 
 # Skill: Semiconductor / Memory / HBM
@@ -111,6 +111,15 @@ HBM 紧平衡持续到至少 2027 年（库存周期 + 产能扩张周期）。
 3. **押注三星 / 海力士份额超车** — 错。SK 海力士 13 年孤独押注的龙一地位不易动摇。
 4. **把"HBM 涨价"读成"美光必涨"** — 错。要叠加美光本身的财务指引 + 客户合同结构。
 5. **把希捷 HDD 当成"传统过气"** — 错。AI 训练数据近线存储拉动 + build-to-order 长合约 = 结构性紧平衡。
+
+## 2026-05-25 后增量证据
+
+- `2059116625153122791` — 闪迪 NBM 长期协议：多年期供应、预付款和金融担保改变存储估值逻辑。
+- `2059441751040147485` — 存储大厂变身"超级乙方"，长期协议让业绩确定性和周期折价被重新评估。
+- `2060929419850723497` — 当下阶段是 HBM 狂飙 + 三大厂克制扩产，未来要动态匹配 DRAM / NAND / HDD。
+- `2061107928606908855` — Rubin 机柜首次交付，HBM4、先进封装、液冷和电力供应链同步验证。
+- `2061718814254100559` — Marvell / 光互联讨论中再次出现 HBM、互联和数据中心架构耦合。
+
 ## Evidence Map
 
 HBM 三家格局 + 学精了的供给纪律：

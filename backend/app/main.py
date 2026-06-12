@@ -12,6 +12,7 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -33,12 +34,12 @@ logger = get_logger(__name__)
 from app.core.email_guard import install as install_email_guard
 install_email_guard()
 
-# --- Frank Lens MCP (Streamable HTTP sub-app, mounted at /frank/mcp/) ---
+# --- Market Lens MCP (Streamable HTTP sub-app, mounted at /frank/mcp/) ---
 from contextlib import asynccontextmanager
 
-from app.frank_mcp.server import mcp as frank_mcp
+from app.frank_mcp.server import mcp as market_mcp
 
-frank_mcp_app = frank_mcp.http_app(path="/mcp")
+market_mcp_app = market_mcp.http_app(path="/mcp")
 
 
 @asynccontextmanager
@@ -46,7 +47,7 @@ async def lifespan(app: FastAPI):
     # The FastMCP session manager must run for the mounted MCP endpoint. The app's
     # existing startup/shutdown logic runs inside this lifespan, because FastAPI
     # ignores @app.on_event handlers once a lifespan is provided.
-    async with frank_mcp_app.lifespan(app):
+    async with market_mcp_app.lifespan(app):
         await _startup()
         try:
             yield
@@ -58,6 +59,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Market Analysis API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Compress large JSON responses (the admin dashboard / list_all payloads are the
+# biggest in the app). Added before CORS so CORS stays the outermost middleware
+# and its headers are applied to the already-compressed response.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
@@ -251,6 +257,10 @@ async def _startup():
     if not FMP_API_KEY:
         logger.warning("FMP_API_KEY is not set - financial data features will fail")
 
+    # Initialize PostHog analytics
+    from app.core.posthog_client import init_posthog
+    init_posthog()
+
     logger.info("Market Analysis API starting up")
 
     import asyncio
@@ -299,6 +309,12 @@ async def _shutdown():
         await flush_activities()
     except Exception as e:
         logger.warning("Error flushing activities: %s", e)
+    # Flush PostHog events
+    try:
+        from app.core.posthog_client import shutdown_posthog
+        shutdown_posthog()
+    except Exception as e:
+        logger.warning("Error shutting down PostHog: %s", e)
     try:
         from app.core.database import get_insforge_service
         await get_insforge_service().close()
@@ -312,5 +328,5 @@ async def root():
     return {"message": "Market Analysis API is running"}
 
 
-# --- Mount Frank Lens MCP (Streamable HTTP) at /frank/mcp/ ---
-app.mount("/frank", frank_mcp_app)
+# --- Mount Market Lens MCP (Streamable HTTP) at /frank/mcp/ ---
+app.mount("/frank", market_mcp_app)

@@ -1,9 +1,9 @@
 'use client';
 
 import { useReducer, useCallback, useEffect, useState, useRef, Suspense, useMemo } from 'react';
-import ReactDOM from 'react-dom';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { PanelLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { api } from '@/lib/api';
@@ -15,6 +15,7 @@ import type { ConversationSummary, ResearchRequest, ResearchResult } from '@/lib
 import {
   researchReducer,
   initialState,
+  buildKolPersistedMessages,
   loadState,
   saveState,
   STORAGE_KEY,
@@ -30,7 +31,9 @@ import type { BrewContextPayload } from './_components/BrewDigestView';
 import WelcomeScreen from './_components/WelcomeScreen';
 import ChatPanel from './_components/ChatPanel';
 import ContentPanel from './_components/ContentPanel';
+import CanvasPanel from './_components/CanvasPanel';
 import ConversationSidebar from './_components/ConversationSidebar';
+import ConversationSearchDialog from './_components/ConversationSearchDialog';
 import MobileTabSwitch from './_components/MobileTabSwitch';
 import { type AgentKind } from './_components/PersonaSelector';
 import KolChunksPanel from './_components/KolChunksPanel';
@@ -48,10 +51,12 @@ const RESEARCH_MESSAGE_CHAR_LIMIT = 500;
 const KOL_MESSAGE_CHAR_LIMIT = 4000;
 const AGENT_STUCK_TIMEOUT_MS = 140_000;
 const CONVERSATIONS_PAGE_SIZE = 20;
+const CONVERSATION_SEARCH_PAGE_SIZE = 8;
 const CONVERSATIONS_STALE_TIME_MS = 10 * 60 * 1000;
 const CONVERSATIONS_GC_TIME_MS = 60 * 60 * 1000;
 const CONVERSATIONS_STORAGE_MAX_AGE_MS = 60 * 60 * 1000;
 const SEND_RUNTIME_HISTORY = process.env.NEXT_PUBLIC_AGENT_RUNTIME_SEND_HISTORY !== 'false';
+const DESKTOP_HISTORY_QUERY = '(min-width: 1024px)';
 
 type ApiHistoryMessage = { role: 'user' | 'assistant'; content: string };
 type ConversationListPage = { conversations: ConversationSummary[]; has_more?: boolean };
@@ -60,6 +65,10 @@ type StoredConversationList = {
   updatedAt: number;
   data: ConversationListInfiniteData;
 };
+
+function isDesktopViewport(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia(DESKTOP_HISTORY_QUERY).matches;
+}
 
 function getConversationStorageKey(userId: string): string {
   return `research_conversations_cache_v1:${userId}`;
@@ -110,6 +119,10 @@ function dedupeConversations(pages: ConversationListPage[]): ConversationSummary
     }
   }
   return result;
+}
+
+function normalizeConversationSearch(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 function formatConversationTitle(agentTitle: string): string {
@@ -215,7 +228,10 @@ function ScreenerContent() {
   const userTier: 'max' | 'pro' | null = isMax ? 'max' : isPro ? 'pro' : null;
   const [state, dispatch] = useReducer(researchReducer, initialState, loadState);
   const [mobileTab, setMobileTab] = useState<'chat' | 'results'>('chat');
-  const [historyOpen, setHistoryOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversationSearchOpen, setConversationSearchOpen] = useState(false);
+  const [conversationSearch, setConversationSearch] = useState('');
+  const [debouncedConversationSearch, setDebouncedConversationSearch] = useState('');
   const prevPhaseRef = useRef(state.phase);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [quota, setQuota] = useState<{ allowed: boolean; used: number; limit: number; remaining: number; unlimited: boolean } | null>(null);
@@ -226,15 +242,6 @@ function ScreenerContent() {
   // overwriting the conversation's kol_chunks / persona_username on backend.
   const personaUsername = state.personaUsername;
   const agentKind: AgentKind = personaUsername ? 'kol_research' : 'research';
-  const setPersonaUsername = useCallback((u: string | null) => {
-    dispatch({ type: 'SET_PERSONA', personaUsername: u });
-  }, []);
-  // setAgentKind is preserved as a no-op shim for call sites that used to set
-  // it directly; the actual source of truth is personaUsername.
-  const setAgentKind = useCallback((_kind: AgentKind) => {
-    // Intentional no-op. agentKind is derived from personaUsername; callers
-    // should setPersonaUsername(null) to switch off KOL mode.
-  }, []);
   // KOL citation chunks now live in reducer state (state.kolChunks) so they
   // survive sessionStorage rehydration and LOAD_CONVERSATION. The cast is
   // a thin bridge from the loose reducer type to the typed api shape.
@@ -247,6 +254,21 @@ function ScreenerContent() {
   void hasFlag;
   const kolPersonaEnabled = true;
   const stockContextRef = useRef<StockContextPayload | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia(DESKTOP_HISTORY_QUERY);
+    const syncHistoryForViewport = () => {
+      setHistoryOpen(mediaQuery.matches);
+    };
+    syncHistoryForViewport();
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncHistoryForViewport);
+      return () => mediaQuery.removeEventListener('change', syncHistoryForViewport);
+    }
+    mediaQuery.addListener(syncHistoryForViewport);
+    return () => mediaQuery.removeListener(syncHistoryForViewport);
+  }, []);
   const reportContextRef = useRef<DailyReportContextPayload | null>(null);
   const morningContextRef = useRef<MorningReportContextPayload | null>(null);
   const twitterDigestContextRef = useRef<TwitterDigestContextPayload | null>(null);
@@ -258,16 +280,39 @@ function ScreenerContent() {
   const handleSendRef = useRef<((message: string) => Promise<void>) | null>(null);
   const loadingConversationRef = useRef(false);
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const getLoginRedirectPath = useCallback(() => {
+    const query = searchParams.toString();
+    const basePath = pathname || '/research';
+    return query ? `${basePath}?${query}` : basePath;
+  }, [pathname, searchParams]);
+  const redirectToLogin = useCallback(() => {
+    router.push(`/login?redirect=${encodeURIComponent(getLoginRedirectPath())}`);
+  }, [getLoginRedirectPath, router]);
   const contextInitialized = useRef(false);
   const skipPanelSaveRef = useRef(true);
   const lastPanelContentSignatureRef = useRef<string | null>(null);
   const latestStateRef = useRef(state);
+  // Real "stop generating": holds the in-flight stream's AbortController so the
+  // cancel button can abort the fetch. Cancellation is detected PER-TURN via the
+  // closure-captured controller.signal.aborted (not a shared flag), so a rapid
+  // cancel-then-resend can't let an older turn's late AbortError clobber the new turn.
+  const abortRef = useRef<AbortController | null>(null);
   const conversationUserId = userId ?? 'anonymous';
   const conversationListQueryKey = useMemo(
     () => queryKeys.research.conversations(conversationUserId, CONVERSATIONS_PAGE_SIZE),
     [conversationUserId],
   );
-  const shouldLoadConversations = !authLoading && !!userId && (state.phase === 'welcome' || historyOpen);
+  const conversationSearchQueryKey = useMemo(
+    () => queryKeys.research.conversations(
+      conversationUserId,
+      CONVERSATION_SEARCH_PAGE_SIZE,
+      debouncedConversationSearch,
+    ),
+    [conversationUserId, debouncedConversationSearch],
+  );
+  const shouldLoadConversations = !authLoading && !!userId && (state.phase === 'welcome' || historyOpen || conversationSearchOpen);
+  const shouldSearchConversations = !authLoading && !!userId && conversationSearchOpen && !!debouncedConversationSearch;
   const storedConversationList = useMemo(
     () => (userId ? readStoredConversations(userId) : undefined),
     [userId],
@@ -300,23 +345,74 @@ function ScreenerContent() {
     () => dedupeConversations(conversationsQuery.data?.pages ?? []),
     [conversationsQuery.data],
   );
+  const searchConversationsQuery = useInfiniteQuery<
+    ConversationListPage,
+    Error,
+    ConversationListInfiniteData,
+    typeof conversationSearchQueryKey,
+    number
+  >({
+    queryKey: conversationSearchQueryKey,
+    queryFn: ({ pageParam }) => api.research.conversations.list({
+      limit: CONVERSATION_SEARCH_PAGE_SIZE,
+      offset: pageParam,
+      search: debouncedConversationSearch,
+    }),
+    enabled: shouldSearchConversations,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.has_more) return undefined;
+      return allPages.reduce((offset, page) => offset + (page.conversations?.length ?? 0), 0);
+    },
+    staleTime: CONVERSATIONS_STALE_TIME_MS,
+    gcTime: CONVERSATIONS_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+  });
+  const searchConversations = useMemo(
+    () => dedupeConversations(searchConversationsQuery.data?.pages ?? []),
+    [searchConversationsQuery.data],
+  );
   const conversationsLoaded =
     !!conversationsQuery.data || !shouldLoadConversations || !conversationsQuery.isLoading;
   const hasMoreConversations = !!conversationsQuery.hasNextPage;
   const loadingMoreConversations = conversationsQuery.isFetchingNextPage;
+  const hasMoreSearchConversations = !!searchConversationsQuery.hasNextPage;
+  const loadingMoreSearchConversations = searchConversationsQuery.isFetchingNextPage;
   // Drive the quota indicator from the backend response, not from `isMax`.
   // In local dev `NEXT_PUBLIC_ENABLE_PAYWALL=false` flips `isMax` to true for
-  // every user (so they can exercise Max-only features), but the backend
-  // `/api/research/quota` is the source of truth for the 2/day cap on free
-  // accounts. Trusting the backend here keeps the displayed counter and the
+  // every signed-in user (so they can exercise Max-only features), but the
+  // backend `/api/research/quota` is the source of truth for the free-account
+  // cap. Trusting the backend here keeps the displayed counter and the
   // disabled-input gate aligned with what the agent endpoints actually enforce.
   // The same quota is shared between research and KOL chat — see
   // backend/app/features/quota/service.py + kol_research router.
-  const effectiveQuota = quota;
+  const effectiveQuota = userId ? quota : null;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedConversationSearch(normalizeConversationSearch(conversationSearch));
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [conversationSearch]);
 
   useEffect(() => {
     latestStateRef.current = state;
   }, [state]);
+
+  // Anonymous visitors can browse the research desk, but persisted chat state
+  // belongs to the signed-in user who created it. Clear restored conversations
+  // before rendering the anonymous experience so signing out does not expose
+  // prior messages from sessionStorage.
+  useEffect(() => {
+    if (authLoading || userId) return;
+    if (!state.conversationId && state.messages.length === 0) return;
+    dispatch({ type: 'RESET' });
+  }, [authLoading, userId, state.conversationId, state.messages.length]);
+
+  useEffect(() => {
+    if (authLoading || userId || !state.isLoading || !pendingSeed.current) return;
+    dispatch({ type: 'SET_LOADING', loading: false });
+  }, [authLoading, userId, state.isLoading]);
 
   // URL parameter-driven context entry (e.g. /screener?context=daily_report&date=2026-03-19)
   // Uses CONTEXT_ENTRY action to skip welcome and start in chat+loading phase.
@@ -449,17 +545,33 @@ function ScreenerContent() {
   // — prior in-flight conversation, if any, is auto-saved via handleSend and
   // accessible from the history sidebar.
   const lastProcessedKolSeed = useRef('');
+  const manualPersonaUrlOverride = useRef<{
+    agentKind: AgentKind;
+    personaUsername: string | null;
+  } | null>(null);
   useEffect(() => {
     const agentParam = searchParams.get('agent');
     const personaParam = searchParams.get('persona');
-    if (agentParam !== 'kol' || !personaParam) return;
 
-    // Always re-assert agent kind + persona on every KOL URL visit. If the
-    // user toggled away via PersonaSelector and then came back through a
-    // same-URL link, gating these by signature would leave agentKind stuck
-    // on 'research'. React's setState bails out on unchanged values, so this
-    // is free when nothing changed.
-    setAgentKind('kol_research');
+    // PersonaSelector changes state before Next has replaced the URL. During
+    // that one render, the old ?agent=kol&persona=... params are still visible;
+    // ignore them so they do not immediately re-assert stale KOL state.
+    const manualOverride = manualPersonaUrlOverride.current;
+    if (manualOverride) {
+      if (manualOverride.agentKind === 'research') {
+        if (agentParam === 'kol') return;
+        manualPersonaUrlOverride.current = null;
+      } else if (
+        agentParam !== 'kol' ||
+        personaParam !== manualOverride.personaUsername
+      ) {
+        return;
+      } else {
+        manualPersonaUrlOverride.current = null;
+      }
+    }
+
+    if (agentParam !== 'kol' || !personaParam) return;
 
     // Seed gate fires once per (persona, q) tuple — prevents the same
     // starter URL from RESET-ing the conversation again if the user
@@ -472,11 +584,20 @@ function ScreenerContent() {
       seedQ = `按 ${personaName} 的框架分析 ${symbolParam.toUpperCase()}：他怎么看这个标的、核心逻辑是什么、有哪些原文依据？`;
     }
     if (!seedQ) {
-      setPersonaUsername(personaParam);
+      if (state.personaUsername !== personaParam) {
+        dispatch({ type: 'SWITCH_PERSONA', personaUsername: personaParam });
+      }
       return;
     }
     const signature = `${personaParam}|${seedQ}`;
     if (lastProcessedKolSeed.current === signature) return;
+
+    if (!userId) {
+      if (state.personaUsername !== personaParam) {
+        dispatch({ type: 'SWITCH_PERSONA', personaUsername: personaParam });
+      }
+      return;
+    }
 
     const firstUserMessage = state.messages.find((m) => m.role === 'user');
     const hasRestoredSeedConversation = (
@@ -507,7 +628,28 @@ function ScreenerContent() {
       pendingSeed.current = null;
       handleSendRef.current?.(msg);
     }, 250);
-  }, [searchParams, setAgentKind, setPersonaUsername, state.phase, state.personaUsername, state.messages]);
+  }, [searchParams, state.phase, state.personaUsername, state.messages, userId]);
+
+  const handlePersonaChange = useCallback((next: {
+    agentKind: AgentKind;
+    personaUsername: string | null;
+  }) => {
+    manualPersonaUrlOverride.current = next;
+    dispatch({ type: 'SWITCH_PERSONA', personaUsername: next.personaUsername });
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('q');
+    params.delete('symbol');
+    if (next.agentKind === 'kol_research' && next.personaUsername) {
+      params.set('agent', 'kol');
+      params.set('persona', next.personaUsername);
+    } else {
+      params.delete('agent');
+      params.delete('persona');
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : (pathname || '/research'), { scroll: false });
+  }, [pathname, router, searchParams]);
 
   // Persist state to sessionStorage on change
   useEffect(() => {
@@ -556,6 +698,14 @@ function ScreenerContent() {
           id: (entry.client_event_id || entry.id || `runtime-${idx}`) as string,
           role: entry.role,
           content: entry.content,
+          sessionId: cid,
+          turnId: entry.turn_id ?? null,
+          clientEventId: entry.client_event_id ?? null,
+          messageEventId: entry.id ?? null,
+          feedbackSentiment: entry.feedback_sentiment ?? null,
+          feedbackReason: entry.feedback_reason ?? null,
+          feedbackAt: entry.feedback_at ?? null,
+          feedbackPayload: entry.feedback_payload ?? {},
         })) as ChatMsg[];
         const uiState = rt.ui_state as
           | { active_content?: unknown; content_stack?: unknown }
@@ -605,17 +755,26 @@ function ScreenerContent() {
     });
   }, [conversationsQuery, hasMoreConversations, loadingMoreConversations]);
 
-  // Fetch quota on mount and when messages change. Wait for auth/subscription
-  // hydration so a paid Max user is not briefly rendered with anonymous/IP
-  // quota. Always fetch (even when `isMax` is true) because in local dev
-  // `PAYWALL_ENABLED=false` makes everyone look like Max client-side, while
-  // the backend still enforces 2/day on free accounts. Backend returns
-  // `unlimited: true` for real Max users, which keeps the counter hidden.
+  const handleLoadMoreSearchConversations = useCallback(async () => {
+    if (loadingMoreSearchConversations || !hasMoreSearchConversations) return;
+    await searchConversationsQuery.fetchNextPage().catch(() => {
+      // Silently ignore — user can retry by clicking again
+    });
+  }, [hasMoreSearchConversations, loadingMoreSearchConversations, searchConversationsQuery]);
+
+  // Fetch quota for signed-in users on mount and when messages change. Wait
+  // for auth/subscription hydration so a paid Max user is not briefly rendered
+  // with the wrong free-account quota. Anonymous visitors can browse the page
+  // but cannot send, so quota UI stays hidden until login.
   useEffect(() => {
     if (authLoading || subLoading) return;
+    if (!userId) {
+      setQuota(null);
+      return;
+    }
 
     let cancelled = false;
-    api.research.quota({ requiredAuth: !!userId }).then(q => {
+    api.research.quota({ requiredAuth: true }).then(q => {
       if (!cancelled && q.success) setQuota(q);
     }).catch(() => {
       if (!cancelled) {
@@ -865,6 +1024,10 @@ function ScreenerContent() {
   // Auto-send pending seed message when context data is ready
   const flushPendingSeed = useCallback(() => {
     if (!pendingSeed.current) return;
+    if (!userId) {
+      dispatch({ type: 'SET_LOADING', loading: false });
+      return;
+    }
     const seed = pendingSeed.current;
     pendingSeed.current = null;
     // Small delay to ensure React state from CONTEXT_ENTRY has settled before sending
@@ -873,7 +1036,7 @@ function ScreenerContent() {
       pendingSeedTimerRef.current = null;
       handleSendRef.current?.(seed);
     }, 100);
-  }, []);
+  }, [userId]);
 
   // Receive stock data from StockResearchView for Agent context
   const handleStockContextReady = useCallback((payload: StockContextPayload) => {
@@ -1016,7 +1179,9 @@ function ScreenerContent() {
       dispatch({ type: 'SET_ERROR', error: `问题太长了，请压缩到 ${KOL_MESSAGE_CHAR_LIMIT} 字以内再发送` });
       return;
     }
-    dispatch({ type: 'SEND_MESSAGE', message });
+    const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
+    const turnId = crypto.randomUUID();
+    dispatch({ type: 'SEND_MESSAGE', message, sessionId: conversationIdForTurn, turnId });
     try {
       const history = buildCompactHistory(state.messages, KOL_HISTORY_LIMIT);
       const existingChunks = (latestStateRef.current.kolChunks as unknown as KolPersonaChunk[]) || [];
@@ -1026,8 +1191,9 @@ function ScreenerContent() {
       let finalChunks: KolPersonaChunk[] = [];
       let finalNavigate: { type: string; params: Record<string, string>; reason?: string } | null = null;
       let errored = false;
-      const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
-      const turnId = crypto.randomUUID();
+
+      const controller = new AbortController();
+      abortRef.current = controller;
 
       await api.kolResearch.chatStream(
         {
@@ -1041,40 +1207,33 @@ function ScreenerContent() {
         },
         (event: KolResearchStreamEvent) => {
           if (event.type === 'skill_activated') {
-            ReactDOM.flushSync(() => {
-              dispatch({
-                type: 'TOOL_ACTIVITY',
-                tool: 'load_skill',
-                description: event.description,
-                status: 'start',
-              });
+            dispatch({
+              type: 'TOOL_ACTIVITY',
+              tool: 'load_skill',
+              description: event.description,
+              status: 'start',
             });
           } else if (event.type === 'tool_call_start') {
-            ReactDOM.flushSync(() => {
-              dispatch({
-                type: 'TOOL_ACTIVITY',
-                tool: event.tool,
-                description: event.description,
-                status: 'start',
-              });
+            dispatch({
+              type: 'TOOL_ACTIVITY',
+              tool: event.tool,
+              description: event.description,
+              status: 'start',
             });
           } else if (event.type === 'tool_call_end') {
             // no-op — keep description visible until next event
           } else if (event.type === 'message_delta') {
             // Token-by-token streaming: append to the in-progress assistant msg.
-            ReactDOM.flushSync(() => {
-              dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text });
-            });
+            dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text, sessionId: conversationIdForTurn, turnId });
           } else if (event.type === 'thinking') {
             // Chain-of-thought chunk: accumulate on the same in-progress msg.
-            ReactDOM.flushSync(() => {
-              dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text });
-            });
+            dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text, sessionId: conversationIdForTurn, turnId });
           } else if (event.type === 'final') {
             finalMessage = event.data.message;
             finalChunks = event.data.kol_chunks || [];
             finalNavigate = (event.data.navigate as typeof finalNavigate) || null;
           } else if (event.type === 'error') {
+            if (controller.signal.aborted) return; // this turn was cancelled — handled by handleCancelLoading
             errored = true;
             // Log the full backend error payload so the console shows code +
             // raw message even after we map it to a user-facing string. Grep
@@ -1083,8 +1242,10 @@ function ScreenerContent() {
             dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
           }
         },
+        controller.signal,
       );
 
+      if (controller.signal.aborted) return; // intentional cancel — keep partial answer
       if (errored) return;
       if (!finalMessage) {
         // Stream closed without emitting `final` or `error`. Common causes:
@@ -1143,7 +1304,7 @@ function ScreenerContent() {
       // Route title through RECEIVE_RESPONSE so it lands in state.conversationTitle.
       const resultWithTitle: ResearchResult = { ...result, title: titleForRespose };
       const chunksToPersist = finalChunks.length > 0 ? finalChunks : existingChunks;
-      dispatch({ type: 'RECEIVE_RESPONSE', result: resultWithTitle });
+      dispatch({ type: 'RECEIVE_RESPONSE', result: resultWithTitle, sessionId: conversationIdForTurn, turnId });
       dispatch({
         type: 'SET_KOL_CHUNKS',
         chunks: chunksToPersist as unknown as Record<string, unknown>[],
@@ -1162,11 +1323,12 @@ function ScreenerContent() {
         // then append the current user + assistant manually — otherwise we
         // double-record the turn (which is exactly the bug that caused every
         // saved KOL conversation to grow at 2× the visible rate).
-        const allMessages = [
-          ...state.messages,
-          { id: `u-${Date.now()}`, role: 'user' as const, content: message },
-          { id: `a-${Date.now()}`, role: 'assistant' as const, content: finalMessage },
-        ];
+        const allMessages = buildKolPersistedMessages({
+          existingMessages: state.messages,
+          isFirstTurn,
+          userMessage: message,
+          assistantMessage: finalMessage,
+        });
         const convData: Record<string, unknown> = {
           messages: allMessages,
           kol_chunks: chunksToPersist,
@@ -1225,6 +1387,10 @@ function ScreenerContent() {
   }, [buildActiveContext, state.messages, personaUsername, upsertConversationSummary]);
 
   const handleSend = useCallback(async (message: string) => {
+    if (!userId) {
+      redirectToLogin();
+      return;
+    }
     // Route to KOL agent codepath when a persona is loaded.
     if (agentKind === 'kol_research') {
       return handleKolSend(message);
@@ -1236,15 +1402,15 @@ function ScreenerContent() {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Screener] handleSend called, isLoading was:', state.isLoading);
     }
-    dispatch({ type: 'SEND_MESSAGE', message });
+    const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
+    const turnId = crypto.randomUUID();
+    dispatch({ type: 'SEND_MESSAGE', message, sessionId: conversationIdForTurn, turnId });
 
     try {
       const activeContext = buildActiveContext();
 
       let streamResult: ResearchResult | null = null;
       let streamErrorHandled = false;
-      const conversationIdForTurn = latestStateRef.current.conversationId ?? crypto.randomUUID();
-      const turnId = crypto.randomUUID();
 
       await api.research.chatStream(
         {
@@ -1260,9 +1426,7 @@ function ScreenerContent() {
         },
         (event) => {
           if (event.type === 'tool_call_start' && event.tool && event.description) {
-            ReactDOM.flushSync(() => {
-              dispatch({ type: 'TOOL_ACTIVITY', tool: event.tool!, description: event.description!, status: 'start' });
-            });
+            dispatch({ type: 'TOOL_ACTIVITY', tool: event.tool!, description: event.description!, status: 'start' });
           } else if (event.type === 'tool_call_end') {
             // Don't dispatch end — let the description stay visible.
             // It gets replaced by the next tool_call_start or cleared by RECEIVE_RESPONSE.
@@ -1290,7 +1454,7 @@ function ScreenerContent() {
         return;
       }
 
-      dispatch({ type: 'RECEIVE_RESPONSE', result });
+      dispatch({ type: 'RECEIVE_RESPONSE', result, sessionId: conversationIdForTurn, turnId });
       trackScreenerFilterUsed({
         result,
         queryLength: message.trim().length,
@@ -1456,12 +1620,12 @@ function ScreenerContent() {
       const authError = getAuthErrorPresentation(err, 'AI 助手暂时无法响应');
       if (authError.shouldRedirectToLogin) {
         await signOut().catch(() => {});
-        router.push('/login?redirect=/research');
+        redirectToLogin();
         return;
       }
       dispatch({ type: 'SET_ERROR', error: authError.message });
     }
-  }, [agentKind, personaUsername, handleKolSend, buildHistory, buildActiveContext, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, state.kolChunks, router, buildConversationData, saveConversation, signOut, userId]);
+  }, [agentKind, personaUsername, handleKolSend, buildHistory, buildActiveContext, state.isLoading, state.accumulatedFilters, state.activeContent, state.contentStack, state.conversationId, state.conversationTitle, state.messages, state.funnelSteps, state.kolChunks, buildConversationData, saveConversation, signOut, userId, redirectToLogin]);
 
   // Keep ref in sync so flushPendingSeed can call the latest handleSend
   useEffect(() => {
@@ -1513,6 +1677,7 @@ function ScreenerContent() {
   // Cancel stuck loading — lets user recover without refreshing
   const handleCancelLoading = useCallback(() => {
     if (!state.isLoading) return;
+    abortRef.current?.abort();
     dispatch({ type: 'SET_ERROR', error: '已取消。你可以重新发送或换个问题试试' });
   }, [state.isLoading]);
 
@@ -1644,6 +1809,14 @@ function ScreenerContent() {
             id: entry.client_event_id || entry.id || `runtime-${idx}`,
             role: entry.role,
             content: entry.content,
+            sessionId: conversationId,
+            turnId: entry.turn_id ?? null,
+            clientEventId: entry.client_event_id ?? null,
+            messageEventId: entry.id ?? null,
+            feedbackSentiment: entry.feedback_sentiment ?? null,
+            feedbackReason: entry.feedback_reason ?? null,
+            feedbackAt: entry.feedback_at ?? null,
+            feedbackPayload: entry.feedback_payload ?? {},
           }));
         }
         const uiState = runtimeSession.ui_state as { active_content?: unknown; content_stack?: unknown } | null;
@@ -1670,6 +1843,114 @@ function ScreenerContent() {
     }
   }, [conversations, loadConversationData]);
 
+  const handleRenameConversation = useCallback(async (conversationId: string, title: string) => {
+    const nextTitle = title.trim().slice(0, 50);
+    if (!nextTitle) return;
+
+    const activeState = latestStateRef.current;
+    const summary = conversations.find((conv) => conv.id === conversationId);
+    let conversation: Record<string, unknown> | undefined = convCache.current.get(conversationId);
+
+    if (conversationId === activeState.conversationId) {
+      const data = buildConversationData(
+        activeState.messages,
+        {
+          accumulated_filters: activeState.accumulatedFilters,
+          candidates: activeState.candidates,
+          candidate_count: activeState.candidateCount,
+          universe_size: activeState.universeSize,
+          recommendations: activeState.recommendations,
+        },
+        activeState.funnelSteps,
+        activeState.activeContent,
+        activeState.contentStack,
+        activeState.personaUsername
+          ? {
+              kolChunks: activeState.kolChunks,
+              personaUsername: activeState.personaUsername,
+            }
+          : undefined,
+      );
+      conversation = {
+        ...(conversation || {}),
+        title: activeState.conversationTitle,
+        data,
+        message_count: activeState.messages.length,
+      };
+    }
+
+    if (!conversation) {
+      conversation = await api.research.conversations.get(conversationId);
+    }
+
+    const data = (
+      conversation.data &&
+      typeof conversation.data === 'object' &&
+      !Array.isArray(conversation.data)
+    )
+      ? conversation.data as Record<string, unknown>
+      : {};
+    const messageCount = typeof conversation.message_count === 'number'
+      ? conversation.message_count
+      : Array.isArray(data.messages)
+        ? data.messages.length
+        : summary?.message_count ?? 0;
+    const persona = typeof data.persona_username === 'string' && data.persona_username
+      ? data.persona_username
+      : null;
+
+    setSaveStatus('saving');
+    try {
+      if (persona) {
+        await api.kolResearch.conversations.update(conversationId, {
+          title: nextTitle,
+          data,
+          message_count: messageCount,
+          persona_username: persona,
+          touch: false,
+        });
+      } else {
+        await api.research.conversations.update(conversationId, {
+          title: nextTitle,
+          data,
+          message_count: messageCount,
+          touch: false,
+        });
+      }
+
+      convCache.current.set(conversationId, {
+        ...conversation,
+        title: nextTitle,
+        data,
+        message_count: messageCount,
+      });
+      if (latestStateRef.current.conversationId === conversationId) {
+        dispatch({ type: 'SET_CONVERSATION_TITLE', title: nextTitle });
+      }
+      upsertConversationSummary({
+        id: conversationId,
+        title: nextTitle,
+        message_count: messageCount,
+        updated_at: summary?.updated_at || new Date().toISOString(),
+      }, { promote: false });
+      void queryClient.invalidateQueries({
+        queryKey: ['research', 'conversations', conversationUserId],
+        exact: false,
+      });
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (error) {
+      setSaveStatus('idle');
+      throw error;
+    }
+  }, [
+    buildConversationData,
+    conversationUserId,
+    conversations,
+    queryClient,
+    upsertConversationSummary,
+  ]);
+
   // Delete a conversation
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
     try {
@@ -1685,6 +1966,41 @@ function ScreenerContent() {
     }
   }, [removeConversationSummary, state.conversationId]);
 
+  const handleOpenConversationSearch = useCallback(() => {
+    if (!userId) {
+      redirectToLogin();
+      return;
+    }
+    setConversationSearchOpen(true);
+  }, [redirectToLogin, userId]);
+
+  const openHistorySidebar = useCallback(() => {
+    setHistoryOpen(true);
+  }, []);
+
+  const closeHistoryOnNarrowScreen = useCallback(() => {
+    if (!isDesktopViewport()) {
+      setHistoryOpen(false);
+    }
+  }, []);
+
+  const handleSidebarLoadConversation = useCallback((conversationId: string) => {
+    setMobileTab('chat');
+    closeHistoryOnNarrowScreen();
+    void handleLoadConversation(conversationId);
+  }, [closeHistoryOnNarrowScreen, handleLoadConversation]);
+
+  const handleSidebarNewChat = useCallback(() => {
+    dispatch({ type: 'RESET' });
+    setMobileTab('chat');
+    closeHistoryOnNarrowScreen();
+  }, [closeHistoryOnNarrowScreen]);
+
+  const handleSidebarSearchOpen = useCallback(() => {
+    closeHistoryOnNarrowScreen();
+    handleOpenConversationSearch();
+  }, [closeHistoryOnNarrowScreen, handleOpenConversationSearch]);
+
   // Mobile tab change
   const handleTabChange = useCallback((tab: 'chat' | 'results') => {
     setMobileTab(tab);
@@ -1696,6 +2012,16 @@ function ScreenerContent() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        handleOpenConversationSearch();
+        return;
+      }
+      if (e.key === 'Escape' && historyOpen && !isDesktopViewport()) {
+        e.preventDefault();
+        setHistoryOpen(false);
+        return;
+      }
       if (e.key === 'Escape' && state.isLoading) {
         e.preventDefault();
         handleCancelLoading();
@@ -1703,10 +2029,96 @@ function ScreenerContent() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state.isLoading, handleCancelLoading]);
+  }, [historyOpen, state.isLoading, handleCancelLoading, handleOpenConversationSearch]);
+
+  const handleConversationSearchOpenChange = useCallback((open: boolean) => {
+    setConversationSearchOpen(open);
+    if (!open) setConversationSearch('');
+  }, []);
+
+  const normalizedConversationSearch = normalizeConversationSearch(conversationSearch);
+  const searchLoading = normalizedConversationSearch.length > 0 && (
+    debouncedConversationSearch !== normalizedConversationSearch ||
+    (searchConversationsQuery.isLoading && searchConversations.length === 0)
+  );
+
+  const conversationSearchDialog = (
+    <ConversationSearchDialog
+      open={conversationSearchOpen}
+      onOpenChange={handleConversationSearchOpenChange}
+      query={conversationSearch}
+      onQueryChange={setConversationSearch}
+      recentConversations={conversations}
+      recentLoading={!conversationsLoaded}
+      searchResults={searchConversations}
+      searchLoading={searchLoading}
+      hasMoreRecent={hasMoreConversations}
+      loadingMoreRecent={loadingMoreConversations}
+      onLoadMoreRecent={handleLoadMoreConversations}
+      hasMoreSearch={hasMoreSearchConversations}
+      loadingMoreSearch={loadingMoreSearchConversations}
+      onLoadMoreSearch={handleLoadMoreSearchConversations}
+      onLoad={handleSidebarLoadConversation}
+      requestInFlight={state.isLoading}
+    />
+  );
+
+  const mobileHistoryDrawer = (
+    <>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="历史对话"
+        aria-hidden={!historyOpen}
+        className={`
+          lg:hidden absolute inset-y-0 left-0 z-40 flex min-h-0 flex-col overflow-hidden border-r border-border/50 bg-background shadow-2xl
+          transition-[width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
+          ${historyOpen ? 'w-80 max-w-full opacity-100' : 'w-0 opacity-0 pointer-events-none'}
+        `}
+      >
+        <ConversationSidebar
+          conversations={conversations}
+          loading={historyOpen && !conversationsLoaded}
+          currentId={state.conversationId}
+          onLoad={handleSidebarLoadConversation}
+          onDelete={handleDeleteConversation}
+          onRename={handleRenameConversation}
+          onNewChat={handleSidebarNewChat}
+          requestInFlight={state.isLoading}
+          onToggle={() => setHistoryOpen(false)}
+          userName={user?.name}
+          userEmail={user?.email}
+          userTier={userTier}
+          hasMore={hasMoreConversations}
+          loadingMore={loadingMoreConversations}
+          onLoadMore={handleLoadMoreConversations}
+          onSearchOpen={handleSidebarSearchOpen}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => setHistoryOpen(false)}
+        className={`
+          lg:hidden absolute inset-0 z-30 bg-black/25 transition-opacity duration-300 ease-out
+          ${historyOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}
+        `}
+        aria-label="关闭历史对话"
+        aria-hidden={!historyOpen}
+        tabIndex={historyOpen ? 0 : -1}
+      />
+    </>
+  );
 
   // Auth loading
   if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId && (state.conversationId || state.messages.length > 0)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
@@ -1718,23 +2130,24 @@ function ScreenerContent() {
   if (state.phase === 'welcome') {
     return (
       <div className="fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex">
+        {mobileHistoryDrawer}
         {/* Shared sidebar */}
         <div
           className={`
-            hidden lg:flex shrink-0 border-r border-border/50 overflow-hidden flex-col
+            hidden shrink-0 border-r border-border/50 overflow-hidden flex-col lg:flex
             transition-[width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
-            ${historyOpen ? 'opacity-100' : 'w-0 opacity-0 pointer-events-none'}
+            ${historyOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 pointer-events-none'}
           `}
-          style={historyOpen ? { width: 'clamp(14rem, 15vw, 18rem)' } : undefined}
           aria-hidden={!historyOpen}
         >
           <ConversationSidebar
             conversations={conversations}
             loading={!conversationsLoaded}
             currentId={state.conversationId}
-            onLoad={handleLoadConversation}
+            onLoad={handleSidebarLoadConversation}
             onDelete={handleDeleteConversation}
-            onNewChat={() => dispatch({ type: 'RESET' })}
+            onRename={handleRenameConversation}
+            onNewChat={handleSidebarNewChat}
             requestInFlight={false}
             onToggle={() => setHistoryOpen(false)}
             userName={user?.name}
@@ -1743,11 +2156,24 @@ function ScreenerContent() {
             hasMore={hasMoreConversations}
             loadingMore={loadingMoreConversations}
             onLoadMore={handleLoadMoreConversations}
+            onSearchOpen={handleSidebarSearchOpen}
           />
         </div>
+        {conversationSearchDialog}
 
         {/* Welcome content — when sidebar is collapsed, show an obvious open button */}
-        <div className="flex-1 flex flex-col">
+        <div className="min-w-0 flex-1 flex flex-col">
+          <div className="lg:hidden shrink-0 border-b border-border/50 bg-background/85 px-2 py-2 backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={openHistorySidebar}
+              title="历史对话"
+              aria-label="打开历史对话"
+              className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            >
+              <PanelLeft className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
           <div
             className={`
               shrink-0 px-3 py-2 hidden lg:flex items-center
@@ -1757,7 +2183,7 @@ function ScreenerContent() {
             aria-hidden={historyOpen}
           >
             <button
-              onClick={() => setHistoryOpen(true)}
+              onClick={openHistorySidebar}
               title="展开历史对话"
               aria-label="展开历史对话"
               className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md text-foreground/80 hover:text-foreground bg-muted/40 hover:bg-muted/70 border border-border/60 transition-colors cursor-pointer"
@@ -1778,12 +2204,7 @@ function ScreenerContent() {
               personaSelectorEnabled={kolPersonaEnabled}
               agentKind={agentKind}
               personaUsername={personaUsername}
-              onPersonaChange={({ agentKind: nextKind, personaUsername: nextUser }) => {
-                setAgentKind(nextKind);
-                setPersonaUsername(nextUser);
-                dispatch({ type: 'SET_KOL_CHUNKS', chunks: [] });
-                // Already at welcome screen, no reducer reset needed.
-              }}
+              onPersonaChange={handlePersonaChange}
             />
           </div>
         </div>
@@ -1794,12 +2215,15 @@ function ScreenerContent() {
   // Chat phase - split layout
   return (
     <div className="fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10">
+      {mobileHistoryDrawer}
+      {conversationSearchDialog}
       {/* Mobile tab switch */}
       <div className="lg:hidden shrink-0">
         <MobileTabSwitch
           activeTab={mobileTab}
           onTabChange={handleTabChange}
           hasNewResults={state.hasNewResults}
+          onHistoryOpen={openHistorySidebar}
         />
       </div>
 
@@ -1809,7 +2233,7 @@ function ScreenerContent() {
         <div
           data-testid="research-chat-shell"
           className={`
-            w-full lg:w-1/2 lg:border-r lg:border-border/20
+            w-full lg:flex-1 lg:min-w-0 lg:border-r lg:border-border/20
             ${mobileTab === 'chat' ? 'flex' : 'hidden lg:flex'}
             min-h-0 overflow-hidden
           `}
@@ -1817,22 +2241,22 @@ function ScreenerContent() {
           {/* Collapsible history sidebar — overlay on mobile, inline on desktop */}
           <div
             className={`
-              shrink-0 border-r border-border/50 overflow-hidden flex min-h-0 flex-col
+              hidden shrink-0 border-r border-border/50 overflow-hidden min-h-0 flex-col lg:flex
               transition-[width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
               ${historyOpen
-                ? 'absolute inset-y-0 lg:relative lg:inset-y-auto h-full lg:h-auto z-20 bg-background shadow-xl lg:shadow-none opacity-100'
+                ? 'w-72 opacity-100'
                 : 'w-0 opacity-0 pointer-events-none'}
             `}
-            style={historyOpen ? { width: 'clamp(16rem, 70vw, 18rem)' } : undefined}
             aria-hidden={!historyOpen}
           >
             <ConversationSidebar
               conversations={conversations}
               loading={historyOpen && !conversationsLoaded}
               currentId={state.conversationId}
-              onLoad={handleLoadConversation}
+              onLoad={handleSidebarLoadConversation}
               onDelete={handleDeleteConversation}
-              onNewChat={() => dispatch({ type: 'RESET' })}
+              onRename={handleRenameConversation}
+              onNewChat={handleSidebarNewChat}
               requestInFlight={state.isLoading}
               onToggle={() => setHistoryOpen(false)}
               userName={user?.name}
@@ -1841,24 +2265,15 @@ function ScreenerContent() {
               hasMore={hasMoreConversations}
               loadingMore={loadingMoreConversations}
               onLoadMore={handleLoadMoreConversations}
+              onSearchOpen={handleSidebarSearchOpen}
             />
           </div>
-          {/* Backdrop overlay — mobile only, closes sidebar on tap */}
-          <div
-            onClick={() => setHistoryOpen(false)}
-            className={`
-              absolute inset-0 z-10 bg-black/20 lg:hidden
-              transition-opacity duration-300 ease-out
-              ${historyOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
-            `}
-            aria-hidden={!historyOpen}
-          />
           {/* Chat panel */}
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative min-w-0">
             {/* Chat header: sidebar toggle + persona selector */}
             <div className="shrink-0 px-3 py-2 flex items-center gap-2">
               <button
-                onClick={() => setHistoryOpen(true)}
+                onClick={openHistorySidebar}
                 title="历史对话"
                 aria-label="展开历史对话"
                 tabIndex={historyOpen ? -1 : 0}
@@ -1885,6 +2300,7 @@ function ScreenerContent() {
               toolActivities={state.toolActivities}
               quota={effectiveQuota}
               citations={agentKind === 'kol_research' ? latestKolChunks : undefined}
+              conversationId={state.conversationId}
               personaUsername={
                 kolPersonaEnabled && agentKind === 'kol_research' ? personaUsername : null
               }
@@ -1897,13 +2313,11 @@ function ScreenerContent() {
           </div>
         </div>
 
-        {/* Right: Content panel (or KOL citation cards when in KOL mode) */}
-        <div
-          className={`
-            w-full lg:w-1/2
-            ${mobileTab === 'results' ? 'flex' : 'hidden lg:flex'}
-            min-h-0 flex-col overflow-hidden
-          `}
+        {/* Right: Content panel (or KOL citation cards when in KOL mode) —
+            ChatGPT-canvas-style: drag-resizable + collapsible on desktop. */}
+        <CanvasPanel
+          mobileActive={mobileTab === 'results'}
+          contentKey={`${agentKind}:${getPanelContentSignature(state.activeContent, state.contentStack)}:${latestKolChunks?.length ?? 0}`}
         >
           {agentKind === 'kol_research' ? (
             <KolChunksPanel chunks={latestKolChunks} variant="panel" />
@@ -1930,7 +2344,7 @@ function ScreenerContent() {
               onBrewContextReady={handleBrewContextReady}
             />
           )}
-        </div>
+        </CanvasPanel>
       </div>
     </div>
   );

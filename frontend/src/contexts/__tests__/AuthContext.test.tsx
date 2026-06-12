@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { AuthProvider, useAuth } from '../AuthContext';
+import { AuthProvider, getAccessTokenAsync, getAccessTokenSync, refreshSession, useAuth } from '../AuthContext';
 
 const mockSignInAction = vi.fn();
 const mockSignOutAction = vi.fn();
@@ -39,6 +39,11 @@ function mockSessionResponse(user: unknown, accessToken: string | null = 'tok123
     ok: true,
     json: () => Promise.resolve({ user, accessToken }),
   });
+}
+
+function makeJwt(expSeconds: number): string {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  return `${encode({ alg: 'none' })}.${encode({ exp: expSeconds })}.sig`;
 }
 
 function AuthConsumer() {
@@ -257,5 +262,34 @@ describe('AuthContext', () => {
       writable: true,
       value: originalLocation,
     });
+  });
+
+  it('refreshes cached access token before returning an expired JWT', async () => {
+    const expiredToken = makeJwt(Math.floor(Date.now() / 1000) - 60);
+    const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 15 * 60);
+
+    mockSessionResponse({ id: 'u1', email: 'test@test.com' }, expiredToken);
+    await refreshSession();
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        user: { id: 'u1', email: 'test@test.com' },
+        accessToken: freshToken,
+      }),
+    });
+    globalThis.fetch = fetchMock;
+
+    await expect(getAccessTokenAsync()).resolves.toBe(freshToken);
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/session');
+  });
+
+  it('makes sync token reads fall back to async refresh when cached JWT is expired', async () => {
+    const expiredToken = makeJwt(Math.floor(Date.now() / 1000) - 60);
+
+    mockSessionResponse({ id: 'u1', email: 'test@test.com' }, expiredToken);
+    await refreshSession();
+
+    expect(getAccessTokenSync()).toBeNull();
   });
 });

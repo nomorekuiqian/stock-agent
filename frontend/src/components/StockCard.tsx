@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { X } from 'lucide-react';
+import { formatStockPrice } from '@/lib/currency';
 
 export interface StockQuoteData {
   symbol: string;
@@ -90,7 +91,7 @@ export default function StockCard({
       style={{ animationDelay: `${index * 40}ms` }}
       onClick={onClick}
     >
-      <div className="relative bg-card border border-border/50 rounded-xl p-4 group-hover:translate-y-[-1px] hover-glow">
+      <div className="relative bg-card border border-border/50 rounded-xl p-4 group-hover:translate-y-[-1px]">
         {onRemove && (
           // Hover-capable pointers reveal the X on group-hover only.
           // [@media(hover:none)] forces it visible on touch devices where there
@@ -125,7 +126,7 @@ export default function StockCard({
           {price !== undefined ? (
             <>
               <span className="font-mono text-sm font-medium text-foreground tabular-nums">
-                ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {formatStockPrice(price, quote?.symbol || symbol, undefined, { compactPrice: true })}
               </span>
               {dailyChange !== undefined && (
                 <span className={`font-mono text-xs tabular-nums ${

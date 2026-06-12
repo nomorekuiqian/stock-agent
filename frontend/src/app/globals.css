@@ -22,44 +22,31 @@
     system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
 
-  /* Dark-First Premium Theme */
-  --color-background: #050506;
-  --color-foreground: #fafaf9;
-
-  --color-card: #111113;
-  --color-card-foreground: #fafaf9;
-
-  --color-popover: #0c0c0e;
-  --color-popover-foreground: #fafaf9;
-
-  /* Emerald - The Signature Accent */
-  --color-primary: #10b981;
-  --color-primary-foreground: #050506;
-
-  --color-secondary: #141416;
-  --color-secondary-foreground: #fafaf9;
-
-  --color-muted: #1a1a1d;
-  --color-muted-foreground: #a1a1aa;
-
-  --color-accent: #10b981;
-  --color-accent-foreground: #050506;
-
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #fafaf9;
-
-  --color-success: #10b981;
-  --color-success-foreground: #050506;
-
-  --color-border: #3f3f46;
-  --color-input: #1a1a1d;
-  --color-ring: #10b981;
+  /* NOTE: color tokens are NOT defined here. Runtime color values live in
+     the :root, .dark / .light / .hero-dark layers below and are mapped to
+     --color-* utilities via the `@theme inline` block at the bottom of this
+     file. Defining color literals here is dead code (overridden by
+     @theme inline -> var(--*)) and previously caused two contradictions
+     (--color-accent emerald-vs-surface, --color-input vs --border). Only
+     structural, non-color design tokens belong in this @theme block. */
 
   --radius: 0.5rem;
 
   /* Custom Type Scale Tokens */
   --text-micro: 0.625rem; /* 10px - avatar monograms, data source labels, tooltips */
   --text-data-hero: 2.5rem; /* 40px - dashboard hero metric numbers */
+
+  /* Motion tokens — single source of truth for duration + easing across the
+     whole app (agent chat, panels, lists). Keyframes and components reference
+     these instead of scattered literal cubic-bezier()/durations. The --ease-*
+     entries also generate Tailwind `ease-out-expo` / `ease-out-standard`
+     utilities. */
+  --duration-instant: 80ms;
+  --duration-fast: 160ms;
+  --duration-base: 240ms;
+  --duration-slow: 400ms;
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-standard: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ============================================
@@ -85,31 +72,44 @@
    - Weight: 400 body / 500 labels / 600 headings (3 tiers only)
    ============================================ */
 
-:root {
+/* Dark theme = default. Bare :root keeps dark with JS disabled /
+   pre-hydration (no FOUC to light); .dark makes the class explicit so the
+   `dark:` @custom-variant (&:is(.dark *)) gates utilities on a class that
+   actually carries tokens. next-themes (attribute="class") adds .light to
+   override below. */
+:root,
+.dark {
   --radius: 0.5rem;
 
-  /* Premium Dark Theme - Default */
-  --background: #050506;
-  --foreground: #fafaf9;
-  --card: #111113;
-  --card-foreground: #fafaf9;
-  --popover: #0c0c0e;
-  --popover-foreground: #fafaf9;
+  /* Premium Dark Theme - Default — WARM near-black (Lovart-grade).
+     Elevation via lightness ladder, not shadows:
+     base #100F09 -> secondary/accent #17160E -> muted #1A1915
+     -> card #201F1D -> popover/overlay #26241F (~3-5 L apart). */
+  --background: #100f09;
+  --foreground: #f5f4ef;
+  --card: #201f1d;
+  --card-foreground: #f5f4ef;
+  --popover: #26241f;
+  --popover-foreground: #f5f4ef;
   --primary: #10b981;
-  --primary-foreground: #050506;
-  --secondary: #141416;
-  --secondary-foreground: #fafaf9;
-  --muted: #1a1a1d;
-  --muted-foreground: #a1a1aa;
-  --accent: #141416;
+  --primary-foreground: #100f09;
+  --secondary: #17160e;
+  --secondary-foreground: #f5f4ef;
+  --muted: #1a1915;
+  --muted-foreground: #a8a59b;
+  --accent: #17160e;
   --accent-foreground: #10b981;
   --destructive: #ef4444;
-  --destructive-foreground: #fafaf9;
-  --border: #3f3f46;
-  --input: #3f3f46;
+  --destructive-foreground: #f5f4ef;
+  /* Semantic direction tokens (dark) — gain=green, loss=red. Colors unchanged. */
+  --gain: #34d399;
+  --loss: #f87171;
+  /* Warm hairline border (~9% warm-white); --input decoupled & quieter (~6%). */
+  --border: rgba(245, 244, 239, 0.09);
+  --input: rgba(245, 244, 239, 0.06);
   --ring: #10b981;
 
-  /* Chart Palette - Emerald Spectrum */
+  /* Chart Palette - Emerald Spectrum (see notes: keep on warm base) */
   --chart-1: #10b981;
   --chart-2: #34d399;
   --chart-3: #6ee7b7;
@@ -117,66 +117,74 @@
   --chart-5: #d1fae5;
 
   /* Sidebar */
-  --sidebar: #050506;
-  --sidebar-foreground: #fafaf9;
+  --sidebar: #100f09;
+  --sidebar-foreground: #f5f4ef;
   --sidebar-primary: #10b981;
-  --sidebar-primary-foreground: #050506;
-  --sidebar-accent: #141416;
+  --sidebar-primary-foreground: #100f09;
+  --sidebar-accent: #17160e;
   --sidebar-accent-foreground: #10b981;
-  --sidebar-border: #3f3f46;
+  --sidebar-border: rgba(245, 244, 239, 0.09);
   --sidebar-ring: #10b981;
 }
 
-/* Light Theme - Refined & Warm */
+/* Light Theme - Warm Editorial Paper (not clinical white).
+   Warm cream base, faintly warm card/surface ladder, warm-grey ink. */
 .light {
-  --background: #fafaf8;
-  --foreground: #18181b;
-  --card: #ffffff;
-  --card-foreground: #18181b;
-  --popover: #ffffff;
-  --popover-foreground: #18181b;
+  --background: #faf8f3;
+  --foreground: #1c1a17;
+  --card: #fffdf9;
+  --card-foreground: #1c1a17;
+  --popover: #fffdf9;
+  --popover-foreground: #1c1a17;
   --primary: #059669;
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
+  --secondary: #f3f0e9;
+  --secondary-foreground: #1c1a17;
+  --muted: #f3f0e9;
+  --muted-foreground: #78716c;
   --accent: #ecfdf5;
   --accent-foreground: #059669;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
+  /* Semantic direction tokens (light) — deeper for contrast on paper.
+     gain=emerald-600, loss=red-600. Colors unchanged from convention. */
+  --gain: #059669;
+  --loss: #dc2626;
+  /* Warm paper hairline; --input decoupled & slightly stronger for affordance. */
+  --border: rgba(28, 26, 23, 0.08);
+  --input: rgba(28, 26, 23, 0.12);
   --ring: #059669;
 
-  --sidebar: #fafaf8;
-  --sidebar-foreground: #18181b;
+  --sidebar: #faf8f3;
+  --sidebar-foreground: #1c1a17;
   --sidebar-primary: #059669;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #ecfdf5;
   --sidebar-accent-foreground: #059669;
-  --sidebar-border: #e4e4e7;
+  --sidebar-border: rgba(28, 26, 23, 0.08);
   --sidebar-ring: #059669;
 }
 
-/* Force dark theme for hero section regardless of theme */
+/* Force dark theme for hero section regardless of theme — warm base */
 .hero-dark {
-  --background: #050506;
-  --foreground: #fafaf9;
-  --card: #111113;
-  --card-foreground: #fafaf9;
-  --popover: #0c0c0e;
-  --popover-foreground: #fafaf9;
+  --background: #100f09;
+  --foreground: #f5f4ef;
+  --card: #201f1d;
+  --card-foreground: #f5f4ef;
+  --popover: #26241f;
+  --popover-foreground: #f5f4ef;
   --primary: #10b981;
-  --primary-foreground: #050506;
-  --secondary: #141416;
-  --secondary-foreground: #fafaf9;
-  --muted: #1a1a1d;
-  --muted-foreground: #a1a1aa;
-  --accent: #141416;
+  --primary-foreground: #100f09;
+  --secondary: #17160e;
+  --secondary-foreground: #f5f4ef;
+  --muted: #1a1915;
+  --muted-foreground: #a8a59b;
+  --accent: #17160e;
   --accent-foreground: #10b981;
-  --border: #3f3f46;
-  --input: #3f3f46;
+  --gain: #34d399;
+  --loss: #f87171;
+  --border: rgba(245, 244, 239, 0.09);
+  --input: rgba(245, 244, 239, 0.06);
 }
 
 /* Base Styles */
@@ -248,21 +256,6 @@ h6 {
    ============================================ */
 
 @layer utilities {
-  /* Atmospheric Background Noise */
-  .bg-noise {
-    position: relative;
-  }
-
-  .bg-noise::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-    opacity: 0.03;
-    pointer-events: none;
-    mix-blend-mode: overlay;
-  }
-
   /* Premium Glass Card */
   .glass-card {
     background: rgba(12, 12, 14, 0.8);
@@ -284,25 +277,6 @@ h6 {
       0 8px 24px rgba(0, 0, 0, 0.06);
   }
 
-  /* Emerald Glow Effects */
-  .glow-emerald {
-    box-shadow:
-      0 0 20px rgba(16, 185, 129, 0.15),
-      0 0 40px rgba(16, 185, 129, 0.1),
-      0 0 60px rgba(16, 185, 129, 0.05);
-  }
-
-  .glow-emerald-sm {
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
-  }
-
-  .glow-emerald-lg {
-    box-shadow:
-      0 0 30px rgba(16, 185, 129, 0.2),
-      0 0 60px rgba(16, 185, 129, 0.15),
-      0 0 100px rgba(16, 185, 129, 0.1);
-  }
-
   /* Interactive Hover States */
   .hover-lift {
     @apply transition-all duration-500 ease-out;
@@ -315,64 +289,9 @@ h6 {
       0 0 20px rgba(16, 185, 129, 0.1);
   }
 
-  .hover-glow {
-    @apply transition-all duration-300 ease-out;
-  }
-
-  .hover-glow:hover {
-    border-color: rgba(16, 185, 129, 0.4);
-    box-shadow: 0 0 24px rgba(16, 185, 129, 0.15);
-  }
-
-  /* Text Gradient - Emerald (Optimized for dark mode) */
-  .text-gradient-emerald {
-    background: linear-gradient(135deg, #6ee7b7 0%, #a7f3d0 50%, #d1fae5 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: drop-shadow(0 0 30px rgba(110, 231, 183, 0.5));
-  }
-
-  /* Text Gradient - Emerald (Darker for light mode) */
-  .light .text-gradient-emerald {
-    background: linear-gradient(135deg, #047857 0%, #059669 50%, #10b981 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: drop-shadow(0 0 20px rgba(5, 150, 105, 0.3));
-  }
-
-  /* Force dark gradient inside hero-dark even in light mode */
-  .hero-dark .text-gradient-emerald {
-    background: linear-gradient(135deg, #6ee7b7 0%, #a7f3d0 50%, #d1fae5 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: drop-shadow(0 0 30px rgba(110, 231, 183, 0.5));
-  }
-
-  /* Nav text pure white when transparent over dark hero */
+  /* Nav text warm cream when transparent over dark hero */
   nav.hero-dark {
-    --muted-foreground: #fafaf9;
-  }
-
-  /* Dot Grid Background - Enhanced for visibility */
-  .bg-dot-pattern {
-    background-image: radial-gradient(
-      circle at 1px 1px,
-      rgba(52, 211, 153, 0.18) 1px,
-      transparent 0
-    );
-    background-size: 18px 18px;
-  }
-
-  .light .bg-dot-pattern {
-    background-image: radial-gradient(
-      circle at 1px 1px,
-      rgba(5, 150, 105, 0.12) 1px,
-      transparent 0
-    );
-    background-size: 18px 18px;
+    --muted-foreground: #f5f4ef;
   }
 
   /* Gradient Mesh Background */
@@ -558,7 +477,9 @@ h6 {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fade-in-up var(--motion-duration, 0.5s)
+    var(--motion-ease, cubic-bezier(0.22, 1, 0.36, 1))
+    var(--motion-delay, 0ms) forwards;
   opacity: 0;
 }
 
@@ -580,7 +501,8 @@ h6 {
 }
 
 .animate-fade-in {
-  animation: fade-in 0.6s ease-out forwards;
+  animation: fade-in var(--motion-duration, 0.6s) ease-out
+    var(--motion-delay, 0ms) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -786,23 +708,6 @@ h6 {
   animation: scale-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Pulse Glow - For live indicators */
-@keyframes pulse-glow {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
-  }
-  50% {
-    opacity: 0.6;
-    box-shadow: 0 0 16px rgba(16, 185, 129, 0.6);
-  }
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
 /* Shimmer - Loading state */
 @keyframes shimmer {
   0% {
@@ -822,37 +727,6 @@ h6 {
   );
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
-}
-
-/* Float - Subtle hover effect */
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
-.animate-float {
-  animation: float 4s ease-in-out infinite;
-}
-
-/* Gradient shift for hero backgrounds */
-@keyframes gradient-shift {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradient-shift 8s ease infinite;
 }
 
 /* Stagger Animation Delays */
@@ -1237,6 +1111,8 @@ select:focus-visible {
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -1278,18 +1154,20 @@ select:focus-visible {
 
 .animate-line-expand {
   transform-origin: left;
-  animation: line-expand 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: line-expand var(--motion-duration, 0.8s)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--motion-delay, 0ms) forwards;
   opacity: 0;
 }
 
-/* Card Glow - subtle emerald border glow on hover */
-.hover-glow {
-  transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+/* Chat streaming caret — hard on/off blink (terminal feel) via steps(), so it
+   does not soft-throb like animate-pulse. Removed the instant streaming ends.
+   The blanket prefers-reduced-motion rule below disables it automatically. */
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }
-
-.hover-glow:hover {
-  border-color: rgba(16, 185, 129, 0.3);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.08), 0 4px 16px rgba(0, 0, 0, 0.2);
+.chat-caret {
+  animation: caret-blink 1.05s steps(1, end) infinite;
 }
 
 /* ============================================
