@@ -42,10 +42,15 @@
   - `STRIPE_ULTRA_PRICE_ID=price_live_...`
   - Ultra lookup key 兜底为 `themarketbrew_ultra_monthly`，但 Live preview 仍应显式配置 Ultra price id。
 - 当前阻塞：
-  - `backend/.env` 的 `STRIPE_SECRET_KEY` 仍是 test mode。
-  - Compute preview backend 为避免误用 sandbox，当前没有部署 Stripe key；支付端点在补齐 Live key 前不可用于 checkout。
-  - InsForge branch 的 Stripe payments connection 为 test/live unconfigured。
-  - readiness gate 失败原因是缺少 Live key 和启用的 `/api/payment/webhook` endpoint。
+  - 无代码/部署阻塞。
+  - Vercel Preview Protection 当前开启，未登录访问 preview URL 会返回 401；手动 QA 需要登录 Vercel 或配置 bypass。
+- Live Stripe 已配置到 Compute preview:
+  - Pro monthly price: `price_1ThaTYGqICfmoUfq1evHZWOp`。
+  - Max monthly price: `price_1ThaTZGqICfmoUfqMaDiAiX1`。
+  - Ultra monthly price: `price_1ThaTaGqICfmoUfq6KvrEQ2g`。
+  - Webhook endpoint: `we_1ThaTaGqICfmoUfqwo2v5Ub2`，signing secret 已写入 Compute env。
+  - Billing Portal configuration: `bpc_1ThaUcGqICfmoUfqAla31Tox`，允许 price update，proration 为 `always_invoice`。
+  - `check_qinbafrank_stripe_readiness.py --require-live --webhook-url <compute>/api/payment/webhook` 已通过。
 - InsForge branch merge 的限制:
   - schema/config/edge function 等可通过 branch merge 回 parent。
   - 普通用户表 row data 不会自动 merge。
@@ -207,7 +212,7 @@ npx @insforge/cli compute deploy backend \
    - 已 redeploy Vercel preview，状态 Ready。
    - Compute `FRONTEND_URL` 已回填为 Vercel branch alias。
 
-7. [ ] **配置 Stripe Live webhook**
+7. [x] **配置 Stripe Live webhook**
    - 在 Stripe Live Dashboard 添加 endpoint:
 
 ```text
@@ -221,8 +226,9 @@ https://<insforge-compute-preview>/api/payment/webhook
      - `entitlements.active_entitlement_summary.updated`
    - 把新的 `whsec_...` 写入 Compute preview env。
    - 重新部署/更新 Compute。
+   - 已创建并写入 Compute env；secret 不写入仓库或文档。
 
-8. [ ] **Stripe Live catalog / Portal readiness**
+8. [x] **Stripe Live catalog / Portal readiness**
    - 确认 Pro price 为 $10/month。
    - 确认 Max price 为 $20/month。
    - 确认 Ultra price 为 $30/month，并且 lookup key 为 `themarketbrew_ultra_monthly`。
@@ -231,6 +237,9 @@ https://<insforge-compute-preview>/api/payment/webhook
      - Max: `MAX_FEATURES`
      - Ultra: `ULTRA_FEATURES`
    - 确认 Live Billing Portal 配置支持 subscription update 到 Ultra，且 proration 为 `always_invoice`。
+   - 已创建 Live Pro/Max/Ultra products + monthly prices。
+   - 已创建 Billing Portal configuration `bpc_1ThaUcGqICfmoUfqAla31Tox`。
+   - readiness gate 已通过。
 
 9. [ ] **Preview 手动验收**
    - Free 用户访问 `/pricing`，点击 Pro，完成 live checkout。
