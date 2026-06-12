@@ -4,6 +4,9 @@ No network or database access. The SQL RPC is the production path; these tests
 lock the Python fallback semantics used when the edge/RPC deployment is behind.
 """
 
+import pytest
+
+from app.features.admin import router as admin_router
 from app.features.admin.router import _page_legacy_dashboard
 
 
@@ -100,3 +103,97 @@ def test_dashboard_pagination_slices_after_sort_and_filter():
         "total": 4,
         "total_pages": 2,
     }
+
+
+@pytest.mark.asyncio
+async def test_dashboard_client_refresh_can_skip_activity(monkeypatch):
+    calls: list[tuple[str, dict]] = []
+
+    class FakeService:
+        async def call_function(self, function_name: str, **kwargs):
+            calls.append((function_name, kwargs))
+            return {
+                "status_code": 200,
+                "data": {
+                    "success": True,
+                    "data": {
+                        "summary": {},
+                        "engagement": {},
+                        "chip_counts": {},
+                        "pagination": {
+                            "page": 1,
+                            "page_size": 50,
+                            "total": 0,
+                            "total_pages": 1,
+                        },
+                        "users": [],
+                    },
+                },
+            }
+
+    monkeypatch.setattr(admin_router, "get_insforge_service", lambda: FakeService())
+
+    result = await admin_router.get_dashboard(
+        page=1,
+        page_size=50,
+        category="all",
+        tag=None,
+        search="",
+        sort_key="last_active_at",
+        sort_dir="desc",
+        include_activity=False,
+        _admin={"email": "admin@example.com"},
+    )
+
+    assert "activity" not in result
+    assert [name for name, _ in calls] == ["subscriptions"]
+
+
+@pytest.mark.asyncio
+async def test_dashboard_activity_uses_lightweight_growth_mode(monkeypatch):
+    calls: list[tuple[str, dict]] = []
+
+    class FakeService:
+        async def call_function(self, function_name: str, **kwargs):
+            calls.append((function_name, kwargs))
+            if function_name == "admin-activity":
+                return {
+                    "status_code": 200,
+                    "data": {"success": True, "days": 30, "data": []},
+                }
+            return {
+                "status_code": 200,
+                "data": {
+                    "success": True,
+                    "data": {
+                        "summary": {},
+                        "engagement": {},
+                        "chip_counts": {},
+                        "pagination": {
+                            "page": 1,
+                            "page_size": 50,
+                            "total": 0,
+                            "total_pages": 1,
+                        },
+                        "users": [],
+                    },
+                },
+            }
+
+    monkeypatch.setattr(admin_router, "get_insforge_service", lambda: FakeService())
+
+    result = await admin_router.get_dashboard(
+        page=1,
+        page_size=50,
+        category="all",
+        tag=None,
+        search="",
+        sort_key="last_active_at",
+        sort_dir="desc",
+        include_activity=True,
+        _admin={"email": "admin@example.com"},
+    )
+
+    activity_call = next(kwargs for name, kwargs in calls if name == "admin-activity")
+    assert activity_call["params"]["include_growth"] == "false"
+    assert result["activity"]["days"] == 30

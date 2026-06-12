@@ -440,12 +440,16 @@ def _shape_email_metrics(
     }
 
 
-async def _fetch_activity(days: int) -> dict[str, Any]:
+async def _fetch_activity(days: int, *, include_growth: bool = True) -> dict[str, Any]:
     service = get_insforge_service()
     result = await service.call_function(
         "admin-activity",
         method="GET",
-        params={"action": "daily", "days": days},
+        params={
+            "action": "daily",
+            "days": days,
+            "include_growth": "true" if include_growth else "false",
+        },
         extra_headers=(
             {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
             if EDGE_FUNCTION_SECRET else None
@@ -697,7 +701,7 @@ async def get_activity(
 ):
     """Return daily activity for admin trend comparisons."""
     activity, email_metrics = await asyncio.gather(
-        _fetch_activity(days),
+        _fetch_activity(days, include_growth=True),
         _fetch_email_metrics(days, start_date=email_start, end_date=email_end),
         return_exceptions=True,
     )
@@ -721,6 +725,7 @@ async def get_dashboard(
     search: str = Query(""),
     sort_key: str = Query("last_active_at"),
     sort_dir: str = Query("desc"),
+    include_activity: bool = Query(True),
     _admin: dict = Depends(verify_admin_user),
 ):
     """Return user overview for the admin dashboard."""
@@ -740,23 +745,26 @@ async def get_dashboard(
         sort_key=clean_sort_key,
         sort_dir=clean_sort_dir,
     )
-    activity_task = _fetch_activity(30)
-
-    dashboard_result, activity_result = await asyncio.gather(
-        dashboard_task,
-        activity_task,
-        return_exceptions=True,
-    )
-
-    activity = activity_result if isinstance(activity_result, dict) else _empty_activity(30)
+    if include_activity:
+        dashboard_result, activity_result = await asyncio.gather(
+            dashboard_task,
+            _fetch_activity(30, include_growth=False),
+            return_exceptions=True,
+        )
+        activity = activity_result if isinstance(activity_result, dict) else _empty_activity(30)
+    else:
+        (dashboard_result,) = await asyncio.gather(dashboard_task, return_exceptions=True)
+        activity = None
 
     if isinstance(dashboard_result, dict):
-        dashboard_result["activity"] = activity
+        if activity is not None:
+            dashboard_result["activity"] = activity
         return dashboard_result
 
     legacy = await _load_legacy_dashboard(service)
     if legacy.get("error"):
-        legacy["activity"] = activity
+        if activity is not None:
+            legacy["activity"] = activity
         return legacy
 
     dashboard = _page_legacy_dashboard(
@@ -769,7 +777,8 @@ async def get_dashboard(
         sort_key=clean_sort_key,
         sort_dir=clean_sort_dir,
     )
-    dashboard["activity"] = activity
+    if activity is not None:
+        dashboard["activity"] = activity
     return dashboard
 
 

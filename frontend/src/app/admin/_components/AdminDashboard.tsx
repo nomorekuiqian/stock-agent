@@ -191,6 +191,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
       search,
       sort_key: sortKey,
       sort_dir: sortAsc ? 'asc' : 'desc',
+      include_activity: 'false',
     });
     for (const tag of Array.from(activeTags).sort()) {
       params.append('tag', tag);
@@ -214,7 +215,10 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
         setLoadError(nextData.error);
         return;
       }
-      setData(nextData);
+      setData((prev) => ({
+        ...nextData,
+        activity: nextData.activity ?? prev.activity,
+      }));
       setSelectedIds(new Set());
       setExpandedUser(null);
     } catch {
