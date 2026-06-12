@@ -135,7 +135,7 @@ Full-stack macro market analysis app using Google ADK AI Agents for market data 
 
 **Tech Stack:**
 - Frontend: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4
-- Backend: FastAPI + Google ADK (gemini-3.1-flash-lite-preview) + yfinance + FMP API + FRED API
+- Backend: FastAPI + Google ADK（默认 `gemini-3.5-flash`，部分结构化/低成本任务使用 `gemini-3.1-flash-lite(-preview)`）+ yfinance + FMP API + FRED API
 - Payments: Stripe (subscription)
 - Email: Resend API
 - Database: Insforge (PostgreSQL)
@@ -349,7 +349,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 
 agent = LlmAgent(
-    model="gemini-3.1-flash-lite-preview",
+    model="gemini-3.5-flash",
     name="analyst",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,

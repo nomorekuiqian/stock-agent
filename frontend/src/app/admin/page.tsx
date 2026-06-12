@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { AdminDashboard } from './_components/AdminDashboard';
@@ -123,6 +124,20 @@ async function getDashboardData(accessToken: string): Promise<DashboardData | nu
   }
 }
 
+async function getAdminStatus(accessToken: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/admin/whoami`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.is_admin === true;
+  } catch {
+    return false;
+  }
+}
+
 async function getValidAccessToken(): Promise<string | null> {
   const { accessToken, refreshToken } = await getAuthCookies();
   if (accessToken) return accessToken;
@@ -141,11 +156,84 @@ async function getValidAccessToken(): Promise<string | null> {
   return null;
 }
 
-export default async function AdminPage() {
-  const token = await getValidAccessToken();
-  if (!token) notFound();
+function AdminDashboardSkeleton() {
+  const cards = Array.from({ length: 6 });
+  const rows = Array.from({ length: 8 });
+  const chips = Array.from({ length: 16 });
 
-  const data = await getDashboardData(token);
+  return (
+    <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-6 animate-pulse">
+      <div className="space-y-2">
+        <div className="h-6 w-40 rounded bg-muted" />
+        <div className="h-4 w-full max-w-lg rounded bg-muted/70" />
+      </div>
+
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+        {cards.map((_, i) => (
+          <div key={i} className="rounded-lg border border-border bg-muted/40 px-3 py-3">
+            <div className="h-7 w-12 rounded bg-muted" />
+            <div className="mt-2 h-3 w-14 rounded bg-muted/70" />
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-border bg-background p-4 space-y-4">
+        <div className="flex flex-wrap justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-4 w-16 rounded bg-muted" />
+            <div className="h-3 w-56 rounded bg-muted/70" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-3 w-16 rounded bg-muted/70" />
+                <div className="h-6 w-12 rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex h-32 items-end gap-1.5 border-t border-border pt-4">
+          {Array.from({ length: 30 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex-1 rounded-t bg-muted"
+              style={{ height: `${20 + ((i * 17) % 70)}%` }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="h-9 w-full rounded-lg bg-muted md:w-72" />
+        <div className="ml-auto h-8 w-28 rounded-md bg-muted" />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {chips.map((_, i) => (
+          <div key={i} className="h-7 w-20 rounded-full bg-muted/70" />
+        ))}
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div className="h-10 bg-muted/60" />
+        <div className="divide-y divide-border">
+          {rows.map((_, i) => (
+            <div key={i} className="grid grid-cols-6 gap-3 px-4 py-3">
+              <div className="col-span-2 h-4 rounded bg-muted" />
+              <div className="h-4 rounded bg-muted/70" />
+              <div className="h-4 rounded bg-muted/70" />
+              <div className="h-4 rounded bg-muted/70" />
+              <div className="h-4 rounded bg-muted/70" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function AdminDashboardContent({ accessToken }: { accessToken: string }) {
+  const data = await getDashboardData(accessToken);
 
   if (data === null) {
     notFound();
@@ -164,4 +252,18 @@ export default async function AdminPage() {
   }
 
   return <AdminDashboard data={data} />;
+}
+
+export default async function AdminPage() {
+  const token = await getValidAccessToken();
+  if (!token) notFound();
+
+  const isAdmin = await getAdminStatus(token);
+  if (!isAdmin) notFound();
+
+  return (
+    <Suspense fallback={<AdminDashboardSkeleton />}>
+      <AdminDashboardContent accessToken={token} />
+    </Suspense>
+  );
 }

@@ -5,19 +5,20 @@
 | 分类 | 说明 |
 |------|------|
 | UI 基础 | shadcn/ui 组件 (Avatar, Badge, Button, Card, Collapsible, Dialog, DropdownMenu, Progress, RadioGroup, Separator, Skeleton, Slider, Switch, Tooltip) |
-| 导航布局 | Navbar, NavAuth, MobileMenu, Logo, ThemeToggle |
-| 数据展示 | ReportContent, ReportTabs, InsightBanner, MacroPageHeader, PageShell |
-| 图表 | 各类金融图表 (基于 Lightweight Charts) + FredAreaChart, FredBarChart |
+| 导航布局 | Navbar, NavAuth, MobileMenu, Logo, ThemeToggle, PageShell, LoginGate, OnboardingGate |
+| 数据展示 | ReportContent, ReportHeroBanner, ReportTabs, MorningReportContent, MarkdownBody, InsightBanner, MacroPageHeader |
+| 图表 | 各类金融图表 (基于 Lightweight Charts) + HistoryAreaChart, IndexAreaChart, StockPriceChart, CommodityAreaChart, FredAreaChart, FredBarChart, GlobalLiquidityChart, NetLiquidityChart, YieldCurveChart |
 | 风险指标 | RiskGauge, NFCIGauge, RiskSummaryBar, LiquidityCard |
-| 个股 | StockCard, StockAnalysisCard, StockSearchDropdown, WatchlistPanel |
+| 个股 | StockCard, StockAnalysisCard, StockSearchDropdown, WatchlistPanel, AIMarketAnalysisCard, MarketHeaderStrip, MarketKpiRow, NewsAndReleasesCard |
 | 技术分析 | TechnicalChart |
 | 个性化 (for-you) | ActionBar, ForYouBreadcrumb, DigestInlineReport, RecentReports, StockDetailPanel, StockListItem, StockOverviewPanel |
 | 持仓同步 | HoldingsSyncDialog |
+| 记忆反馈 | FeedbackBar, QuickThesisInput |
 | 订阅 | SubscribeForm, PaywallGuard |
-| 装饰 | TrustBadges, LogoMarquee, ProductShowcase |
-| 全局 | Providers, TradingViewWidget, AuthSubscriptionSync, FeatureSections |
+| 装饰 | TrustBadges, LogoMarquee, ProductShowcase, LandingDelight |
+| 全局 | Providers, PostHogProvider, TradingViewWidget, AuthSubscriptionSync, FeatureSections, AiChatLink |
 | Auth 表单 | PasswordField |
-| 其他 | AiChatLink |
+| 其他 | UnlockCTA |
 
 ---
 
@@ -28,6 +29,11 @@
 - **输入**: indices, intro, news, report_summary, calendar, timestamp
 - **渲染**: 市场指数网格 (6个) -> 今日要点 -> 新闻 (headlines+briefs) -> 日历 -> 总结
 - **使用场景**: `/today`, `/today/[id]`
+
+### ReportTabs
+报告入口标签页。
+- **功能**: 在 `/morning`、`/today`、`/twitter-digest` 三个报告入口之间切换，并根据当前路径高亮
+- **使用场景**: `/morning`, `/today`
 
 ### WatchlistPanel
 自选股管理面板，核心交互组件。
@@ -68,6 +74,21 @@ AI 个股分析卡片，支持三种状态。
 - **功能**: 引导用户登录或升级到对应权益
 - **使用场景**: 付费内容 preview / locked states
 
+### OnboardingGate
+全局 onboarding 守卫组件。
+- **功能**: 对已登录用户先读 `onboarding_completed:{userId}` 本地 marker，仅在后端明确返回 `completed:false` 时跳转 `/onboarding`
+- **使用场景**: 全站 `Providers` 内挂载
+
+### LoginGate
+片段级登录守卫组件。
+- **功能**: 在公开页面内包裹需要登录才能交互的区域，未登录时展示登录 CTA
+- **使用场景**: KOL 对话入口、局部个性化入口
+
+### LandingDelight
+首页微交互协调器。
+- **功能**: 仅基于 `data-delight-*` 标记驱动 reveal / hover 动效，尊重 `prefers-reduced-motion`
+- **使用场景**: `/`
+
 ### PasswordField
 认证表单共用密码输入组件。
 - **功能**: 密码显示/隐藏切换、统一 label/helper text、复用登录/找回/重置密码样式
@@ -90,6 +111,22 @@ AI 个股分析卡片，支持三种状态。
 | StockDetailPanel | 个股详情面板 | `/for-you` |
 | StockListItem | 自选股列表项 | `/for-you` |
 | StockOverviewPanel | 个股概览面板 | `/for-you` |
+
+### Market Tab 组件 (market/)
+
+| 组件 | 说明 | 使用场景 |
+|------|------|----------|
+| AIMarketAnalysisCard | 市场面 AI 综合解读卡片 | `/stock/[symbol]` |
+| MarketHeaderStrip | 财报/事件头条条带 | `/stock/[symbol]` |
+| MarketKpiRow | 现价、新闻数、相对表现 KPI 行 | `/stock/[symbol]` |
+| NewsAndReleasesCard | 新闻与公司公告时间线 | `/stock/[symbol]` |
+
+### 记忆反馈组件 (memory/)
+
+| 组件 | 说明 | 使用场景 |
+|------|------|----------|
+| FeedbackBar | thumbs up/down 反馈入口 | `/for-you/health`, `/research`, KOL 对话 |
+| QuickThesisInput | 快速 thesis 输入 | `/for-you/health` |
 
 ---
 
