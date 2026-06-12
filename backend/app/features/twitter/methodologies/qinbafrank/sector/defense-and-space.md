@@ -2,8 +2,8 @@
 skill: sector/defense-and-space
 analyst: qinbafrank
 layer: sector
-sources: sector__defense-and-space (224 tweets), no legacy lens
-last_updated: 2026-05-27
+sources: sector__defense-and-space (288 tweets), no legacy lens
+last_updated: 2026-06-11
 ---
 
 # Skill: Defense & Space
@@ -132,6 +132,15 @@ PLTR 在美国国防体系一家独大的逻辑：政府订单替代成本高 �
 4. **把"中国 ITU 卫星申报量大"等同于"中国太空领先"** — 错。要看执行能力（17 号同日两枚火箭失败）和实际部署。
 5. **把"TACO 模式"用到主权问题上** — 错。关税绑定主权（格陵兰）时无法 TACO，欧洲国家在主权问题上反而硬。
 6. **把"老马大新闻"翻译成"特斯拉 / SpaceX 必涨"** — 错。老马的工程奇迹是软变量（Colossus 122 天建成），但**短期股价**仍受财务模型约束。
+
+## 2026-05-25 后增量证据
+
+- `2059097307124269240` / `2060202592983294273` — 美伊谈判进入收口和舆论战阶段，地缘风险要看协议文本和执行机制，不只看口头威胁。
+- `2059280701376389577` / `2059431294740959592` — SpaceX IPO 前后带动太空经济和 RKLB / LUNR / RDW / ASTS 等风险偏好。
+- `2062463349573718318` — Frank 访谈参考稿把 SpaceX IPO、宏观流动性和 AI 资金轮动放在同一张风险图里。
+- `2064906875574145303` — SpaceX 上市后的三段关键时间：6/12 上市、7/7 纳入指数、Q2 财报后解禁。
+- `2065204708537774580` — 美伊协议进展若落地，会扫掉市场最大宏观阻力之一。
+
 ## Evidence Map
 
 太空赛道定调：

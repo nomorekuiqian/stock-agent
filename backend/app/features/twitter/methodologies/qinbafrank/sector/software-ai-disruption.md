@@ -2,8 +2,8 @@
 skill: sector/software-ai-disruption
 analyst: qinbafrank
 layer: sector
-sources: sector__software-ai-disruption (61 tweets) + legacy sector_analysis.yaml decision_criteria
-last_updated: 2026-05-27
+sources: sector__software-ai-disruption (79 tweets) + legacy sector_analysis.yaml decision_criteria
+last_updated: 2026-06-11
 ---
 
 # Skill: Software AI Disruption
@@ -121,6 +121,13 @@ AI 时代什么样的软件公司活得好？什么样的死得快？本 skill �
 3. **把"Cursor 火爆"翻译成"传统 IDE 公司必死"** — 错。要看具体客户结构 + 老客户绑定。
 4. **把"AI 提效"等同于"SaaS 估值提升"** — 错。要看 ARR 真实兑现，不是嘴上的 AI 拥抱。
 5. **看到"AI 替代"新闻就立即卖 SaaS** — 错。短期错杀，**反向操作机会**。
+
+## 2026-05-25 后增量证据
+
+- `2060215034882785479` — AI 会放大安全需求，CRWD / PANW / NET / ZS / FTNT 所在安全层可能是被误杀而非被替代。
+- `2062463349573718318` — Frank 访谈参考稿把软件分成通用 workflow 高危、垂直 know-how / 数据 / 安全 / 入口层受益。
+- `2061107928606908855` — Rubin 首次交付强化 agentic AI / 长上下文推理，对数据和安全基础设施形成间接需求。
+
 ## Evidence Map
 
 踢皮球 vs 吞噬物理世界二分法：
