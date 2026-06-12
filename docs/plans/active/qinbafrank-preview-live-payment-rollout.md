@@ -16,8 +16,15 @@
   - `frontend`: `npm run lint`, `npm test`, `npm run build -- --webpack`。
   - `backend`: `tests/test_me_entitlements_unit.py`, `tests/test_payment_unit.py`。
   - 默认 `npm run build` 仍会被当前 worktree 的 `node_modules` 外部 symlink 触发 Turbopack 本地 panic；webpack build 通过。
-- InsForge branch 已确认 ready，当前 branch 下尚无 Compute service。
+- InsForge branch 已确认 ready，并已创建 Compute preview service。
 - Vercel 正确项目为 `the-market-brew/stock-agent`，但全局 Preview env 当前仍指向 production API/production InsForge，需要为该 branch 单独覆盖 preview env 或部署时传 env。
+- 当前云端 preview 骨架已创建：
+  - Git branch 已推送到 `origin/codex/qinbafrank-creator-max`。
+  - InsForge Compute service: `stock-agent-api-qinbafrank-preview`。
+  - Compute endpoint: `https://stock-agent-api--fb97df-24f8aee4-59e1-46aa-a5d9-8fcd3a567934.fly.dev`。
+  - Vercel Preview URL: `https://stock-agent-n3aty59be-the-market-brew.vercel.app`。
+  - Vercel branch alias: `https://stock-agent-git-codex-qinbafrank-creator-max-the-market-brew.vercel.app`。
+  - Vercel Preview Protection 当前开启，未登录访问返回 401。
 - 本地 `frontend/.env.local` 已指向 branch DB，并开启：
   - `NEXT_PUBLIC_ENABLE_PAYWALL=true`
   - `NEXT_PUBLIC_STRIPE_LIVE=true`
@@ -36,6 +43,7 @@
   - Ultra lookup key 兜底为 `themarketbrew_ultra_monthly`，但 Live preview 仍应显式配置 Ultra price id。
 - 当前阻塞：
   - `backend/.env` 的 `STRIPE_SECRET_KEY` 仍是 test mode。
+  - Compute preview backend 为避免误用 sandbox，当前没有部署 Stripe key；支付端点在补齐 Live key 前不可用于 checkout。
   - InsForge branch 的 Stripe payments connection 为 test/live unconfigured。
   - readiness gate 失败原因是缺少 Live key 和启用的 `/api/payment/webhook` endpoint。
 - InsForge branch merge 的限制:
@@ -162,7 +170,7 @@ Preview 验证通过
    - `ENVIRONMENT` 不设 `production`，防止非生产邮件广播误触生产发送逻辑。
    - 现状：`flyctl` 已安装，InsForge source deploy 工具链就绪；等待 Live Stripe key/price/webhook 输入。
 
-5. [ ] **部署后端到 InsForge Compute preview**
+5. [x] **部署后端到 InsForge Compute preview**
    - 推荐 service name: `stock-agent-api-qinbafrank-preview`。
    - 使用当前 `backend/Dockerfile` source deploy:
 
@@ -177,8 +185,9 @@ npx @insforge/cli compute deploy backend \
 
    - 记录返回的 `endpointUrl`。
    - 如果后续只改 env 或 image，使用同一个 service name update/redeploy，避免 URL 改变。
+   - 已部署 preview skeleton，`/health` 与 `/ready` 均通过；Stripe key 暂为空，等待 Live key 后使用 `compute update --env-set` 启用支付。
 
-6. [ ] **部署前端到 Vercel Preview**
+6. [x] **部署前端到 Vercel Preview**
    - Push 当前 branch 到 GitHub，不 push/merge `master`。
    - 让 Vercel 生成 Preview Deployment。
    - Preview env:
@@ -188,6 +197,15 @@ npx @insforge/cli compute deploy backend \
      - `NEXT_PUBLIC_ENABLE_PAYWALL=true`
      - `NEXT_PUBLIC_STRIPE_LIVE=true`
    - 拿到 Vercel Preview URL 后，回填后端 `FRONTEND_URL` 并重启/redeploy Compute。
+   - 已为 `codex/qinbafrank-creator-max` 设置 branch-specific preview env：
+     - `NEXT_PUBLIC_API_URL` 指向 Compute preview `/api`。
+     - `NEXT_PUBLIC_INSFORGE_URL` 指向 InsForge branch。
+     - `NEXT_PUBLIC_INSFORGE_ANON_KEY` 使用 InsForge branch anon key。
+     - `NEXT_PUBLIC_ENABLE_PAYWALL=true`。
+     - `NEXT_PUBLIC_STRIPE_LIVE=true`。
+   - branch-specific preview env 已通过 `vercel env pull --git-branch codex/qinbafrank-creator-max` 验证。
+   - 已 redeploy Vercel preview，状态 Ready。
+   - Compute `FRONTEND_URL` 已回填为 Vercel branch alias。
 
 7. [ ] **配置 Stripe Live webhook**
    - 在 Stripe Live Dashboard 添加 endpoint:
