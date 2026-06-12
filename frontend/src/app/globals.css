@@ -477,7 +477,9 @@ h6 {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fade-in-up var(--motion-duration, 0.5s)
+    var(--motion-ease, cubic-bezier(0.22, 1, 0.36, 1))
+    var(--motion-delay, 0ms) forwards;
   opacity: 0;
 }
 
@@ -499,7 +501,8 @@ h6 {
 }
 
 .animate-fade-in {
-  animation: fade-in 0.6s ease-out forwards;
+  animation: fade-in var(--motion-duration, 0.6s) ease-out
+    var(--motion-delay, 0ms) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1151,7 +1154,8 @@ select:focus-visible {
 
 .animate-line-expand {
   transform-origin: left;
-  animation: line-expand 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: line-expand var(--motion-duration, 0.8s)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--motion-delay, 0ms) forwards;
   opacity: 0;
 }
 
