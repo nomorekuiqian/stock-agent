@@ -107,6 +107,96 @@ class TestCheckoutSession:
         assert "session_id={CHECKOUT_SESSION_ID}" in success_url
 
     @pytest.mark.asyncio
+    async def test_checkout_return_uses_allowed_request_origin(self):
+        from app.features.payment import service
+
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.test/session"
+
+        with patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+        ), patch.object(
+            service,
+            "FRONTEND_URL",
+            "https://stock-agent-git-codex-qinbafrank-creator-max-the-market-brew.vercel.app",
+        ), patch.object(
+            service,
+            "ALLOWED_ORIGINS",
+            ["https://themarketbrew.com"],
+        ), patch.object(
+            service,
+            "CORS_ALLOWED_ORIGIN_REGEX",
+            r"https://.*-the-market-brew\.vercel\.app",
+        ), patch(
+            "app.features.payment.service.get_or_create_stripe_customer",
+            new_callable=AsyncMock,
+            return_value="cus_test",
+        ), patch(
+            "app.features.payment.service.stripe.checkout.Session.create",
+            return_value=mock_session,
+        ) as mock_create:
+            await service.create_checkout_session(
+                user_id="user-1",
+                email="test@example.com",
+                return_path="/pricing",
+                tier="pro",
+                frontend_origin="https://stock-agent-37gd2tg7u-the-market-brew.vercel.app",
+            )
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["success_url"].startswith(
+            "https://stock-agent-37gd2tg7u-the-market-brew.vercel.app/pricing/success?"
+        )
+        assert kwargs["cancel_url"] == (
+            "https://stock-agent-37gd2tg7u-the-market-brew.vercel.app/pricing?checkout=cancel"
+        )
+
+    @pytest.mark.asyncio
+    async def test_checkout_return_rejects_untrusted_request_origin(self):
+        from app.features.payment import service
+
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.test/session"
+
+        with patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+        ), patch.object(
+            service,
+            "FRONTEND_URL",
+            "https://themarketbrew.com",
+        ), patch.object(
+            service,
+            "ALLOWED_ORIGINS",
+            ["https://themarketbrew.com"],
+        ), patch.object(
+            service,
+            "CORS_ALLOWED_ORIGIN_REGEX",
+            r"https://.*-the-market-brew\.vercel\.app",
+        ), patch(
+            "app.features.payment.service.get_or_create_stripe_customer",
+            new_callable=AsyncMock,
+            return_value="cus_test",
+        ), patch(
+            "app.features.payment.service.stripe.checkout.Session.create",
+            return_value=mock_session,
+        ) as mock_create:
+            await service.create_checkout_session(
+                user_id="user-1",
+                email="test@example.com",
+                return_path="/pricing",
+                tier="pro",
+                frontend_origin="https://evil.example.com",
+            )
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["success_url"].startswith("https://themarketbrew.com/pricing/success?")
+        assert kwargs["cancel_url"] == "https://themarketbrew.com/pricing?checkout=cancel"
+
+    @pytest.mark.asyncio
     async def test_ultra_checkout_marks_product_and_subscription_metadata(self):
         from app.features.payment import service
 
@@ -230,6 +320,7 @@ class TestCheckoutSession:
             return_path="/pricing",
             product="max",
             billing_interval="monthly",
+            frontend_origin=None,
         )
         mock_checkout.assert_not_called()
 

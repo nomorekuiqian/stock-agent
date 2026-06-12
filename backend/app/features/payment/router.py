@@ -123,6 +123,7 @@ def _get_period(sub_obj) -> Tuple[Optional[str], Optional[str]]:
 
 @router.post("/checkout-session", response_model=CheckoutSessionResponse)
 async def api_create_checkout(
+    request: Request,
     req: CreateCheckoutRequest,
     token_user_id: str = Depends(verify_user_token),
 ):
@@ -152,6 +153,7 @@ async def api_create_checkout(
                     return_path=req.return_path,
                     product=checkout_product,
                     billing_interval=req.billing_interval,
+                    frontend_origin=request.headers.get("origin"),
                 )
                 return CheckoutSessionResponse(checkout_url=portal_url)
             except ValueError:
@@ -169,6 +171,7 @@ async def api_create_checkout(
             req.tier,
             product=checkout_product,
             billing_interval=req.billing_interval,
+            frontend_origin=request.headers.get("origin"),
         )
         if posthog.posthog_client:
             posthog.posthog_client.capture(
@@ -269,6 +272,7 @@ async def api_my_entitlements(
 
 @router.post("/portal-session", response_model=PortalSessionResponse)
 async def api_portal_session(
+    request: Request,
     req: CreatePortalRequest | None = Body(default=None),
     user_id: str = Depends(verify_user_token),
 ):
@@ -287,6 +291,7 @@ async def api_portal_session(
             return_path=req.return_path,
             product=req.product,
             billing_interval=req.billing_interval,
+            frontend_origin=request.headers.get("origin"),
         )
         return PortalSessionResponse(portal_url=url)
     except ValueError as e:

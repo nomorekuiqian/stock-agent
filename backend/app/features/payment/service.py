@@ -5,6 +5,7 @@ Uses asyncio.to_thread to avoid blocking the event loop with synchronous Stripe 
 """
 
 import asyncio
+import re
 import time
 from datetime import datetime, timezone
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -12,6 +13,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import stripe
 
 from app.core.config import (
+    ALLOWED_ORIGINS,
+    CORS_ALLOWED_ORIGIN_REGEX,
     FRONTEND_URL,
     STRIPE_MAX_PRICE_ID,
     STRIPE_PRO_PRICE_ID,
@@ -157,14 +160,49 @@ def _normalize_return_path(return_path: str | None, default: str = "/for-you") -
     return return_path[:512]
 
 
-def _frontend_url(path: str, extra_params: dict[str, str] | None = None) -> str:
+def _normalize_origin(origin: str | None) -> str:
+    if not origin:
+        return ""
+    parsed = urlsplit(origin.strip())
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+        return ""
+    if parsed.scheme == "http" and parsed.hostname not in ("localhost", "127.0.0.1"):
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+
+def _safe_frontend_origin(origin: str | None = None) -> str:
+    """Pick a trusted frontend origin for Stripe return URLs."""
+    fallback = _normalize_origin(FRONTEND_URL) or "http://localhost:3000"
+    candidate = _normalize_origin(origin)
+    if not candidate:
+        return fallback
+
+    allowed = {_normalize_origin(item) for item in ALLOWED_ORIGINS}
+    allowed.add(fallback)
+    if candidate in allowed:
+        return candidate
+
+    if CORS_ALLOWED_ORIGIN_REGEX and re.fullmatch(CORS_ALLOWED_ORIGIN_REGEX, candidate):
+        return candidate
+
+    return fallback
+
+
+def _frontend_url(
+    path: str,
+    extra_params: dict[str, str] | None = None,
+    frontend_origin: str | None = None,
+) -> str:
     safe_path = _normalize_return_path(path)
     parts = urlsplit(safe_path)
     query = parse_qsl(parts.query, keep_blank_values=True)
     if extra_params:
         query.extend(extra_params.items())
     path_with_query = urlunsplit(("", "", parts.path or "/", urlencode(query), parts.fragment))
-    return "%s%s" % (FRONTEND_URL.rstrip("/"), path_with_query)
+    return "%s%s" % (_safe_frontend_origin(frontend_origin), path_with_query)
 
 
 def _canonical_features_for_plan(plan: str) -> list[str]:
@@ -727,6 +765,7 @@ async def create_checkout_session(
     tier: str = "pro",
     product: str | None = None,
     billing_interval: str = "monthly",
+    frontend_origin: str | None = None,
 ) -> str:
     """
     Create a Stripe Checkout Session for Pro, Max, or Ultra subscription.
@@ -748,8 +787,9 @@ async def create_checkout_session(
         "product": checkout_product,
         "next": path,
     })
+    frontend_base_url = _safe_frontend_origin(frontend_origin)
     success_url = (
-        f"{FRONTEND_URL.rstrip('/')}/pricing/success?"
+        f"{frontend_base_url}/pricing/success?"
         f"{success_params}&session_id={{CHECKOUT_SESSION_ID}}"
     )
 
@@ -760,7 +800,7 @@ async def create_checkout_session(
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
         success_url=success_url,
-        cancel_url=_frontend_url(path, {"checkout": "cancel"}),
+        cancel_url=_frontend_url(path, {"checkout": "cancel"}, frontend_origin),
         metadata={
             "user_id": user_id,
             "tier": plan,
@@ -831,6 +871,7 @@ async def create_portal_session(
     return_path: str | None = None,
     product: str | None = None,
     billing_interval: str = "monthly",
+    frontend_origin: str | None = None,
 ) -> str:
     """
     Create a Stripe Customer Portal session for subscription management.
@@ -841,7 +882,7 @@ async def create_portal_session(
         raise ValueError("No Stripe customer found for this user")
 
     safe_return_path = _normalize_return_path(return_path)
-    return_url = _frontend_url(safe_return_path)
+    return_url = _frontend_url(safe_return_path, frontend_origin=frontend_origin)
     portal_kwargs = {
         "customer": sub["stripe_customer_id"],
         "return_url": return_url,
@@ -866,6 +907,7 @@ async def create_portal_session(
                     "product": checkout_product,
                     "next": safe_return_path,
                 })
+                frontend_base_url = _safe_frontend_origin(frontend_origin)
                 portal_kwargs["flow_data"] = {
                     "type": "subscription_update_confirm",
                     "subscription_update_confirm": {
@@ -879,7 +921,7 @@ async def create_portal_session(
                     "after_completion": {
                         "type": "redirect",
                         "redirect": {
-                            "return_url": f"{FRONTEND_URL.rstrip('/')}/pricing/success?{success_params}",
+                            "return_url": f"{frontend_base_url}/pricing/success?{success_params}",
                         },
                     },
                 }
