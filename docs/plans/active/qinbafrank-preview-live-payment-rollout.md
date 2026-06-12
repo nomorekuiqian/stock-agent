@@ -22,7 +22,7 @@
   - Git branch 已推送到 `origin/codex/qinbafrank-creator-max`。
   - InsForge Compute service: `stock-agent-api-qinbafrank-preview`。
   - Compute endpoint: `https://stock-agent-api--fb97df-24f8aee4-59e1-46aa-a5d9-8fcd3a567934.fly.dev`。
-  - Vercel Preview URL: `https://stock-agent-n3aty59be-the-market-brew.vercel.app`。
+  - Vercel Preview URL: `https://stock-agent-igs0azmb0-the-market-brew.vercel.app`。
   - Vercel branch alias: `https://stock-agent-git-codex-qinbafrank-creator-max-the-market-brew.vercel.app`。
   - Vercel Preview Protection 当前开启，未登录访问返回 401。
 - 本地 `frontend/.env.local` 已指向 branch DB，并开启：
