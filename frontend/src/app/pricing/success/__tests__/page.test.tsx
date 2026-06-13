@@ -8,6 +8,8 @@ const mockUseAuth = vi.fn();
 const mockGetAccessTokenAsync = vi.fn();
 const mockSetQueryData = vi.fn();
 const mockInvalidateQueries = vi.fn();
+const mockTrack = vi.fn();
+const mockTrackProductEvent = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -24,6 +26,14 @@ vi.mock('@tanstack/react-query', () => ({
     setQueryData: mockSetQueryData,
     invalidateQueries: mockInvalidateQueries,
   }),
+}));
+
+vi.mock('@vercel/analytics', () => ({
+  track: (...args: unknown[]) => mockTrack(...args),
+}));
+
+vi.mock('@/lib/product-analytics', () => ({
+  trackProductEvent: (...args: unknown[]) => mockTrackProductEvent(...args),
 }));
 
 beforeEach(() => {
@@ -89,6 +99,54 @@ describe('CheckoutSuccessPage', () => {
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/research?agent=kol&persona=qinbafrank');
+    });
+  });
+
+  it('tracks Frank Agent beta payment completion before redirecting back', async () => {
+    mockSearchParams.set('next', '/frank-agent');
+    mockSearchParams.set('tier', 'max');
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/payment/subscription-status?fresh=true')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            plan: 'max',
+            status: 'active',
+            current_period_end: null,
+            access_expires_at: null,
+          }),
+        } as Response);
+      }
+      if (url.includes('/payment/me/entitlements?fresh=true')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            entitlements: ['ai_research_engine'],
+            trial_eligible: false,
+          }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response);
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() => {
+      expect(mockTrack).toHaveBeenCalledWith('frank_beta_payment_completed', {
+        source: 'frank_agent_beta',
+        tier: 'max',
+        user_id: 'user-1',
+      });
+    });
+    expect(mockTrackProductEvent).toHaveBeenCalledWith('frank_beta_payment_completed', {
+      source: 'frank_agent_beta',
+      tier: 'max',
+      user_id: 'user-1',
+    });
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/frank-agent');
     });
   });
 });

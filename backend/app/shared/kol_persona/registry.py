@@ -76,6 +76,30 @@ _QINBAFRANK_PUBLIC_BIO = (
     "周期趋势投资。记录个人学习和思考，经常出错常态掉坑爬坑。Runner\U0001f3c3"
 )
 
+_SERENITY_PUBLIC_BIO = (
+    "AI / 半导体供应链分析师 · 工程师视角 · 沿 AI capex 漏斗找上游瓶颈 · "
+    "重仓小盘 niche (SIVE / AXTI / AAOI / LITE) · 几乎只做多但会轮动"
+)
+
+# Per-persona skill loader config. Each entry declares where the bundle lives
+# and which files act as the always-on core / macro layer.
+_PERSONA_CONFIG: Dict[str, Dict[str, Any]] = {
+    "qinbafrank": {
+        "display_name": "qinbafrank",
+        "description": _QINBAFRANK_PUBLIC_BIO,
+        "skill_dir": _SKILL_BASE_DIR,
+        "core_file": "operating-system.md",
+        "macro_file": "macro-regime.md",
+    },
+    "aleabitoreddit": {
+        "display_name": "Serenity",
+        "description": _SERENITY_PUBLIC_BIO,
+        "skill_dir": METHODOLOGIES_DIR / "aleabitoreddit",
+        "core_file": "bottleneck-operating-system.md",
+        "macro_file": "ai-capex-cycle.md",
+    },
+}
+
 # Skill files use frontmatter keys such as skill/layer/coverage, so we derive
 # ADK-compatible name/description fields here.
 
@@ -119,8 +143,12 @@ def _skill_md_to_skill_doc(path: Path, layer: str) -> SkillDoc:
 
     # name: layer-prefixed, lowercase, hyphen-only (ADK Skill spec)
     raw_stem = path.stem.replace("_", "-").replace(" ", "-")
-    # Ticker files use uppercase stems (NVDA.md); keep them readable but normalize for ADK
-    name = f"{layer}-{raw_stem.lower()}"
+    # Ticker files use uppercase stems (NVDA.md); keep them readable but normalize
+    # for ADK. Any char outside [a-z0-9] (e.g. the dot in cross-class tickers like
+    # HPS.A / BRK.B) becomes a hyphen, with runs collapsed and ends trimmed, so the
+    # ADK Frontmatter name validator (lowercase kebab-case) accepts it.
+    safe_stem = re.sub(r"[^a-z0-9]+", "-", raw_stem.lower()).strip("-")
+    name = f"{layer}-{safe_stem}"
 
     # description: prefer "## 适用问题" section content; fall back to first
     # non-heading paragraph; clamp to 1000 chars
@@ -147,12 +175,13 @@ def _skill_md_to_skill_doc(path: Path, layer: str) -> SkillDoc:
 
 
 def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
-    """Load the current skill structure. Currently only `qinbafrank` is supported."""
-    if username != "qinbafrank":
-        logger.warning("skill persona loader only supports qinbafrank; got %r", username)
+    """Load the per-persona skill bundle from `_PERSONA_CONFIG`."""
+    cfg = _PERSONA_CONFIG.get(username)
+    if cfg is None:
+        logger.warning("skill persona loader: unknown username %r", username)
         return None
 
-    skill_dir = _SKILL_BASE_DIR
+    skill_dir: Path = cfg["skill_dir"]
     if not skill_dir.is_dir():
         logger.warning("skill dir not found: %s", skill_dir)
         return None
@@ -161,15 +190,15 @@ def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
     cross_cutting: List[SkillDoc] = []
     lenses: Dict[str, SkillDoc] = {}
 
-    # core/operating-system.md -> always-on (orchestrator slot)
-    core_file = skill_dir / "core" / "operating-system.md"
+    # core/<file> -> always-on (orchestrator slot)
+    core_file = skill_dir / "core" / cfg["core_file"]
     if core_file.exists():
         orchestrator = _skill_md_to_skill_doc(core_file, "core")
     else:
-        logger.warning("core/operating-system.md missing")
+        logger.warning("core file missing: %s", core_file)
 
-    # macro/macro-regime.md -> always-on (cross-cutting slot)
-    macro_file = skill_dir / "macro" / "macro-regime.md"
+    # macro/<file> -> always-on (cross-cutting slot)
+    macro_file = skill_dir / "macro" / cfg["macro_file"]
     if macro_file.exists():
         cross_cutting.append(_skill_md_to_skill_doc(macro_file, "macro"))
 
@@ -199,8 +228,8 @@ def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
 
     return Persona(
         username=username,
-        display_name=username,
-        description=_QINBAFRANK_PUBLIC_BIO,
+        display_name=cfg["display_name"],
+        description=cfg["description"],
         lenses_available=sorted(lenses.keys()),
         persona_dir=str(skill_dir),
         orchestrator=orchestrator,
@@ -212,19 +241,22 @@ def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
 
 
 def list_personas() -> List[PersonaSummary]:
-    """Enumerate available personas for the active persona source."""
-    persona = get_persona("qinbafrank")
-    if persona is None:
-        return []
-    return [
-        PersonaSummary(
-            username=persona.username,
-            display_name=persona.display_name,
-            description=persona.description,
-            lenses_available=persona.lenses_available,
-            last_indexed_at=persona.last_indexed_at,
+    """Enumerate available personas."""
+    out: List[PersonaSummary] = []
+    for username in _PERSONA_CONFIG:
+        persona = get_persona(username)
+        if persona is None:
+            continue
+        out.append(
+            PersonaSummary(
+                username=persona.username,
+                display_name=persona.display_name,
+                description=persona.description,
+                lenses_available=persona.lenses_available,
+                last_indexed_at=persona.last_indexed_at,
+            )
         )
-    ]
+    return out
 
 
 def clear_persona_cache() -> None:

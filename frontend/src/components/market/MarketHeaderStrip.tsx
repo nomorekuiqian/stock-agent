@@ -1,6 +1,7 @@
 'use client';
 
 import type { MarketOverviewResponse } from '@/hooks/queries/use-stock-data';
+import { formatStockPrice } from '@/lib/currency';
 
 export function MarketHeaderStrip({
   overview,
@@ -23,7 +24,7 @@ export function MarketHeaderStrip({
             )}
             {earnings.eps_estimate != null && (
               <span className="ml-3 text-muted-foreground">
-                EPS 预期 ${earnings.eps_estimate.toFixed(2)}
+                EPS 预期 {formatStockPrice(earnings.eps_estimate, overview?.symbol || '', undefined, { compactPrice: true })}
               </span>
             )}
           </div>

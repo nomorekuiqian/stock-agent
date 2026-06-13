@@ -13,10 +13,24 @@ const STARTER_PROMPTS_BY_USERNAME: Record<string, string[]> = {
     '财报算利好吗？',
     '加密股还能追吗？',
   ],
+  aleabitoreddit: [
+    '现在 AI 供应链瓶颈卡在哪一环？',
+    'SIVE 的 thesis 拆给我看？',
+    '她推荐什么 small cap？跟单要注意什么风险？',
+    'AXTI 为什么是卡脖子标的？',
+    'CPO 现在是不是布局时机？',
+  ],
 };
 
+// Persona-agnostic fallback — never borrow another KOL's prompts.
+const NEUTRAL_STARTER_PROMPTS: string[] = [
+  '现在最值得关注的板块和标的是什么？',
+  '帮我拆解一个标的的核心逻辑和原文依据',
+  '最近有哪些催化剂值得注意？',
+];
+
 export function getKolStarterPrompts(username: string): string[] {
-  return STARTER_PROMPTS_BY_USERNAME[username] ?? STARTER_PROMPTS_BY_USERNAME.qinbafrank;
+  return STARTER_PROMPTS_BY_USERNAME[username] ?? NEUTRAL_STARTER_PROMPTS;
 }
 
 export function getDefaultKolAgentQuestion(username: string, displayName?: string): string {

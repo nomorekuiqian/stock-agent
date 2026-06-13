@@ -2,7 +2,7 @@ module.exports = async function(request) {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Internal-Secret",
   };
 
   if (request.method === "OPTIONS") {
@@ -16,6 +16,52 @@ module.exports = async function(request) {
 
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
+
+  // Fetch ALL rows of a query in chunks. PostgREST enforces a server-side
+  // db-max-rows cap (1000 here) that .range(0, 49999) CANNOT exceed — a single
+  // request is hard-capped at 1000 rows. So we page through in <=1000-row
+  // chunks until a short page signals the end. orderCols give a stable,
+  // unique-enough ordering so offset paging never skips/duplicates rows across
+  // chunk boundaries. makeQuery must return a FRESH builder each call.
+  async function fetchAllChunked(makeQuery, orderCols) {
+    const PAGE = 1000;
+    let all = [];
+    let offset = 0;
+    // Hard stop well above any realistic user count, in case a short page is
+    // never reached (defensive against an unbounded loop).
+    for (let guard = 0; guard < 1000; guard++) {
+      let q = makeQuery();
+      for (const col of (orderCols || [])) {
+        q = q.order(col, { ascending: true });
+      }
+      const { data, error } = await q.range(offset, offset + PAGE - 1);
+      if (error) return { data: null, error };
+      const rows = data || [];
+      all = all.concat(rows);
+      if (rows.length < PAGE) break;
+      offset += PAGE;
+    }
+    return { data: all, error: null };
+  }
+
+  function parseBoundedInt(value, fallback, min, max) {
+    const parsed = Number.parseInt(value || "", 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(Math.max(parsed, min), max);
+  }
+
+  function parseTags(url) {
+    const repeated = url.searchParams.getAll("tag").filter(Boolean);
+    if (repeated.length > 0) return repeated;
+    const raw = url.searchParams.get("tags") || "";
+    return raw.split(",").map((tag) => tag.trim()).filter(Boolean);
+  }
+
+  function internalUnauthorized(request) {
+    const expectedSecret = Deno.env.get("EDGE_FUNCTION_SECRET");
+    if (!expectedSecret) return false;
+    return request.headers.get("X-Internal-Secret") !== expectedSecret;
+  }
 
   try {
     // GET ?action=get&user_id=xxx
@@ -43,6 +89,142 @@ module.exports = async function(request) {
 
       return new Response(
         JSON.stringify({ success: true, data }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=get_detail&user_id=xxx
+    // Single-user merge for the admin detail page: the auth.users row
+    // (email + name + created_at) and the subscription row, in parallel.
+    // Replaces the old path where the detail page ran the full list_all scan
+    // (all users + 6 full-table aggregation RPCs, 60s timeout) just to find
+    // one user's email. list_all_users is filtered to one row via .eq — it is
+    // a plain auth.users SELECT (no aggregation joins), far cheaper than the
+    // old path, and carries created_at so free users with no subscription row
+    // still show a real 注册时间 (regression fix vs the email-only version).
+    if (request.method === "GET" && action === "get_detail") {
+      const userId = url.searchParams.get("user_id");
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "user_id required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const [authRes, subRes] = await Promise.all([
+        client.database.rpc("list_all_users").eq("user_id", userId).maybeSingle(),
+        client.database.from("subscriptions").select("*").eq("user_id", userId).maybeSingle(),
+      ]);
+
+      if (authRes.error) {
+        return new Response(
+          JSON.stringify({ success: false, error: authRes.error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (subRes.error) {
+        return new Response(
+          JSON.stringify({ success: false, error: subRes.error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const authUser = authRes.data || {};
+      const sub = subRes.data || {};
+      const merged = {
+        ...sub,
+        user_id: userId,
+        email: authUser.email || sub.email || null,
+        name: authUser.name || null,
+        // Fall back to the auth registration time when there is no sub row.
+        created_at: sub.created_at || authUser.created_at || null,
+      };
+
+      return new Response(
+        JSON.stringify({ success: true, data: merged }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=digest_stats&user_id=xxx
+    // Personal-digest 30d summary for one user. NOTE: admin_personal_digest_stats
+    // is a full-table GROUP BY aggregate filtered client-side by user_id — kept
+    // off the SSR path (loaded lazily on email-section expand). .range lifts the
+    // 1000-row cap so high-index users aren't silently missed by .find. A proper
+    // user_id-predicated RPC is the P1 cleanup.
+    if (request.method === "GET" && action === "digest_stats") {
+      const userId = url.searchParams.get("user_id");
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "user_id required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Chunked: the aggregate can exceed the 1000-row cap, which would make
+      // .find miss high-index users (count stuck at 0). P1 cleanup = a
+      // user_id-predicated RPC so we don't scan the whole aggregate.
+      const { data: rows, error: digestErr } =
+        await fetchAllChunked(() => client.database.rpc("admin_personal_digest_stats"), ["user_id"]);
+      if (digestErr) {
+        return new Response(
+          JSON.stringify({ success: false, error: digestErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const row = (rows || []).find((r) => r.user_id === userId);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            count_30d: row ? (Number(row.count_30d) || 0) : 0,
+            last_date: row && row.last_date ? String(row.last_date).slice(0, 10) : null,
+          },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=list_dashboard&page=1&page_size=50&category=all&tag=m:digest&search=x&sort_key=last_active_at&sort_dir=desc
+    // Returns one filtered/sorted page plus global summary and facet counts.
+    // The heavy merge/filter work lives in Postgres (admin_dashboard_query)
+    // so the admin page does not transfer every user row to FastAPI/React.
+    if (request.method === "GET" && action === "list_dashboard") {
+      if (internalUnauthorized(request)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const page = parseBoundedInt(url.searchParams.get("page"), 1, 1, 100000);
+      const pageSize = parseBoundedInt(url.searchParams.get("page_size"), 50, 1, 200);
+      const category = url.searchParams.get("category") || "all";
+      const search = url.searchParams.get("search") || "";
+      const sortKey = url.searchParams.get("sort_key") || "last_active_at";
+      const sortDir = url.searchParams.get("sort_dir") || "desc";
+      const tags = parseTags(url);
+
+      const { data, error } = await client.database.rpc("admin_dashboard_query", {
+        page_num: page,
+        page_size: pageSize,
+        category_filter: category,
+        tag_filters: tags,
+        search_query: search,
+        sort_key: sortKey,
+        sort_dir: sortDir,
+      });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: data || {} }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -99,6 +281,30 @@ module.exports = async function(request) {
 
       return new Response(
         JSON.stringify({ success: true, data: data || [] }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET ?action=list_expired_access_grants&now=ISO
+    if (request.method === "GET" && action === "list_expired_access_grants") {
+      const nowIso = url.searchParams.get("now") || new Date().toISOString();
+      const { data, error } = await client.database
+        .from("subscriptions")
+        .select("*")
+        .not("access_expires_at", "is", null)
+        .lte("access_expires_at", nowIso)
+        .order("access_expires_at", { ascending: true });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const rows = (data || []).filter((row) => row.is_lifetime !== true);
+      return new Response(
+        JSON.stringify({ success: true, data: rows }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -308,47 +514,55 @@ module.exports = async function(request) {
     // GET ?action=list_all
     // Returns ALL auth users with subscription + conversation + feedback + activity stats
     if (request.method === "GET" && action === "list_all") {
-      // 1. Get all auth users via RPC
-      const { data: authUsers, error: authError } = await client.database
-        .rpc("list_all_users");
+      // Six independent data sources, fetched concurrently. Each is paged in
+      // <=1000-row chunks via fetchAllChunked because PostgREST's db-max-rows
+      // server cap (1000) hard-truncates any single request — .range alone
+      // cannot exceed it. Without chunking, auth.users >1000 silently dropped
+      // high-index users (the literal "only 1000 users" bug) and the per-user
+      // GROUP BY aggregations would stale out past 1000 active users.
+      // Order columns must be unique-enough per source so offset paging never
+      // skips/duplicates across chunk boundaries (activity_stats is
+      // user_id×event_type, hence the composite order).
+      const [
+        authRes, subRes, convRes, feedbackRes, activityRes, digestRes,
+      ] = await Promise.all([
+        fetchAllChunked(() => client.database.rpc("list_all_users"), ["user_id"]),
+        fetchAllChunked(() => client.database.from("subscriptions").select("*"), ["user_id"]),
+        fetchAllChunked(() => client.database.rpc("admin_conversation_stats"), ["user_id"]),
+        fetchAllChunked(() => client.database.rpc("admin_feedback_stats"), ["email"]),
+        fetchAllChunked(() => client.database.rpc("admin_activity_stats"), ["user_id", "event_type"]),
+        fetchAllChunked(() => client.database.rpc("admin_personal_digest_stats"), ["user_id"]),
+      ]);
 
-      if (authError) {
+      const authUsers = authRes.data;
+      if (authRes.error) {
         return new Response(
-          JSON.stringify({ success: false, error: authError.message }),
+          JSON.stringify({ success: false, error: authRes.error.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // 2. Get all subscriptions
-      const { data: subs, error: subError } = await client.database
-        .from("subscriptions")
-        .select("*");
-
-      if (subError) {
+      const subs = subRes.data;
+      if (subRes.error) {
         return new Response(
-          JSON.stringify({ success: false, error: subError.message }),
+          JSON.stringify({ success: false, error: subRes.error.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // 3. Get conversation stats via RPC
-      const { data: convStats } = await client.database
-        .rpc("admin_conversation_stats");
+      // Surface aggregation failures instead of silently degrading to 0/empty.
+      const aggErr = convRes.error || feedbackRes.error || activityRes.error || digestRes.error;
+      if (aggErr) {
+        return new Response(
+          JSON.stringify({ success: false, error: aggErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-      // 4. Get feedback stats via RPC
-      const { data: feedbackStats } = await client.database
-        .rpc("admin_feedback_stats");
-
-      // 5. Get activity stats via RPC
-      const { data: activityStats } = await client.database
-        .rpc("admin_activity_stats");
-
-      // 6. Personal digest aggregates via RPC (DB-side GROUP BY, ~340 rows
-      // returned regardless of underlying table size). The previous client-side
-      // scan got truncated at PostgREST's default 1000-row limit, so users with
-      // recent digests beyond that boundary appeared stale.
-      const { data: digestRows } = await client.database
-        .rpc("admin_personal_digest_stats");
+      const convStats = convRes.data;
+      const feedbackStats = feedbackRes.data;
+      const activityStats = activityRes.data;
+      const digestRows = digestRes.data;
 
       // Index everything by key
       const subMap = {};

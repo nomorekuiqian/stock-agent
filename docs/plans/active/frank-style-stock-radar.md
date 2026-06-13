@@ -6,8 +6,6 @@
 > - `frontend/src/app/kol/.context.md`
 > - `backend/app/features/screener/.context.md`
 > - `backend/app/features/stock/.context.md`
-> - `docs/plans/active/qinbafrank-skill-distillation.md`
-> - `docs/plans/active/kol-persona-cockpit.md`
 > Vision: 产品策略.md > 模块 4「机会发现」+ 方向三「统一研究台」
 
 ## 目标

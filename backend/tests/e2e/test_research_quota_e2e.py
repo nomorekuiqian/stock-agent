@@ -65,20 +65,15 @@ class TestResearchChatAnonymous:
     """Tests for POST /api/research/chat without auth."""
 
     @pytest.mark.asyncio
-    async def test_chat_anonymous_not_401(self, client):
-        """Anonymous user is not rejected with 401 (quota-gated, not auth-gated)."""
-        try:
-            resp = await client.post(
-                "/api/research/chat",
-                json={"message": "hello"},
-                timeout=60,
-            )
-        except Exception as exc:
-            pytest.skip(f"Insforge Edge Function unreachable: {exc}")
-            return
-        # May return 200 (success), 429 (quota exceeded), or 500 (no universe cache)
-        # but never 401 (auth required)
-        assert resp.status_code != 401
+    async def test_chat_anonymous_returns_401(self, client):
+        """Anonymous user is rejected with 401 — the research chat is now
+        login-gated server-side (matches the frontend login wall)."""
+        resp = await client.post(
+            "/api/research/chat",
+            json={"message": "hello"},
+            timeout=10,
+        )
+        assert resp.status_code == 401
 
 
 @pytest.mark.e2e
@@ -86,24 +81,20 @@ class TestResearchConversationsAnonymous:
     """Tests for conversation endpoints without auth."""
 
     @pytest.mark.asyncio
-    async def test_list_conversations_anonymous_returns_empty(self, client):
-        """Anonymous user gets empty conversation list."""
+    async def test_list_conversations_anonymous_returns_401(self, client):
+        """Anonymous user cannot list conversations."""
         resp = await client.get("/api/research/conversations", timeout=10)
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["conversations"] == []
+        assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_create_conversation_anonymous_skipped(self, client):
-        """Anonymous conversation create is silently skipped."""
+    async def test_create_conversation_anonymous_returns_401(self, client):
+        """Anonymous user cannot create conversations."""
         resp = await client.post(
             "/api/research/conversations",
             json={"title": "test", "data": {}, "message_count": 1},
             timeout=10,
         )
-        assert resp.status_code == 201
-        data = resp.json()
-        assert data.get("skipped") is True
+        assert resp.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_conversation_anonymous_returns_401(self, client):
@@ -124,13 +115,11 @@ class TestResearchConversationsAnonymous:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_update_conversation_anonymous_skipped(self, client):
-        """Anonymous conversation update is silently skipped."""
+    async def test_update_conversation_anonymous_returns_401(self, client):
+        """Anonymous user cannot update conversations."""
         resp = await client.put(
             "/api/research/conversations/some-id",
             json={"title": "test", "data": {}, "message_count": 1},
             timeout=10,
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data.get("skipped") is True
+        assert resp.status_code == 401

@@ -2,8 +2,8 @@
 skill: sector/power-and-physical-ai
 analyst: qinbafrank
 layer: sector
-sources: sector__power-and-physical-ai (200 tweets) + legacy lens-ai-infrastructure L3-L5 segments
-last_updated: 2026-05-27
+sources: sector__power-and-physical-ai (269 tweets) + legacy lens-ai-infrastructure L3-L5 segments
+last_updated: 2026-06-11
 ---
 
 # Skill: Power & Physical AI
@@ -121,6 +121,15 @@ GPU → HBM → 光互连 → **电力** 这条卡脖子迁移链上，电力是
 3. **押注核电小盘** — 错。博主关心的是大基建 / 电力公司的政府订单 / 长期容量，不是炒题材。
 4. **把"老马工程奇迹"套到任何老马公司** — 错。Colossus 2 / Starship / Optimus 各有不同的工程曲线。
 5. **把"特斯拉 Robotaxi"等同于"特斯拉股价立即受益"** — 错。监管 + 安全数据 + 规模化部署都需要时间。
+
+## 2026-05-25 后增量证据
+
+- `2058767543398252890` — AI 电力链条从发电、输电、变电站到并网点全面卡住，PJM 电价上涨 76%。
+- `2058865598210470061` — 先进封装和 3D 堆叠路径与电力 / 功耗约束相互影响。
+- `2061107928606908855` — Rubin VR200 首次交付验证液冷、电源模块和 800V HVDC 需求。
+- `2062463349573718318` — 访谈参考稿把 800V HVDC、边缘计算和 Physical AI 放入 AI 资金轮动的"升级 / 远期"逻辑。
+- `2062912854983086556` / `2063103873867452886` — AI Factory、液冷、高压电、配电和电力概念短期过热，要区分产业趋势和交易节奏。
+
 ## Evidence Map
 
 电力卡脖子 + 用电视角：

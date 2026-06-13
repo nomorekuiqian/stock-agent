@@ -1,5 +1,5 @@
-"""KOL Persona Research Agent — qinbafrank-style investment workflow.
+"""KOL Persona Research Agent workflow.
 
 Companion to the neutral /research agent. Triggered via PersonaSelector on
-the frontend. See docs/plans/active/kol-persona-research-agent.md.
+the frontend.
 """

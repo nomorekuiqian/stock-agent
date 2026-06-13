@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from app.core.logging import get_logger
 from app.core.deps import verify_user_token
 from app.core.rate_limit import limiter
+import app.core.posthog_client as posthog
 from app.features.wechat.models import (
     WechatLoginRequest, WechatLoginResponse,
     WechatMeResponse, HomeCard, HomeCardsResponse,
@@ -49,6 +50,14 @@ def _require_wechat_token(authorization: str | None) -> dict:
 async def wechat_login(request: WechatLoginRequest):
     try:
         result = await service.login_with_code(request.code)
+        if result.get("success") and posthog.posthog_client:
+            user_id = result.get("user_id")
+            if user_id:
+                posthog.posthog_client.capture(
+                    distinct_id=user_id,
+                    event="wechat_login",
+                    properties={},
+                )
         return WechatLoginResponse(**result)
     except Exception:
         logger.exception("wechat_login failed")
@@ -87,6 +96,12 @@ async def wechat_otp_verify(body: WechatOtpVerifyRequest, request: Request):
     result = await service.verify_otp(email=body.email, code=body.code)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=body.email,
+            event="wechat_account_bound",
+            properties={"account_state": result.get("account_state", "unknown")},
+        )
     return WechatOtpVerifyResponse(**result)
 
 

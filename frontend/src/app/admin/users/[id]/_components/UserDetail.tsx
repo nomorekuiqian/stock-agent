@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { getAccessTokenSync, getAccessTokenAsync } from '@/contexts/AuthContext';
+import { formatStockPrice } from '@/lib/currency';
 import type {
   UserDetailData,
   UserProfile,
@@ -149,7 +150,7 @@ export function UserDetail({
         method: 'POST',
         body: JSON.stringify({ user_id: data.user_id, days: grantDays, plan: 'max' }),
       });
-      if (result.success && data.subscription) {
+      if (result.success) {
         setData((d) => ({
           ...d,
           subscription: d.subscription ? {
@@ -1204,6 +1205,15 @@ function ConversationsSection({
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const totalMessages = conversations.reduce((sum, c) => sum + (c.message_count ?? 0), 0);
+  const agentLabel = (conversation: ConversationSummary) => {
+    if (conversation.agent_kind === 'kol_research') {
+      return conversation.persona_username
+        ? `KOL · @${conversation.persona_username}`
+        : 'KOL Agent';
+    }
+    if (conversation.agent_kind === 'research') return 'Research Agent';
+    return conversation.agent_id || 'Agent';
+  };
 
   const loadAll = useCallback(async () => {
     setLoadingAll(true);
@@ -1228,7 +1238,7 @@ function ConversationsSection({
     setExpandedFull(null);
     setLoadingDetail(true);
     try {
-      const result = await crmFetch(`/users/${userId}/conversations/${id}`);
+      const result = await crmFetch(`/users/${userId}/conversations/${encodeURIComponent(id)}`);
       if (result.conversation) {
         setExpandedFull(result.conversation as ConversationFull);
       }
@@ -1266,7 +1276,7 @@ function ConversationsSection({
                     {c.title || '(未命名对话)'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {c.message_count} 条消息 · {formatDateTime(c.updated_at)}
+                    {agentLabel(c)} · {c.message_count} 条消息 · {formatDateTime(c.updated_at)}
                   </p>
                 </div>
                 <span className="text-xs text-emerald-600 ml-3 shrink-0">
@@ -1315,6 +1325,13 @@ function ConversationMessages({ messages }: { messages: ConversationMessage[] | 
           JSON.stringify(msg.content ?? msg, null, 2);
         const role = msg.role ?? 'system';
         const isUser = role === 'user';
+        const label = isUser
+          ? '用户'
+          : role === 'assistant'
+            ? 'Agent'
+            : role === 'tool'
+              ? 'Tool'
+              : 'System';
         return (
           <div
             key={i}
@@ -1327,7 +1344,12 @@ function ConversationMessages({ messages }: { messages: ConversationMessage[] | 
             <div className={`text-[10px] font-medium uppercase tracking-wider mb-1 ${
               isUser ? 'text-emerald-700' : 'text-muted-foreground'
             }`}>
-              {isUser ? '用户' : role === 'assistant' ? 'Agent' : role}
+              {label}
+              {msg.created_at ? (
+                <span className="normal-case tracking-normal font-normal ml-2">
+                  {formatDateTime(msg.created_at)}
+                </span>
+              ) : null}
             </div>
             <pre className="whitespace-pre-wrap text-foreground font-sans">
               {text}
@@ -1425,10 +1447,10 @@ function HoldingsSection({
                 </span>
                 <div className="flex-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                   {p.shares != null && <span>{Number(p.shares).toLocaleString(undefined, { maximumFractionDigits: 4 })} 股</span>}
-                  {p.cost_basis != null && <span>成本 ${Number(p.cost_basis).toLocaleString()}</span>}
-                  {p.entry_price != null && <span>入价 ${Number(p.entry_price).toLocaleString()}</span>}
-                  {p.target != null && <span>目标 ${Number(p.target).toLocaleString()}</span>}
-                  {p.stop_loss != null && <span>止损 ${Number(p.stop_loss).toLocaleString()}</span>}
+                  {p.cost_basis != null && <span>成本 {formatStockPrice(Number(p.cost_basis), p.symbol, undefined, { maximumFractionDigits: 0 })}</span>}
+                  {p.entry_price != null && <span>入价 {formatStockPrice(Number(p.entry_price), p.symbol, undefined, { compactPrice: true })}</span>}
+                  {p.target != null && <span>目标 {formatStockPrice(Number(p.target), p.symbol, undefined, { compactPrice: true })}</span>}
+                  {p.stop_loss != null && <span>止损 {formatStockPrice(Number(p.stop_loss), p.symbol, undefined, { compactPrice: true })}</span>}
                   {p.conviction != null && <span>信心 {p.conviction}/5</span>}
                 </div>
                 {p.thesis && (

@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useTechnicalData } from '@/hooks/queries/use-technical-data';
+import { formatStockPrice } from '@/lib/currency';
 
 const TechnicalChart = dynamic(
   () => import('@/components/technical/TechnicalChart').then(mod => mod.TechnicalChart),
@@ -66,31 +67,31 @@ export default function PanelTechnicalTab({ symbol }: { symbol: string }) {
                 {sr.resistance_2 != null && (
                   <tr className="border-b border-border/15">
                     <td className="py-2 px-3 text-red-400">阻力 2</td>
-                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground">${sr.resistance_2.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground">{formatStockPrice(sr.resistance_2, symbol, undefined, { compactPrice: true })}</td>
                   </tr>
                 )}
                 {sr.resistance_1 != null && (
                   <tr className="border-b border-border/15">
                     <td className="py-2 px-3 text-red-400">阻力 1</td>
-                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground">${sr.resistance_1.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground">{formatStockPrice(sr.resistance_1, symbol, undefined, { compactPrice: true })}</td>
                   </tr>
                 )}
                 {sr.current_price != null && (
                   <tr className="border-b border-border/15 bg-primary/5">
                     <td className="py-2 px-3 text-primary font-medium">当前价</td>
-                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground font-medium">${sr.current_price.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground font-medium">{formatStockPrice(sr.current_price, symbol, undefined, { compactPrice: true })}</td>
                   </tr>
                 )}
                 {sr.support_1 != null && (
                   <tr className="border-b border-border/15">
                     <td className="py-2 px-3 text-emerald-400">支撑 1</td>
-                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground">${sr.support_1.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground">{formatStockPrice(sr.support_1, symbol, undefined, { compactPrice: true })}</td>
                   </tr>
                 )}
                 {sr.support_2 != null && (
                   <tr>
                     <td className="py-2 px-3 text-emerald-400">支撑 2</td>
-                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground">${sr.support_2.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right font-data tabular-nums text-foreground">{formatStockPrice(sr.support_2, symbol, undefined, { compactPrice: true })}</td>
                   </tr>
                 )}
               </tbody>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { formatCurrencyAmount, resolveCurrency } from '@/lib/currency';
 
 // =============================================================================
 // Types
@@ -19,6 +20,8 @@ interface FinancialStatementsProps {
   incomeStatements: Array<Record<string, unknown>>;
   cashflowStatements: Array<Record<string, unknown>>;
   balanceSheets: Array<Record<string, unknown>>;
+  symbol?: string;
+  currency?: string;
 }
 
 // =============================================================================
@@ -100,7 +103,7 @@ const BALANCE_ROWS: StatementRow[] = [
 // Helpers
 // =============================================================================
 
-function fmtVal(v: unknown, key: string): string {
+function fmtVal(v: unknown, key: string, currency: string): string {
   if (v === null || v === undefined) return '--';
   const n = Number(v);
   if (isNaN(n)) return String(v);
@@ -108,15 +111,12 @@ function fmtVal(v: unknown, key: string): string {
   // Margins are ratios (0.41 = 41%)
   if (key.includes('margin')) return `${(n * 100).toFixed(1)}%`;
   // EPS
-  if (key.startsWith('eps')) return `$${n.toFixed(2)}`;
+  if (key.startsWith('eps')) return formatCurrencyAmount(n, { currency });
   // Shares
   if (key.includes('shares') || key.includes('weighted_avg')) return `${(n / 1e6).toFixed(0)}M`;
 
   // Financial values in millions
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
+  return formatCurrencyAmount(n, { currency, compact: true, maximumFractionDigits: 0 });
 }
 
 function computeYoY(current: unknown, prior: unknown): string | null {
@@ -137,12 +137,13 @@ function yoyColor(yoyStr: string | null): string {
 // Statement Table Component
 // =============================================================================
 
-function StatementTable({ rows, current, prior, currentLabel, priorLabel }: {
+function StatementTable({ rows, current, prior, currentLabel, priorLabel, currency }: {
   rows: StatementRow[];
   current: Record<string, unknown> | undefined;
   prior: Record<string, unknown> | undefined;
   currentLabel: string;
   priorLabel: string;
+  currency: string;
 }) {
   if (!current) {
     return <div className="p-8 text-center text-sm text-muted-foreground">暂无数据</div>;
@@ -177,11 +178,11 @@ function StatementTable({ rows, current, prior, currentLabel, priorLabel }: {
                   {row.label}
                 </td>
                 <td className={`py-2 px-3 text-right font-data ${row.bold ? 'font-semibold text-foreground' : 'text-foreground/90'}`}>
-                  {fmtVal(val, row.key)}
+                  {fmtVal(val, row.key, currency)}
                 </td>
                 {prior && (
                   <td className="py-2 px-3 text-right font-data text-muted-foreground">
-                    {fmtVal(priorVal, row.key)}
+                    {fmtVal(priorVal, row.key, currency)}
                   </td>
                 )}
                 {prior && (
@@ -209,8 +210,11 @@ export function FinancialStatements({
   incomeStatements,
   cashflowStatements,
   balanceSheets,
+  symbol = '',
+  currency: explicitCurrency,
 }: FinancialStatementsProps) {
   const [activeStatement, setActiveStatement] = useState<StatementTab>('income');
+  const currency = resolveCurrency(symbol, explicitCurrency).code;
 
   // Find current + prior year quarter
   const { current, prior, currentLabel, priorLabel } = useMemo(() => {
@@ -286,6 +290,7 @@ export function FinancialStatements({
         prior={prior}
         currentLabel={currentLabel}
         priorLabel={priorLabel}
+        currency={currency}
       />
     </div>
   );

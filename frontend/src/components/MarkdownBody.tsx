@@ -1,10 +1,72 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { Fragment, isValidElement, memo, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 type Children = { children?: ReactNode };
+
+const ARROW_CHAIN_SEPARATOR = /\s*(?:-{1,2}>|=>|→|⇒|➜|⟶)\s*/;
+
+function getPlainText(children: ReactNode): string | null {
+  if (typeof children === 'string' || typeof children === 'number') {
+    return String(children);
+  }
+  if (Array.isArray(children)) {
+    const parts = children.map(getPlainText);
+    if (parts.some((part) => part === null)) return null;
+    return parts.join('');
+  }
+  if (children === null || children === undefined || typeof children === 'boolean') {
+    return '';
+  }
+  if (isValidElement(children)) {
+    return null;
+  }
+  return null;
+}
+
+export function splitArrowChainText(text: string): string[] | null {
+  const normalized = text.replace(/\u00a0/g, ' ').trim();
+  if (!ARROW_CHAIN_SEPARATOR.test(normalized)) return null;
+
+  const parts = normalized
+    .split(ARROW_CHAIN_SEPARATOR)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length < 2) return null;
+  return parts;
+}
+
+function ArrowChain({ parts }: { parts: string[] }) {
+  return (
+    <span className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 align-baseline">
+      {parts.map((part, index) => (
+        <Fragment key={`${part}-${index}`}>
+          <span>{part}</span>
+          {index < parts.length - 1 && (
+            <span aria-hidden className="font-data text-primary/75">
+              →
+            </span>
+          )}
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
+function AgentParagraph({ children }: Children) {
+  const text = getPlainText(children);
+  const parts = text ? splitArrowChainText(text) : null;
+  return <p>{parts ? <ArrowChain parts={parts} /> : children}</p>;
+}
+
+function AgentListItem({ children }: Children) {
+  const text = getPlainText(children);
+  const parts = text ? splitArrowChainText(text) : null;
+  return <li>{parts ? <ArrowChain parts={parts} /> : children}</li>;
+}
 
 const DEFAULT_COMPONENTS = {
   a: ({ children, href }: Children & { href?: string }) => (
@@ -46,7 +108,7 @@ const DEFAULT_COMPONENTS = {
       return <code className={className}>{children}</code>;
     }
     return (
-      <code className="font-data text-primary text-xs">
+      <code className="font-data text-xs text-foreground/90 bg-muted/60 rounded px-1 py-0.5">
         {children}
       </code>
     );
@@ -59,10 +121,26 @@ const DEFAULT_COMPONENTS = {
   hr: () => <hr className="my-3 border-border/40" />,
 };
 
+const AGENT_COMPONENTS = {
+  ...DEFAULT_COMPONENTS,
+  p: AgentParagraph,
+  li: AgentListItem,
+  blockquote: ({ children }: Children) => (
+    <blockquote className="relative my-3 border-l border-primary/30 bg-primary/[0.03] py-2 pl-7 pr-3 rounded-r-md text-foreground/85 [&>p]:my-0">
+      <span aria-hidden className="absolute left-3 top-2 font-data text-xs font-semibold text-primary/75">
+        &gt;
+      </span>
+      {children}
+    </blockquote>
+  ),
+};
+
 interface MarkdownBodyProps {
   children: string;
   /** Optional per-call overrides — merged on top of defaults. */
   components?: Record<string, unknown>;
+  /** Agent output often uses ASCII arrows (`->`) and leading `>` as visual flow markers. */
+  variant?: 'default' | 'agent';
 }
 
 /**
@@ -71,10 +149,11 @@ interface MarkdownBodyProps {
  * Use this instead of <ReactMarkdown> directly so callers can't accidentally
  * skip remarkGfm or diverge on table styling.
  */
-export default function MarkdownBody({ children, components }: MarkdownBodyProps) {
+function MarkdownBody({ children, components, variant = 'default' }: MarkdownBodyProps) {
+  const baseComponents = variant === 'agent' ? AGENT_COMPONENTS : DEFAULT_COMPONENTS;
   const merged = components
-    ? { ...DEFAULT_COMPONENTS, ...components }
-    : DEFAULT_COMPONENTS;
+    ? { ...baseComponents, ...components }
+    : baseComponents;
   return (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={merged as any}>
@@ -82,3 +161,8 @@ export default function MarkdownBody({ children, components }: MarkdownBodyProps
     </ReactMarkdown>
   );
 }
+
+/* Memoized so a parent re-render with identical markdown does not re-parse.
+   During streaming the active message's content changes (so it re-renders),
+   but settled messages skip react-markdown's full re-tokenize. */
+export default memo(MarkdownBody);

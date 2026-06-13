@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatTimestamp } from '@/lib/timezone';
 
-type EmailChannel = 'daily_report' | 'personal_digest' | 'weekly_report' | 'twitter_digest' | 'onboarding';
+type EmailChannel = 'daily_report' | 'personal_digest' | 'weekly_report' | 'twitter_digest' | 'welcome';
 
 function EmailTestContent() {
   const searchParams = useSearchParams();
@@ -54,11 +54,9 @@ function EmailTestContent() {
   } | null>(null);
   const [twitterDigestDate, setTwitterDigestDate] = useState('');
 
-  // Onboarding state (-1 = welcome email, 3/7/14 = drip days)
-  const [onboardingHtml, setOnboardingHtml] = useState<string>('');
-  const [onboardingDay, setOnboardingDay] = useState(-1);
-  const [onboardingSubject, setOnboardingSubject] = useState('');
-  const [onboardingDays, setOnboardingDays] = useState<number[]>([3, 7, 14]);
+  // Welcome email state
+  const [welcomeHtml, setWelcomeHtml] = useState<string>('');
+  const [welcomeSubject, setWelcomeSubject] = useState('');
 
   // Common state
   const [loading, setLoading] = useState(true);
@@ -81,7 +79,7 @@ function EmailTestContent() {
     } else if (activeChannel === 'twitter_digest') {
       loadTwitterDigestPreview(twitterDigestDate || undefined);
     } else {
-      loadOnboardingPreview(onboardingDay);
+      loadWelcomePreview();
     }
   }, [reportIdParam, digestIdParam, weekParam, activeChannel, user?.name, user?.id]);
 
@@ -159,25 +157,15 @@ function EmailTestContent() {
     }
   };
 
-  const loadOnboardingPreview = async (day: number = -1) => {
+  const loadWelcomePreview = async () => {
     setLoading(true);
     setError(null);
     try {
-      if (day === -1) {
-        // Welcome email
-        const result = await api.getWelcomePreview({ firstName: user?.name, email: user?.email });
-        setOnboardingHtml(result.html);
-        setOnboardingSubject(result.subject);
-        setOnboardingDay(-1);
-      } else {
-        const result = await api.getOnboardingPreview(day, user?.name);
-        setOnboardingHtml(result.html);
-        setOnboardingSubject(result.subject);
-        setOnboardingDay(result.day);
-        if (result.valid_days) setOnboardingDays(result.valid_days);
-      }
+      const result = await api.getWelcomePreview({ firstName: user?.name, email: user?.email });
+      setWelcomeHtml(result.html);
+      setWelcomeSubject(result.subject);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load onboarding preview');
+      setError(err instanceof Error ? err.message : 'Failed to load welcome preview');
     } finally {
       setLoading(false);
     }
@@ -221,7 +209,7 @@ function EmailTestContent() {
       } else {
         setSendResult({
           success: false,
-          message: 'Onboarding 邮件暂不支持发送测试，请通过 cron 端点触发。',
+          message: 'Welcome 邮件发送测试尚未接入此页面，请使用后端 welcome send-test 端点。',
         });
       }
     } catch (err) {
@@ -247,7 +235,7 @@ function EmailTestContent() {
     } else if (channel === 'twitter_digest') {
       loadTwitterDigestPreview(twitterDigestDate || undefined);
     } else {
-      loadOnboardingPreview(onboardingDay);
+      loadWelcomePreview();
     }
   };
 
@@ -261,7 +249,7 @@ function EmailTestContent() {
     } else if (activeChannel === 'twitter_digest') {
       loadTwitterDigestPreview(twitterDigestDate || undefined);
     } else {
-      loadOnboardingPreview(onboardingDay);
+      loadWelcomePreview();
     }
   };
 
@@ -274,7 +262,7 @@ function EmailTestContent() {
           ? weeklyHtml
           : activeChannel === 'twitter_digest'
             ? twitterDigestHtml
-            : onboardingHtml;
+            : welcomeHtml;
 
   const channelLabel =
     activeChannel === 'daily_report'
@@ -285,9 +273,7 @@ function EmailTestContent() {
           ? 'Weekly Report'
           : activeChannel === 'twitter_digest'
             ? 'Twitter KOL Digest'
-            : onboardingDay === -1
-              ? 'Welcome Email'
-              : `Onboarding (Day ${onboardingDay})`;
+            : 'Welcome Email';
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -382,9 +368,9 @@ function EmailTestContent() {
               </div>
             </button>
             <button
-              onClick={() => handleChannelChange('onboarding')}
+              onClick={() => handleChannelChange('welcome')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeChannel === 'onboarding'
+                activeChannel === 'welcome'
                   ? 'bg-primary/10 text-primary border-primary/30'
                   : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
               }`}
@@ -393,7 +379,7 @@ function EmailTestContent() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                Onboarding
+                Welcome
               </div>
             </button>
           </div>
@@ -459,7 +445,7 @@ function EmailTestContent() {
             {/* Info Card */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-sm font-semibold text-gray-900 mb-4">
-                {activeChannel === 'daily_report' ? 'Report Info' : activeChannel === 'personal_digest' ? 'Digest Info' : activeChannel === 'weekly_report' ? 'Weekly Report Info' : activeChannel === 'twitter_digest' ? 'Twitter Digest Info' : 'Onboarding Info'}
+                {activeChannel === 'daily_report' ? 'Report Info' : activeChannel === 'personal_digest' ? 'Digest Info' : activeChannel === 'weekly_report' ? 'Weekly Report Info' : activeChannel === 'twitter_digest' ? 'Twitter Digest Info' : 'Welcome Info'}
               </h2>
               {loading ? (
                 <div className="flex items-center gap-2 text-gray-400 text-sm">
@@ -557,17 +543,15 @@ function EmailTestContent() {
                     <span className="text-gray-900 font-medium">{twitterDigestInfo.trackedKolCount}</span>
                   </div>
                 </div>
-              ) : activeChannel === 'onboarding' ? (
+              ) : activeChannel === 'welcome' ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Type</span>
-                    <span className="text-gray-900 font-medium">
-                      {onboardingDay === -1 ? 'Welcome' : `Day ${onboardingDay}`}
-                    </span>
+                    <span className="text-gray-900 font-medium">Welcome</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Subject</span>
-                    <span className="text-gray-900 font-medium text-xs">{onboardingSubject}</span>
+                    <span className="text-gray-900 font-medium text-xs">{welcomeSubject}</span>
                   </div>
                 </div>
               ) : (
@@ -681,35 +665,11 @@ function EmailTestContent() {
                 ) : (
                   <>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                      Select Email
+                      Welcome Email
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => { setOnboardingDay(-1); loadOnboardingPreview(-1); }}
-                        disabled={loading}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                          onboardingDay === -1
-                            ? 'bg-primary text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        } disabled:opacity-50`}
-                      >
-                        Welcome
-                      </button>
-                      {onboardingDays.map((d) => (
-                        <button
-                          key={d}
-                          onClick={() => { setOnboardingDay(d); loadOnboardingPreview(d); }}
-                          disabled={loading}
-                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                            onboardingDay === d
-                              ? 'bg-primary text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          } disabled:opacity-50`}
-                        >
-                          Day {d}
-                        </button>
-                      ))}
-                    </div>
+                    <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-500">
+                      Day 3/7/14 onboarding drip 邮件已删除，此处只预览注册欢迎邮件。
+                    </p>
                   </>
                 )}
               </div>

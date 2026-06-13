@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, Pencil, RefreshCw, Search, X } from 'lucide-react';
 import type { ConversationSummary } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
@@ -28,9 +29,11 @@ function formatRelativeTime(dateStr: string): string {
 interface ConversationSidebarProps {
   conversations: ConversationSummary[];
   loading?: boolean;
+  error?: string | null;
   currentId?: string | null;
   onLoad: (id: string) => void;
   onDelete: (id: string) => void;
+  onRename?: (id: string, title: string) => Promise<void> | void;
   onNewChat: () => void;
   requestInFlight?: boolean;
   onToggle?: () => void;
@@ -44,14 +47,18 @@ interface ConversationSidebarProps {
   loadingMore?: boolean;
   /** Pagination: handler invoked when the user clicks "加载更多". */
   onLoadMore?: () => void;
+  onSearchOpen?: () => void;
+  onRetry?: () => void;
 }
 
 export default function ConversationSidebar({
   conversations,
   loading = false,
+  error = null,
   currentId,
   onLoad,
   onDelete,
+  onRename,
   onNewChat,
   requestInFlight = false,
   onToggle,
@@ -61,7 +68,41 @@ export default function ConversationSidebar({
   hasMore = false,
   loadingMore = false,
   onLoadMore,
+  onSearchOpen,
+  onRetry,
 }: ConversationSidebarProps) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [savingRenameId, setSavingRenameId] = useState<string | null>(null);
+
+  const startRename = (conversation: ConversationSummary) => {
+    if (!onRename || requestInFlight) return;
+    setEditingId(conversation.id);
+    setDraftTitle(conversation.title || '未命名对话');
+  };
+
+  const cancelRename = () => {
+    setEditingId(null);
+    setDraftTitle('');
+    setSavingRenameId(null);
+  };
+
+  const submitRename = async (conversation: ConversationSummary) => {
+    if (!onRename) return;
+    const nextTitle = draftTitle.trim();
+    if (!nextTitle || nextTitle === (conversation.title || '未命名对话')) {
+      cancelRename();
+      return;
+    }
+    setSavingRenameId(conversation.id);
+    try {
+      await onRename(conversation.id, nextTitle);
+      cancelRename();
+    } catch {
+      setSavingRenameId(null);
+    }
+  };
+
   // Auto-load the next page when the sentinel at the list bottom scrolls into
   // view. rootMargin=120px primes the next page slightly before it's visible
   // so the user doesn't see a stutter. Button below still works as a manual
@@ -113,6 +154,7 @@ export default function ConversationSidebar({
             onClick={onToggle}
             className="p-1 rounded-md text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
             title="收起侧栏"
+            aria-label="收起历史对话"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -133,6 +175,19 @@ export default function ConversationSidebar({
           </svg>
           新对话
         </button>
+        {onSearchOpen && (
+          <button
+            type="button"
+            onClick={onSearchOpen}
+            className="group w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="min-w-0 flex-1 text-left">搜索对话</span>
+            <span className="hidden xl:inline-flex items-center rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground/70">
+              ⌘K
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ── Conversation list ── */}
@@ -145,6 +200,20 @@ export default function ConversationSidebar({
                 <div className="h-2 bg-muted/20 rounded animate-pulse w-1/2" />
               </div>
             ))}
+          </div>
+        ) : error ? (
+          <div className="px-3 py-6 text-center">
+            <p className="text-xs text-muted-foreground/70">{error}</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              >
+                <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                重新加载
+              </button>
+            )}
           </div>
         ) : conversations.length === 0 ? (
           <div className="px-3 py-6 text-center">
@@ -161,27 +230,86 @@ export default function ConversationSidebar({
                     : 'border-transparent hover:bg-muted/60 hover:border-border/60'
                 }`}
               >
-                <button
-                  onClick={() => !requestInFlight && onLoad(conv.id)}
-                  disabled={requestInFlight}
-                  className={`w-full text-left px-2.5 py-2 pr-6 ${requestInFlight ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                >
-                  <p className="text-xs leading-snug line-clamp-2 text-foreground">
-                    {conv.title || '未命名对话'}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatRelativeTime(conv.updated_at)}
-                  </p>
-                </button>
-                <button
-                  onClick={() => onDelete(conv.id)}
-                  aria-label={`删除对话: ${conv.title || '未命名对话'}`}
-                  className="absolute top-2 right-1.5 opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-red-500 transition-all duration-150 cursor-pointer"
-                >
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
+                {editingId === conv.id ? (
+                  <form
+                    className="px-2.5 py-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void submitRename(conv);
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        value={draftTitle}
+                        onChange={(event) => setDraftTitle(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            cancelRename();
+                          }
+                        }}
+                        onFocus={(event) => event.currentTarget.select()}
+                        autoFocus
+                        maxLength={50}
+                        disabled={savingRenameId === conv.id}
+                        className="min-w-0 flex-1 rounded-md border border-primary/25 bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary/45 disabled:opacity-60"
+                      />
+                      <button
+                        type="submit"
+                        disabled={savingRenameId === conv.id || draftTitle.trim().length === 0}
+                        className="p-1 rounded-md text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        aria-label="保存名称"
+                      >
+                        <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRename}
+                        disabled={savingRenameId === conv.id}
+                        className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-40 transition-colors cursor-pointer"
+                        aria-label="取消重命名"
+                      >
+                        <X className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => !requestInFlight && onLoad(conv.id)}
+                      disabled={requestInFlight}
+                      className={`w-full text-left px-2.5 py-2 pr-12 ${requestInFlight ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                    >
+                      <p className="text-xs leading-snug line-clamp-2 text-foreground">
+                        {conv.title || '未命名对话'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatRelativeTime(conv.updated_at)}
+                      </p>
+                    </button>
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      {onRename && (
+                        <button
+                          type="button"
+                          onClick={() => startRename(conv)}
+                          disabled={requestInFlight}
+                          aria-label={`重命名对话: ${conv.title || '未命名对话'}`}
+                          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-3 h-3" aria-hidden="true" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onDelete(conv.id)}
+                        aria-label={`删除对话: ${conv.title || '未命名对话'}`}
+                        className="p-0.5 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                      >
+                        <X className="w-3 h-3" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
             {hasMore && onLoadMore && (

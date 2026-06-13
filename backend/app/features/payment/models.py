@@ -22,6 +22,9 @@ class SubscriptionStatusResponse(BaseModel):
     status: str
     current_period_end: Optional[str] = None
     access_expires_at: Optional[str] = None
+    cancel_at_period_end: bool = False
+    cancel_at: Optional[str] = None
+    canceled_at: Optional[str] = None
 
 
 class PortalSessionResponse(BaseModel):

@@ -98,7 +98,7 @@ export default function PersonaHero({
           <div className="hidden shrink-0 flex-col items-end gap-0.5 text-right md:flex">
             {lastUpdatedRelative ? (
               <div className="flex items-center gap-1.5 font-data text-xs text-muted-foreground">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse-glow" />
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
                 最新更新 · {lastUpdatedRelative}
               </div>
             ) : null}

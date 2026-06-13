@@ -134,6 +134,59 @@ async def get_feedback_stats(
         return {"success": False, "error": str(e)}
 
 
+async def get_email_feedback_list(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get individual email feedback records for an admin date range.
+
+    Args:
+        start_date: Optional start date in YYYY-MM-DD format
+        end_date: Optional end date in YYYY-MM-DD format
+
+    Returns:
+        dict with records and total count
+    """
+    try:
+        service = get_insforge_service()
+        feedback_url = f"{service.base_url}/functions/email-feedback"
+
+        logger.info("Getting email feedback list: %s to %s", start_date, end_date)
+
+        payload: Dict[str, Any] = {}
+        if start_date:
+            payload["start_date"] = start_date
+        if end_date:
+            payload["end_date"] = end_date
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{feedback_url}?action=list",
+                headers=service.headers,
+                json=payload,
+                timeout=30.0,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    return {
+                        "success": True,
+                        "data": data.get("data", []),
+                        "total_records": data.get("total_records", 0),
+                    }
+                error_msg = data.get("error", "Unknown error")
+                return {"success": False, "error": error_msg}
+
+            error_msg = response.text
+            return {"success": False, "error": f"HTTP {response.status_code}: {error_msg}"}
+
+    except Exception as e:
+        logger.exception("Exception getting email feedback list")
+        return {"success": False, "error": str(e)}
+
+
 # =============================================================================
 # User Feedback (Contact Page)
 # =============================================================================

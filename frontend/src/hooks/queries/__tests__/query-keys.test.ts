@@ -170,5 +170,25 @@ describe('queryKeys', () => {
         20,
       ]);
     });
+
+    it('conversations(userId, pageSize, search) includes search text when present', () => {
+      expect(queryKeys.research.conversations('user-123', 20, 'nvda')).toEqual([
+        'research',
+        'conversations',
+        'user-123',
+        20,
+        'nvda',
+      ]);
+    });
+  });
+
+  describe('kol', () => {
+    it('highConviction(username) includes persona username', () => {
+      expect(queryKeys.kol.highConviction('aleabitoreddit')).toEqual([
+        'kol',
+        'aleabitoreddit',
+        'high-conviction',
+      ]);
+    });
   });
 });

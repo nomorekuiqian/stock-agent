@@ -66,6 +66,15 @@ describe('/login page', () => {
     });
   });
 
+  it('opens the sign-up form when mode=signup is provided', () => {
+    mockSearchParams = new URLSearchParams('mode=signup&redirect=%2Frequest-access');
+
+    render(<LoginPage />);
+
+    expect(screen.getByRole('heading', { name: '创建账户' })).toBeInTheDocument();
+    expect(screen.getByLabelText('姓名')).toBeInTheDocument();
+  });
+
   it('redirects authenticated users to stored redirect and clears sessionStorage', async () => {
     mockSearchParams = new URLSearchParams('redirect=%2Ffor-you');
     mockAuthState = {

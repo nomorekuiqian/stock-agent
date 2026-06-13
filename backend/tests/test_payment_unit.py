@@ -169,6 +169,30 @@ class TestGetUserEmailById:
 
 
 # ---------------------------------------------------------------------------
+# Expired grant reconciliation DB wrapper
+# ---------------------------------------------------------------------------
+
+
+class TestExpiredGrantDbWrapper:
+    """Edge function failures must surface to the cron caller."""
+
+    @pytest.mark.asyncio
+    async def test_list_expired_access_grants_raises_on_edge_failure(self):
+        from app.features.payment.db import list_expired_access_grants
+
+        mock_service = MagicMock()
+        mock_service.call_function = AsyncMock(
+            return_value={"data": {"success": False, "error": "edge unavailable"}}
+        )
+        with patch(
+            "app.features.payment.db.get_insforge_service",
+            return_value=mock_service,
+        ):
+            with pytest.raises(RuntimeError, match="edge unavailable"):
+                await list_expired_access_grants("2026-06-06T00:00:00+00:00")
+
+
+# ---------------------------------------------------------------------------
 # _to_dict helper
 # ---------------------------------------------------------------------------
 
@@ -371,6 +395,41 @@ class TestWebhookHandler:
             assert call_kwargs["status"] == "active"
             assert call_kwargs["stripe_customer_id"] == "cus_xyz"
             assert call_kwargs["stripe_subscription_id"] == "sub_abc"
+            assert call_kwargs["clear_cancellation"] is True
+            mock_sync.assert_awaited_once_with(
+                "cus_xyz",
+                user_id="user-123",
+                allow_empty=False,
+                source="checkout.session.completed",
+            )
+
+    @pytest.mark.asyncio
+    async def test_checkout_completed_skips_lifetime_user(self):
+        """checkout.session.completed does not overwrite lifetime users."""
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("checkout.session.completed", {
+            "metadata": {"user_id": "user-life"},
+            "subscription": "sub_life",
+            "customer": "cus_life",
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b'payload'
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value={"is_lifetime": True}), \
+             patch("app.features.payment.router.stripe.Subscription.retrieve") as mock_retrieve, \
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch("app.features.payment.router.sync_entitlements_from_stripe", new_callable=AsyncMock) as mock_sync:
+
+            result = await stripe_webhook(mock_request)
+
+            assert result == {"received": True}
+            mock_retrieve.assert_not_called()
+            mock_upsert.assert_not_called()
+            mock_sync.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_checkout_completed_missing_metadata(self):
@@ -396,8 +455,8 @@ class TestWebhookHandler:
             mock_upsert.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_subscription_updated_syncs_identity_only(self):
-        """subscription.updated syncs status/period only (no plan write)."""
+    async def test_subscription_updated_syncs_identity_only_without_customer(self):
+        """subscription.updated without customer syncs status/period only."""
         from app.features.payment.router import stripe_webhook
 
         event = self._make_event("customer.subscription.updated", {
@@ -419,9 +478,88 @@ class TestWebhookHandler:
             assert result == {"received": True}
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
-            # Identity sync: status + period, no plan
+            # Identity sync: status + period, no plan when no customer id is present.
             assert call_kwargs["status"] == "canceled"
             assert "plan" not in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_subscription_updated_stores_scheduled_cancellation(self):
+        """subscription.updated stores period-end cancellation state while active."""
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("customer.subscription.updated", {
+            "metadata": {"user_id": "user-123"},
+            "id": "sub_abc",
+            "customer": "cus_xyz",
+            "status": "active",
+            "cancel_at_period_end": False,
+            "cancel_at": 1783794504,
+            "canceled_at": 1781204039,
+            "items": {"data": [{"current_period_end": 1783794504}]},
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b'payload'
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        existing = {"user_id": "user-123", "stripe_customer_id": "cus_xyz"}
+        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=existing), \
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch(
+                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 return_value={"synced": True},
+             ):
+
+            result = await stripe_webhook(mock_request)
+
+        assert result == {"received": True}
+        call_kwargs = mock_upsert.call_args[1]
+        assert call_kwargs["status"] == "active"
+        assert call_kwargs["cancel_at_period_end"] is False
+        assert call_kwargs["cancel_at"] == "2026-07-11T18:28:24+00:00"
+        assert call_kwargs["canceled_at"] == "2026-06-11T18:53:59+00:00"
+        assert call_kwargs["clear_cancellation"] is False
+
+    @pytest.mark.asyncio
+    async def test_subscription_updated_compensates_entitlements_when_customer_present(self):
+        """subscription.updated also triggers non-destructive entitlement sync."""
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("customer.subscription.updated", {
+            "metadata": {"user_id": "user-123"},
+            "id": "sub_abc",
+            "customer": "cus_xyz",
+            "status": "active",
+            "items": {"data": [{"current_period_start": 1700000000, "current_period_end": 1702592000}]},
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b'payload'
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        existing = {"user_id": "user-123", "stripe_customer_id": "cus_xyz"}
+        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=existing), \
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch(
+                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 return_value={"synced": True},
+             ) as mock_sync:
+
+            result = await stripe_webhook(mock_request)
+
+            assert result == {"received": True}
+            mock_upsert.assert_called_once()
+            mock_sync.assert_awaited_once_with(
+                "cus_xyz",
+                user_id="user-123",
+                sub_record=existing,
+                allow_empty=False,
+                source="customer.subscription.updated",
+            )
 
     @pytest.mark.asyncio
     async def test_subscription_updated_active_syncs_status(self):
@@ -447,8 +585,39 @@ class TestWebhookHandler:
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
             assert call_kwargs["status"] == "active"
+            assert call_kwargs["clear_cancellation"] is True
             # Plan is determined by entitlements webhook, not here
             assert "plan" not in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_subscription_updated_entitlement_sync_failure_returns_502(self):
+        """subscription.updated failures should be retryable by Stripe."""
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("customer.subscription.updated", {
+            "metadata": {"user_id": "user-123"},
+            "id": "sub_abc",
+            "customer": "cus_xyz",
+            "status": "active",
+            "items": {"data": [{"current_period_end": 1702592000}]},
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b'payload'
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=None), \
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock), \
+             patch(
+                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 side_effect=RuntimeError("stripe unavailable"),
+             ):
+
+            result = await stripe_webhook(mock_request)
+
+        assert result.status_code == 502
 
     @pytest.mark.asyncio
     async def test_subscription_deleted_no_active_subs(self):
@@ -471,7 +640,12 @@ class TestWebhookHandler:
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
              patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value={"stripe_subscription_id": "sub_deleted"}), \
              patch("app.features.payment.router.stripe.Subscription.list", return_value=mock_active_subs), \
-             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert:
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch(
+                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 return_value={"synced": True},
+             ) as mock_sync:
 
             result = await stripe_webhook(mock_request)
 
@@ -480,6 +654,58 @@ class TestWebhookHandler:
             call_kwargs = mock_upsert.call_args[1]
             assert call_kwargs["plan"] == "free"
             assert call_kwargs["status"] == "canceled"
+            assert call_kwargs["clear_access_expires_at"] is True
+            mock_sync.assert_awaited_once_with(
+                "cus_xyz",
+                user_id="user-123",
+                allow_empty=True,
+                source="customer.subscription.deleted",
+            )
+
+    @pytest.mark.asyncio
+    async def test_subscription_deleted_preserves_trialing_replacement_sub(self):
+        """A replacement trialing subscription still represents active access."""
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("customer.subscription.deleted", {
+            "metadata": {"user_id": "user-123"},
+            "id": "sub_deleted",
+            "customer": "cus_xyz",
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b'payload'
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        active_sub = {
+            "id": "sub_trial",
+            "status": "trialing",
+            "metadata": {"tier": "max"},
+            "current_period_start": 1700000000,
+            "current_period_end": 1702592000,
+            "items": {"data": []},
+        }
+        mock_active_subs = MagicMock()
+        mock_active_subs.data = [active_sub]
+
+        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value={"stripe_subscription_id": "sub_deleted"}), \
+             patch("app.features.payment.router.stripe.Subscription.list", return_value=mock_active_subs), \
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch(
+                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 return_value={"synced": True},
+             ):
+
+            result = await stripe_webhook(mock_request)
+
+        assert result == {"received": True}
+        call_kwargs = mock_upsert.call_args[1]
+        assert call_kwargs["stripe_subscription_id"] == "sub_trial"
+        assert call_kwargs["plan"] == "max"
+        assert call_kwargs["status"] == "active"
+        assert call_kwargs["clear_access_expires_at"] is True
 
     @pytest.mark.asyncio
     async def test_unhandled_event_returns_ok(self):
@@ -495,3 +721,276 @@ class TestWebhookHandler:
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event):
             result = await stripe_webhook(mock_request)
             assert result == {"received": True}
+
+
+# ---------------------------------------------------------------------------
+# _parse_iso_datetime helper
+# ---------------------------------------------------------------------------
+
+
+class TestParseIsoDatetime:
+    """Tests for _parse_iso_datetime() — tolerant ISO-8601 parser."""
+
+    def test_none_returns_none(self):
+        from app.features.payment.service import _parse_iso_datetime
+
+        assert _parse_iso_datetime(None) is None
+
+    def test_empty_string_returns_none(self):
+        from app.features.payment.service import _parse_iso_datetime
+
+        assert _parse_iso_datetime("") is None
+
+    def test_invalid_string_returns_none(self):
+        from app.features.payment.service import _parse_iso_datetime
+
+        assert _parse_iso_datetime("not-a-date") is None
+
+    def test_z_suffix_parsed_as_utc(self):
+        from app.features.payment.service import _parse_iso_datetime
+
+        parsed = _parse_iso_datetime("2026-06-06T12:00:00Z")
+        assert parsed == datetime(2026, 6, 6, 12, 0, 0, tzinfo=timezone.utc)
+
+    def test_naive_timestamp_assumed_utc(self):
+        from app.features.payment.service import _parse_iso_datetime
+
+        parsed = _parse_iso_datetime("2026-06-06T12:00:00")
+        assert parsed.tzinfo is timezone.utc
+        assert parsed == datetime(2026, 6, 6, 12, 0, 0, tzinfo=timezone.utc)
+
+    def test_explicit_offset_preserved(self):
+        from app.features.payment.service import _parse_iso_datetime
+
+        parsed = _parse_iso_datetime("2026-06-06T12:00:00+08:00")
+        # 12:00 +08:00 == 04:00 UTC
+        assert parsed == datetime(2026, 6, 6, 4, 0, 0, tzinfo=timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# _list_active_entitlements pagination
+# ---------------------------------------------------------------------------
+
+
+class TestListActiveEntitlementsPagination:
+    """Tests for _list_active_entitlements() — Stripe pagination loop."""
+
+    @pytest.mark.asyncio
+    async def test_single_page_no_pagination(self):
+        from app.features.payment.service import _list_active_entitlements
+
+        page = {"data": [{"id": "ent_1"}, {"id": "ent_2"}], "has_more": False}
+        with patch(
+            "app.features.payment.service.stripe.entitlements.ActiveEntitlement.list",
+            return_value=page,
+        ) as mock_list:
+            result = await _list_active_entitlements("cus_1")
+
+        assert result == [{"id": "ent_1"}, {"id": "ent_2"}]
+        mock_list.assert_called_once()
+        assert "starting_after" not in mock_list.call_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_multi_page_threads_starting_after(self):
+        from app.features.payment.service import _list_active_entitlements
+
+        page1 = {"data": [{"id": "ent_1"}], "has_more": True}
+        page2 = {"data": [{"id": "ent_2"}], "has_more": False}
+        with patch(
+            "app.features.payment.service.stripe.entitlements.ActiveEntitlement.list",
+            side_effect=[page1, page2],
+        ) as mock_list:
+            result = await _list_active_entitlements("cus_1")
+
+        assert result == [{"id": "ent_1"}, {"id": "ent_2"}]
+        assert mock_list.call_count == 2
+        # The second request must page from the last id of page one.
+        assert mock_list.call_args_list[1].kwargs.get("starting_after") == "ent_1"
+
+    @pytest.mark.asyncio
+    async def test_empty_page_breaks_loop(self):
+        from app.features.payment.service import _list_active_entitlements
+
+        # has_more lies (True) but data is empty — loop must still terminate.
+        page = {"data": [], "has_more": True}
+        with patch(
+            "app.features.payment.service.stripe.entitlements.ActiveEntitlement.list",
+            return_value=page,
+        ) as mock_list:
+            result = await _list_active_entitlements("cus_1")
+
+        assert result == []
+        mock_list.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# reconcile_expired_access_grants
+# ---------------------------------------------------------------------------
+
+
+class TestReconcileExpiredAccessGrants:
+    """Tests for reconcile_expired_access_grants() — expired-grant cron job."""
+
+    _PAST = "2026-06-01T00:00:00+00:00"
+    _FUTURE = "2027-01-01T00:00:00+00:00"
+    _NOW = datetime(2026, 6, 6, 0, 0, 0, tzinfo=timezone.utc)
+
+    def _patches(self, rows, upsert_return=True):
+        """Patch the service collaborators used by the reconcile loop."""
+        return (
+            patch(
+                "app.features.payment.service.list_expired_access_grants",
+                new_callable=AsyncMock,
+                return_value=rows,
+            ),
+            patch(
+                "app.features.payment.service.upsert_subscription",
+                new_callable=AsyncMock,
+                return_value=upsert_return,
+            ),
+            patch(
+                "app.features.payment.service.get_user_email_by_id",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "app.features.payment.service.get_subscription",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
+        )
+
+    @pytest.mark.asyncio
+    async def test_expires_eligible_grant(self):
+        from app.features.payment.service import reconcile_expired_access_grants
+
+        rows = [
+            {
+                "user_id": "u1",
+                "plan": "max",
+                "status": "active",
+                "entitlements": ["ai_research_engine"],
+                "access_expires_at": self._PAST,
+            }
+        ]
+        list_p, upsert_p, _email_p, _sub_p = self._patches(rows)
+        with list_p, upsert_p as mock_upsert, _email_p, _sub_p:
+            result = await reconcile_expired_access_grants(now=self._NOW)
+
+        assert result == {
+            "success": True,
+            "processed": 1,
+            "expired": 1,
+            "skipped": 0,
+            "errors": [],
+        }
+        kwargs = mock_upsert.call_args.kwargs
+        assert kwargs["user_id"] == "u1"
+        assert kwargs["plan"] == "free"
+        assert kwargs["status"] == "expired"
+        assert kwargs["entitlements"] == []
+
+    @pytest.mark.asyncio
+    async def test_skips_lifetime_user(self):
+        from app.features.payment.service import reconcile_expired_access_grants
+
+        rows = [
+            {
+                "user_id": "u1",
+                "is_lifetime": True,
+                "plan": "max",
+                "entitlements": ["x"],
+                "access_expires_at": self._PAST,
+            }
+        ]
+        list_p, upsert_p, _email_p, _sub_p = self._patches(rows)
+        with list_p, upsert_p as mock_upsert, _email_p, _sub_p:
+            result = await reconcile_expired_access_grants(now=self._NOW)
+
+        assert result["expired"] == 0
+        assert result["skipped"] == 1
+        mock_upsert.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_skips_missing_user_id(self):
+        from app.features.payment.service import reconcile_expired_access_grants
+
+        rows = [{"plan": "max", "access_expires_at": self._PAST}]
+        list_p, upsert_p, _email_p, _sub_p = self._patches(rows)
+        with list_p, upsert_p as mock_upsert, _email_p, _sub_p:
+            result = await reconcile_expired_access_grants(now=self._NOW)
+
+        assert result["skipped"] == 1
+        mock_upsert.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_skips_not_yet_expired(self):
+        from app.features.payment.service import reconcile_expired_access_grants
+
+        rows = [
+            {
+                "user_id": "u1",
+                "plan": "max",
+                "entitlements": ["x"],
+                "access_expires_at": self._FUTURE,
+            }
+        ]
+        list_p, upsert_p, _email_p, _sub_p = self._patches(rows)
+        with list_p, upsert_p as mock_upsert, _email_p, _sub_p:
+            result = await reconcile_expired_access_grants(now=self._NOW)
+
+        assert result["skipped"] == 1
+        mock_upsert.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_skips_already_free_without_entitlements(self):
+        from app.features.payment.service import reconcile_expired_access_grants
+
+        rows = [
+            {
+                "user_id": "u1",
+                "plan": "free",
+                "entitlements": [],
+                "access_expires_at": self._PAST,
+            }
+        ]
+        list_p, upsert_p, _email_p, _sub_p = self._patches(rows)
+        with list_p, upsert_p as mock_upsert, _email_p, _sub_p:
+            result = await reconcile_expired_access_grants(now=self._NOW)
+
+        assert result["skipped"] == 1
+        mock_upsert.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_upsert_failure_recorded_as_error(self):
+        from app.features.payment.service import reconcile_expired_access_grants
+
+        rows = [
+            {
+                "user_id": "u1",
+                "plan": "max",
+                "entitlements": ["x"],
+                "access_expires_at": self._PAST,
+            }
+        ]
+        list_p, upsert_p, _email_p, _sub_p = self._patches(rows, upsert_return=False)
+        with list_p, upsert_p, _email_p, _sub_p:
+            result = await reconcile_expired_access_grants(now=self._NOW)
+
+        assert result["success"] is False
+        assert result["expired"] == 0
+        assert result["errors"] == [{"user_id": "u1", "error": "upsert_failed"}]
+
+    @pytest.mark.asyncio
+    async def test_naive_now_normalized_to_utc(self):
+        from app.features.payment.service import reconcile_expired_access_grants
+
+        list_p, upsert_p, _email_p, _sub_p = self._patches([])
+        naive_now = datetime(2026, 6, 6, 0, 0, 0)  # no tzinfo
+        with list_p as mock_list, upsert_p, _email_p, _sub_p:
+            result = await reconcile_expired_access_grants(now=naive_now)
+
+        assert result["processed"] == 0
+        # The query timestamp passed to the edge function must be tz-aware UTC.
+        passed_iso = mock_list.call_args.args[0]
+        assert passed_iso.endswith("+00:00")

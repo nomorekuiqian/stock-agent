@@ -36,11 +36,12 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
 
   const errored = profileQ.isError || tickersQ.isError || feedQ.isError;
   const ready = profileQ.data && tickersQ.data && feedQ.data;
-  // qinbafrank uses the full-bleed workspace layout across all sub-pages so the
-  // topic tree / sector explorer / feed rails have room to breathe. The loading
-  // shell must match — otherwise the page visibly jumps from max-w-7xl to full
-  // bleed on every navigation / refresh.
-  const isWideWorkspace = username.toLowerCase() === 'qinbafrank';
+  // Frank + Serenity both use the full-bleed workspace layout across all
+  // sub-pages so the topic tree / sector explorer / feed rails have room to
+  // breathe. The loading shell must match — otherwise the page visibly jumps
+  // from max-w-7xl to full bleed on every navigation / refresh.
+  const u = username.toLowerCase();
+  const isWideWorkspace = u === 'qinbafrank' || u === 'aleabitoreddit';
   const shellWidth = isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl';
 
   // qinbafrank sub-pages (sectors / highlights / stocks / latest / macro /
@@ -77,9 +78,12 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
 
   const profile = profileQ.data;
   const avatarUrl = `/kol-avatars/${profile.persona.username}.png`;
-  const heroDescription = isWideWorkspace
-    ? '基于 @qinbafrank 公开内容整理的专属投研页：框架、个股、原文证据和追问入口放在一起。'
-    : profile.core.bio || profile.persona.description;
+  const heroDescription =
+    username.toLowerCase() === 'qinbafrank'
+      ? '基于 @qinbafrank 公开内容整理的专属投研页：框架、个股、原文证据和追问入口放在一起。'
+      : username.toLowerCase() === 'aleabitoreddit'
+        ? '基于 @aleabitoreddit (Serenity) 公开内容整理的 AI/半导体供应链投研页：供应链漏斗、个股解码、原文证据和追问入口放在一起。'
+        : profile.core.bio || profile.persona.description;
   const tickerCount = tickersQ.data.tickers.length;
   const totalTweets = feedQ.data.raw_total ?? feedQ.data.total ?? null;
   const latestAt = feedQ.data.tweets[0]?.created_at ?? null;

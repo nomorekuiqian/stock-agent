@@ -13,8 +13,10 @@ import {
 } from 'recharts';
 
 import type { KolCockpitPricePoint, KolCockpitTweet } from '@/lib/api';
+import { formatStockPrice } from '@/lib/currency';
 
 interface Props {
+  ticker: string;
   priceSeries: KolCockpitPricePoint[];
   tweets: KolCockpitTweet[];
 }
@@ -78,7 +80,7 @@ function nearestTradingDate(sortedDates: string[], d: string): string | null {
   return ans ?? (sortedDates[0] ?? null);
 }
 
-function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: Row }> }) {
+function ChartTooltip({ active, payload, ticker }: { active?: boolean; payload?: Array<{ payload: Row }>; ticker: string }) {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
   const shown = row.excerpts.slice(0, TOOLTIP_SHOW);
@@ -88,7 +90,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-data tabular-nums text-foreground">{row.date}</span>
         <span className="text-muted-foreground">
-          收盘 <span className="font-data tabular-nums">${row.close?.toFixed(2)}</span>
+          收盘 <span className="font-data tabular-nums">{formatStockPrice(row.close, ticker, undefined, { compactPrice: true })}</span>
         </span>
       </div>
       {row.count > 0 ? (
@@ -112,7 +114,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
   );
 }
 
-export default function PriceTimelineChart({ priceSeries, tweets }: Props) {
+export default function PriceTimelineChart({ ticker, priceSeries, tweets }: Props) {
   const chartFrameRef = useRef<HTMLDivElement | null>(null);
   const [chartSize, setChartSize] = useState<ChartSize | null>(null);
 
@@ -205,11 +207,11 @@ export default function PriceTimelineChart({ priceSeries, tweets }: Props) {
               tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
               tickLine={false}
               axisLine={false}
-              width={42}
-              tickFormatter={(v: number) => `$${v}`}
+              width={64}
+              tickFormatter={(v: number) => formatStockPrice(v, ticker, undefined, { compactPrice: true })}
             />
             <ZAxis dataKey="likes" range={[24, 280]} />
-            <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--border)', strokeDasharray: '3 3' }} />
+            <Tooltip content={<ChartTooltip ticker={ticker} />} cursor={{ stroke: 'var(--border)', strokeDasharray: '3 3' }} />
             <Line
               type="monotone"
               dataKey="close"

@@ -9,10 +9,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from app.core.deps import verify_user_token
+from app.core.deps import verify_user_token, optional_user_token
 from app.core.config import ENVIRONMENT
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+import app.core.posthog_client as posthog
 from app.utils.timezone import today_str, now_iso
 from app.features.daily_report.agent import MarketAgent
 from app.features.daily_report import db as market_db
@@ -169,7 +170,7 @@ async def get_report_by_id(report_id: str):
 
 
 @router.get("/market/latest")
-async def get_latest_report():
+async def get_latest_report(user_id: Optional[str] = Depends(optional_user_token)):
     """Read-only endpoint: return today's cached report or 404."""
     today = today_str()
     report = await market_db.get_report_by_date(today)
@@ -180,6 +181,13 @@ async def get_latest_report():
     timestamp = report.get("timestamp", "")
     if timestamp[:10] != today:
         raise HTTPException(status_code=404, detail="No report available for today")
+
+    if user_id and posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id,
+            event="daily_report_viewed",
+            properties={},
+        )
 
     return _report_to_response(report)
 

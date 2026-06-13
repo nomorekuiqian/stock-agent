@@ -1,48 +1,77 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  ArrowUp,
+  ArrowRight,
+  BarChart3,
+  Check,
+  Database,
+  FileText,
+  Glasses,
+  LineChart,
+  MessageSquareText,
+  Newspaper,
+  PanelRightOpen,
+  Plus,
+  Search,
+  Workflow,
+} from "lucide-react";
 import { api, type StockSearchResult } from "@/lib/api";
 
-// Re-export is not needed; we use StockSearchResult for local state
-
-// ---------------------------------------------------------------------------
-// Shared UI primitives
-// ---------------------------------------------------------------------------
-
-function ArrowIcon({ className }: { className?: string }) {
+function SectionLabel({
+  label,
+  align = "left",
+}: {
+  label: string;
+  align?: "left" | "center";
+}) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
+    <div
+      className={`flex items-center gap-3 ${
+        align === "center" ? "justify-center" : ""
+      }`}
     >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M17 8l4 4m0 0l-4 4m4-4H3"
-      />
-    </svg>
-  );
-}
-
-function SectionLabel({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3 mb-6">
-      <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-primary to-transparent" />
-      <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
+      <div className="h-px w-12 bg-gradient-to-r from-primary to-transparent" />
+      <span className="text-primary text-xs font-semibold tracking-[0.2em] uppercase">
         {label}
       </span>
+      {align === "center" && (
+        <div className="h-px w-12 bg-gradient-to-l from-primary to-transparent" />
+      )}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Feature 1: Stock Research
-// ---------------------------------------------------------------------------
+function ArrowLink({
+  href,
+  children,
+  variant = "primary",
+}: {
+  href: string;
+  children: ReactNode;
+  variant?: "primary" | "quiet";
+}) {
+  const className =
+    variant === "primary"
+      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+      : "border border-border/60 bg-card/35 text-foreground hover:border-primary/35 hover:bg-card/60";
+
+  return (
+    <Link
+      href={href}
+      data-delight-action
+      className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-5 py-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.98] ${className}`}
+    >
+      {children}
+      <ArrowRight className="h-4 w-4" aria-hidden />
+    </Link>
+  );
+}
 
 function StockSearchBox() {
   const router = useRouter();
@@ -51,29 +80,27 @@ function StockSearchBox() {
   const [isSearching, setIsSearching] = useState(false);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composingRef = useRef(false);
 
-  const doSearch = useCallback(
-    async (q: string) => {
-      if (q.length < 1) {
-        setResults([]);
-        setOpen(false);
-        return;
-      }
-      setIsSearching(true);
-      try {
-        const data = await api.searchStocks(q, 5);
-        setResults(data.stocks);
-        setOpen(data.stocks.length > 0);
-      } catch {
-        setResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    },
-    []
-  );
+  const doSearch = useCallback(async (q: string) => {
+    if (q.trim().length < 1) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const data = await api.searchStocks(q, 5);
+      setResults(data.stocks);
+      setOpen(data.stocks.length > 0);
+    } catch {
+      setResults([]);
+      setOpen(false);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
 
   const onQueryChange = useCallback(
     (value: string) => {
@@ -85,7 +112,6 @@ function StockSearchBox() {
     [doSearch]
   );
 
-  // Close dropdown on outside click or Escape
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -103,26 +129,17 @@ function StockSearchBox() {
     return () => {
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-md">
+    <div ref={containerRef} className="relative w-full">
       <div className="relative">
-        {/* Search icon */}
-        <svg
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/60"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
+        <Search
+          className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
         <input
           type="text"
           value={query}
@@ -137,46 +154,36 @@ function StockSearchBox() {
           onFocus={() => {
             if (results.length > 0) setOpen(true);
           }}
-          placeholder="输入股票代码，如 AAPL、TSLA、NVDA..."
-          className="w-full pl-12 pr-4 py-3.5 bg-card/80 border border-border/60 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+          placeholder="输入股票代码或公司名"
+          className="min-h-11 w-full rounded-lg border border-border/60 bg-background/70 py-3 pl-11 pr-4 text-sm text-foreground transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
         />
         {isSearching && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
+          <div
+            className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-primary/40 border-t-primary animate-spin"
+            aria-hidden
+          />
         )}
       </div>
 
-      {/* Search results dropdown */}
       {open && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border/60 rounded-xl overflow-hidden shadow-2xl shadow-black/40 z-20">
+        <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-border/70 bg-card shadow-2xl shadow-black/30">
           {results.map((stock) => (
             <button
               key={stock.symbol}
               onClick={() => {
                 router.push(`/stock/${stock.symbol}`);
               }}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary/5 transition-colors text-left cursor-pointer"
+              className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-primary/[0.055]"
             >
-              <div className="flex items-center gap-3">
-                <span className="font-data text-sm font-semibold text-primary">
+              <div className="min-w-0">
+                <div className="font-data text-sm font-semibold text-primary">
                   {stock.symbol}
-                </span>
-                <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                </div>
+                <div className="truncate text-sm text-muted-foreground">
                   {stock.name}
-                </span>
+                </div>
               </div>
-              <svg
-                className="w-4 h-4 text-muted-foreground/40"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             </button>
           ))}
         </div>
@@ -185,282 +192,676 @@ function StockSearchBox() {
   );
 }
 
-function StockMockup() {
-  const metrics = [
-    { label: "P/E", value: "32.8x", sub: "行业 28.5x" },
-    { label: "营收增速", value: "+6.1%", sub: "YoY" },
-    { label: "毛利率", value: "46.9%", sub: "稳定" },
-    { label: "ROE", value: "157%", sub: "优秀" },
-  ];
+const TRUST_STATS = [
+  {
+    value: "1,500+",
+    label: "活跃用户",
+    detail: "中文投资者正在用 TheMarketBrew 做日常研究",
+    numeric: true,
+  },
+  {
+    value: "3,680+",
+    label: "美股标的",
+    detail: "覆盖主流可交易股票与 ETF 的研究入口",
+    numeric: true,
+  },
+  {
+    value: "300+",
+    label: "博主观点源",
+    detail: "从高质量公开观点里提取论据和市场线索",
+    numeric: true,
+  },
+  {
+    value: "多市场",
+    label: "信息延伸",
+    detail: "以美股为核心，延伸到港股、A 股、日股、韩国等相关市场",
+    numeric: false,
+  },
+];
 
-  const technicals = [
-    { label: "RSI (14)", value: "52", signal: "neutral" as const },
-    { label: "MACD", value: "多头", signal: "up" as const },
-    { label: "支撑位", value: "$198", signal: "neutral" as const },
-    { label: "阻力位", value: "$236", signal: "neutral" as const },
-  ];
-
-  const signalColor = {
-    up: "text-emerald-400",
-    down: "text-red-400",
-    neutral: "text-white/80",
-  };
+function TrustSignalSection() {
+  const markets = ["美股", "港股", "A 股", "日股", "韩国"];
 
   return (
-    <div className="relative bg-[#0c0c0e] rounded-2xl border border-white/[0.08] overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:shadow-lg hover:shadow-primary/5">
-      {/* Top accent line */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-
-      {/* Stock header */}
-      <div className="px-5 pt-5 pb-3 border-b border-white/[0.06]">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-baseline gap-2.5 mb-1">
-              <span className="font-data text-lg font-bold text-primary">
-                AAPL
-              </span>
-              <span className="text-sm text-white/50">Apple Inc.</span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="font-data text-2xl font-bold text-white/90">
-                $213.49
-              </span>
-              <span className="font-data text-sm font-medium text-emerald-400">
-                +1.24%
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-1.5">
-            {["概览", "技术", "财务", "新闻"].map((tab, i) => (
+    <section
+      data-delight-section
+      className="relative border-b border-border/40 bg-card/15 py-12 md:py-16"
+    >
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 md:px-6 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="space-y-4">
+          <SectionLabel label="Trusted Research Stack" />
+          <h2 className="font-editorial text-3xl leading-tight text-foreground md:text-4xl">
+            被真实投资者每天打开的投研系统
+          </h2>
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base">
+            我们不把 Agent 做成单纯聊天窗口，而是把专业数据、新闻、宏观和博主方法论放进同一个研究环境。
+          </p>
+          <div className="flex flex-wrap gap-2 pt-2">
+            {markets.map((market) => (
               <span
-                key={tab}
-                className={`text-xs px-2.5 py-1 rounded-md ${
-                  i === 0
-                    ? "bg-primary/15 text-primary font-medium"
-                    : "text-white/40"
-                }`}
+                key={market}
+                className="rounded-full border border-border/60 bg-background/55 px-3 py-1 text-sm font-medium text-muted-foreground"
               >
-                {tab}
+                {market}
               </span>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Chart placeholder */}
-      <div className="px-5 py-4">
-        <div className="h-28 relative">
-          <svg
-            viewBox="0 0 400 100"
-            className="w-full h-full"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity="0.15" />
-                <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M0,70 C30,65 60,45 100,50 C140,55 170,30 200,35 C230,40 260,25 300,20 C340,15 370,30 400,15"
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="2"
-              opacity="0.8"
-            />
-            <path
-              d="M0,70 C30,65 60,45 100,50 C140,55 170,30 200,35 C230,40 260,25 300,20 C340,15 370,30 400,15 V100 H0Z"
-              fill="url(#chartGrad)"
-            />
-          </svg>
-          {/* Time labels */}
-          <div className="absolute bottom-0 left-0 right-0 flex justify-between">
-            {["1M", "3M", "6M", "1Y", "5Y"].map((t, i) => (
-              <span
-                key={t}
-                className={`text-micro font-data ${
-                  i === 3
-                    ? "text-primary font-medium"
-                    : "text-white/30"
+        <div className="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/40 sm:grid-cols-2">
+          {TRUST_STATS.map((stat) => (
+            <div
+              key={stat.label}
+              data-delight-card
+              className="bg-background/80 p-5 md:p-6"
+            >
+              <div
+                className={`mb-2 text-2xl text-foreground md:text-3xl ${
+                  stat.numeric ? "font-data font-semibold" : "font-medium"
                 }`}
               >
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Metrics grid */}
-      <div className="px-5 pb-3">
-        <p className="text-micro text-primary/60 font-semibold uppercase tracking-wider mb-2">
-          基本面指标
-        </p>
-        <div className="grid grid-cols-4 gap-2">
-          {metrics.map((m) => (
-            <div
-              key={m.label}
-              className="bg-white/[0.04] rounded-lg px-2.5 py-2 border border-white/[0.06]"
-            >
-              <p className="text-micro text-white/40">{m.label}</p>
-              <p className="font-data text-sm font-semibold text-white/90 mt-0.5">
-                {m.value}
-              </p>
-              <p className="text-micro text-white/30 font-data">
-                {m.sub}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Technical indicators */}
-      <div className="px-5 pb-4">
-        <p className="text-micro text-primary/60 font-semibold uppercase tracking-wider mb-2">
-          技术面信号
-        </p>
-        <div className="grid grid-cols-4 gap-2">
-          {technicals.map((t) => (
-            <div
-              key={t.label}
-              className="flex items-center justify-between bg-white/[0.03] rounded-lg px-2.5 py-2 border border-white/[0.05]"
-            >
-              <span className="text-micro text-white/40">
-                {t.label}
-              </span>
-              <span
-                className={`font-data text-xs font-medium ${signalColor[t.signal]}`}
-              >
-                {t.value}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* AI summary */}
-      <div className="mx-5 mb-5 border-l-2 border-primary/40 pl-3 py-2 bg-primary/[0.03] rounded-r-lg">
-        <p className="text-micro text-primary/50 font-semibold uppercase tracking-wider mb-1">
-          AI 综合评估
-        </p>
-        <p className="text-xs text-white/55 leading-relaxed">
-          苹果基本面稳健，iPhone 及服务收入双轮驱动。估值略高于行业均值但增长可期。技术面中性偏多，$198 为关键支撑。
-        </p>
-      </div>
-
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#0c0c0e] to-transparent pointer-events-none" />
-    </div>
-  );
-}
-
-function StockResearchSection() {
-  return (
-    <section className="relative py-20 md:py-32 overflow-hidden">
-      {/* Background: subtle emerald grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.02)_1px,transparent_1px)] bg-[size:80px_80px]" />
-
-      <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-        <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: Content */}
-          <div className="space-y-6">
-            <SectionLabel label="个股透视" />
-
-            <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1]">
-              输入代码，
-              <br />
-              <span className="text-gradient-emerald">一页看透</span>
-            </h2>
-
-            <p className="text-muted-foreground text-base md:text-lg leading-relaxed max-w-md">
-              输入任意美股代码，即刻获得完整的投资分析 -- 基本面、技术面、新闻面、AI 综合评估，所有决策信息整合在一个页面。
-            </p>
-
-            {/* Interactive stock search */}
-            <div className="pt-2">
-              <p className="text-xs text-muted-foreground/60 mb-3">
-                搜索任意美股，立即查看分析:
-              </p>
-              <StockSearchBox />
-              <div className="mt-4">
-                <Link
-                  href="/stock"
-                  className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
-                >
-                  浏览个股分析
-                  <ArrowIcon className="w-4 h-4" />
-                </Link>
+                {stat.value}
               </div>
+              <div className="mb-2 text-sm font-semibold text-foreground">
+                {stat.label}
+              </div>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {stat.detail}
+              </p>
             </div>
-          </div>
-
-          {/* Right: Mockup */}
-          <div className="relative">
-            {/* Ambient glow */}
-            <div className="absolute -inset-12 bg-primary/[0.05] blur-[80px] rounded-full pointer-events-none" />
-            <div
-              className="relative md:[transform:perspective(1200px)_rotateY(-2deg)_rotateX(1deg)]"
-            >
-              <StockMockup />
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Feature 1: Daily Reports Family — four time-anchored reports
-// ---------------------------------------------------------------------------
+const AGENT_PILLARS = [
+  {
+    icon: Database,
+    title: "专业准确的股票数据和新闻",
+    desc: "行情、财务、新闻、宏观数据和报告内容进入同一套上下文，回答不脱离事实基础。",
+  },
+  {
+    icon: Workflow,
+    title: "专业投研工作流",
+    desc: "从筛选、比较、个股研究到宏观和日报复盘，Agent 可以沿着研究链路持续推进。",
+  },
+  {
+    icon: Glasses,
+    title: "用博主视角看待市场",
+    desc: "切换到 qinbafrank 或 Serenity，把公开观点、方法论和原文证据变成可追问的研究视角。",
+  },
+];
 
-// Accent matches the actual destination page's theme color:
-//   /morning       → amber
-//   /today         → primary (emerald)
-//   /twitter-digest → sky
-//   /for-you       → primary (emerald)
+function MiniAssistantAvatar() {
+  return (
+    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary/10">
+      <Image
+        src="/logo-avatar.png"
+        alt="TheMarketBrew Agent"
+        width={28}
+        height={28}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
+function ResearchAgentVisual() {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const conversations = [
+    "AI 半导体比较",
+    "NVDA 风险复盘",
+    "Frank 观点验证",
+  ];
+  const contextItems = ["股票数据", "新闻", "宏观", "博主观点"];
+  const candidateRows = [
+    { symbol: "NVDA", label: "AI 芯片龙头", tone: "text-primary" },
+    { symbol: "AVGO", label: "AI 网络与 ASIC", tone: "text-sky-500" },
+    { symbol: "AMD", label: "追赶者", tone: "text-amber-500" },
+  ];
+
+  useEffect(() => {
+    const rootEl = previewRef.current;
+    if (!rootEl) return;
+
+    let disposed = false;
+    let cleanupGsap: (() => void) | undefined;
+
+    async function setupAnimation(rootEl: HTMLDivElement) {
+      const { gsap } = await import("gsap");
+      if (disposed) return;
+
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+      const ctx = gsap.context(() => {
+        if (reduceMotion) {
+          gsap.set(
+            [
+              rootEl,
+              "[data-agent-panel]",
+              "[data-agent-message]",
+              "[data-agent-chip]",
+              "[data-agent-card]",
+            ],
+            { autoAlpha: 1, clearProps: "transform" }
+          );
+          return;
+        }
+
+        const panels = rootEl.querySelectorAll("[data-agent-panel]");
+        const messages = rootEl.querySelectorAll("[data-agent-message]");
+        const cards = rootEl.querySelectorAll("[data-agent-card]");
+        const chips = rootEl.querySelectorAll("[data-agent-chip]");
+        const status = rootEl.querySelector("[data-agent-status]");
+        const scan = rootEl.querySelector("[data-agent-scan]");
+        const orb = rootEl.querySelector("[data-agent-orb]");
+
+        gsap.set(rootEl, {
+          autoAlpha: 0,
+          transformPerspective: 1200,
+          transformOrigin: "50% 45%",
+        });
+        gsap.set([panels, messages, cards, chips], { autoAlpha: 0, y: 14 });
+        gsap.set(status, { autoAlpha: 0, scale: 0.92 });
+        gsap.set(scan, { autoAlpha: 0, xPercent: -130 });
+        gsap.set(orb, { rotate: -8, scale: 0.9 });
+
+        const intro = gsap.timeline({
+          paused: true,
+          defaults: { duration: 0.55, ease: "power3.out" },
+        });
+
+        intro
+          .to(rootEl, { autoAlpha: 1, y: 0, scale: 1, duration: 0.75 })
+          .from(rootEl, { y: 28, scale: 0.985, duration: 0.75 }, 0)
+          .to(orb, { rotate: 0, scale: 1, duration: 0.75 }, "<0.08")
+          .to(status, { autoAlpha: 1, scale: 1, duration: 0.45 }, "<0.15")
+          .to(panels, { autoAlpha: 1, y: 0, stagger: 0.08 }, "<0.08")
+          .to(cards, { autoAlpha: 1, y: 0, stagger: 0.045 }, "<0.12")
+          .to(messages, { autoAlpha: 1, y: 0, stagger: 0.12 }, "<0.08")
+          .to(chips, { autoAlpha: 1, y: 0, stagger: 0.05 }, "<0.05");
+
+        let hasPlayed = false;
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            if (!entry?.isIntersecting || hasPlayed) return;
+            hasPlayed = true;
+            intro.play(0);
+
+            gsap.to(scan, {
+              autoAlpha: 1,
+              xPercent: 330,
+              duration: 1.35,
+              ease: "power2.inOut",
+              repeat: -1,
+              repeatDelay: 3.2,
+            });
+            gsap.to(status, {
+              scale: 1.05,
+              duration: 0.85,
+              ease: "sine.inOut",
+              yoyo: true,
+              repeat: 3,
+              delay: 0.9,
+            });
+            gsap.to(rootEl.querySelectorAll("[data-agent-context-row]"), {
+              y: -2,
+              duration: 0.42,
+              ease: "sine.inOut",
+              yoyo: true,
+              repeat: 1,
+              stagger: 0.08,
+              delay: 1.1,
+            });
+          },
+          { threshold: 0.35 }
+        );
+
+        observer.observe(rootEl);
+
+        const finePointer = window.matchMedia("(pointer: fine)").matches;
+        let removePointerListeners: (() => void) | undefined;
+
+        if (finePointer) {
+          const rotateXTo = gsap.quickTo(rootEl, "rotationX", {
+            duration: 0.55,
+            ease: "power3.out",
+          });
+          const rotateYTo = gsap.quickTo(rootEl, "rotationY", {
+            duration: 0.55,
+            ease: "power3.out",
+          });
+
+          const handleMove = (event: MouseEvent) => {
+            const rect = rootEl.getBoundingClientRect();
+            const xRatio = (event.clientX - rect.left) / rect.width - 0.5;
+            const yRatio = (event.clientY - rect.top) / rect.height - 0.5;
+            rotateXTo(yRatio * -3);
+            rotateYTo(xRatio * 4);
+          };
+
+          const handleLeave = () => {
+            rotateXTo(0);
+            rotateYTo(0);
+          };
+
+          rootEl.addEventListener("mousemove", handleMove);
+          rootEl.addEventListener("mouseleave", handleLeave);
+          removePointerListeners = () => {
+            rootEl.removeEventListener("mousemove", handleMove);
+            rootEl.removeEventListener("mouseleave", handleLeave);
+          };
+        }
+
+        cleanupGsap = () => {
+          observer.disconnect();
+          removePointerListeners?.();
+          ctx.revert();
+        };
+      }, rootEl);
+
+      if (reduceMotion) {
+        cleanupGsap = () => ctx.revert();
+      }
+    }
+
+    void setupAnimation(rootEl);
+
+    return () => {
+      disposed = true;
+      cleanupGsap?.();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={previewRef}
+      data-agent-preview-root
+      className="relative flex min-h-[560px] flex-col overflow-hidden rounded-lg border border-border/70 bg-background shadow-2xl shadow-black/10 will-change-transform md:aspect-[16/9] md:min-h-0"
+    >
+      <div
+        data-agent-panel
+        className="relative flex items-center justify-between gap-3 overflow-hidden border-b border-border/60 bg-card/45 px-4 py-3"
+      >
+        <div
+          data-agent-scan
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-primary/20 to-transparent"
+        />
+        <div className="flex items-center gap-2">
+          <div
+            data-agent-orb
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/20 bg-primary/10"
+          >
+            <MessageSquareText className="h-3.5 w-3.5 text-primary" aria-hidden />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-foreground">投研助手</div>
+            <div className="text-xs text-muted-foreground">Research workspace</div>
+          </div>
+        </div>
+        <span
+          data-agent-status
+          className="rounded-full border border-primary/20 bg-primary/[0.06] px-3 py-1 text-sm font-medium text-primary"
+        >
+          上下文已就绪
+        </span>
+      </div>
+
+      <div className="grid min-h-[504px] flex-1 bg-border/40 md:grid-cols-[0.68fr_1.42fr] md:min-h-0 lg:grid-cols-[0.72fr_1.45fr_0.95fr]">
+        <aside data-agent-panel className="hidden bg-card/35 p-3 md:block">
+          <button
+            type="button"
+            className="mb-3 flex w-full items-center gap-2 rounded-lg border border-border/50 bg-background px-3 py-2 text-left text-sm font-medium text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5 text-primary" aria-hidden />
+            新对话
+          </button>
+          <div className="space-y-1">
+            {conversations.map((conversation, index) => (
+              <div
+                key={conversation}
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  index === 0
+                    ? "border border-primary/20 bg-primary/[0.07] text-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <div className="truncate">{conversation}</div>
+                <div className="mt-0.5 text-sm text-muted-foreground">
+                  {index === 0 ? "正在研究" : "历史对话"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <div data-agent-panel className="flex min-w-0 flex-col bg-background">
+          <div className="flex items-center justify-between border-b border-border/55 px-4 py-3">
+            <div>
+              <div className="text-sm font-medium text-foreground">
+                NVDA 与 AVGO 长期配置
+              </div>
+              <div className="text-sm text-muted-foreground">
+                普通投研助手
+              </div>
+            </div>
+            <PanelRightOpen className="h-4 w-4 text-muted-foreground" aria-hidden />
+          </div>
+
+          <div className="flex-1 space-y-4 px-4 py-4">
+            <div data-agent-message className="flex justify-end">
+              <div className="max-w-[82%] rounded-2xl border border-border/50 bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground">
+                NVDA 和 AVGO，谁更适合作为 AI 基建长期仓位？
+              </div>
+            </div>
+
+            <div data-agent-message className="flex gap-3">
+              <MiniAssistantAvatar />
+              <div className="min-w-0 flex-1 space-y-3">
+                <p className="text-sm leading-relaxed text-foreground">
+                  我会先把问题拆成四层：收入质量、估值、AI 需求可持续性和下行风险。当前更像是两种不同风险暴露。
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    ["NVDA", "弹性更高，估值更依赖 AI 训练需求延续"],
+                    ["AVGO", "现金流更稳，ASIC 与网络侧受益更分散"],
+                  ].map(([symbol, text]) => (
+                    <div
+                      key={symbol}
+                      data-agent-card
+                      className="rounded-lg border border-border/55 bg-card/35 p-3"
+                    >
+                      <div className="mb-1 font-data text-sm font-semibold text-primary">
+                        {symbol}
+                      </div>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                  {["继续比较估值", "看风险清单", "切到 Frank 视角"].map((chip) => (
+                    <span
+                      key={chip}
+                      data-agent-chip
+                      className="rounded-full border border-border/55 bg-background px-3 py-1"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border/55 p-3">
+            <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2.5">
+              <div className="min-h-10 flex-1 px-2 py-1 text-sm text-muted-foreground">
+                继续追问估值、风险或切换博主视角...
+              </div>
+              <button
+                type="button"
+                aria-label="发送"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+              >
+                <ArrowUp className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <aside data-agent-panel className="hidden bg-card/35 p-4 lg:block">
+          <div className="mb-4">
+            <div className="mb-2 text-sm font-semibold text-foreground">
+              工作台上下文
+            </div>
+            <div className="grid gap-2">
+              {contextItems.map((item) => (
+                <div
+                  key={item}
+                  data-agent-card
+                  data-agent-context-row
+                  className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-sm text-foreground"
+                >
+                  <Check className="h-3.5 w-3.5 text-primary" aria-hidden />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 text-sm font-semibold text-foreground">
+              候选标的
+            </div>
+            <div className="space-y-2">
+              {candidateRows.map((row) => (
+                <div
+                  key={row.symbol}
+                  data-agent-card
+                  className="rounded-lg border border-border/50 bg-background/70 p-3"
+                >
+                  <div className={`font-data text-sm font-semibold ${row.tone}`}>
+                    {row.symbol}
+                  </div>
+                  <div className="mt-0.5 text-sm text-muted-foreground">
+                    {row.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function ResearchAgentSection() {
+  return (
+    <section
+      data-delight-section
+      className="relative overflow-hidden py-20 md:py-32"
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.018)_1px,transparent_1px)] bg-[size:80px_80px]" />
+      <div className="relative mx-auto max-w-7xl px-4 md:px-6">
+        <div className="mx-auto mb-10 max-w-3xl text-center md:mb-12">
+          <div className="mb-6">
+            <SectionLabel label="Research Agent" align="center" />
+          </div>
+          <h2 className="font-editorial text-3xl leading-tight text-foreground md:text-5xl">
+            不是聊天机器人，
+            <br />
+            是一套会追问的投研工作流
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
+            TheMarketBrew Agent 的核心，是把专业准确的股票数据和新闻、完整投研流程，以及博主视角放在同一个研究台里。
+          </p>
+        </div>
+
+        <div className="mx-auto mb-8 grid max-w-6xl gap-3 md:grid-cols-3">
+          {AGENT_PILLARS.map((pillar) => {
+            const Icon = pillar.icon;
+            return (
+              <div
+                key={pillar.title}
+                data-delight-card
+                className="rounded-lg border border-border/50 bg-card/30 p-4 transition-colors hover:border-primary/25 hover:bg-card/45"
+              >
+                <div className="mb-2 flex items-center gap-2.5">
+                  <Icon className="h-4 w-4 text-primary" aria-hidden />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {pillar.title}
+                  </h3>
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {pillar.desc}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mb-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <ArrowLink href="/research">进入投研工作台</ArrowLink>
+          <ArrowLink href="/stock" variant="quiet">
+            查看个股研究
+          </ArrowLink>
+        </div>
+
+        <ResearchAgentVisual />
+      </div>
+    </section>
+  );
+}
+
+const PERSONA_CARDS = [
+  {
+    name: "qinbafrank",
+    handle: "@qinbafrank",
+    href: "/kol/qinbafrank",
+    avatar: "/kol-avatars/qinbafrank.png",
+    desc: "围绕 AI 算力、宏观流动性、市场节奏和加密金融，把长期公开观点整理成可追问的研究框架。",
+    tags: ["AI 产业", "宏观与市场", "公司逻辑"],
+  },
+  {
+    name: "Serenity",
+    handle: "@aleabitoreddit",
+    href: "/kol/serenity",
+    avatar: "/kol-avatars/serenity.png",
+    desc: "偏向 AI 半导体供应链、光子/CPO 和物理瓶颈迁移，适合从底层供给链理解机会。",
+    tags: ["供应链漏斗", "光子/CPO", "瓶颈迁移"],
+  },
+];
+
+function PersonaResearchSection() {
+  return (
+    <section
+      data-delight-section
+      className="relative overflow-hidden border-y border-border/40 bg-muted/10 py-20 md:py-28"
+    >
+      <div className="mx-auto max-w-6xl px-4 md:px-6">
+        <div className="mb-10 grid gap-8 md:grid-cols-[0.9fr_1.1fr] md:items-end">
+          <div className="space-y-5">
+            <SectionLabel label="Blogger Lens" />
+            <h2 className="font-editorial text-3xl leading-tight text-foreground md:text-5xl">
+              博主研究室：
+              <br />
+              用成熟视角重新看市场
+            </h2>
+          </div>
+          <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
+            我们把公开内容蒸馏成方法论、主题地图和原文证据。你看到的是研究视角和历史证据，不是伪装成博主本人发言。
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {PERSONA_CARDS.map((persona) => (
+            <Link
+              key={persona.name}
+              href={persona.href}
+              data-delight-card
+              className="group rounded-lg border border-border/55 bg-card/35 p-6 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/55"
+            >
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-4">
+                  <Image
+                    src={persona.avatar}
+                    alt={`${persona.name} avatar`}
+                    width={56}
+                    height={56}
+                    sizes="56px"
+                    loading="eager"
+                    unoptimized
+                    className="h-14 w-14 shrink-0 rounded-xl border border-border/60 bg-muted object-cover ring-1 ring-primary/10"
+                  />
+                  <div className="min-w-0">
+                    <div className="mb-1 truncate font-editorial text-2xl text-foreground">
+                      {persona.name}
+                    </div>
+                    <div className="truncate text-sm font-medium text-primary">
+                      {persona.handle}
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+              </div>
+              <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+                {persona.desc}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {persona.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-border/60 bg-background/55 px-3 py-1 text-sm font-medium text-muted-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        <div
+          data-delight-card
+          className="mt-8 flex flex-col items-start justify-between gap-4 rounded-lg border border-primary/20 bg-primary/[0.055] p-5 md:flex-row md:items-center"
+        >
+          <div>
+            <div className="text-sm font-semibold text-foreground">
+              在同一个投研助手里切换普通助手和博主视角
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              主入口保持统一，用户不用在多个工具之间来回跳转。
+            </p>
+          </div>
+          <ArrowLink href="/research">打开投研助手</ArrowLink>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 type ReportAccent = "amber" | "sky" | "primary";
 
 interface ReportCardConfig {
-  /** Internal slug. */
   key: string;
-  /** Tier badge: 免费 / Max / Pro+. */
   tier: "免费" | "Pro+" | "Max 专属";
-  /** Big editorial name. */
   name: string;
-  /** One-liner positioning. */
   tagline: string;
-  /** Vague cadence anchor (no specific clock times — they shift). */
   cadence: string;
-  /** 2-3 short bullets — what's actually inside. */
   bullets: string[];
-  /** Where the CTA links to. */
   href: string;
-  /** Visual color theme — matches the destination page. */
   accent: ReportAccent;
 }
 
 const ACCENT_STYLES: Record<
   ReportAccent,
-  { ring: string; dot: string; text: string; line: string }
+  { ring: string; dot: string; text: string; bg: string }
 > = {
   amber: {
-    ring: "border-amber-400/25 hover:border-amber-400/50",
+    ring: "border-amber-400/25 hover:border-amber-400/45",
     dot: "bg-amber-400",
     text: "text-amber-400",
-    line: "from-amber-400/60",
+    bg: "bg-amber-400/[0.07]",
   },
   sky: {
-    ring: "border-sky-400/25 hover:border-sky-400/50",
+    ring: "border-sky-400/25 hover:border-sky-400/45",
     dot: "bg-sky-400",
     text: "text-sky-400",
-    line: "from-sky-400/60",
+    bg: "bg-sky-400/[0.07]",
   },
   primary: {
-    ring: "border-primary/25 hover:border-primary/50",
+    ring: "border-primary/25 hover:border-primary/45",
     dot: "bg-primary",
     text: "text-primary",
-    line: "from-primary/60",
+    bg: "bg-primary/[0.07]",
   },
 };
 
@@ -469,13 +870,9 @@ const DAILY_REPORTS: ReportCardConfig[] = [
     key: "morning",
     tier: "Pro+",
     name: "盘前情报",
-    tagline: "开盘前把隔夜 + 早盘 + 今日议程一次过完",
-    cadence: "工作日 · 开盘前送达",
-    bullets: [
-      "隔夜重要新闻 + futures 走势",
-      "今日财报日历 + 宏观数据",
-      "盘前异动股快览",
-    ],
+    tagline: "开盘前把隔夜、早盘和今日议程一次过完",
+    cadence: "工作日 · 开盘前",
+    bullets: ["隔夜新闻", "财报日历", "盘前异动"],
     href: "/morning",
     accent: "amber",
   },
@@ -483,13 +880,9 @@ const DAILY_REPORTS: ReportCardConfig[] = [
     key: "evening",
     tier: "免费",
     name: "盘后总览",
-    tagline: "10 分钟看完今日市场到底发生了什么",
-    cadence: "工作日 · 盘后送达",
-    bullets: [
-      "今日动态 + Top movers",
-      "板块轮动 + 关键新闻深度",
-      "明日观察点",
-    ],
+    tagline: "用更短时间复盘当天市场发生了什么",
+    cadence: "工作日 · 盘后",
+    bullets: ["市场动态", "板块轮动", "明日观察"],
     href: "/today",
     accent: "primary",
   },
@@ -497,13 +890,9 @@ const DAILY_REPORTS: ReportCardConfig[] = [
     key: "kol",
     tier: "Max 专属",
     name: "推特简报",
-    tagline: "300+ 美股博主推文里只筛高质量论据和多空观点",
-    cadence: "工作日 · 盘后送达",
-    bullets: [
-      "今日 KOL 圈在押什么票",
-      "每个个股的多空论据 + 原推引用",
-      "下周需要关注的事件",
-    ],
+    tagline: "把高质量博主观点筛成可以阅读的市场线索",
+    cadence: "工作日 · 盘后",
+    bullets: ["博主观点", "多空论据", "原文引用"],
     href: "/twitter-digest",
     accent: "sky",
   },
@@ -511,13 +900,9 @@ const DAILY_REPORTS: ReportCardConfig[] = [
     key: "personal",
     tier: "Pro+",
     name: "专属日报",
-    tagline: "基于你的持仓筛选,只看跟你相关的市场动态",
-    cadence: "工作日 · 盘后送达",
-    bullets: [
-      "每条新闻都关联到你的具体持仓",
-      "AI 结合你的持仓给出操作建议",
-      "邮件自动推送,无需打开网站",
-    ],
+    tagline: "基于你的持仓，只看真正相关的市场变化",
+    cadence: "工作日 · 盘后",
+    bullets: ["持仓新闻", "影响分析", "邮件推送"],
     href: "/for-you",
     accent: "primary",
   },
@@ -528,669 +913,170 @@ function ReportCard({ config }: { config: ReportCardConfig }) {
   return (
     <Link
       href={config.href}
-      className={`group relative rounded-2xl border bg-card/40 p-6 md:p-7 transition-all hover:bg-card/70 hover:-translate-y-0.5 ${s.ring}`}
+      data-delight-card
+      className={`group rounded-lg border bg-card/35 p-5 transition-all hover:-translate-y-0.5 hover:bg-card/55 ${s.ring}`}
     >
-      <div
-        className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${s.line} via-transparent to-transparent opacity-70`}
-      />
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} aria-hidden />
-          <span className="text-[11px] text-muted-foreground/85 tracking-wide">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden />
+          <span className="text-sm font-medium text-muted-foreground">
             {config.cadence}
           </span>
         </div>
-        <span
-          className={`text-[10px] uppercase tracking-[0.18em] font-semibold px-2 py-0.5 rounded-md border ${
-            config.tier === "免费"
-              ? "border-border/50 text-muted-foreground/85"
-              : config.tier === "Max 专属"
-                ? "border-amber-400/40 bg-amber-400/[0.08] text-amber-400"
-                : "border-primary/30 bg-primary/[0.08] text-primary"
-          }`}
-        >
+        <span className={`rounded px-2 py-1 text-sm font-medium ${s.text} ${s.bg}`}>
           {config.tier}
         </span>
       </div>
-
-      <h3 className="font-editorial text-2xl md:text-3xl text-foreground leading-tight mb-2">
+      <h3 className="mb-2 font-editorial text-2xl leading-tight text-foreground">
         {config.name}
       </h3>
-      <p className={`text-sm leading-relaxed text-muted-foreground mb-5`}>
+      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
         {config.tagline}
       </p>
-
-      <ul className="space-y-2 mb-6">
-        {config.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-2 text-sm text-foreground/85">
-            <span className={`mt-2 w-1 h-1 rounded-full shrink-0 ${s.dot}`} aria-hidden />
-            <span className="leading-relaxed">{b}</span>
-          </li>
+      <div className="flex flex-wrap gap-2">
+        {config.bullets.map((bullet) => (
+          <span
+            key={bullet}
+            className="rounded-full border border-border/50 bg-background/45 px-2.5 py-1 text-sm text-muted-foreground"
+          >
+            {bullet}
+          </span>
         ))}
-      </ul>
-
-      <div className={`inline-flex items-center gap-1.5 text-sm font-medium ${s.text} group-hover:gap-2.5 transition-all`}>
-        查看{config.name}
-        <ArrowIcon className="w-3.5 h-3.5" />
       </div>
     </Link>
   );
 }
 
-function DailyReportsSection() {
-  return (
-    <section className="relative py-20 md:py-32 overflow-hidden">
-      <div className="absolute inset-0 bg-muted/10" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.018)_1px,transparent_1px)] bg-[size:80px_80px]" />
-
-      <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-        {/* Section header — centered */}
-        <div className="max-w-2xl mx-auto text-center mb-12 md:mb-16">
-          <div className="inline-flex items-center gap-3 mb-6">
-            <div className="h-px w-12 bg-gradient-to-r from-primary to-transparent" />
-            <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">
-              Daily Reports
-            </span>
-            <div className="h-px w-12 bg-gradient-to-l from-primary to-transparent" />
-          </div>
-          <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1] mb-4">
-            四份日报,
-            <br className="md:hidden" />
-            <span className="text-gradient-emerald">覆盖你的全天</span>
-          </h2>
-          <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-            从盘前到盘后、从大盘到 KOL 声音、从市场到你的持仓 ——
-            四份不同时间、不同视角的日报,一个邮箱全收齐。
-          </p>
-        </div>
-
-        {/* 2x2 card grid */}
-        <div className="grid sm:grid-cols-2 gap-4 md:gap-5 max-w-4xl mx-auto">
-          {DAILY_REPORTS.map((c) => (
-            <ReportCard key={c.key} config={c} />
-          ))}
-        </div>
-
-        {/* Tier ladder footer */}
-        <div className="mt-10 text-center">
-          <p className="text-xs text-muted-foreground/75">
-            <span className="text-foreground/85">免费</span> 盘后总览
-            <span className="mx-2 text-muted-foreground/30">·</span>
-            <span className="text-primary">Pro+</span> 解锁盘前情报 + 专属日报
-            <span className="mx-2 text-muted-foreground/30">·</span>
-            <span className="text-amber-400">Max</span> 解锁推特简报
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Feature 3: AI Research Assistant
-// ---------------------------------------------------------------------------
-
-function ResearchMockup() {
-  return (
-    <div className="relative bg-[#0c0c0e] rounded-2xl border border-white/[0.08] overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:shadow-lg hover:shadow-sky-400/5">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-400/40 to-transparent" />
-
-      <div className="flex flex-col sm:flex-row h-auto sm:h-[420px]">
-        {/* Left: Chat Panel */}
-        <div className="w-full sm:w-[45%] border-b sm:border-b-0 sm:border-r border-white/[0.06] flex flex-col">
-          <div className="px-4 py-3 border-b border-white/[0.05]">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-sky-400" />
-              <span className="text-xs font-medium text-white/80">
-                AI 投研助手
-              </span>
-            </div>
-          </div>
-
-          <div className="flex-1 px-4 py-3 space-y-3 overflow-hidden">
-            {/* User message */}
-            <div className="flex justify-end">
-              <div className="bg-primary/10 border border-primary/20 rounded-xl rounded-br-sm px-3 py-2 max-w-[85%]">
-                <p className="text-xs text-white/80 leading-relaxed">
-                  NVDA 和 AMD 哪个更值得买入？
-                </p>
-              </div>
-            </div>
-
-            {/* AI message */}
-            <div className="flex justify-start">
-              <div className="max-w-[92%]">
-                <p className="text-xs text-white/65 leading-[1.8]">
-                  从三个维度对比分析:
-                </p>
-                <div className="mt-2 space-y-1.5">
-                  <div className="flex items-start gap-1.5">
-                    <div className="w-1 h-1 rounded-full bg-sky-400 mt-1.5 shrink-0" />
-                    <p className="text-xs text-white/60 leading-relaxed">
-                      <span className="text-sky-400/80 font-medium">基本面</span>{" "}
-                      -- NVDA 数据中心营收 +78%，AMD 营收 +10%。NVDA 在 AI 芯片领域护城河更深。
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-1.5">
-                    <div className="w-1 h-1 rounded-full bg-sky-400 mt-1.5 shrink-0" />
-                    <p className="text-xs text-white/60 leading-relaxed">
-                      <span className="text-sky-400/80 font-medium">估值</span>{" "}
-                      -- NVDA P/E 58x vs AMD 45x。NVDA 估值更高但增速也更快...
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Follow-up chips */}
-            <div className="flex gap-1.5 flex-wrap">
-              {["看技术面对比", "未来增长预期", "风险因素"].map((chip) => (
-                <span
-                  key={chip}
-                  className="text-micro text-white/30 border border-white/[0.10] rounded-full px-2.5 py-1 cursor-default"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Input */}
-          <div className="px-4 pb-3">
-            <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5">
-              <span className="text-xs text-white/30">
-                继续追问...
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Analysis Panel */}
-        <div className="w-full sm:w-[55%] px-4 py-3 space-y-3 overflow-hidden">
-          {/* Comparison header */}
-          <div className="flex items-center gap-4 pb-2 border-b border-white/[0.05]">
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-data text-sm font-bold text-sky-400">
-                NVDA
-              </span>
-              <span className="font-data text-lg font-bold text-white/90">
-                $112
-              </span>
-              <span className="font-data text-micro text-red-400">-3.2%</span>
-            </div>
-            <span className="text-white/25">vs</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-data text-sm font-bold text-amber-400">
-                AMD
-              </span>
-              <span className="font-data text-lg font-bold text-white/90">
-                $156
-              </span>
-              <span className="font-data text-micro text-emerald-400">
-                +1.8%
-              </span>
-            </div>
-          </div>
-
-          {/* Comparison metrics */}
-          <div className="space-y-1.5">
-            {[
-              {
-                label: "P/E",
-                a: "58.3x",
-                b: "44.7x",
-                winner: "b" as const,
-              },
-              {
-                label: "营收增速",
-                a: "+78%",
-                b: "+10%",
-                winner: "a" as const,
-              },
-              {
-                label: "毛利率",
-                a: "73.0%",
-                b: "50.1%",
-                winner: "a" as const,
-              },
-              {
-                label: "市值",
-                a: "$2.7T",
-                b: "$252B",
-                winner: "a" as const,
-              },
-            ].map((row) => (
-              <div
-                key={row.label}
-                className="flex items-center gap-2 text-micro"
-              >
-                <span className="w-14 text-white/40">
-                  {row.label}
-                </span>
-                <span
-                  className={`flex-1 text-right font-data ${
-                    row.winner === "a"
-                      ? "text-sky-400 font-medium"
-                      : "text-white/50"
-                  }`}
-                >
-                  {row.a}
-                </span>
-                <div className="w-px h-3 bg-white/[0.08]" />
-                <span
-                  className={`flex-1 font-data ${
-                    row.winner === "b"
-                      ? "text-amber-400 font-medium"
-                      : "text-white/50"
-                  }`}
-                >
-                  {row.b}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* AI Verdict */}
-          <div className="border-l-2 border-sky-400/40 pl-3 py-2 bg-sky-400/[0.03] rounded-r-lg">
-            <p className="text-micro text-sky-400/60 font-semibold uppercase tracking-wider mb-1">
-              AI 结论
-            </p>
-            <p className="text-xs text-white/55 leading-relaxed">
-              NVDA 在 AI 赛道具备绝对领先优势，适合看好 AI 长期增长的投资者。AMD 估值更合理，适合寻求安全边际的配置。
-            </p>
-          </div>
-
-          {/* Screener preview */}
-          <div className="bg-white/[0.03] rounded-lg border border-white/[0.06] p-3">
-            <p className="text-micro text-white/40 font-semibold uppercase tracking-wider mb-2">
-              AI 选股引擎
-            </p>
-            <div className="flex gap-2">
-              {[
-                { ticker: "NVDA", tag: "AI 芯片" },
-                { ticker: "AVGO", tag: "AI 基建" },
-                { ticker: "PLTR", tag: "AI 软件" },
-              ].map((s) => (
-                <div
-                  key={s.ticker}
-                  className="flex items-center gap-1.5 bg-white/[0.04] rounded px-2 py-1 border border-white/[0.05]"
-                >
-                  <span className="font-data text-micro font-semibold text-primary/80">
-                    {s.ticker}
-                  </span>
-                  <span className="text-micro text-white/30">
-                    {s.tag}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#0c0c0e] to-transparent pointer-events-none" />
-    </div>
-  );
-}
-
-function ResearchSection() {
-  return (
-    <section className="relative py-20 md:py-32 overflow-hidden">
-      {/* Different background to create visual separation */}
-      <div className="absolute inset-0 bg-muted/15" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(56,189,248,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.015)_1px,transparent_1px)] bg-[size:80px_80px]" />
-
-      <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-        <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: Mockup (reversed layout for visual variety) */}
-          <div className="relative order-2 md:order-1">
-            <div className="absolute -inset-12 bg-sky-400/[0.04] blur-[80px] rounded-full pointer-events-none" />
-            <div
-              className="relative md:[transform:perspective(1200px)_rotateY(2deg)_rotateX(1deg)]"
-            >
-              <ResearchMockup />
-            </div>
-          </div>
-
-          {/* Right: Content */}
-          <div className="space-y-6 order-1 md:order-2">
-            <SectionLabel label="AI 投研" />
-
-            <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1]">
-              对话式投研，
-              <br />
-              <span className="text-gradient-emerald">追问到底</span>
-            </h2>
-
-            <p className="text-muted-foreground text-base md:text-lg leading-relaxed max-w-md">
-              像和分析师对话一样研究股票。问一个问题开始，追问估值、对比竞品、分析风险 -- 直到你得到满意的答案。
-            </p>
-
-            {/* Capability highlights */}
-            <div className="space-y-3 pt-2">
-              {[
-                {
-                  title: "深度对话",
-                  desc: "反复追问，直到得到满意答案",
-                },
-                {
-                  title: "跨股票对比",
-                  desc: "同行竞品估值对比，优劣势一目了然",
-                },
-                {
-                  title: "AI 选股引擎",
-                  desc: "描述偏好，AI 从全市场筛选匹配标的",
-                },
-              ].map((c) => (
-                <div
-                  key={c.title}
-                  className="flex items-start gap-3 py-2"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
-                  <div>
-                    <span className="text-sm font-medium text-foreground">
-                      {c.title}
-                    </span>
-                    <span className="text-sm text-muted-foreground ml-1.5">
-                      -- {c.desc}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* CTA */}
-            <div className="pt-4">
-              <Link
-                href="/research"
-                className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
-              >
-                试试 AI 投研助手
-                <ArrowIcon className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Feature 3: Macro Dashboard
-// ---------------------------------------------------------------------------
-
-function MacroMockup() {
-  const dimensions = [
+function ResearchSystemSection() {
+  const surfaces = [
     {
-      name: "流动性环境",
-      signal: "green" as const,
-      label: "宽松",
-      score: 7.8,
-      metrics: [
-        { key: "净流动性", val: "$6.1T" },
-        { key: "NFCI", val: "-0.23" },
-      ],
+      icon: LineChart,
+      title: "个股研究页",
+      desc: "把基本面、技术面、新闻和 AI 分析收在一页，适合深挖单个标的。",
+      href: "/stock",
+      cta: "打开个股研究",
     },
     {
-      name: "经济基本面",
-      signal: "yellow" as const,
-      label: "中性",
-      score: 5.5,
-      metrics: [
-        { key: "失业率", val: "3.9%" },
-        { key: "衰退概率", val: "25%" },
-      ],
-    },
-    {
-      name: "通胀与利率",
-      signal: "yellow" as const,
-      label: "偏紧",
-      score: 4.8,
-      metrics: [
-        { key: "核心CPI", val: "2.8%" },
-        { key: "BBB利差", val: "1.42%" },
-      ],
-    },
-    {
-      name: "市场情绪",
-      signal: "red" as const,
-      label: "恐慌",
-      score: 3.0,
-      metrics: [
-        { key: "恐贪指数", val: "30/100" },
-        { key: "VIX", val: "30.0" },
-      ],
+      icon: BarChart3,
+      title: "宏观仪表盘",
+      desc: "流动性、经济、通胀利率和市场情绪四个维度，帮助判断大环境。",
+      href: "/macro",
+      cta: "查看宏观",
     },
   ];
 
-  const signalStyles = {
-    green: {
-      dot: "bg-emerald-400",
-      border: "border-emerald-500/20",
-      bg: "bg-emerald-500/[0.06]",
-      text: "text-emerald-400",
-      bar: "bg-emerald-400",
-    },
-    yellow: {
-      dot: "bg-amber-400",
-      border: "border-amber-500/20",
-      bg: "bg-amber-500/[0.06]",
-      text: "text-amber-400",
-      bar: "bg-amber-400",
-    },
-    red: {
-      dot: "bg-red-400",
-      border: "border-red-500/20",
-      bg: "bg-red-500/[0.06]",
-      text: "text-red-400",
-      bar: "bg-red-400",
-    },
-  };
-
   return (
-    <div className="relative bg-[#0c0c0e] rounded-2xl border border-white/[0.08] overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:shadow-lg hover:shadow-amber-400/5">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
-
-      <div className="px-5 py-5 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-px w-6 bg-gradient-to-r from-amber-400 to-transparent" />
-            <span className="text-micro font-semibold tracking-[0.2em] uppercase text-amber-400/80">
-              Macro Dashboard
-            </span>
+    <section
+      data-delight-section
+      className="relative overflow-hidden py-20 md:py-32"
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(251,191,36,0.014)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.014)_1px,transparent_1px)] bg-[size:80px_80px]" />
+      <div className="relative mx-auto max-w-6xl px-4 md:px-6">
+        <div className="mx-auto mb-12 max-w-3xl text-center">
+          <div className="mb-6">
+            <SectionLabel label="Research System" align="center" />
           </div>
-          <span className="text-micro text-white/30 font-data">
-            实时更新
-          </span>
+          <h2 className="mb-4 font-editorial text-3xl leading-tight text-foreground md:text-5xl">
+            Agent 背后，是完整的信息系统
+          </h2>
+          <p className="text-base leading-relaxed text-muted-foreground md:text-lg">
+            不是所有研究都必须从对话开始。日报、个股页和宏观仪表盘仍然是稳定的信息入口，也会成为 Agent 的研究上下文。
+          </p>
         </div>
 
-        {/* Overall risk score */}
-        <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-micro text-white/40 mb-1">
-                综合风险评分
-              </p>
-              <div className="flex items-baseline gap-1.5">
-                <span className="font-data text-3xl font-bold text-white/90">
-                  6.2
-                </span>
-                <span className="font-data text-sm text-white/30">
-                  / 10
-                </span>
-              </div>
+        <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+          <div>
+            <div className="mb-4 flex items-center gap-2">
+              <Newspaper className="h-4 w-4 text-primary" aria-hidden />
+              <h3 className="text-sm font-semibold text-foreground">
+                四份日报
+              </h3>
             </div>
-            <span className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-md px-2.5 py-1 font-medium">
-              中等风险
-            </span>
-          </div>
-          {/* Risk bar */}
-          <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-400 to-red-500"
-              style={{ width: "62%" }}
-            />
-          </div>
-        </div>
-
-        {/* Four dimension cards */}
-        <div className="grid grid-cols-2 gap-2.5">
-          {dimensions.map((d) => {
-            const s = signalStyles[d.signal];
-            return (
-              <div
-                key={d.name}
-                className={`rounded-xl border p-3.5 ${s.bg} ${s.border}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-                    <span className="text-micro text-white/60 font-medium">
-                      {d.name}
-                    </span>
-                  </div>
-                  <span className={`text-micro font-semibold ${s.text}`}>
-                    {d.label}
-                  </span>
-                </div>
-                {/* Mini score bar */}
-                <div className="h-1 bg-white/[0.04] rounded-full overflow-hidden mb-2.5">
-                  <div
-                    className={`h-full rounded-full ${s.bar}`}
-                    style={{ width: `${d.score * 10}%` }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  {d.metrics.map((m) => (
-                    <div
-                      key={m.key}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-micro text-white/30">
-                        {m.key}
-                      </span>
-                      <span className="text-micro text-white/70 font-data font-medium">
-                        {m.val}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0c0c0e] to-transparent pointer-events-none" />
-    </div>
-  );
-}
-
-function MacroSection() {
-  return (
-    <section className="relative py-20 md:py-32 overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(251,191,36,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.015)_1px,transparent_1px)] bg-[size:80px_80px]" />
-
-      <div className="relative max-w-6xl mx-auto px-4 md:px-6">
-        <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: Content */}
-          <div className="space-y-6">
-            <SectionLabel label="宏观监控" />
-
-            <h2 className="font-editorial text-3xl md:text-4xl lg:text-5xl text-foreground leading-[1.1]">
-              宏观全局，
-              <br />
-              <span className="text-gradient-emerald">一眼看穿</span>
-            </h2>
-
-            <p className="text-muted-foreground text-base md:text-lg leading-relaxed max-w-md">
-              四个维度追踪宏观经济 -- 流动性、基本面、通胀利率、市场情绪。理解驱动市场涨跌的底层力量，做出更清醒的投资决策。
-            </p>
-
-            {/* Four dimensions */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              {[
-                {
-                  name: "流动性",
-                  desc: "央行动向与资金面",
-                  color: "text-emerald-400",
-                },
-                {
-                  name: "经济基本面",
-                  desc: "就业、GDP、消费",
-                  color: "text-sky-400",
-                },
-                {
-                  name: "通胀利率",
-                  desc: "CPI、利差、联储",
-                  color: "text-amber-400",
-                },
-                {
-                  name: "市场情绪",
-                  desc: "VIX、恐贪指数",
-                  color: "text-red-400",
-                },
-              ].map((d) => (
-                <div
-                  key={d.name}
-                  className="flex items-start gap-2.5 py-2"
-                >
-                  <div
-                    className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${d.color.replace("text-", "bg-")}`}
-                  />
-                  <div>
-                    <p className={`text-sm font-medium ${d.color}`}>{d.name}</p>
-                    <p className="text-xs text-muted-foreground/60">
-                      {d.desc}
-                    </p>
-                  </div>
-                </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {DAILY_REPORTS.map((report) => (
+                <ReportCard key={report.key} config={report} />
               ))}
             </div>
-
-            {/* CTA */}
-            <div className="pt-4">
-              <Link
-                href="/macro"
-                className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium transition-all hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
-              >
-                查看宏观仪表盘
-                <ArrowIcon className="w-4 h-4" />
-              </Link>
-            </div>
           </div>
 
-          {/* Right: Mockup */}
-          <div className="relative">
-            <div className="absolute -inset-12 bg-amber-400/[0.03] blur-[80px] rounded-full pointer-events-none" />
+          <div className="space-y-4">
             <div
-              className="relative md:[transform:perspective(1200px)_rotateY(-2deg)_rotateX(1deg)]"
+              data-delight-card
+              className="rounded-lg border border-border/55 bg-card/35 p-5"
             >
-              <MacroMockup />
+              <div className="mb-4 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" aria-hidden />
+                <h3 className="text-sm font-semibold text-foreground">
+                  所有入口都会回到研究上下文
+                </h3>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                日报、个股页、宏观仪表盘和持仓信息不是孤立页面。进入 Research 后，它们会成为 Agent 判断和追问的背景。
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["日报", "个股", "宏观", "持仓", "博主观点"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-border/55 bg-background/50 px-3 py-1 text-sm font-medium text-muted-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
+
+            <div
+              data-delight-card
+              className="rounded-lg border border-border/55 bg-card/35 p-5"
+            >
+              <div className="mb-4 flex items-center gap-2">
+                <Search className="h-4 w-4 text-primary" aria-hidden />
+                <h3 className="text-sm font-semibold text-foreground">
+                  快速进入个股研究
+                </h3>
+              </div>
+              <StockSearchBox />
+            </div>
+
+            {surfaces.map((surface) => {
+              const Icon = surface.icon;
+              return (
+                <Link
+                  key={surface.title}
+                  href={surface.href}
+                  data-delight-card
+                  className="group block rounded-lg border border-border/55 bg-card/35 p-5 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card/55"
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-primary" aria-hidden />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {surface.title}
+                    </h3>
+                  </div>
+                  <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                    {surface.desc}
+                  </p>
+                  <div className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-all group-hover:gap-2.5">
+                    {surface.cta}
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>
     </section>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Export: All three sections combined
-// ---------------------------------------------------------------------------
 
 export default function FeatureSections() {
   return (
     <>
-      <DailyReportsSection />
-      <StockResearchSection />
-      <ResearchSection />
-      <MacroSection />
+      <TrustSignalSection />
+      <ResearchAgentSection />
+      <PersonaResearchSection />
+      <ResearchSystemSection />
     </>
   );
 }

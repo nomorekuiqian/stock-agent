@@ -53,6 +53,8 @@ from app.features.screener.suggestions import (
 
 logger = get_logger(__name__)
 
+import app.core.posthog_client as posthog
+
 router = APIRouter(prefix="/api/screener", tags=["screener"])
 
 # -- In-memory universe cache to avoid re-reading 12 DB chunks per filter call --
@@ -526,6 +528,16 @@ async def filter_stocks(req: FilterRequest):
     # Compute smart narrowing suggestions
     suggestions = compute_narrowing_suggestions(candidates, strategy=req.strategy)
 
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id="anonymous",
+            event="screener_filter_used",
+            properties={
+                "strategy": req.strategy,
+                "result_count": len(candidates),
+            },
+        )
+
     return FilterResult(
         success=True,
         strategy=req.strategy,
@@ -718,11 +730,12 @@ async def list_conversations(
     user_id: str = Depends(verify_user_token),
     limit: int = 20,
     offset: int = 0,
+    search: str | None = None,
 ):
     """List user's research conversations (lightweight, no data field)."""
     from app.features.screener.conversation_db import list_conversations as db_list
 
-    result = await db_list(user_id, limit=limit, offset=offset)
+    result = await db_list(user_id, limit=limit, offset=offset, search=search)
     return {
         "conversations": result["items"],
         "has_more": result["has_more"],
@@ -775,6 +788,12 @@ async def create_conversation(
         data=req.data,
         source="conversation_create",
     )
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id,
+            event="research_conversation_created",
+            properties={},
+        )
     return result
 
 
@@ -855,9 +874,10 @@ async def research_quota(
 async def research_chat(
     req: ResearchRequest,
     request: Request,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
-    """Unified research chat endpoint. Open to all users with quota."""
+    """Unified research chat endpoint. Login required (enforced here so the API
+    can't be driven anonymously even if the frontend login wall is bypassed)."""
     from app.features.quota.service import consume_quota
 
     client_ip = _get_real_ip(request)
@@ -870,41 +890,41 @@ async def research_chat(
         )
 
     logger.info("research_chat called (new endpoint)")
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=user_id or "anonymous",
+            event="research_chat_sent",
+            properties={"is_authenticated": bool(user_id)},
+        )
     return await pick_stocks(req, user_id or "anonymous")
 
 
 @research_router.get("/conversations")
 async def research_list_conversations(
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
     limit: int = 20,
     offset: int = 0,
+    search: str | None = None,
 ):
-    """List research conversations. Anonymous users get empty list."""
-    if not user_id:
-        return {"conversations": [], "has_more": False}
-    return await list_conversations(user_id, limit=limit, offset=offset)
+    """List research conversations for the authenticated user."""
+    return await list_conversations(user_id, limit=limit, offset=offset, search=search)
 
 
 @research_router.get("/conversations/{conversation_id}")
 async def research_get_conversation(
     conversation_id: str,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
     """Get a single conversation."""
-    if not user_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=401, detail="Login required to load conversations")
     return await get_conversation(conversation_id, user_id)
 
 
 @research_router.post("/conversations", status_code=201)
 async def research_create_conversation(
     req: ConversationSaveRequest,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
-    """Create a research conversation. Silently skip for anonymous."""
-    if not user_id:
-        return {"id": None, "skipped": True}
+    """Create a research conversation for the authenticated user."""
     return await create_conversation(req, user_id)
 
 
@@ -912,23 +932,18 @@ async def research_create_conversation(
 async def research_update_conversation(
     conversation_id: str,
     req: ConversationSaveRequest,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
-    """Update a research conversation. Silently skip for anonymous."""
-    if not user_id:
-        return {"success": True, "skipped": True}
+    """Update a research conversation for the authenticated user."""
     return await update_conversation(conversation_id, req, user_id)
 
 
 @research_router.delete("/conversations/{conversation_id}")
 async def research_delete_conversation(
     conversation_id: str,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
     """Delete a research conversation."""
-    if not user_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=401, detail="Login required")
     return await delete_conversation(conversation_id, user_id)
 
 
@@ -941,9 +956,10 @@ async def research_delete_conversation(
 async def research_chat_stream(
     req: ResearchRequest,
     request: Request,
-    user_id: str | None = Depends(optional_user_token),
+    user_id: str = Depends(verify_user_token),
 ):
-    """SSE streaming research chat. Open to all users with quota."""
+    """SSE streaming research chat. Login required (enforced here so the API
+    can't be driven anonymously even if the frontend login wall is bypassed)."""
     import json as _json
 
     from app.features.quota.service import consume_quota

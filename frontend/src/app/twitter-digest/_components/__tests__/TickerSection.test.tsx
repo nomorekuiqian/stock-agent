@@ -1,8 +1,27 @@
-import { describe, it, expect } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, fireEvent, cleanup } from '@testing-library/react';
+import type { AnchorHTMLAttributes } from 'react';
 
 import { TickerSection } from '../TickerSection';
 import type { TickerThesis } from '../types';
+
+vi.mock('next/link', () => ({
+  default: ({ href, children, prefetch: _prefetch, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & {
+    href: string;
+    prefetch?: boolean;
+  }) => {
+    void _prefetch;
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    );
+  },
+}));
+
+afterEach(() => {
+  cleanup();
+});
 
 function makeThesis(overrides: Partial<TickerThesis> = {}): TickerThesis {
   return {

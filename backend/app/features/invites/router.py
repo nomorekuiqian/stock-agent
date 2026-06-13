@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.config import INVITE_CODES, RESEND_API_KEY
 from app.core.deps import verify_user_token, get_optional_user_email
 from app.core.logging import get_logger
+import app.core.posthog_client as posthog
 from app.core.resend_tags import resend_channel_tags
 from app.features.invites.models import (
     RedeemInviteRequest,
@@ -105,6 +106,12 @@ async def api_request_access(body: AccessRequestInput):
             "tags": resend_channel_tags("access_welcome"),
         })
         logger.info("Access welcome email sent: email=%s name=%s", body.email, body.name)
+        if posthog.posthog_client:
+            posthog.posthog_client.capture(
+                distinct_id=body.email,
+                event="access_requested",
+                properties={},
+            )
         return AccessRequestResponse(success=True, message="欢迎邮件已发送到你的邮箱")
     except Exception:
         logger.exception("Failed to send welcome email: email=%s", body.email)
@@ -132,4 +139,15 @@ async def api_qualify(
         logger.warning("qualify: failed to save questionnaire response")
 
     logger.info("qualify: code issued background=%s", body.background)
+    distinct = email or "anonymous"
+    if posthog.posthog_client:
+        posthog.posthog_client.capture(
+            distinct_id=distinct,
+            event="qualify_questionnaire_submitted",
+            properties={
+                "background": body.background,
+                "trading_style": body.trading_style,
+                "source": body.source,
+            },
+        )
     return QualifyResponse(success=True, invite_code=invite_code)

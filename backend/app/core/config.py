@@ -27,6 +27,10 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "")
 STRIPE_MAX_PRICE_ID = os.getenv("STRIPE_MAX_PRICE_ID", "")
 
+# PostHog Analytics
+POSTHOG_PROJECT_TOKEN = os.getenv("POSTHOG_PROJECT_TOKEN", "")
+POSTHOG_HOST = os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
+
 # WeChat Mini Program
 WECHAT_APP_ID = os.getenv("WECHAT_APP_ID", "")
 WECHAT_APP_SECRET = os.getenv("WECHAT_APP_SECRET", "")
@@ -89,6 +93,7 @@ RESEND_SEGMENT_TWITTER_DIGEST = os.getenv("RESEND_SEGMENT_TWITTER_DIGEST", "")
 
 # Invite codes (comma-separated shared codes for public distribution)
 INVITE_CODES = os.getenv("INVITE_CODES", "")
+FRANK_LENS_DEV_INVITE_CODE = os.getenv("FRANK_LENS_DEV_INVITE_CODE", "")
 
 # Admin access whitelist (comma-separated emails)
 ADMIN_EMAILS = [

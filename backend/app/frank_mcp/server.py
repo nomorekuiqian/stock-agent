@@ -1,8 +1,8 @@
-"""Frank Lens MCP - v1 (FastMCP, Streamable HTTP), co-located in the backend.
+"""Market Lens MCP - v1 (FastMCP, Streamable HTTP), co-located in the backend.
 
-v1 "slim live": offline methodology lenses reuse skill_cockpit; the single live
-tool reuses kol_research vector search over qinbafrank's own tweets. No FMP
-market data, no auth, no payment in v1.
+v1 "slim live": offline methodology lenses reuse skill_cockpit for the current
+qinbafrank beta persona; the single live tool reuses kol_research vector search
+over qinbafrank's own tweets. No FMP market data, no auth, no payment in v1.
 
 Mounted into the FastAPI app in app/main.py:
     mcp_app = mcp.http_app(path="/mcp"); app.mount("/frank", mcp_app)  -> /frank/mcp/
@@ -22,9 +22,9 @@ from app.frank_mcp.middleware import AccessGateMiddleware, ToolCallLogMiddleware
 PERSONA = "qinbafrank"
 
 mcp = FastMCP(
-    name="frank-lens-mcp",
+    name="market-lens-mcp",
     instructions=(
-        "Frank Lens exposes qinbafrank methodology lenses and tweet evidence as "
+        "Market Lens exposes qinbafrank methodology lenses and tweet evidence as "
         "agent-readable context. Output is distilled methodology context for the "
         "caller's own agent - not investment advice, and not qinbafrank speaking. "
         "Separate historical tweet evidence from methodology inference."

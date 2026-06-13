@@ -208,6 +208,8 @@ class TestNoCrossFeatureImports:
         ("brew", "portfolio"),          # brew reads user portfolio/profile for personalization
         ("brew", "portfolio_health"),   # brew reads last health check timestamp for action_context
         ("portfolio", "payment"),       # portfolio router checks entitlements
+        ("portfolio_health", "payment"), # portfolio health router checks entitlements
+        ("stock", "payment"),           # stock AI endpoints are gated by entitlements
         ("notification", "for_you"),    # notification preferences checks action bar severity
         ("notification", "portfolio"),  # notification preferences reads user profile
         ("portfolio_health", "portfolio"),   # health check reads portfolio data
@@ -222,6 +224,8 @@ class TestNoCrossFeatureImports:
         ("kol_research", "screener"),
         ("kol_research", "daily_report"),
         ("kol_research", "flags"),
+        ("kol_research", "quota"),
+        ("kol_research", "vector"),
         # agent_runtime is the shared runtime layer (session store, context
         # engine, durable events). The chat-style features depend on it; it
         # also reads picker_conversations as a migration-period fallback.

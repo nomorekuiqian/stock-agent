@@ -12,6 +12,7 @@ from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.memory import db as memory_db
 from app.features.memory.models import FeedbackInput
+import app.core.posthog_client as posthog
 
 logger = get_logger(__name__)
 
@@ -26,6 +27,43 @@ async def post_feedback(
     user_id: str = Depends(verify_user_token),
 ):
     """Record user feedback on AI-generated content."""
+    if (
+        body.target_type == "research_agent_answer"
+        and body.agent_id
+        and body.session_id
+        and (body.message_event_id or body.client_event_id or body.turn_id)
+    ):
+        from app.shared.agent_runtime_feedback import update_agent_message_feedback
+
+        feedback_payload = dict(body.snapshot or {})
+        feedback_payload["target_id"] = body.target_id
+        updated_event = await update_agent_message_feedback(
+            user_id=user_id,
+            agent_id=body.agent_id,
+            session_id=body.session_id,
+            message_event_id=body.message_event_id,
+            client_event_id=body.client_event_id,
+            turn_id=body.turn_id,
+            sentiment=body.sentiment,
+            reason=body.reason,
+            feedback_payload=feedback_payload,
+        )
+        if updated_event:
+            if posthog.posthog_client:
+                posthog.posthog_client.capture(
+                    distinct_id=user_id,
+                    event="ai_content_feedback_submitted",
+                    properties={
+                        "target_type": body.target_type,
+                        "sentiment": body.sentiment,
+                        "storage": "agent_session_events",
+                    },
+                )
+            return {"success": True, "id": updated_event.get("id")}
+
+        logger.info("agent message feedback update returned None")
+        return {"success": True, "id": None}
+
     feedback_data = {
         "target_type": body.target_type,
         "target_id": body.target_id,
@@ -35,6 +73,15 @@ async def post_feedback(
     }
     feedback_id = await memory_db.save_feedback(user_id, feedback_data)
     if feedback_id:
+        if posthog.posthog_client:
+            posthog.posthog_client.capture(
+                distinct_id=user_id,
+                event="ai_content_feedback_submitted",
+                properties={
+                    "target_type": body.target_type,
+                    "sentiment": body.sentiment,
+                },
+            )
         return {"success": True, "id": feedback_id}
 
     # DB might not be deployed yet — accept silently

@@ -3,6 +3,17 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { useStockAnalysisCache } from '../queries/use-stock-data';
+import { getAccessTokenAsync } from '@/contexts/AuthContext';
+
+// ---------------------------------------------------------------------------
+// Mock auth — the cache hook now sends a bearer token (requiredAuthHeaders).
+// ---------------------------------------------------------------------------
+
+vi.mock('@/contexts/AuthContext', () => ({
+  getAccessTokenAsync: vi.fn(),
+}));
+
+const mockGetAccessToken = getAccessTokenAsync as ReturnType<typeof vi.fn>;
 
 // ---------------------------------------------------------------------------
 // Mock fetch
@@ -34,6 +45,7 @@ function createWrapper() {
 describe('useStockAnalysisCache', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetAccessToken.mockResolvedValue('test-token');
   });
 
   it('returns cached analysis when available', async () => {
@@ -60,6 +72,9 @@ describe('useStockAnalysisCache', () => {
     expect(result.current.data).toEqual(mockAnalysis);
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('/stocks/AAPL/analysis/cache'),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
+      }),
     );
   });
 

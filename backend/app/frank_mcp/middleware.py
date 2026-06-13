@@ -1,4 +1,4 @@
-"""Frank Lens MCP middleware (v1 guardrails): tool-call logging + optional access gate.
+"""Market Lens MCP middleware (v1 guardrails): tool-call logging + optional access gate.
 
 Rate limiting uses FastMCP's built-in RateLimitingMiddleware, wired in server.py.
 """

@@ -90,7 +90,7 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
   -> AuthContext 通过 /api/auth/session 决定真实登录态
 ```
 
-当前由 `middleware` 首层保护的页面包括：`/for-you`、`/profile`、`/macro`、`/sectors`、`/screener`
+`middleware` 当前维护的是 `PUBLIC_ROUTES` 白名单：`/`、`/today`、`/morning`、`/stock`、`/contact`、`/feedback`、`/unsubscribe`、`/login`、`/verify-email`、`/forgot-password`、`/reset-password`、`/auth/callback`、`/email-test`、`/pricing`、`/webview-check`、`/macro`、`/research`、`/twitter-digest`、`/kol` 等公开前缀直接放行。其它页面先经过 cookie gate；例如 `/for-you`、`/profile`、`/settings`、`/admin`、`/onboarding`、`/request-access` 会在没有 `app_access_token` / `app_refresh_token` 时跳 `/login?redirect=...`。权威鉴权仍在 `/api/auth/session` 和后端 `verify_user_token` / admin API 中完成。
 
 ## Session 与 Token
 
@@ -99,10 +99,32 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
 ```text
 getAccessTokenAsync()
   -> 先读模块级 _cachedAccessToken
-  -> 没有时请求 /api/auth/session
+  -> 没有时请求 /api/auth/session (经 fetchSession single-flight 去重)
   -> /api/auth/session 先验证 access token，失败再用 refresh token 刷新
   -> 返回 user / accessToken
 ```
+
+#### Refresh token 轮换竞态防护（重要）
+
+`/api/auth/session` 的 refresh 会**轮换** refresh token（`setAuthCookies(access, newRefresh)`）。
+若多个调用方（12 分钟定时刷新 / visibilitychange / 订阅·权益 context / 业务请求）在
+access cookie 过期后**并发**打这个端点，第一个成功的会让其余请求手上的旧 refresh token
+失效——这会把一个真实登录的用户登出。两道防护：
+
+1. `fetchSession` 用模块级 in-flight promise 做 **single-flight 去重**，同一 tab 内并发
+   调用共享同一次往返，从根上消除"轮换雪崩"。
+2. `/api/auth/session` 在 refresh 的 **catch（网络/瞬时异常）路径不再 `clearAuthCookies()`**，
+   避免 Insforge 抖动或竞态败者把刚轮换好的 cookie 清掉；只有 Insforge 明确返回 invalid
+   refresh token 的 error 分支才清理。
+
+业务侧 chatStream（`api.research.chatStream` / `api.kolResearch.chatStream`）收到 401 时
+也会 `refreshSession()` 后重试一次，让瞬时 null token 自愈而不是弹"登录已过期"。
+
+Research/KOL 历史对话接口是用户私有数据：`/api/research/conversations*`、
+`/api/kol_research/conversations*` 必须带 Bearer token，后端使用
+`verify_user_token` / `verify_user_token_with_email` 或 feature gate 校验。匿名、token
+缺失或 token 验证失败必须返回认证错误，不能返回空列表或静默 skip；否则前端会把临时
+auth 失败误判成“没有历史对话”并写入历史列表缓存。
 
 ### OAuth Callback 处理
 
@@ -140,6 +162,7 @@ OAuth callback 现在是服务端 route handler，避免客户端 SDK callback �
 
 - `backend/app/core/deps.py` - `verify_user_token` 用 Bearer token 校验身份
 - 各 feature `router.py` - `Depends(verify_user_token)` 提取 `user_id`
+- 付费内容 API 还必须叠加 feature entitlement gate。当前 Stock AI 内容（`/api/stocks/{symbol}/analysis/cache`, `/analysis`, `/technical`, `/news`, `/macro`, `/market-analysis`, `/earnings`）必须 `verify_user_token` + `has_entitlement(user_id, "stock_research")`；不能只依赖前端 PaywallGuard。
 
 ## 手动 QA 计划
 
@@ -175,7 +198,7 @@ OAuth callback 现在是服务端 route handler，避免客户端 SDK callback �
 3. 直接手动访问 `/login`
 4. 未登录直接访问 `/for-you`，被重定向到 `/login`
 5. 未登录直接访问 `/profile`，被重定向到 `/login`
-6. 未登录直接访问 `/screener`，被重定向到 `/login`
+6. 未登录直接访问 `/settings`，被重定向到 `/login`
 
 每个入口都要验证两件事：
 

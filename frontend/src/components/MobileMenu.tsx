@@ -3,22 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ChevronRight, LockKeyhole, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useIsAdmin } from '@/hooks/use-is-admin';
-
-interface NavChild {
-  href: string;
-  label: string;
-}
-
-interface NavSection {
-  label: string;
-  href: string;
-  children?: NavChild[];
-}
+import {
+  getMainNavSections,
+  isNavHrefActive,
+  type NavSection,
+} from '@/components/navigation';
 
 function MobileNavItem({
   section,
@@ -33,10 +28,9 @@ function MobileNavItem({
   const isChildActive =
     hasChildren &&
     section.children!.some(
-      (c) => pathname === c.href || pathname.startsWith(c.href + '/'),
+      (c) => isNavHrefActive(pathname, c.href),
     );
-  const isSectionActive =
-    pathname === section.href || pathname.startsWith(section.href + '/');
+  const isSectionActive = isNavHrefActive(pathname, section.href);
 
   const [expanded, setExpanded] = useState(isChildActive);
 
@@ -45,10 +39,14 @@ function MobileNavItem({
       <Link
         href={section.href}
         onClick={onClose}
-        className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+        className={`flex items-center rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
           isSectionActive
-            ? 'text-foreground bg-muted/50'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+            ? section.highlight
+              ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+              : 'bg-muted/55 text-foreground'
+            : section.highlight
+              ? 'text-primary hover:bg-primary/10'
+              : 'text-muted-foreground hover:bg-muted/35 hover:text-foreground'
         }`}
       >
         {section.label}
@@ -59,8 +57,10 @@ function MobileNavItem({
   return (
     <div>
       <div
-        className={`flex items-center rounded-lg ${
-          isSectionActive ? 'text-foreground' : 'text-muted-foreground'
+        className={`flex items-center rounded-xl transition-colors ${
+          isSectionActive
+            ? 'bg-muted/45 text-foreground'
+            : 'text-muted-foreground hover:bg-muted/25 hover:text-foreground'
         }`}
       >
         <Link
@@ -74,37 +74,35 @@ function MobileNavItem({
           type="button"
           onClick={() => setExpanded(!expanded)}
           aria-label={expanded ? '收起' : '展开'}
-          className="px-3 py-3 hover:text-foreground transition-colors"
+          className="px-3 py-3 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
-          <svg
+          <ChevronRight
             aria-hidden="true"
-            className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+            className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+            strokeWidth={1.8}
+          />
         </button>
       </div>
 
       {expanded && (
-        <div className="ml-4 pl-3 border-l border-border/40 mt-0.5 space-y-0.5">
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-border/40 pl-3">
           {section.children!.map((child) => {
-            const childActive =
-              pathname === child.href || pathname.startsWith(child.href + '/');
+            const childActive = isNavHrefActive(pathname, child.href);
             return (
               <Link
                 key={child.href}
-                href={child.href}
+                href={child.locked ? '/pricing' : child.href}
                 onClick={onClose}
-                className={`block px-3 py-2 text-sm rounded-lg transition-colors ${
+                className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   childActive
-                    ? 'text-foreground bg-muted/50'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                    ? 'bg-muted/55 text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/35 hover:text-foreground'
                 }`}
               >
-                {child.label}
+                <span>{child.label}</span>
+                {child.locked && (
+                  <LockKeyhole className="h-3.5 w-3.5 text-amber-500" strokeWidth={1.8} />
+                )}
               </Link>
             );
           })}
@@ -122,92 +120,14 @@ export function MobileMenu() {
   const { has: hasEntitlement } = useEntitlements();
   const isAdmin = useIsAdmin();
 
-  const navSections: NavSection[] = [
-    {
-      label: '日报',
-      href: '/today',
-      children: [
-        { href: '/morning', label: '盘前早报' },
-        { href: '/today', label: '盘后晚报' },
-        { href: '/twitter-digest', label: '推特日报' },
-      ],
-    },
-    {
-      label: '专属',
-      href: '/for-you',
-      children: hasFlag('for_you_v2')
-        ? [
-            { href: '/for-you', label: '专属日报' },
-            { href: '/for-you/onboarding', label: '投资画像' },
-            { href: '/for-you/watchlist', label: '关注列表' },
-            {
-              href: hasEntitlement('watchlist_extended') ? '/for-you/portfolio' : '/pricing',
-              label: hasEntitlement('watchlist_extended') ? '模拟持仓' : '模拟持仓 🔒',
-            },
-            {
-              href: hasEntitlement('watchlist_extended') ? '/for-you/health' : '/pricing',
-              label: hasEntitlement('watchlist_extended') ? '持仓体检' : '持仓体检 🔒',
-            },
-          ]
-        : [
-            { href: '/for-you/watchlist', label: '我的自选股' },
-          ],
-    },
-    {
-      label: '投研助手',
-      href: '/research',
-    },
-    // kol_chat flag fully rolled out — entry visible to all users.
-    // Replace `true` with `hasFlag('kol_chat')` to re-gate.
-    ...(true
-      ? [{
-          label: '博主研究室',
-          href: '/kol/qinbafrank',
-          children: [
-            { href: '/kol/qinbafrank', label: 'qinbafrank' },
-          ],
-        } as NavSection]
-      : []),
-    {
-      label: '个股',
-      href: '/stock',
-    },
-    {
-      label: '宏观',
-      href: '/macro',
-      children: [
-        { href: '/macro/liquidity', label: '流动性环境' },
-        { href: '/macro/economy', label: '经济基本面' },
-        { href: '/macro/inflation-rates', label: '通胀与利率' },
-        { href: '/macro/sentiment', label: '市场情绪' },
-      ],
-    },
-    {
-      label: '高级订阅',
-      href: '/pricing',
-    },
-    {
-      label: '联系',
-      href: '/contact',
-    },
-    ...(isAdmin
-      ? [{
-          label: '管理',
-          href: '/admin',
-          children: [
-            { href: '/admin', label: '用户管理' },
-            { href: '/admin/activity', label: '活跃对比' },
-            { href: '/admin/flags', label: '灰度管理' },
-            { href: '/admin/llm-usage', label: 'LLM 用量' },
-            { href: '/email-test', label: '邮件预览' },
-            { href: '/dev/feedback', label: '邮件反馈' },
-          ],
-        } as NavSection]
-      : []),
-  ];
+  const navSections: NavSection[] = getMainNavSections({
+    forYouV2: hasFlag('for_you_v2'),
+    watchlistExtended: hasEntitlement('watchlist_extended'),
+    isAdmin,
+  });
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       {/* Hamburger Button */}
       <button
         type="button"
@@ -215,16 +135,12 @@ export function MobileMenu() {
         aria-expanded={isOpen}
         aria-controls="mobile-menu-panel"
         aria-label={isOpen ? '关闭导航菜单' : '打开导航菜单'}
-        className="p-2 text-muted-foreground hover:text-foreground transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/35 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       >
         {isOpen ? (
-          <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
         ) : (
-          <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          <Menu aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
         )}
       </button>
 
@@ -233,16 +149,16 @@ export function MobileMenu() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 top-16 bg-background/80 backdrop-blur-sm z-40"
+            className="fixed left-0 right-0 top-16 z-40 h-[calc(100dvh-4rem)] bg-background"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Menu Panel */}
           <div
             id="mobile-menu-panel"
-            className="absolute top-16 left-0 right-0 bg-background border-b border-border/50 z-50 animate-fade-in-up"
+            className="fixed left-0 right-0 top-16 z-50 h-[calc(100dvh-4rem)] overflow-y-auto border-b border-border/50 bg-background shadow-xl shadow-black/10"
           >
-            <div className="max-w-6xl mx-auto px-4 py-3 space-y-0.5">
+            <div className="mx-auto max-w-6xl space-y-1 px-4 py-4">
               {/* Nav Sections */}
               {navSections.map((section) => (
                 <MobileNavItem
@@ -267,7 +183,7 @@ export function MobileMenu() {
                     {subLoading ? (
                       <span className="w-8 h-3 rounded bg-muted animate-pulse" />
                     ) : isPro ? (
-                      <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
+                      <span className="rounded border border-amber-500/20 bg-amber-500/15 px-1.5 py-0.5 text-micro font-semibold tracking-wider text-amber-400">
                         PRO
                       </span>
                     ) : null}

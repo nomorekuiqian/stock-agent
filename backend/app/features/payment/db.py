@@ -52,6 +52,10 @@ async def upsert_subscription(
     status: Optional[str] = None,
     current_period_start: Optional[str] = None,
     current_period_end: Optional[str] = None,
+    cancel_at_period_end: Optional[bool] = None,
+    cancel_at: Optional[str] = None,
+    canceled_at: Optional[str] = None,
+    clear_cancellation: bool = False,
     invite_code: Optional[str] = None,
     access_expires_at: Optional[str] = None,
     clear_access_expires_at: bool = False,
@@ -83,6 +87,17 @@ async def upsert_subscription(
         body["current_period_start"] = current_period_start
     if current_period_end is not None:
         body["current_period_end"] = current_period_end
+    if clear_cancellation:
+        body["cancel_at_period_end"] = False
+        body["cancel_at"] = None
+        body["canceled_at"] = None
+    else:
+        if cancel_at_period_end is not None:
+            body["cancel_at_period_end"] = cancel_at_period_end
+        if cancel_at is not None:
+            body["cancel_at"] = cancel_at
+        if canceled_at is not None:
+            body["canceled_at"] = canceled_at
     if invite_code is not None:
         body["invite_code"] = invite_code
     if access_expires_at is not None:
@@ -216,7 +231,21 @@ async def list_entitled_users(feature: str) -> list:
     data = result.get("data", {})
     if data.get("success"):
         return data.get("data", [])
-    return []
+    raise RuntimeError(data.get("error") or "list_entitled_users failed")
+
+
+async def list_expired_access_grants(now_iso: str) -> list:
+    """List subscription rows whose non-Stripe access grant has expired."""
+    service = get_insforge_service()
+    result = await service.call_function(
+        "subscriptions",
+        method="GET",
+        params={"action": "list_expired_access_grants", "now": now_iso},
+    )
+    data = result.get("data", {})
+    if data.get("success"):
+        return data.get("data", [])
+    raise RuntimeError(data.get("error") or "list_expired_access_grants failed")
 
 
 async def get_user_email_by_id(user_id: Optional[str]) -> Optional[str]:

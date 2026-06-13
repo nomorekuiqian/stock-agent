@@ -1,131 +1,172 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { ThumbsDown, ThumbsUp } from 'lucide-react';
+
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSubmitFeedback } from '@/hooks/queries/use-feedback';
+import { cn } from '@/lib/utils';
 import type { FeedbackInput } from '@/lib/api';
 
 interface FeedbackBarProps {
   targetType: FeedbackInput['target_type'];
   targetId: string;
   snapshot?: { text?: string; [key: string]: unknown };
+  variant?: 'compact' | 'agent';
+  prompt?: string;
+  agentId?: FeedbackInput['agent_id'];
+  sessionId?: string | null;
+  turnId?: string | null;
+  clientEventId?: string | null;
+  messageEventId?: string | null;
+  initialSentiment?: 1 | -1 | null;
 }
 
-const REASONS = [
-  { value: '不准', label: '不准' },
-  { value: '已知', label: '已知' },
-  { value: '不相关', label: '不相关' },
-];
+type FeedbackState = 'up' | 'down' | null;
 
-const LOCK_MS = 60_000;
+function toFeedbackState(sentiment: 1 | -1 | null | undefined): FeedbackState {
+  if (sentiment === 1) return 'up';
+  if (sentiment === -1) return 'down';
+  return null;
+}
 
-export function FeedbackBar({ targetType, targetId, snapshot }: FeedbackBarProps) {
+function toSentiment(state: FeedbackState): FeedbackInput['sentiment'] {
+  if (state === 'up') return 1;
+  if (state === 'down') return -1;
+  return 0;
+}
+
+export function FeedbackBar({
+  targetType,
+  targetId,
+  snapshot,
+  variant = 'compact',
+  prompt,
+  agentId,
+  sessionId,
+  turnId,
+  clientEventId,
+  messageEventId,
+  initialSentiment,
+}: FeedbackBarProps) {
   const submitFeedback = useSubmitFeedback();
-  const [submitted, setSubmitted] = useState<'up' | 'down' | null>(null);
-  const [showReasons, setShowReasons] = useState(false);
-  const [submittedAt, setSubmittedAt] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now);
+  const [submitted, setSubmitted] = useState<FeedbackState>(() => toFeedbackState(initialSentiment));
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const isAgent = variant === 'agent';
 
-  const locked = submittedAt !== null && now - submittedAt < LOCK_MS;
-
-  // Tick to unlock after LOCK_MS
-  useEffect(() => {
-    if (submittedAt === null) return;
-    const remaining = LOCK_MS - (Date.now() - submittedAt);
-    if (remaining <= 0) return;
-    const timer = setTimeout(() => setNow(Date.now()), remaining + 50);
-    return () => clearTimeout(timer);
-  }, [submittedAt]);
-
-  const doSubmit = useCallback((sentiment: 1 | -1, reason?: string) => {
-    setSubmitted(sentiment === 1 ? 'up' : 'down');
-    setSubmittedAt(Date.now());
-    setShowReasons(false);
-    submitFeedback.mutate({
+  const submitState = useCallback((nextState: FeedbackState) => {
+    setSubmitted(nextState);
+    const sentiment = toSentiment(nextState);
+    const payload: FeedbackInput = {
       target_type: targetType,
       target_id: targetId,
       sentiment,
-      reason,
-      snapshot: snapshot ? { text: snapshot.text?.slice(0, 500) } : undefined,
-    });
-  }, [targetType, targetId, snapshot, submitFeedback]);
+      snapshot: snapshot ? { ...snapshot, text: snapshot.text?.slice(0, 500) } : undefined,
+      agent_id: agentId,
+      session_id: sessionId || undefined,
+      turn_id: turnId || undefined,
+      client_event_id: clientEventId || undefined,
+      message_event_id: messageEventId || undefined,
+    };
 
-  // Auto-close reasons after 3 seconds with default reason
-  useEffect(() => {
-    if (!showReasons) return;
-    const timer = setTimeout(() => {
-      if (!submitted) {
-        doSubmit(-1, '不相关');
-      }
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [showReasons, submitted, doSubmit]);
+    queueRef.current = queueRef.current
+      .catch(() => undefined)
+      .then(() => submitFeedback.mutateAsync(payload))
+      .catch(() => undefined);
+  }, [
+    targetType,
+    targetId,
+    snapshot,
+    agentId,
+    sessionId,
+    turnId,
+    clientEventId,
+    messageEventId,
+    submitFeedback,
+  ]);
 
   const handleUp = useCallback(() => {
-    if (locked) return;
-    doSubmit(1);
-  }, [locked, doSubmit]);
+    submitState(submitted === 'up' ? null : 'up');
+  }, [submitted, submitState]);
 
   const handleDownClick = useCallback(() => {
-    if (locked) return;
-    setShowReasons(true);
-  }, [locked]);
+    submitState(submitted === 'down' ? null : 'down');
+  }, [submitted, submitState]);
 
-  const handleDownSubmit = useCallback((reason: string) => {
-    doSubmit(-1, reason);
-  }, [doSubmit]);
+  const liveStatus = submitted === 'up'
+    ? '已标记为有帮助，再次点击可取消'
+    : submitted === 'down'
+      ? '已标记为需改善，再次点击可取消'
+      : '反馈已取消';
 
   return (
-    <div className="flex items-center gap-1 mt-2">
-      <button
-        type="button"
-        onClick={handleUp}
-        disabled={locked}
-        aria-label="有帮助"
-        className={`p-1 rounded transition-all ${
-          submitted === 'up'
-            ? 'text-primary opacity-100'
-            : 'text-muted-foreground opacity-40 hover:opacity-100'
-        } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-      >
-        <svg className="w-3.5 h-3.5" fill={submitted === 'up' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z M4 22h-2a2 2 0 01-2-2v-7a2 2 0 012-2h2" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={handleDownClick}
-        disabled={locked}
-        aria-label="需改善"
-        className={`p-1 rounded transition-all ${
-          submitted === 'down'
-            ? 'text-red-400 opacity-100'
-            : 'text-muted-foreground opacity-40 hover:opacity-100'
-        } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-      >
-        <svg className="w-3.5 h-3.5" fill={submitted === 'down' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z M20 2h2a2 2 0 012 2v7a2 2 0 01-2 2h-2" />
-        </svg>
-      </button>
-
-      {showReasons && (
-        <div className="flex items-center gap-1.5 ml-2 animate-fade-in-up">
-          {REASONS.map((r) => (
-            <button
-              key={r.value}
-              type="button"
-              onClick={() => handleDownSubmit(r.value)}
-              className="text-[10px] px-2 py-0.5 rounded-full border border-border/50 bg-card/80 text-muted-foreground hover:border-primary/30 hover:text-foreground transition-all"
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+    <div
+      className={cn(
+        'inline-flex min-w-0 items-center gap-1.5',
+        isAgent ? 'text-sm' : 'mt-2 text-sm',
+      )}
+    >
+      {(prompt || isAgent) && (
+        <span className="mr-0.5 shrink-0 text-muted-foreground">
+          {prompt || '这条有帮助吗？'}
+        </span>
       )}
 
-      {submitted && locked && (
-        <span className="text-[10px] text-muted-foreground/50 ml-1">已记录</span>
-      )}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={handleUp}
+            aria-label={submitted === 'up' ? '取消有帮助反馈' : '标记为有帮助'}
+            aria-pressed={submitted === 'up'}
+            className={cn(
+              'inline-flex size-7 items-center justify-center rounded-full border transition-colors',
+              submitted === 'up'
+                ? 'border-primary/40 bg-primary/10 text-primary'
+                : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground',
+            )}
+          >
+            <ThumbsUp
+              className="size-4"
+              fill={submitted === 'up' ? 'currentColor' : 'none'}
+              strokeWidth={1.8}
+            />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-sm leading-relaxed">
+          {submitted === 'up' ? '取消有帮助' : '有帮助'}
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={handleDownClick}
+            aria-label={submitted === 'down' ? '取消需改善反馈' : '标记为需改善'}
+            aria-pressed={submitted === 'down'}
+            className={cn(
+              'inline-flex size-7 items-center justify-center rounded-full border transition-colors',
+              submitted === 'down'
+                ? 'border-red-400/40 bg-red-500/10 text-red-400'
+                : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground',
+            )}
+          >
+            <ThumbsDown
+              className="size-4"
+              fill={submitted === 'down' ? 'currentColor' : 'none'}
+              strokeWidth={1.8}
+            />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-sm leading-relaxed">
+          {submitted === 'down' ? '取消需改善' : '需改善'}
+        </TooltipContent>
+      </Tooltip>
+
+      <span className="sr-only" aria-live="polite">
+        {liveStatus}
+      </span>
     </div>
   );
 }

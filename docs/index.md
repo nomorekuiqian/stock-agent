@@ -1,6 +1,6 @@
 # Docs Index
 
-文档总索引。CLAUDE.md 是入口地图，本文件是完整导航。
+文档总索引。AGENTS.md 是入口地图，本文件是完整导航。
 
 ## 协作指南
 
@@ -59,7 +59,7 @@
 - [pages.md](reference/pages.md) — 前端页面路由表
 - [components.md](reference/components.md) — 前端组件清单
 - [frank-feedback-raw.md](reference/frank-feedback-raw.md) — qinbafrank 页面改造反馈原始记录（逐字保留）
-- [frank-lens-mcp.md](reference/frank-lens-mcp.md) — Frank Lens MCP 双模式 package：离线方法论、live vector evidence、market briefs、安装与验证
+- [market-lens-mcp.md](reference/market-lens-mcp.md) — Market Lens MCP backend-first：薄 NPM adapter、backend context pack、安装与验证
 - [twitter-kol-source-research.md](reference/twitter-kol-source-research.md) — 推特 KOL 信息源扩展 research
 - [vector-rag-pipeline.md](reference/vector-rag-pipeline.md) — vector embedding / retrieval / RAG pipeline
 
@@ -69,23 +69,36 @@
 
 **后端** (`backend/app/`):
 - `core/.context.md` — 核心基础设施
+- `edge_functions/.context.md` — Insforge Edge Functions
+- `frank_mcp/.context.md` — Market Lens MCP server
+- `utils/.context.md` — 后端通用工具
+- `shared/.context.md` + `shared/data_tools/.context.md` + `shared/kol_persona/.context.md` — 共享服务
+- `features/admin/.context.md` — 管理后台
+- `features/agent_runtime/.context.md` — Agent runtime/session/context
 - `features/daily_report/.context.md` — 市场日报
 - `features/morning_report/.context.md` — 盘前早报
 - `features/brew/.context.md` — 个性化摘要
+- `features/for_you/.context.md` — For-You action bar 聚合
+- `features/holdings_sync/.context.md` — 持仓同步
+- `features/kol_research/.context.md` — KOL persona research
+- `features/memory/.context.md` — 用户记忆/反馈
+- `features/portfolio/.context.md` + `features/portfolio_health/.context.md` — 持仓与体检
+- `features/research_kb/.context.md` — 投研知识库
 - `features/stock/.context.md` — 个股投研
+- `features/stock/agent/.context.md` — 个股 AI agent 子模块
 - `features/macro/{risk,liquidity,weekly,cache}/.context.md` — 宏观体系
 - `features/screener/.context.md` — Stock Screener
-- `features/{subscription,notification,feedback,payment,invites}/.context.md` — 运营模块
-- `shared/.context.md` + `shared/data_tools/.context.md` — 共享服务
+- `features/{subscription,notification,feedback,payment,invites,onboarding,quota,flags,webhooks,wechat}/.context.md` — 运营/平台模块
+- `features/twitter/.context.md` + `features/twitter_digest/.context.md` + `features/twitter/methodologies/.context.md` + `features/twitter/methodology_v3/.context.md` — KOL 数据与方法论
 
 **前端** (`frontend/src/`):
-- `app/{today,morning,for-you,stock,macro,research}/.context.md` — 页面
-- `app/api/auth/.context.md` — Server Proxy 认证路由
+- `app/.context.md` — App Router shell、首页、全站 layout
+- `app/{admin,auth,api/auth,contact,dev,email-test,feedback,forgot-password,frank-agent,for-you,kol,login,macro,morning,onboarding,pricing,profile,request-access,research,reset-password,settings,stock,today,twitter-digest,unsubscribe,verify-email,webview-check}/.context.md` — 页面/路由模块
 - `{lib,components,contexts,hooks}/.context.md` — 共享层
 - `test/.context.md` — 测试体系
 
 **MCP**:
-- `mcp/frank-lens/.context.md` — Frank Lens MCP 可安装 package，支持 offline 和 live backend 模式
+- `mcp/themarketbrew/.context.md` — Market Lens MCP 薄 adapter package，所有核心资产和 workflow 走 backend
 
 ## 外部知识库
 

@@ -2,8 +2,8 @@
 skill: sector/fintech-brokerage
 analyst: qinbafrank
 layer: sector
-sources: sector__fintech-brokerage (62 tweets), no legacy lens
-last_updated: 2026-05-27
+sources: sector__fintech-brokerage (99 tweets), no legacy lens
+last_updated: 2026-06-11
 ---
 
 # Skill: Fintech / Brokerage
@@ -116,6 +116,15 @@ Fintech / 经纪商在 AI 时代 + 加密时代的产业位置是什么？本 sk
 3. **押注短期 trading volume** — 错。trading volume 波动大，要看用户增长 + ARPU 长期趋势。
 4. **把富途 / 老虎当成 HOOD 中国版** — 错。监管环境不同，富途 / 老虎在监管缝隙 + 海外华人市场。
 5. **把"预测市场"当成短期主题** — 错。HOOD 增速暴涨是结构性增量，不是题材炒作。
+
+## 2026-05-25 后增量证据
+
+- `2058956787043483760` — Bitget 股票业务采用直连券商 / 介绍经纪商 + 白标模式，币股融合开始复用互联网券商路径。
+- `2059789317946622083` — 老虎 / 富途早期合规路径复盘，说明 CEX 做美股业务会遇到类似监管和清算问题。
+- `2060388312033182068` — HOOD Agentic Trading + 特朗普账户，AI 代理交易和儿童投资账户带来新增量。
+- `2060905508119400559` — CEX 美股业务会吸走空气山寨资金，资金和用户迁移是首要挑战。
+- `2060963237101982195` — rToken 可能封装期权和合约统一保证金，强化代币化券商的资金效率。
+
 ## Evidence Map
 
 Z 世代代际更替：
