@@ -639,19 +639,20 @@ class TestBroadcastWeeklyUsesSegmentOrAudience:
             assert "audience_id" not in create_params
 
 
-class TestWelcomeQrCode:
-    """Test that _format_welcome_html() includes the QR code community section."""
+class TestWelcomeEmailCallsToAction:
+    """Test that _format_welcome_html() includes the current onboarding CTAs."""
 
-    def test_qrcode_image_in_html(self, email_svc):
-        """QR code img tag with insforge storage URL is present in welcome email."""
+    def test_watchlist_cta_in_html(self, email_svc):
+        """Welcome email points new users to set up a watchlist."""
         html = email_svc._format_welcome_html(first_name="Tester")
-        assert "insforge.app/api/storage/buckets/community/objects/wechat-qr-0510.jpg" in html
-        assert "<img" in html
+        assert "/for-you/watchlist" in html
+        assert "添加我的自选股" in html
 
-    def test_community_section_header(self, email_svc):
-        """Welcome email contains the community section header text."""
+    def test_product_sections_in_html(self, email_svc):
+        """Welcome email introduces the product surfaces available today."""
         html = email_svc._format_welcome_html(first_name="Tester")
-        assert "\u52a0\u5165\u793e\u7fa4" in html  # "加入社群"
+        assert "你马上可以试的功能" in html
+        assert "每日市场日报" in html
 
 
 class TestResolveAudience:
