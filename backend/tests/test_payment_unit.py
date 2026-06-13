@@ -347,13 +347,23 @@ class TestWebhookHandler:
             "items": {"data": []},
         }
 
+        import stripe
+
+        async def fake_to_thread(func, *args, **kwargs):
+            assert getattr(func, "__self__", None) is stripe.Subscription
+            assert getattr(func, "__name__", "") == "retrieve"
+            assert args == ("sub_abc",)
+            assert kwargs == {}
+            return mock_stripe_sub
+
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
-             patch("app.features.payment.router.stripe.Subscription.retrieve", return_value=mock_stripe_sub), \
+             patch("app.features.payment.router.asyncio.to_thread", new=AsyncMock(side_effect=fake_to_thread)) as mock_to_thread, \
              patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert:
 
             result = await stripe_webhook(mock_request)
 
             assert result == {"received": True}
+            mock_to_thread.assert_awaited_once()
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
             assert call_kwargs["user_id"] == "user-123"
