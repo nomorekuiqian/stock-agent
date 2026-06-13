@@ -66,10 +66,13 @@ export default function RequestAccessPage(): ReactNode {
   };
 
   useEffect(() => {
-    setSource(new URLSearchParams(window.location.search).get("source") || "");
-  }, []);
-
-  const isQinbafrankWaitlist = source === "qinbafrank-agent";
+    const sourceParam = new URLSearchParams(window.location.search).get("source") || "";
+    if (sourceParam === "qinbafrank-agent") {
+      router.replace("/kol/qinbafrank");
+      return;
+    }
+    setSource(sourceParam);
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,12 +122,10 @@ export default function RequestAccessPage(): ReactNode {
               </svg>
             </div>
             <h1 className="text-2xl font-editorial text-foreground mb-2">
-              {isQinbafrankWaitlist ? "已加入 waitlist" : "感谢你的反馈!"}
+              感谢你的反馈!
             </h1>
             <p className="text-sm text-muted-foreground">
-              {isQinbafrankWaitlist
-                ? "我们会根据申请信息分批开放 Qinbafrank Agent 试用。"
-                : "你的意见对我们非常重要，我们会不断改进产品体验。"}
+              你的意见对我们非常重要，我们会不断改进产品体验。
             </p>
           </div>
 
@@ -158,9 +159,7 @@ export default function RequestAccessPage(): ReactNode {
           </p>
           <h1 className="text-2xl font-editorial text-foreground">帮助我们了解你</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            {isQinbafrankWaitlist
-              ? "花 1 分钟告诉我们你的投研习惯，用于 Qinbafrank Agent 试用名额筛选。"
-              : "花 1 分钟告诉我们你的投资偏好，帮助我们为你提供更好的体验。"}
+            花 1 分钟告诉我们你的投资偏好，帮助我们为你提供更好的体验。
           </p>
         </div>
 
@@ -309,7 +308,7 @@ export default function RequestAccessPage(): ReactNode {
                 提交中...
               </>
             ) : (
-              isQinbafrankWaitlist ? "加入 waitlist" : "提交问卷"
+              "提交问卷"
             )}
           </button>
         </form>

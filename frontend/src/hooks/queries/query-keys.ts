@@ -120,7 +120,9 @@ export const queryKeys = {
       limit: number,
       offset: number,
       topic: string | null = null,
-    ) => ['kol', username, 'feed', { sector, ticker, topic, limit, offset }] as const,
+      tickers: string[] = [],
+      keywords: string[] = [],
+    ) => ['kol', username, 'feed', { sector, ticker, topic, tickers, keywords, limit, offset }] as const,
     sectors: (username: string) => ['kol', username, 'sectors'] as const,
     sectorDetail: (username: string, sectorKey: string) =>
       ['kol', username, 'sector', sectorKey] as const,

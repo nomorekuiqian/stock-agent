@@ -56,6 +56,8 @@ async def upsert_subscription(
     cancel_at: Optional[str] = None,
     canceled_at: Optional[str] = None,
     clear_cancellation: bool = False,
+    clear_cancel_at: bool = False,
+    clear_canceled_at: bool = False,
     invite_code: Optional[str] = None,
     access_expires_at: Optional[str] = None,
     clear_access_expires_at: bool = False,
@@ -96,8 +98,12 @@ async def upsert_subscription(
             body["cancel_at_period_end"] = cancel_at_period_end
         if cancel_at is not None:
             body["cancel_at"] = cancel_at
+        elif clear_cancel_at:
+            body["cancel_at"] = None
         if canceled_at is not None:
             body["canceled_at"] = canceled_at
+        elif clear_canceled_at:
+            body["canceled_at"] = None
     if invite_code is not None:
         body["invite_code"] = invite_code
     if access_expires_at is not None:

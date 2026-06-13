@@ -11,22 +11,24 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 | Free | `plan="free"` 或无 subscription 行 | `entitlements=[]` |
 | Pro | `plan="pro"` | `entitlements` 含 PRO_FEATURES, `access_expires_at=NULL` |
 | Max | `plan="max"` | `entitlements` 含 MAX_FEATURES, `access_expires_at=NULL` |
-| Lifetime | `is_lifetime=true` | 永久全功能 (覆盖 Max) |
+| Ultra | `plan="ultra"` | `entitlements` 含 `MAX_FEATURES + kol_pack_qinbafrank`, `access_expires_at=NULL` |
+| Lifetime | `is_lifetime=true` | 永久 Max 全功能，不自动包含博主资料包 |
 | 非 Stripe grant (过渡/赠送) | `access_expires_at` 未来 + `plan/status/entitlements` | 读时按 `access_expires_at` 失效；每日 reconciliation 清成 Free/expired |
 
 ## 功能边界
 
 **Pro / Max 功能不变, 只调整 Free 列**:
 
-| 功能 | Free | Pro | Max |
-|---|---|---|---|
-| `daily_report` (公开版) | 完整 | 完整 | 完整 |
-| 宏观 dashboard | 基础视图 | 完整 | 完整 |
-| watchlist 数量 | 25 | 25 | 25 |
-| AI 投研对话 (`/api/research/chat`) | 2/天 | 2/天 | 无限 |
-| 推特日报 (`twitter_digest`) | 前 3 封 intro 完整版 (注册 D0/D1/D2 自然日), 之后停 | 锁 | 每天完整 |
-| `morning_report_email` / `weekly_report_email` / `personal_digest_email` | 无 | 有 | 有 |
-| 个股深度研究 (`stock_research`) | 无 | 锁 | 无限 |
+| 功能 | Free | Pro | Max | Ultra |
+|---|---|---|---|---|
+| `daily_report` (公开版) | 完整 | 完整 | 完整 | 完整 |
+| 宏观 dashboard | 基础视图 | 完整 | 完整 | 完整 |
+| watchlist 数量 | 25 | 25 | 25 | 25 |
+| AI 投研对话 (`/api/research/chat`) | 2/天 | 2/天 | 无限 | 无限 |
+| Qinbafrank Agent (`/api/kol_research/chat`) | 1 次试问 | 1 次试问 | 1 次试问 | 解锁 |
+| 推特日报 (`twitter_digest`) | 前 3 封 intro 完整版 (注册 D0/D1/D2 自然日), 之后停 | 锁 | 每天完整 | 每天完整 |
+| `morning_report_email` / `weekly_report_email` / `personal_digest_email` | 无 | 有 | 有 | 有 |
+| 个股深度研究 (`stock_research`) | 无 | 锁 | 无限 | 无限 |
 
 后端安全边界必须和上表一致。前端 PaywallGuard 只负责展示/导航，不能作为权限保护。
 
@@ -38,7 +40,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 
 ## 设计原则
 
-1. **watchlist 对 Free 是钩子, 不是价值**: Free / Pro / Max 全部上限 25 — 数量不是付费卖点, 唯一作用是让用户录入"自己的股票"后引导升级 Pro 拿专属日报. Free 用户能加 25 只但收不到任何基于持仓的邮件, 没有日常 ROI; 这是设计意图.
+1. **watchlist 对 Free 是钩子, 不是价值**: Free / Pro / Max / Ultra 全部上限 25 — 数量不是付费卖点, 唯一作用是让用户录入"自己的股票"后引导升级 Pro 拿专属日报. Free 用户能加 25 只但收不到任何基于持仓的邮件, 没有日常 ROI; 这是设计意图.
 2. **AI 投研对话 Pro 不差异化**: Free + Pro 都是 2/天, Max 无限. AI 投研是 Max 独家深度使用功能, **不是 Pro 升级卖点**. Pro 卖点全部在邮件层 (morning / weekly / personal_digest). Max 卖点: 推特日报 + AI 投研无限 + 个股深度无限.
 3. **推特日报 "前 3 封后停"**: 注册自然日 D0/D1/D2 各发 1 封完整版, 周末也发 (跟正常发刊日历独立; 周末无新内容时复用最近一期). D4 onboarding 邮件转化推 Max.
 4. **专属日报通过 onboarding 流程做转化**: Step 2 建完自选股 → Step 3 modal **直跳 Stripe Checkout** (`POST /api/payment/checkout-session` with `tier="pro"`), 不经 `/pricing`.
@@ -62,11 +64,35 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 
 **MAX_FEATURES** = `PRO_FEATURES | MAX_ONLY_FEATURES`
 
-**Lifetime** (`is_lifetime=true`) 自动 grant 完整 `MAX_FEATURES`.
+**KOL_PACK_FEATURES**:
+- `kol_pack_qinbafrank`
+
+**ULTRA_FEATURES** = `MAX_FEATURES | KOL_PACK_FEATURES`
+
+Ultra 是前台销售产品，Stripe checkout product/tier 为 `ultra`。底层写入 `plan="ultra"`，并额外写入 `kol_pack_qinbafrank`，这样 Max 能力和博主资料包权限可以独立判断。旧 `creator_max_qinbafrank` 仅作为 checkout alias 兼容历史链接。
+
+新用户开通 Pro/Max/Ultra 走 Stripe Checkout；已有 Pro/Max 真实付费订阅升级更高 tier 走 Stripe Billing Portal `subscription_update_confirm`，不能创建第二个并行订阅。升级使用 `proration_behavior=always_invoice` 的 Billing Portal configuration，由 Stripe 立即按剩余周期收取差价，不能手动退款后重收全额，也不能重新收一整笔目标套餐价格。Checkout 回跳会带 `session_id={CHECKOUT_SESSION_ID}`，成功页调用 `/api/payment/checkout-session/complete` 主动同步；Portal 回跳通过 `subscription-status?fresh=true` 从 Stripe Subscription 刷新本地 plan/status/entitlements。
+
+**Lifetime** (`is_lifetime=true`) 自动 grant 完整 `MAX_FEATURES`，不自动 grant `KOL_PACK_FEATURES`.
+
+## Qinbafrank Ultra 上线门禁
+
+生产上线前必须在 live Stripe 环境跑只读 readiness:
+
+```bash
+cd backend
+source venv/bin/activate
+python scripts/check_qinbafrank_stripe_readiness.py \
+  --require-live \
+  --webhook-url https://stock-agent-production.up.railway.app/api/payment/webhook
+```
+
+该脚本必须通过后才能公开售卖资料包。它会验证 Ultra active price、生产 webhook 所需事件，以及 Billing Portal 是否允许已有 Pro/Max 订阅用 `always_invoice` proration 升级到 Ultra price。
 
 ## 配额规则
 
 - **AI 投研对话** (`/api/research/chat`): 无 `ai_research_engine` entitlement 的用户每天 2 次. Redis 计数 (`backend/app/features/quota/`), 按 user_id 或 IP, midnight UTC reset. `quota/service.py:17` `DAILY_LIMIT = 2`.
+- **Qinbafrank Agent** (`/api/kol_research/chat`): 无 `kol_pack_qinbafrank` entitlement 的登录用户可一次性试问 1 次；购买 Ultra 后不限于这条试问门槛，实际调用仍受 Max/运行时风控约束。
 - **推特日报 intro**: 无 `twitter_digest` entitlement 的用户, 注册起 3 个自然日内每天 1 封. `lifecycle_state.intro_sent_count` 跟踪, max 3.
 - **watchlist**: 所有用户最多 25 (Pydantic + 前端校验).
 

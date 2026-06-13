@@ -33,6 +33,7 @@ import app.core.posthog_client as posthog
 from app.core.rate_limit import _get_real_ip
 from app.core.sse import with_heartbeat
 from app.features.quota.service import consume_quota
+from app.features.quota.db import get_usage, increment_usage
 from app.features.flags.db import get_user_flags  # pyright: ignore[reportUnusedImport]  # noqa: F401 — kept for kol_research_agent flag rollback (see require_kol_research_flag)
 from app.features.kol_research import cockpit, cockpit_v3, mcp_materials, skill_cockpit
 from app.features.kol_research.agent import (
@@ -73,6 +74,9 @@ from app.shared.kol_persona.tools import chunk_to_persona_result
 logger = get_logger(__name__)
 
 FLAG_KEY = "kol_research_agent"
+QINBAFRANK_PACK_FEATURE = "kol_pack_qinbafrank"
+QINBAFRANK_TRIAL_LIMIT = 1
+QINBAFRANK_TRIAL_USAGE_DATE = "1970-01-01"
 
 router = APIRouter(prefix="/api/kol_research", tags=["kol_research"])
 
@@ -101,6 +105,43 @@ async def require_kol_research_flag(
     #         detail="KOL research agent is not enabled for this account.",
     #     )
     return user_info
+
+
+async def _consume_qinbafrank_pack_access(user_id: str, client_ip: str | None) -> dict:
+    """Allow full Qinbafrank Agent access for pack buyers, otherwise 1 trial."""
+    from app.features.payment.entitlements import has_entitlement
+
+    if await has_entitlement(user_id, QINBAFRANK_PACK_FEATURE):
+        return {"allowed": True, "paid": True, "trial_used": 0}
+
+    identifier = f"kol_pack_qinbafrank_trial:{user_id or client_ip or 'unknown'}"
+    date = QINBAFRANK_TRIAL_USAGE_DATE
+    used = await get_usage(identifier, date)
+    if used >= QINBAFRANK_TRIAL_LIMIT:
+        return {"allowed": False, "paid": False, "trial_used": used}
+
+    new_count = await increment_usage(identifier, "user", date)
+    if not isinstance(new_count, int) or new_count < 0:
+        logger.warning("Qinbafrank trial quota increment failed, allowing request")
+        return {"allowed": True, "paid": False, "trial_used": used}
+    return {"allowed": True, "paid": False, "trial_used": new_count}
+
+
+async def _consume_kol_chat_access(req: KolResearchRequest, user_id: str, client_ip: str | None) -> dict:
+    persona = (req.persona_username or DEFAULT_PERSONA).lower()
+    if persona == "qinbafrank":
+        return await _consume_qinbafrank_pack_access(user_id, client_ip)
+    return await consume_quota(user_id, client_ip)
+
+
+def _kol_quota_error_payload(req: KolResearchRequest) -> dict:
+    persona = (req.persona_username or DEFAULT_PERSONA).lower()
+    if persona == "qinbafrank":
+        return {
+            "message": "Qinbafrank 免费试问已用完，解锁 Qinbafrank 研究室 Ultra 后继续使用",
+            "required_product": "ultra",
+        }
+    return {"message": "今日免费提问次数已用完，升级 Max 解锁无限使用"}
 
 
 # ---------------------------------------------------------------------------
@@ -551,22 +592,26 @@ async def cockpit_feed(
     offset: int = 0,
     sector: str | None = None,
     ticker: str | None = None,
+    tickers: str | None = None,
+    keywords: str | None = None,
     topic: str | None = None,
 ):
     """Time-desc tweet feed for the Live Feed module.
 
     Query params:
-      limit  (default 20, max 50)
+      limit  (default 20, max 1500)
       offset (default 0)
       sector — group label or short alias: 'AI 算力链' / 'ai' / '加密·稳定币' / 'crypto' / '宏观' / 'macro'
       ticker — exact ticker symbol (case-insensitive), matches via alias dict
+      tickers — comma-separated ticker symbols, OR matched against per-tweet ticker list
+      keywords — comma-separated text terms, OR matched against tweet text/title/tickers/topics
       topic  — topic-tree node key: 'industry', 'industry/ai_infra', 'macro', 'rules', ...
                See cockpit.get_topic_tree() for the full set.
     """
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
-    limit = max(1, min(limit, 50))
+    limit = max(1, min(limit, 1500))
     offset = max(0, offset)
     return await cockpit.get_feed(
         username,
@@ -574,6 +619,8 @@ async def cockpit_feed(
         offset=offset,
         sector=sector,
         ticker=ticker,
+        tickers=[item.strip() for item in tickers.split(",") if item.strip()] if tickers else None,
+        keywords=[item.strip() for item in keywords.split(",") if item.strip()] if keywords else None,
         topic=topic,
     )
 
@@ -1318,7 +1365,7 @@ async def cockpit_ticker_detail(username: str, ticker: str):
 
 
 @router.get("/personas/{username}/tickers/{ticker}/timeline")
-async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
+async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 1500):
     """Per-ticker vertical opinion timeline. Picks the most informative
     enrichment-annotated mentions and returns them newest-first.
 
@@ -1331,7 +1378,7 @@ async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
         raise HTTPException(status_code=404, detail="Persona not found")
     if not _is_skill_cockpit(username):
         return {"ticker": ticker.upper(), "items": []}
-    limit = max(3, min(limit, 20))
+    limit = max(3, min(limit, 1500))
     result = await cockpit.get_ticker_timeline(username, ticker, limit=limit)
     if result is None:
         raise HTTPException(status_code=404, detail="Ticker not covered")
@@ -1349,14 +1396,18 @@ async def kol_research_chat(
     request: Request,
     user_info: dict = Depends(require_kol_research_flag),
 ):
-    """Unary KOL research chat. Shares the research daily quota (2/day for
-    free + Pro; Max unlimited) so persona mode can't be used to bypass it."""
+    """Unary KOL research chat.
+
+    Qinbafrank uses its own Ultra pack gate with one free trial question;
+    other personas share the general research quota.
+    """
     client_ip = _get_real_ip(request)
-    quota = await consume_quota(user_info["user_id"], client_ip)
+    quota = await _consume_kol_chat_access(req, user_info["user_id"], client_ip)
     if not quota["allowed"]:
+        error_payload = _kol_quota_error_payload(req)
         raise HTTPException(
             status_code=429,
-            detail="今日免费提问次数已用完，升级 Max 解锁无限使用",
+            detail=error_payload["message"],
         )
     if posthog.posthog_client:
         posthog.posthog_client.capture(
@@ -1384,9 +1435,10 @@ async def kol_research_chat_stream(
     request: Request,
     user_info: dict = Depends(require_kol_research_flag),
 ):
-    """SSE streaming KOL research chat. Shares the research daily quota
-    (2/day for free + Pro; Max unlimited) so persona mode can't be used to
-    bypass it.
+    """SSE streaming KOL research chat.
+
+    Qinbafrank uses its own Ultra pack gate with one free trial question;
+    other personas share the general research quota.
 
     Event types:
       - skill_activated   {skill_name, description}
@@ -1398,17 +1450,18 @@ async def kol_research_chat_stream(
       - error             {error}
     """
     client_ip = _get_real_ip(request)
-    quota = await consume_quota(user_info["user_id"], client_ip)
+    quota = await _consume_kol_chat_access(req, user_info["user_id"], client_ip)
     if not quota["allowed"]:
+        error_payload = _kol_quota_error_payload(req)
         async def quota_error():
-            yield "data: %s\n\n" % _json.dumps(
-                {
-                    "type": "error",
-                    "message": "今日免费提问次数已用完，升级 Max 解锁无限使用",
-                    "quota_exceeded": True,
-                },
-                ensure_ascii=False,
-            )
+            data = {
+                "type": "error",
+                "message": error_payload["message"],
+                "quota_exceeded": True,
+            }
+            if error_payload.get("required_product"):
+                data["required_product"] = error_payload["required_product"]
+            yield "data: %s\n\n" % _json.dumps(data, ensure_ascii=False)
         return StreamingResponse(quota_error(), media_type="text/event-stream")
 
     if posthog.posthog_client:

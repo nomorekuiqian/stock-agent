@@ -17,12 +17,18 @@ Usage:
 
 from __future__ import annotations
 
+import pytest
+
 from app.features.kol_research.cockpit import (
     _classify_tweet_topics,
     _default_feed_visible,
+    _matches_keyword,
     _pick_timeline_items,
     _slim_tweet,
     _stance_for,
+    _timeline_claim_for,
+    _tweet_search_text,
+    get_feed,
 )
 
 
@@ -144,11 +150,104 @@ class TestStanceFor:
         assert _stance_for("NVDA", stances) == "bull"
 
 
+class TestTimelineClaimFor:
+    """Timeline claims prefer enrichment but degrade to readable source text."""
+
+    def test_prefers_key_claim_and_strips_whitespace(self):
+        assert _timeline_claim_for({"key_claim": "  强观点  ", "text": "原文"}) == "强观点"
+
+    def test_falls_back_to_compacted_tweet_text(self):
+        claim = _timeline_claim_for({"key_claim": "", "text": "第一行\n\n  第二行"})
+        assert claim == "第一行 第二行"
+
+    def test_falls_back_to_article_title(self):
+        claim = _timeline_claim_for({"key_claim": "", "text": "", "article_title": "  采访标题  "})
+        assert claim == "采访标题"
+
+    def test_returns_empty_without_any_readable_text(self):
+        assert _timeline_claim_for({"key_claim": "", "text": "", "article_title": ""}) == ""
+
+
+class TestFeedKeywordSearch:
+    """Keyword helpers power the board-specific dynamic timelines."""
+
+    def test_cjk_keyword_matches_as_substring(self):
+        assert _matches_keyword("稳定币和代币化正在进入金融基建", "代币化")
+
+    def test_ascii_keyword_requires_token_boundary(self):
+        assert _matches_keyword("AI capex is still strong", "AI")
+        assert _matches_keyword("RWA discussion around HOOD", "rwa")
+        assert not _matches_keyword("onchain liquidity changed", "AI")
+        assert not _matches_keyword("stair-step revenue", "AI")
+
+    def test_tweet_search_text_includes_title_tickers_and_topics(self):
+        text = _tweet_search_text({
+            "text": "正文",
+            "article_title": "Interview title",
+            "tickers": ["HOOD", "COIN"],
+            "topics": ["industry/crypto"],
+        })
+        assert "正文" in text
+        assert "Interview title" in text
+        assert "HOOD" in text
+        assert "industry/crypto" in text
+
+
+class TestGetFeedFilters:
+    """Feed filter combines ticker aliases and board keywords as an OR filter."""
+
+    @pytest.mark.asyncio
+    async def test_tickers_and_keywords_are_or_filters(self, monkeypatch):
+        tweets = [
+            {
+                "id": "ticker-match",
+                "text": "只提到了经纪商业务",
+                "created_at": "2026-01-03T00:00:00Z",
+                "tweet_type": "original",
+                "tickers": ["HOOD"],
+                "topics": [],
+            },
+            {
+                "id": "keyword-match",
+                "text": "RWA 资产上链继续扩散",
+                "created_at": "2026-01-02T00:00:00Z",
+                "tweet_type": "original",
+                "tickers": [],
+                "topics": [],
+            },
+            {
+                "id": "miss",
+                "text": "半导体供应链",
+                "created_at": "2026-01-01T00:00:00Z",
+                "tweet_type": "original",
+                "tickers": ["NVDA"],
+                "topics": [],
+            },
+        ]
+
+        async def fake_get_index(username: str) -> dict:
+            assert username == "qinbafrank"
+            return {"all_tweets": tweets}
+
+        monkeypatch.setattr("app.features.kol_research.cockpit.get_index", fake_get_index)
+
+        result = await get_feed(
+            "qinbafrank",
+            limit=10,
+            tickers=["HOOD"],
+            keywords=["RWA"],
+        )
+
+        assert [tweet["id"] for tweet in result["tweets"]] == ["ticker-match", "keyword-match"]
+        assert result["total"] == 2
+
+
 class TestPickTimelineItems:
     """Selects ~limit informative tweets for the per-ticker timeline."""
 
     def _make_tweet(self, *, id_: str, days_ago: int, likes: int = 0, key_claim: str = "投资逻辑: x",
-                    content_type: str = "thesis", stances: list | None = None) -> dict:
+                    content_type: str = "thesis", stances: list | None = None,
+                    text: str = "这是一条和标的相关的原文观点") -> dict:
         # 2026-01-01 base; subtract days_ago days.
         from datetime import datetime, timedelta, timezone
         d = datetime(2026, 1, 1, tzinfo=timezone.utc) - timedelta(days=days_ago)
@@ -160,17 +259,19 @@ class TestPickTimelineItems:
             "content_type": content_type,
             "key_claim": key_claim,
             "ticker_stances": stances,
+            "text": text,
         }
 
-    def test_filters_out_tweets_without_key_claim(self):
+    def test_uses_tweet_text_when_key_claim_missing(self):
         tweets = [
             self._make_tweet(id_="a", days_ago=10, key_claim=""),
             self._make_tweet(id_="b", days_ago=5, key_claim="x"),
         ]
         items = _pick_timeline_items(tweets, "NVDA", limit=10)
-        assert [i["id"] for i in items] == ["b"]
+        assert [i["id"] for i in items] == ["b", "a"]
+        assert items[1]["key_claim"] == "这是一条和标的相关的原文观点"
 
-    def test_filters_out_disallowed_content_types(self):
+    def test_filters_out_noise_but_keeps_macro_context(self):
         tweets = [
             self._make_tweet(id_="noise", days_ago=10, content_type="noise"),
             self._make_tweet(id_="macro", days_ago=8, content_type="macro_view"),
@@ -179,7 +280,7 @@ class TestPickTimelineItems:
         ]
         ids = [i["id"] for i in _pick_timeline_items(tweets, "NVDA", limit=10)]
         assert "noise" not in ids
-        assert "macro" not in ids
+        assert "macro" in ids
         assert "thesis" in ids and "catalyst" in ids
 
     def test_returns_all_when_under_limit(self):

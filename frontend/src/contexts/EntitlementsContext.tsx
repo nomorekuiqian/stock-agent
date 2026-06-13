@@ -48,7 +48,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
 
   const { data, isLoading: queryLoading } = useQuery({
     queryKey: queryKeys.entitlements.me(),
-    queryFn: () => fetchEntitlements(false),
+    queryFn: () => fetchEntitlements(true),
     enabled: !authLoading && isAuthenticated,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,

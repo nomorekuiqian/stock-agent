@@ -18,6 +18,7 @@ const PUBLIC_ROUTES = [
   '/email-test',
   '/pricing',
   '/frank-agent',
+  '/qinbafrank',
   '/webview-check',
   '/macro',
   '/research',

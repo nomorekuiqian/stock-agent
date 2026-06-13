@@ -3,17 +3,19 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
-import { useKolCockpitHighConviction } from '../use-kol-data';
+import { useKolCockpitFeed, useKolCockpitHighConviction } from '../use-kol-data';
 import { api } from '@/lib/api';
 
 vi.mock('@/lib/api', () => ({
   api: {
     kolResearch: {
+      cockpitFeed: vi.fn(),
       cockpitHighConviction: vi.fn(),
     },
   },
 }));
 
+const mockFeed = vi.mocked(api.kolResearch.cockpitFeed);
 const mockHighConviction = vi.mocked(api.kolResearch.cockpitHighConviction);
 
 function createWrapper() {
@@ -80,5 +82,50 @@ describe('useKolCockpitHighConviction', () => {
 
     expect(result.current.fetchStatus).toBe('idle');
     expect(mockHighConviction).not.toHaveBeenCalled();
+  });
+});
+
+describe('useKolCockpitFeed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('passes ticker and keyword filters through to the API layer', async () => {
+    const payload = {
+      tweets: [],
+      total: 0,
+      raw_total: 0,
+      has_more: false,
+      offset: 0,
+      limit: 1500,
+    };
+    const opts = {
+      limit: 1500,
+      tickers: ['HOOD', 'COIN'],
+      keywords: ['RWA', '代币化'],
+    };
+    mockFeed.mockResolvedValue(payload);
+    const { Wrapper } = createWrapper();
+
+    const { result } = renderHook(
+      () => useKolCockpitFeed('qinbafrank', opts),
+      { wrapper: Wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockFeed).toHaveBeenCalledWith('qinbafrank', opts);
+    expect(result.current.data).toEqual(payload);
+  });
+
+  it('does not fetch when username is empty', () => {
+    const { Wrapper } = createWrapper();
+
+    const { result } = renderHook(
+      () => useKolCockpitFeed('', { tickers: ['HOOD'], keywords: ['RWA'] }),
+      { wrapper: Wrapper },
+    );
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(mockFeed).not.toHaveBeenCalled();
   });
 });

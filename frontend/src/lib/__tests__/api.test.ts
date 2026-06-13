@@ -1265,4 +1265,34 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('kolResearch.cockpitFeed', () => {
+    it('serializes ticker and keyword filters as query params', async () => {
+      const payload = {
+        tweets: [],
+        total: 0,
+        raw_total: 0,
+        has_more: false,
+        offset: 0,
+        limit: 1500,
+      };
+      mockFetchOk(payload);
+
+      const result = await api.kolResearch.cockpitFeed('qinbafrank', {
+        limit: 1500,
+        offset: 0,
+        tickers: ['HOOD', 'COIN'],
+        keywords: ['RWA', '代币化'],
+      });
+
+      const [url] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const parsed = new URL(String(url));
+      expect(parsed.pathname).toContain('/kol_research/personas/qinbafrank/feed');
+      expect(parsed.searchParams.get('limit')).toBe('1500');
+      expect(parsed.searchParams.get('offset')).toBe('0');
+      expect(parsed.searchParams.get('tickers')).toBe('HOOD,COIN');
+      expect(parsed.searchParams.get('keywords')).toBe('RWA,代币化');
+      expect(result).toEqual(payload);
+    });
+  });
+
 });

@@ -51,7 +51,11 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('@/lib/pricing', () => ({
   STRIPE_LIVE: true,
-  PRICING: { proPerMonth: '$9.99/月' },
+  PRICING: {
+    proPerMonth: '$10/月',
+    maxPerMonth: '$20/月',
+    ultraPerMonth: '$30/月',
+  },
 }));
 
 vi.mock('next/link', () => ({
@@ -75,9 +79,11 @@ function authState() {
 function subState(overrides = {}) {
   return {
     isPro: false,
+    isMax: false,
     isLoading: false,
     isCheckoutLoading: false,
     checkoutError: null,
+    portalError: null,
     plan: 'free',
     status: 'none',
     currentPeriodEnd: null,
@@ -141,6 +147,46 @@ describe('ProfilePage subscription states', () => {
     expect(screen.getByRole('button', { name: /管理订阅/ })).toBeDefined();
     expect(screen.getByText('活跃')).toBeDefined();
     expect(screen.getByText('下次续费')).toBeDefined();
+  });
+
+  it('renders paid ultra state with manage button and no higher upgrade CTA', () => {
+    mockUseSubscription.mockReturnValue(subState({
+      isPro: true,
+      isMax: true,
+      plan: 'ultra',
+      status: 'active',
+      currentPeriodEnd: '2026-05-01T00:00:00Z',
+    }));
+
+    render(<ProfilePage />);
+
+    expect(screen.getByText('Ultra 会员')).toBeDefined();
+    expect(screen.getByText('$30/月 · 自动续费')).toBeDefined();
+    expect(screen.getByRole('button', { name: /管理订阅/ })).toBeDefined();
+    expect(screen.queryByText(/升级到 Ultra/)).toBeNull();
+    expect(screen.queryByText(/升级到 Max/)).toBeNull();
+  });
+
+  it('renders scheduled Ultra cancellation while access remains active', () => {
+    mockUseSubscription.mockReturnValue(subState({
+      isPro: true,
+      isMax: true,
+      plan: 'ultra',
+      status: 'active',
+      currentPeriodEnd: '2026-07-12T02:48:43Z',
+      cancelAt: '2026-07-12T02:48:43Z',
+      canceledAt: '2026-06-12T02:14:40Z',
+    }));
+
+    render(<ProfilePage />);
+
+    expect(screen.getByText('Ultra 会员')).toBeDefined();
+    expect(screen.getByText('订阅已取消')).toBeDefined();
+    expect(screen.getByText('权益有效至')).toBeDefined();
+    expect(screen.getByText(/你仍可使用 Ultra 权限/)).toBeDefined();
+    expect(screen.getAllByText('已取消').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('$30/月 · 自动续费')).toBeNull();
+    expect(screen.queryByText('下次续费')).toBeNull();
   });
 
   it('renders trial state with countdown and upgrade link', () => {

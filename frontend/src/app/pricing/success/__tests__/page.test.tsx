@@ -8,8 +8,6 @@ const mockUseAuth = vi.fn();
 const mockGetAccessTokenAsync = vi.fn();
 const mockSetQueryData = vi.fn();
 const mockInvalidateQueries = vi.fn();
-const mockTrack = vi.fn();
-const mockTrackProductEvent = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -28,18 +26,12 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }));
 
-vi.mock('@vercel/analytics', () => ({
-  track: (...args: unknown[]) => mockTrack(...args),
-}));
-
-vi.mock('@/lib/product-analytics', () => ({
-  trackProductEvent: (...args: unknown[]) => mockTrackProductEvent(...args),
-}));
-
 beforeEach(() => {
   vi.clearAllMocks();
   mockSearchParams.delete('next');
   mockSearchParams.delete('tier');
+  mockSearchParams.delete('product');
+  mockSearchParams.delete('session_id');
   mockSearchParams.set('next', '/research?agent=kol&persona=qinbafrank');
   mockSearchParams.set('tier', 'max');
   mockUseAuth.mockReturnValue({
@@ -102,11 +94,64 @@ describe('CheckoutSuccessPage', () => {
     });
   });
 
-  it('tracks Frank Agent beta payment completion before redirecting back', async () => {
-    mockSearchParams.set('next', '/frank-agent');
-    mockSearchParams.set('tier', 'max');
+  it('waits for qinbafrank pack entitlement before redirecting after ultra checkout', async () => {
+    mockSearchParams.set('next', '/kol/qinbafrank?welcome=1');
+    mockSearchParams.set('tier', 'ultra');
+    mockSearchParams.set('product', 'ultra');
+
     globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
+      if (url.includes('/payment/subscription-status?fresh=true')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            plan: 'ultra',
+            status: 'active',
+            current_period_end: null,
+            access_expires_at: null,
+          }),
+        } as Response);
+      }
+      if (url.includes('/payment/me/entitlements?fresh=true')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            entitlements: ['ai_research_engine', 'kol_pack_qinbafrank'],
+            trial_eligible: false,
+          }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response);
+    });
+
+    render(<CheckoutSuccessPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('订阅已激活，正在跳转...')).toBeDefined();
+    });
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/kol/qinbafrank?welcome=1');
+    });
+  });
+
+  it('completes a returned checkout session before polling activation', async () => {
+    mockSearchParams.set('session_id', 'cs_test_123');
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/payment/checkout-session/complete')) {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBe(JSON.stringify({ session_id: 'cs_test_123' }));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            success: true,
+            plan: 'max',
+            status: 'active',
+            entitlements: ['ai_research_engine'],
+          }),
+        } as Response);
+      }
       if (url.includes('/payment/subscription-status?fresh=true')) {
         return Promise.resolve({
           ok: true,
@@ -129,24 +174,18 @@ describe('CheckoutSuccessPage', () => {
       }
       return Promise.resolve({ ok: false, status: 404 } as Response);
     });
+    globalThis.fetch = fetchMock;
 
     render(<CheckoutSuccessPage />);
 
     await waitFor(() => {
-      expect(mockTrack).toHaveBeenCalledWith('frank_beta_payment_completed', {
-        source: 'frank_agent_beta',
-        tier: 'max',
-        user_id: 'user-1',
-      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/payment/checkout-session/complete'),
+        expect.objectContaining({ method: 'POST' }),
+      );
     });
-    expect(mockTrackProductEvent).toHaveBeenCalledWith('frank_beta_payment_completed', {
-      source: 'frank_agent_beta',
-      tier: 'max',
-      user_id: 'user-1',
-    });
-
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/frank-agent');
+      expect(mockReplace).toHaveBeenCalledWith('/research?agent=kol&persona=qinbafrank');
     });
   });
 });

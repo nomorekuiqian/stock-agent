@@ -8,15 +8,18 @@ export type PaywallSource =
   | 'twitter_digest'
   | 'paywall_guard'
   | 'paywall_guard_pro_to_max'
+  | 'qinbafrank_ultra_landing'
+  | 'kol_pack_paywall'
   | 'stock_ai_paywall'
   | 'personal_digest'
   | 'research_quota';
 
-export type PaywallTier = 'pro' | 'max';
+export type PaywallTier = 'pro' | 'max' | 'ultra';
+export type CheckoutProduct = PaywallTier;
 
 type Props = {
   source: PaywallSource;
-  tier: PaywallTier;
+  tier: CheckoutProduct;
   authenticated?: boolean;
 };
 
@@ -40,7 +43,7 @@ export function trackCheckoutOpen({ source, tier }: Pick<Props, 'source' | 'tier
   trackProductEvent('checkout_open', { source, tier });
 }
 
-export function trackCheckoutComplete({ tier }: { tier: PaywallTier }) {
+export function trackCheckoutComplete({ tier }: { tier: CheckoutProduct }) {
   track('checkout_complete', { tier });
   trackProductEvent('checkout_complete', { tier });
 }

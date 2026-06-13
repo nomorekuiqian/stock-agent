@@ -92,7 +92,7 @@ def _categorize_users(users: list[dict[str, Any]]) -> dict[str, Any]:
         plan = user.get("plan")
         status = user.get("status")
 
-        if plan in ("pro", "max") and status == "active" and not access_expires_at:
+        if plan in ("pro", "max", "ultra") and status == "active" and not access_expires_at:
             category = "paid"
         elif access_expires_at:
             expires = _parse_dt(access_expires_at)

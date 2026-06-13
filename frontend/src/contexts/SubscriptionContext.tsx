@@ -4,7 +4,7 @@ import { createContext, useContext, useRef, useState, useCallback, useMemo, useE
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth, getAccessTokenAsync as getAccessToken } from '@/contexts/AuthContext';
 import { queryKeys } from '@/hooks/queries/query-keys';
-import { trackCheckoutComplete } from '@/lib/paywall-analytics';
+import { trackCheckoutComplete, type CheckoutProduct } from '@/lib/paywall-analytics';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const PAYWALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PAYWALL === 'true';
@@ -33,8 +33,16 @@ interface SubscriptionContextType {
   cancelAtPeriodEnd: boolean;
   cancelAt: string | null;
   canceledAt: string | null;
-  createCheckout: (tier?: 'pro' | 'max', returnPath?: string) => Promise<void>;
-  openBillingPortal: () => Promise<void>;
+  createCheckout: (
+    product?: CheckoutProduct,
+    returnPath?: string,
+    opts?: { billingInterval?: 'monthly' },
+  ) => Promise<void>;
+  openBillingPortal: (opts?: {
+    returnPath?: string;
+    product?: CheckoutProduct;
+    billingInterval?: 'monthly';
+  }) => Promise<void>;
   refreshSubscription: () => Promise<void>;
 }
 
@@ -49,18 +57,41 @@ function hasActiveAccessStatus(status: string): boolean {
   return status === 'active' || status === 'trialing';
 }
 
-async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
+function planRank(plan: string): number {
+  if (plan === 'ultra') return 3;
+  if (plan === 'max') return 2;
+  if (plan === 'pro') return 1;
+  return 0;
+}
+
+async function fetchSubscriptionStatus(fresh = true): Promise<SubscriptionStatus> {
   const token = await getAccessToken();
   if (!token) {
     throw new Error('No access token');
   }
-  const res = await fetch(`${API_BASE_URL}/payment/subscription-status`, {
+  const url = fresh
+    ? `${API_BASE_URL}/payment/subscription-status?fresh=true`
+    : `${API_BASE_URL}/payment/subscription-status`;
+  const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
     throw new Error(`Subscription status fetch failed: ${res.status}`);
   }
   return res.json();
+}
+
+async function readApiError(res: Response): Promise<string | null> {
+  const text = await res.text().catch(() => '');
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown; error?: unknown };
+    if (typeof parsed.detail === 'string') return parsed.detail;
+    if (typeof parsed.error === 'string') return parsed.error;
+  } catch {
+    // Fall through to raw text for non-JSON errors.
+  }
+  return text;
 }
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
@@ -83,18 +114,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const { data, isLoading: queryLoading } = useQuery({
     queryKey,
-    queryFn: fetchSubscriptionStatus,
+    queryFn: () => fetchSubscriptionStatus(),
     enabled: PAYWALL_ENABLED && !authLoading && isAuthenticated && !!user?.id,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 3,
     placeholderData: (prev) => prev,
     // After Stripe checkout returns, poll every second until the webhook
-    // flips plan to pro/max + status=active. Stops automatically once active.
+    // flips plan to pro/max/ultra + status=active. Stops automatically once active.
     refetchInterval: (q) => {
       if (!isCheckoutReturn) return false;
       const sub = q.state.data as SubscriptionStatus | undefined;
-      if (sub && (sub.plan === 'pro' || sub.plan === 'max') && hasActiveAccessStatus(sub.status)) {
+      if (sub && (sub.plan === 'pro' || sub.plan === 'max' || sub.plan === 'ultra') && hasActiveAccessStatus(sub.status)) {
         return false;
       }
       return 1000;
@@ -106,9 +137,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const completionTrackedRef = useRef(false);
   useEffect(() => {
     if (!isCheckoutReturn || !data) return;
-    if ((data.plan === 'pro' || data.plan === 'max') && hasActiveAccessStatus(data.status)) {
+    if ((data.plan === 'pro' || data.plan === 'max' || data.plan === 'ultra') && hasActiveAccessStatus(data.status)) {
       if (!completionTrackedRef.current) {
-        trackCheckoutComplete({ tier: data.plan as 'pro' | 'max' });
+        trackCheckoutComplete({ tier: data.plan as CheckoutProduct });
         completionTrackedRef.current = true;
       }
       if (typeof window !== 'undefined' && window.history.replaceState) {
@@ -128,8 +159,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const canceledAt = data?.canceled_at || null;
   const isActive = hasActiveAccessStatus(status) && !isExpired(accessExpiresAt);
 
-  const isPro = !PAYWALL_ENABLED || ((plan === 'pro' || plan === 'max') && isActive);
-  const isMax = !PAYWALL_ENABLED || (plan === 'max' && isActive);
+  const isPro = !PAYWALL_ENABLED || ((plan === 'pro' || plan === 'max' || plan === 'ultra') && isActive);
+  const isMax = !PAYWALL_ENABLED || ((plan === 'max' || plan === 'ultra') && isActive);
 
   // Mirrors EntitlementsContext: only "loading" while we've never had data.
   // A refresh failure does not flip back to loading and cannot silently
@@ -140,7 +171,51 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     await queryClient.invalidateQueries({ queryKey });
   }, [queryClient, queryKey]);
 
-  const createCheckout = useCallback(async (tier: 'pro' | 'max' = 'pro', returnPath?: string) => {
+  const openBillingPortal = useCallback(async (opts?: {
+    returnPath?: string;
+    product?: CheckoutProduct;
+    billingInterval?: 'monthly';
+  }) => {
+    if (!user?.id) return;
+    setPortalError(null);
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setPortalError('登录已过期，请重新登录');
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/payment/portal-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          return_path: opts?.returnPath,
+          product: opts?.product,
+          billing_interval: opts?.billingInterval || 'monthly',
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        window.location.href = json.portal_url;
+      } else {
+        const detail = await readApiError(res);
+        console.error('[Subscription] Portal session failed:', res.status, detail);
+        setPortalError(detail || '无法打开订阅管理，请稍后再试');
+      }
+    } catch (err) {
+      console.error('[Subscription] Failed to open portal:', err);
+      setPortalError('网络错误，请检查连接后重试');
+    }
+  }, [user?.id]);
+
+  const createCheckout = useCallback(async (
+    product: CheckoutProduct = 'pro',
+    returnPath?: string,
+    opts?: { billingInterval?: 'monthly' },
+  ) => {
     if (!user?.id) {
       setCheckoutError('Please sign in first.');
       return;
@@ -155,6 +230,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     setCheckoutError(null);
 
     const currentPath = returnPath || (typeof window !== 'undefined' ? window.location.pathname : '/for-you');
+    const currentRank = planRank(plan);
+    const targetRank = planRank(product);
+    const shouldUsePortal =
+      PAYWALL_ENABLED &&
+      isActive &&
+      !accessExpiresAt &&
+      currentRank > 0 &&
+      targetRank > currentRank;
 
     try {
       const token = await getAccessToken();
@@ -163,21 +246,45 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         setIsCheckoutLoading(false);
         return;
       }
+
+      if (shouldUsePortal) {
+        await openBillingPortal({
+          returnPath: currentPath,
+          product,
+          billingInterval: opts?.billingInterval || 'monthly',
+        });
+        setIsCheckoutLoading(false);
+        return;
+      }
+
+      if (PAYWALL_ENABLED && isActive && currentRank >= targetRank && targetRank > 0) {
+        setCheckoutError('当前订阅已包含该方案，无需重复开通。');
+        setIsCheckoutLoading(false);
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/payment/checkout-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ user_id: user.id, email, return_path: currentPath, tier }),
+        body: JSON.stringify({
+          user_id: user.id,
+          email,
+          return_path: currentPath,
+          tier: product,
+          product,
+          billing_interval: opts?.billingInterval || 'monthly',
+        }),
       });
 
       if (res.ok) {
         const json = await res.json();
         window.location.href = json.checkout_url;
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        setCheckoutError(errorData.detail || 'Failed to create checkout session. Please try again.');
+        const detail = await readApiError(res);
+        setCheckoutError(detail || 'Failed to create checkout session. Please try again.');
         setIsCheckoutLoading(false);
       }
     } catch (err) {
@@ -185,35 +292,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setCheckoutError('Network error. Please check your connection and try again.');
       setIsCheckoutLoading(false);
     }
-  }, [user]);
-
-  const openBillingPortal = useCallback(async () => {
-    if (!user?.id) return;
-    setPortalError(null);
-
-    try {
-      const token = await getAccessToken();
-      if (!token) {
-        setPortalError('登录已过期，请重新登录');
-        return;
-      }
-      const res = await fetch(`${API_BASE_URL}/payment/portal-session`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        window.location.href = json.portal_url;
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        console.error('[Subscription] Portal session failed:', res.status, errorData);
-        setPortalError(errorData.detail || '无法打开订阅管理，请稍后再试');
-      }
-    } catch (err) {
-      console.error('[Subscription] Failed to open portal:', err);
-      setPortalError('网络错误，请检查连接后重试');
-    }
-  }, [user?.id]);
+  }, [accessExpiresAt, isActive, openBillingPortal, plan, user]);
 
   const value = useMemo<SubscriptionContextType>(
     () => ({
