@@ -40,6 +40,7 @@
 | `/macro/inflation-rates` | 通胀与利率 | Backend (macro-risk/inflation-rates + cpi) | 是 |
 | `/macro/sentiment` | 市场情绪 | Backend (macro-risk/sentiment) | 是 |
 | `/macro/weekly` | 宏观周报 | Backend (weekly-report API) | 是 |
+| `/mcp/authorize` | MCP 客户端授权 | Backend (kol_research MCP device authorize) | 是 |
 | `/login` | 登录 | Insforge Auth | 否 |
 | `/profile` | 用户资料 | Insforge Auth (profiles API) | 是 |
 | `/verify-email` | 邮箱验证 | Insforge Auth (verifyEmail + resendVerificationEmail) | 否 |
@@ -162,6 +163,15 @@
 - 全球流动性图表 (GlobalLiquidityChart)
 - 6 个 LiquidityCard 展示关键指标
 - NFCI 仪表盘 (NFCIGauge)
+
+### `/mcp/authorize` MCP 客户端授权
+- 需要登录，首层由项目自定义 middleware 拦截；未登录会跳 `/login?redirect=/mcp/authorize?...`
+- 接收 `user_code` query，展示给用户确认
+- 表单 POST 到 `/api/mcp/authorize`
+- Route handler 读取 `app_access_token`，调用 backend
+  `POST /api/kol_research/mcp/auth/device/authorize`
+- 授权成功后提示用户回到 MCP 客户端调用 `market_lens_auth_status`
+- 页面不展示、不存储 MCP bearer token，也不要求用户输入 TheMarketBrew 密码
 
 ### `/research` AI 选股助手
 - 需要登录，首层由项目自定义 middleware 拦截

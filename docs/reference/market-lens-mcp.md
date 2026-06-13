@@ -22,6 +22,8 @@ mcp/themarketbrew/
 本地 NPM 包只是薄 adapter，不再打包完整 persona 蒸馏资产。核心 assets、
 ticker/sector playbook、Evidence Map 和 workflow 都在 backend。客户端应先
 查看可用 persona 和物料覆盖，再根据用户问题选择 persona 并在后续工具调用里显式传入。
+除 `market_lens_status` 这类诊断外，内容、数据和 workflow 工具都要求用户用
+TheMarketBrew 账号授权本地 MCP 客户端。
 
 ## 用户安装
 
@@ -49,6 +51,8 @@ ticker/sector playbook、Evidence Map 和 workflow 都在 backend。客户端应
 - args 是 ["-y", "themarketbrew"]
 - env 包含 THEMARKETBREW_BACKEND_URL；不要默认写死 persona
 - 如果当前客户端已经能刷新 MCP，请调用 market_lens_status 检查连接
+- 如果返回 auth_required，请调用 market_lens_login，打开返回的验证链接，用 TheMarketBrew 账号登录并批准授权
+- 授权后调用 market_lens_auth_status 完成 MCP token 写入
 - 如果不能刷新，请告诉我需要重启客户端，然后让我重启后调用 market_lens_status
 ```
 
@@ -94,11 +98,21 @@ MCP Client 手动配置：
 }
 ```
 
-TheMarketBrew MCP 默认只需要 backend URL。不要在安装配置里写死 persona，让
-Agent 先调用 `market_lens_personas`，再根据 query 和物料覆盖选择 persona。
+TheMarketBrew MCP 安装配置默认只需要 backend URL。不要在安装配置里写死 persona，让
+Agent 登录后先调用 `market_lens_personas`，再根据 query 和物料覆盖选择 persona。
 `THEMARKETBREW_PERSONA` 仍可作为兼容/固定默认值使用，但只应在某个客户端或工作区
 明确要绑定一个 persona 时设置。`MARKET_LENS_BACKEND_URL` 和 `MARKET_LENS_PERSONA`
 env 仍作为兼容 fallback。
+
+账号授权走浏览器/device flow：
+
+1. `market_lens_login` 调后端创建 device code，返回验证链接和 user code。
+2. 用户在 `/mcp/authorize` 登录 TheMarketBrew 账号并批准该 user code。
+3. MCP 客户端调用 `market_lens_auth_status` 轮询 token；成功后 token 写入
+   `~/.themarketbrew/mcp-auth.json`，或 `THEMARKETBREW_AUTH_FILE` 指定的位置。
+4. 后续 content/data/workflow tools 自动带 `Authorization: Bearer <mcp_token>`。
+
+不要让 MCP 客户端索要 TheMarketBrew 邮箱密码，也不要复制浏览器 cookie 到 MCP 配置。
 
 ## Tools
 
@@ -106,6 +120,14 @@ env 仍作为兼容 fallback。
 `market_lens_personas` 选择，再通过 `persona` 参数传给后续工具：
 
 - `market_lens_status`：检查 adapter/backend 状态；未固定 persona 时返回路由提示。
+- `market_lens_login`：启动浏览器/device 登录授权；需要 TheMarketBrew 账号。
+- `market_lens_auth_status`：检查本地 token；传入 `device_code` 时轮询并保存 MCP token。
+- `market_lens_logout`：撤销当前 MCP token 并删除本地 auth cache。
+- `market_lens_data_catalog`：列出可用 data tools、section 名、限制和 freshness 策略。
+- `market_lens_get_brief`：取 stock / peer / macro / industry 粗粒度 brief；默认先调用它做当前事实入口。
+- `market_lens_get_stock_data`：按 section 取单只股票的 quote、profile、fundamentals、forward/historical valuation、technical、news、earnings calendar、price history、earnings data、transcript、insider trading、press releases、market overview。
+- `market_lens_get_market_data`：按 section 取 market overview、macro brief/risk/liquidity/sentiment、economic calendar、earnings calendar、morning report、weekly report、Twitter digest。
+- `market_lens_get_news`：取带来源的近期 news，可覆盖 stock、market、press releases、morning report、Twitter digest 或 all。
 - `market_lens_personas`：列出可用 persona、蒸馏物料数量和 capability。
 - `market_lens_list_lenses`：返回 `core/framework/macro/sector/ticker` lens index。
 - `market_lens_get_lens`：返回单个完整蒸馏 lens、sections、metadata、Evidence Map ids。
@@ -119,10 +141,21 @@ env 仍作为兼容 fallback。
 - `market_lens_research_memo`：深度 memo context pack。
 
 Material、evidence、context、workflow tools 都通过 backend URL 调用。
+除 `market_lens_status` 和登录启动/轮询外，所有内容与数据工具都需要 MCP token。
 
 ## Backend Endpoints
 
 ```text
+POST /api/kol_research/mcp/auth/device/start
+POST /api/kol_research/mcp/auth/device/token
+POST /api/kol_research/mcp/auth/device/authorize
+GET  /api/kol_research/mcp/auth/status
+POST /api/kol_research/mcp/auth/revoke
+GET  /api/kol_research/mcp/data/catalog
+POST /api/kol_research/mcp/data/brief
+POST /api/kol_research/mcp/data/stock
+POST /api/kol_research/mcp/data/market
+POST /api/kol_research/mcp/data/news
 GET  /api/kol_research/mcp/personas
 GET  /api/kol_research/personas/{username}/mcp/status
 GET  /api/kol_research/personas/{username}/mcp/lenses
@@ -134,6 +167,10 @@ POST /api/kol_research/personas/{username}/mcp/market-brief
 POST /api/kol_research/personas/{username}/mcp/context
 POST /api/kol_research/personas/{username}/mcp/workflow
 ```
+
+`/mcp/status` 和 auth start/token polling 是公开诊断/登录辅助；`/mcp/auth/device/authorize`
+要求网站 Bearer token；persona/material/evidence/data/context/workflow endpoints 要求
+MCP bearer token。
 
 Material endpoints 由 `mcp_materials.py` 驱动。它为每个 persona 解析一个独立
 material root，然后扫描 `core|framework|macro|sector|ticker`。Frank 使用自己的
@@ -192,7 +229,10 @@ backend/venv/bin/pytest backend/tests/test_themarketbrew_mcp.py -q
 - material search：`market_lens_search_lenses` 必须能跨 layer 找到相关 lens。
 - evidence bridge：`market_lens_get_evidence_by_ids` 必须能把 Evidence Map ids
   交给 cockpit reader 取原始推文。
-- public access：材料、证据和 workflow endpoints 不需要额外 header，但业务参数校验仍然生效。
+- account gate：除 status 和登录辅助外，材料、证据、data 和 workflow endpoints
+  都必须在无 MCP token 时返回 `auth_required`。
+- data plane：`market_lens_data_catalog` 和四个 data tool schemas 必须出现在 `tools/list`，
+  mock adapter smoke 必须验证登录后请求带 MCP bearer token。
 - package boundary：`npm pack --dry-run` 不能包含完整 methodology assets。
 
 Live smoke：

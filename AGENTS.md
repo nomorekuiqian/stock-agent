@@ -82,6 +82,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `frontend/src/app/.context.md` -- App Router shell, root layout, home page
 - `frontend/src/app/admin/.context.md` -- Admin dashboard pages
 - `frontend/src/app/api/auth/.context.md` -- Server Proxy auth routes
+- `frontend/src/app/api/mcp/.context.md` -- MCP authorization route handlers
 - `frontend/src/app/auth/.context.md` -- OAuth callback route
 - `frontend/src/app/contact/.context.md` -- Contact/feedback form
 - `frontend/src/app/dev/.context.md` -- Local development helper pages
@@ -95,6 +96,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `frontend/src/app/kol/.context.md` -- KOL persona pages
 - `frontend/src/app/login/.context.md` -- Login/register page
 - `frontend/src/app/macro/.context.md` -- Macro dashboard page
+- `frontend/src/app/mcp/.context.md` -- MCP browser authorization page
 - `frontend/src/app/onboarding/.context.md` -- New-user onboarding page
 - `frontend/src/app/pricing/.context.md` -- Pricing and checkout success pages
 - `frontend/src/app/profile/.context.md` -- User profile and subscription settings
@@ -411,7 +413,7 @@ Critical lessons from production incidents. **Read these before making changes t
 
 This project uses [InsForge](https://insforge.dev): an all-in-one, open-source Postgres-based backend (BaaS) that gives this app a database, authentication, file storage, edge functions, realtime, an AI model gateway, and payments through one platform.
 
-- **Project:** **stock-agent** (API base `https://9wmhxyi4.us-east.insforge.app`)
+- **Project:** **TheMarketBrew Production** (API base `https://9wmhxyi4.us-east.insforge.app`)
 - **Skills:** these InsForge skills are installed for supported coding agents. Reach for them before implementing any InsForge feature instead of guessing the API:
   - `insforge`: app code with the `@insforge/sdk` client (database CRUD, auth, storage, edge functions, realtime, AI, email, and Stripe payments).
   - `insforge-cli`: backend and infrastructure via the `insforge` CLI (projects, SQL, migrations, RLS policies, storage buckets, functions, secrets, payment setup, schedules, deploys).

@@ -70,6 +70,14 @@ try {
   const toolNames = toolList.tools.map((tool) => tool.name);
   for (const required of [
     "market_lens_status",
+    "market_lens_login",
+    "market_lens_auth_status",
+    "market_lens_logout",
+    "market_lens_data_catalog",
+    "market_lens_get_brief",
+    "market_lens_get_stock_data",
+    "market_lens_get_market_data",
+    "market_lens_get_news",
     "market_lens_personas",
     "market_lens_list_lenses",
     "market_lens_get_lens",
@@ -87,8 +95,25 @@ try {
   if (!status.ok) {
     throw new Error(`market_lens_status failed: ${JSON.stringify(status)}`);
   }
-
-  const personas = parseTool(await send("tools/call", { name: "market_lens_personas", arguments: {} }));
+  if (!status.auth?.authenticated) {
+    const personasWithoutAuth = parseTool(await send("tools/call", { name: "market_lens_personas", arguments: {} }));
+    if (!personasWithoutAuth.auth_required) {
+      throw new Error("market_lens_personas should require account auth without a token");
+    }
+    const catalogWithoutAuth = parseTool(await send("tools/call", { name: "market_lens_data_catalog", arguments: {} }));
+    if (!catalogWithoutAuth.auth_required) {
+      throw new Error("market_lens_data_catalog should require account auth without a token");
+    }
+    console.log(JSON.stringify({
+      ok: true,
+      backend: status.adapter?.backend_url,
+      toolCount: toolNames.length,
+      authenticated: false,
+      gatedContentVerified: true,
+      note: "Set THEMARKETBREW_ACCESS_TOKEN or run market_lens_login to run live content checks.",
+    }, null, 2));
+  } else {
+    const personas = parseTool(await send("tools/call", { name: "market_lens_personas", arguments: {} }));
   if (!Array.isArray(personas.personas) || !personas.personas.some((persona) => persona.username === "aleabitoreddit")) {
     throw new Error("market_lens_personas did not return aleabitoreddit");
   }
@@ -188,6 +213,7 @@ try {
     stockWorkflow: stock.workflow,
     marketWorkflow: market.workflow,
   }, null, 2));
+  }
 } finally {
   child.kill();
 }
