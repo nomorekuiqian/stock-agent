@@ -164,6 +164,38 @@ OAuth callback 现在是服务端 route handler，避免客户端 SDK callback �
 - 各 feature `router.py` - `Depends(verify_user_token)` 提取 `user_id`
 - 付费内容 API 还必须叠加 feature entitlement gate。当前 Stock AI 内容（`/api/stocks/{symbol}/analysis/cache`, `/analysis`, `/technical`, `/news`, `/macro`, `/market-analysis`, `/earnings`）必须 `verify_user_token` + `has_entitlement(user_id, "stock_research")`；不能只依赖前端 PaywallGuard。
 
+## TheMarketBrew MCP 授权
+
+MCP adapter 不使用用户邮箱密码，也不复制浏览器 cookie。它使用 browser/device flow
+把一个本地 MCP client 绑定到 TheMarketBrew 账号：
+
+```text
+MCP client 调 market_lens_login
+  -> Backend POST /api/kol_research/mcp/auth/device/start
+  -> 返回 device_code / user_code / verification_url
+  -> 用户打开 /mcp/authorize?user_code=...
+  -> middleware 要求正常网站登录
+  -> 页面 POST /api/mcp/authorize
+  -> Next.js route handler 读取 app_access_token
+  -> Backend POST /api/kol_research/mcp/auth/device/authorize + verify_user_token
+  -> MCP client 调 market_lens_auth_status(device_code)
+  -> Backend POST /api/kol_research/mcp/auth/device/token
+  -> 返回 opaque mcp_token，本地 adapter 写入 auth cache
+```
+
+MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，只把 hash
+交给 `mcp-auth` Edge Function 持久化；后续 MCP content/data/workflow endpoints 使用
+`Authorization: Bearer <mcp_token>` 和 `verify_mcp_token` 校验。Token cache 默认在
+`~/.themarketbrew/mcp-auth.json`，可用 `THEMARKETBREW_AUTH_FILE` 覆盖；自动化测试可用
+`THEMARKETBREW_ACCESS_TOKEN` 或兼容的 `MARKET_LENS_ACCESS_TOKEN`。
+
+公开范围：
+
+- `GET /api/kol_research/personas/{username}/mcp/status`：公开诊断。
+- `POST /api/kol_research/mcp/auth/device/start`、`POST /api/kol_research/mcp/auth/device/token`：公开登录辅助，device code 有过期时间。
+- `POST /api/kol_research/mcp/auth/device/authorize`：必须是已登录网站用户，使用 `verify_user_token`。
+- Persona/material/evidence/data/context/workflow MCP endpoints：必须带 MCP bearer token；未授权时返回 `auth_required` 并提示 `market_lens_login`。
+
 ## 手动 QA 计划
 
 下面这套 checklist 用于每次 auth 改动后的手测。目标不是只验证“主链路能跑通”，而是验证用户在不同入口、不同状态、不同异常情况下，都能最终顺利登录成功。

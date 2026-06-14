@@ -82,6 +82,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `frontend/src/app/.context.md` -- App Router shell, root layout, home page
 - `frontend/src/app/admin/.context.md` -- Admin dashboard pages
 - `frontend/src/app/api/auth/.context.md` -- Server Proxy auth routes
+- `frontend/src/app/api/mcp/.context.md` -- MCP authorization route handlers
 - `frontend/src/app/auth/.context.md` -- OAuth callback route
 - `frontend/src/app/contact/.context.md` -- Contact/feedback form
 - `frontend/src/app/dev/.context.md` -- Local development helper pages
@@ -95,6 +96,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `frontend/src/app/kol/.context.md` -- KOL persona pages
 - `frontend/src/app/login/.context.md` -- Login/register page
 - `frontend/src/app/macro/.context.md` -- Macro dashboard page
+- `frontend/src/app/mcp/.context.md` -- MCP browser authorization page
 - `frontend/src/app/onboarding/.context.md` -- New-user onboarding page
 - `frontend/src/app/pricing/.context.md` -- Pricing and checkout success pages
 - `frontend/src/app/profile/.context.md` -- User profile and subscription settings

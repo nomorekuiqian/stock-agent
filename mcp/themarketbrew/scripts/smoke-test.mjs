@@ -64,6 +64,14 @@ try {
   const toolNames = toolList.tools.map((tool) => tool.name);
   const required = [
     "market_lens_status",
+    "market_lens_login",
+    "market_lens_auth_status",
+    "market_lens_logout",
+    "market_lens_data_catalog",
+    "market_lens_get_brief",
+    "market_lens_get_stock_data",
+    "market_lens_get_market_data",
+    "market_lens_get_news",
     "market_lens_personas",
     "market_lens_list_lenses",
     "market_lens_get_lens",

@@ -1,9 +1,17 @@
 import {
+  authStatus,
   buildContext,
+  dataCatalog,
   getEvidenceByIds,
+  getBrief,
   getLens,
+  getMarketData,
+  getNews,
+  getStockData,
   listLenses,
   listPersonas,
+  login,
+  logout,
   marketLensStatus,
   runWorkflow,
   searchEvidence,
@@ -29,6 +37,36 @@ const LENS_TYPE_PROPERTY = {
   description: "Distilled material layer to retrieve.",
 };
 
+const STOCK_DATA_SECTIONS = [
+  "quote",
+  "profile",
+  "fundamentals",
+  "forward_valuation",
+  "historical_valuation",
+  "technical",
+  "news",
+  "earnings_calendar",
+  "price_history",
+  "earnings_data",
+  "transcript",
+  "insider_trading",
+  "press_releases",
+  "market_overview",
+];
+
+const MARKET_DATA_SECTIONS = [
+  "market_overview",
+  "macro_brief",
+  "macro_risk",
+  "liquidity",
+  "sentiment",
+  "economic_calendar",
+  "earnings_calendar",
+  "morning_report",
+  "weekly_report",
+  "twitter_digest",
+];
+
 export const TOOLS: ToolDefinition[] = [
   {
     name: "market_lens_status",
@@ -39,6 +77,146 @@ export const TOOLS: ToolDefinition[] = [
       "If no persona is configured, returns available personas and routing guidance instead of pinning a default persona.",
     ].join(" "),
     inputSchema: objectSchema({ persona: PERSONA_PROPERTY }),
+    annotations: readOnlyOpenWorld(),
+  },
+  {
+    name: "market_lens_login",
+    title: "Market Lens Login",
+    description: [
+      "Authorize this MCP client with a TheMarketBrew account using a browser/device flow.",
+      "Call when status or any content tool returns auth_required.",
+      "The tool returns a verification URL and user code; after approving in the browser, call market_lens_auth_status with device_code.",
+    ].join(" "),
+    inputSchema: objectSchema({
+      client_name: {
+        type: "string",
+        description: "Optional client/workspace label shown on the authorization screen.",
+      },
+      device_code: {
+        type: "string",
+        description: "Optional existing device_code to poll instead of starting a new login.",
+      },
+    }),
+    annotations: readOnlyOpenWorld(),
+  },
+  {
+    name: "market_lens_auth_status",
+    title: "Market Lens Auth Status",
+    description: [
+      "Check whether this MCP adapter has a valid TheMarketBrew account token.",
+      "If device_code is provided, poll the browser/device authorization and store the MCP token when approved.",
+    ].join(" "),
+    inputSchema: objectSchema({
+      device_code: {
+        type: "string",
+        description: "Device code returned by market_lens_login. Omit to check the currently stored token.",
+      },
+    }),
+    annotations: readOnlyOpenWorld(),
+  },
+  {
+    name: "market_lens_logout",
+    title: "Market Lens Logout",
+    description: "Revoke the current TheMarketBrew MCP token and remove the local token cache.",
+    inputSchema: objectSchema({}),
+    annotations: readOnlyOpenWorld(),
+  },
+  {
+    name: "market_lens_data_catalog",
+    title: "Market Lens Data Catalog",
+    description: [
+      "List TheMarketBrew backend data capabilities, section names, limits, freshness policies, and routing guidance.",
+      "Call when deciding which data tool to use or when debugging account/tool availability.",
+    ].join(" "),
+    inputSchema: objectSchema({}),
+    annotations: readOnlyOpenWorld(),
+  },
+  {
+    name: "market_lens_get_brief",
+    title: "Market Lens Brief",
+    description: [
+      "Fetch a coarse-grained stock, peer, macro, or industry brief.",
+      "Use this as the default current-facts entry point before asking for fine-grained sections.",
+    ].join(" "),
+    inputSchema: objectSchema({
+      brief_type: {
+        type: "string",
+        enum: ["stock", "peer", "macro", "industry"],
+        description: "Brief type. stock/peer/industry require symbol; macro does not.",
+      },
+      symbol: { type: "string", description: "Ticker symbol for stock/peer/industry brief." },
+      symbols: {
+        type: "array",
+        items: { type: "string" },
+        description: "Optional multi-symbol stock brief list. P0 max 5.",
+      },
+      include_market_data: {
+        type: "boolean",
+        description: "Compatibility flag; defaults to true.",
+      },
+    }, ["brief_type"]),
+    annotations: readOnlyOpenWorld(),
+  },
+  {
+    name: "market_lens_get_stock_data",
+    title: "Market Lens Stock Data",
+    description: [
+      "Fetch fine-grained data sections for one ticker.",
+      "Use after get_brief when exact quote/profile/fundamentals/valuation/technical/news/earnings/transcript/insider/press data is needed.",
+    ].join(" "),
+    inputSchema: objectSchema({
+      symbol: { type: "string", description: "Ticker symbol, for example NVDA." },
+      sections: {
+        type: "array",
+        items: { type: "string", enum: STOCK_DATA_SECTIONS },
+        description: "Stock data sections to fetch. Max 8.",
+      },
+      days: { type: "number", description: "News/calendar lookback in days, 1-30. Defaults to 7." },
+      history_days: { type: "number", description: "Price history lookback, 5-1825. Defaults to 365." },
+      year: { type: "number", description: "Fiscal year for transcript." },
+      quarter: { type: "number", description: "Fiscal quarter for transcript, 1-4." },
+      limit: { type: "number", description: "Section item limit, 1-100. Defaults to 30." },
+    }, ["symbol", "sections"]),
+    annotations: readOnlyOpenWorld(),
+  },
+  {
+    name: "market_lens_get_market_data",
+    title: "Market Lens Market Data",
+    description: [
+      "Fetch market, macro, calendar, and report sections.",
+      "Use for market regime, macro background, liquidity/risk/sentiment, economic calendar, morning/weekly reports, or Twitter digest context.",
+    ].join(" "),
+    inputSchema: objectSchema({
+      sections: {
+        type: "array",
+        items: { type: "string", enum: MARKET_DATA_SECTIONS },
+        description: "Market data sections to fetch. Max 8.",
+      },
+      days: { type: "number", description: "Calendar/news horizon in days, 1-30. Defaults to 14." },
+    }, ["sections"]),
+    annotations: readOnlyOpenWorld(),
+  },
+  {
+    name: "market_lens_get_news",
+    title: "Market Lens News",
+    description: [
+      "Fetch source-attributed recent news from stock, market, press release, morning report, and Twitter digest sources.",
+      "Use for recent events; combine with persona workflow when interpretation through a persona lens is needed.",
+    ].join(" "),
+    inputSchema: objectSchema({
+      symbols: {
+        type: "array",
+        items: { type: "string" },
+        description: "Optional ticker symbols. Max 10.",
+      },
+      scope: {
+        type: "string",
+        enum: ["stock", "market", "press_releases", "twitter_digest", "morning_report", "all"],
+        description: "News source scope. Defaults to all.",
+      },
+      days: { type: "number", description: "Lookback days, 1-30. Defaults to 7." },
+      limit: { type: "number", description: "Maximum returned items, 1-50. Defaults to 20." },
+    }),
     annotations: readOnlyOpenWorld(),
   },
   {
@@ -212,6 +390,22 @@ export async function callTool(name: string, args: Record<string, unknown>) {
   switch (name) {
     case "market_lens_status":
       return marketLensStatus(args);
+    case "market_lens_login":
+      return login(args);
+    case "market_lens_auth_status":
+      return authStatus(args);
+    case "market_lens_logout":
+      return logout(args);
+    case "market_lens_data_catalog":
+      return dataCatalog(args);
+    case "market_lens_get_brief":
+      return getBrief(args);
+    case "market_lens_get_stock_data":
+      return getStockData(args);
+    case "market_lens_get_market_data":
+      return getMarketData(args);
+    case "market_lens_get_news":
+      return getNews(args);
     case "market_lens_personas":
       return listPersonas(args);
     case "market_lens_list_lenses":
@@ -255,6 +449,12 @@ function workflowSchema(questionRequired: boolean) {
     sector: { type: "string", description: "Optional sector or lens key." },
     evidence_limit: { type: "number", description: "Maximum evidence chunks, 1-12. Defaults to 6." },
     include_market_data: { type: "boolean", description: "Whether backend should include market brief data. Defaults to true." },
+    data_sections: {
+      type: "array",
+      items: { type: "string" },
+      description: "Optional explicit data sections, e.g. stock_brief, technical, news, macro_brief.",
+    },
+    news_days: { type: "number", description: "News/data lookback in days, 1-30. Defaults to 7." },
   }, questionRequired ? ["question"] : []);
 }
 
@@ -266,6 +466,12 @@ function stockWorkflowSchema() {
     sector: { type: "string", description: "Optional sector key." },
     evidence_limit: { type: "number", description: "Maximum evidence chunks, 1-12. Defaults to 6." },
     include_market_data: { type: "boolean", description: "Whether backend should include market brief data. Defaults to true." },
+    data_sections: {
+      type: "array",
+      items: { type: "string" },
+      description: "Optional explicit data sections, e.g. stock_brief, technical, news, macro_brief.",
+    },
+    news_days: { type: "number", description: "News/data lookback in days, 1-30. Defaults to 7." },
   }, ["question", "ticker"]);
 }
 
@@ -277,6 +483,12 @@ function compareWorkflowSchema() {
     sector: { type: "string", description: "Optional sector key." },
     evidence_limit: { type: "number", description: "Maximum evidence chunks, 1-12. Defaults to 6." },
     include_market_data: { type: "boolean", description: "Whether backend should include market brief data. Defaults to true." },
+    data_sections: {
+      type: "array",
+      items: { type: "string" },
+      description: "Optional explicit data sections, e.g. stock_brief, peer_brief, news, macro_brief.",
+    },
+    news_days: { type: "number", description: "News/data lookback in days, 1-30. Defaults to 7." },
   }, ["question", "tickers"]);
 }
 
