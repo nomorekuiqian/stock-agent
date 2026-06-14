@@ -54,12 +54,13 @@ describe('ChatPanel KOL Ultra CTA', () => {
     }
   });
 
-  it('shows unlocked state instead of checkout CTA for Ultra users', () => {
+  it('hides KOL usage limit banner for Ultra users', () => {
     mockSubscription(true);
 
     renderKolPanel();
 
-    expect(screen.getByText('Ultra 已解锁')).toBeTruthy();
+    expect(screen.queryByText(/@qinbafrank 博主 Agent/)).toBeNull();
+    expect(screen.queryByText(/非 Ultra 账号仅可体验有限试问/)).toBeNull();
     expect(screen.queryByRole('button', { name: /解锁 Ultra/ })).toBeNull();
   });
 
@@ -69,6 +70,6 @@ describe('ChatPanel KOL Ultra CTA', () => {
     renderKolPanel();
 
     expect(screen.getByRole('button', { name: /解锁 Ultra/ })).toBeTruthy();
-    expect(screen.queryByText('Ultra 已解锁')).toBeNull();
+    expect(screen.getByText(/非 Ultra 账号仅可体验有限试问/)).toBeTruthy();
   });
 });
