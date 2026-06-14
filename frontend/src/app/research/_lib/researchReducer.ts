@@ -213,19 +213,28 @@ export function buildKolPersistedMessages({
   isFirstTurn,
   userMessage,
   assistantMessage,
+  assistantOptions,
   timestamp = Date.now(),
 }: {
   existingMessages: ChatMsg[];
   isFirstTurn: boolean;
   userMessage: string;
   assistantMessage: string;
+  assistantOptions?: string[];
   timestamp?: number;
 }): ChatMsg[] {
   const baseMessages = isFirstTurn ? [] : existingMessages;
   return [
     ...baseMessages,
     { id: `u-${timestamp}`, role: 'user', content: userMessage },
-    { id: `a-${timestamp}`, role: 'assistant', content: assistantMessage },
+    {
+      id: `a-${timestamp}`,
+      role: 'assistant',
+      content: assistantMessage,
+      ...(assistantOptions && assistantOptions.length > 0
+        ? { options: assistantOptions }
+        : {}),
+    },
   ];
 }
 

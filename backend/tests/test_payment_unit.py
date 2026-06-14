@@ -772,6 +772,7 @@ class TestWebhookHandler:
 
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
              patch("app.features.payment.router.stripe.Subscription.retrieve", return_value=mock_stripe_sub), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=None), \
              patch("app.features.payment.service.get_subscription", new_callable=AsyncMock, return_value=None), \
              patch("app.features.payment.service.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
              patch(

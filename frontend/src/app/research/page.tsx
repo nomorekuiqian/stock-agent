@@ -20,6 +20,7 @@ import {
   saveState,
   STORAGE_KEY,
 } from './_lib/researchReducer';
+import { buildKolFollowUpOptions } from './_lib/kolFollowUps';
 import { SCREENER_CONTENT, type ContentContext } from './_lib/contentTypes';
 import type { ChatMsg, LoadConversationData, RequiredProduct } from './_lib/researchReducer';
 import type { StockPanelContextPayload as StockContextPayload } from './_components/panel/StockPanelView';
@@ -1287,6 +1288,7 @@ function ScreenerContent() {
 
       let finalMessage = '';
       let finalChunks: KolPersonaChunk[] = [];
+      let finalOptions: string[] = [];
       let finalNavigate: { type: string; params: Record<string, string>; reason?: string } | null = null;
       let errored = false;
 
@@ -1329,6 +1331,9 @@ function ScreenerContent() {
           } else if (event.type === 'final') {
             finalMessage = event.data.message;
             finalChunks = event.data.kol_chunks || [];
+            finalOptions = Array.isArray(event.data.options)
+              ? event.data.options.filter((option): option is string => typeof option === 'string' && option.trim().length > 0)
+              : [];
             finalNavigate = (event.data.navigate as typeof finalNavigate) || null;
           } else if (event.type === 'error') {
             if (controller.signal.aborted) return; // this turn was cancelled — handled by handleCancelLoading
@@ -1365,11 +1370,18 @@ function ScreenerContent() {
         return;
       }
 
+      const fallbackOptions = buildKolFollowUpOptions({
+        userMessage: message,
+        assistantMessage: finalMessage,
+        chunks: finalChunks.length > 0 ? finalChunks : existingChunks,
+        contentContext: activeContext as Record<string, unknown> | undefined,
+      });
+
       // Reuse RECEIVE_RESPONSE by mapping KOL output onto a minimal ResearchResult shape.
       const result: ResearchResult = {
         success: true,
         message: finalMessage,
-        options: [],
+        options: finalOptions.length > 0 ? finalOptions : fallbackOptions,
         candidates: [],
         candidate_count: 0,
         universe_size: 0,
@@ -1430,6 +1442,7 @@ function ScreenerContent() {
           isFirstTurn,
           userMessage: message,
           assistantMessage: finalMessage,
+          assistantOptions: result.options,
         });
         const convData: Record<string, unknown> = {
           messages: allMessages,
