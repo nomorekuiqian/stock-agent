@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -11,6 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import FeatureSections from "@/components/FeatureSections";
+import HomeGuidedTour from "@/components/HomeGuidedTour";
 import LandingDelight from "@/components/LandingDelight";
 import SubscribeForm from "@/components/SubscribeForm";
 import { useAuth } from "@/contexts/AuthContext";
@@ -172,6 +174,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       <LandingDelight />
+      <Suspense fallback={null}>
+        <HomeGuidedTour />
+      </Suspense>
       <section className="relative -mt-16 flex min-h-screen items-center justify-center overflow-hidden bg-background md:h-screen">
         <div
           aria-hidden

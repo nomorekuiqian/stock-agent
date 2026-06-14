@@ -21,7 +21,7 @@
 
 业务 API 通过 `getAccessTokenAsync()` 取内存 token。受保护 API 必须走 `fetchProtected()`，当后端返回 401 时调用 `/api/auth/session` refresh 并重试一次。
 
-Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读本地 `onboarding_completed:{userId}` marker，已完成用户不再请求后端。没有 marker 时，`api.user.onboardingStatus()` 只有在后端明确返回 `{"completed": false}` 时才表示未完成。401、网络错误、5xx 不能转换成 `{ completed: false }`，否则已完成用户会被误跳到 `/onboarding`。
+Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读本地 `onboarding_completed:{userId}` marker，已完成用户不再请求后端。没有 marker 时，`api.user.onboardingStatus()` 只有在后端明确返回 `{"completed": false}` 时才表示未完成。401、网络错误、5xx 不能转换成 `{ completed: false }`，否则已完成用户会被误带到首页 Guided Tour。未完成用户现在落到 `/?tour=1`，不再强制进入独立 `/onboarding` 页面。首页 `tour=1` 启动前也会检查本地/后端完成状态；完成后再次带 `tour=1` 访问会清理参数不展示。手动调试使用 `?tour=home`。
 
 ## 主链路
 
@@ -50,7 +50,7 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
   -> /auth/callback/route.ts 服务端 exchangeOAuthCode()
   -> setAuthCookies(accessToken, refreshToken)
   -> 非阻塞查询 onboarding status
-  -> 跳到 /onboarding 或最终 redirect
+  -> 首次用户跳到 /?tour=1，否则跳最终 redirect
 ```
 
 ### 3. 注册与邮箱验证
@@ -68,6 +68,7 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
        5. verifyEmailAction() -> server-side Insforge verifyEmail({ email, otp })
        6. setAuthCookies(accessToken, refreshToken)，用户直接进入登录态
        7. 页面补写 pending name 到 profile
+  -> 无显式 redirect 时，注册/验证完成默认跳到 /?tour=1 首页 Guided Tour
 ```
 
 ### 4. 密码重置
@@ -90,7 +91,7 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
   -> AuthContext 通过 /api/auth/session 决定真实登录态
 ```
 
-`middleware` 当前维护的是 `PUBLIC_ROUTES` 白名单：`/`、`/today`、`/morning`、`/stock`、`/contact`、`/feedback`、`/unsubscribe`、`/login`、`/verify-email`、`/forgot-password`、`/reset-password`、`/auth/callback`、`/email-test`、`/pricing`、`/webview-check`、`/macro`、`/research`、`/twitter-digest`、`/kol` 等公开前缀直接放行。其它页面先经过 cookie gate；例如 `/for-you`、`/profile`、`/settings`、`/admin`、`/onboarding`、`/request-access` 会在没有 `app_access_token` / `app_refresh_token` 时跳 `/login?redirect=...`。权威鉴权仍在 `/api/auth/session` 和后端 `verify_user_token` / admin API 中完成。
+`middleware` 当前维护的是 `PUBLIC_ROUTES` 白名单：`/`、`/today`、`/morning`、`/stock`、`/contact`、`/feedback`、`/unsubscribe`、`/login`、`/verify-email`、`/forgot-password`、`/reset-password`、`/auth/callback`、`/email-test`、`/pricing`、`/frank-agent`、`/qinbafrank`、`/webview-check`、`/macro`、`/research`、`/twitter-digest`、`/kol` 等公开前缀直接放行。其它页面先经过 cookie gate；例如 `/for-you`、`/profile`、`/settings`、`/admin`、`/request-access` 会在没有 `app_access_token` / `app_refresh_token` 时跳 `/login?redirect=...`。权威鉴权仍在 `/api/auth/session` 和后端 `verify_user_token` / admin API 中完成。
 
 ## Session 与 Token
 
@@ -136,7 +137,7 @@ OAuth callback 现在是服务端 route handler，避免客户端 SDK callback �
   -> exchangeOAuthCode()
   -> setAuthCookies()
   -> onboarding-status probe
-  -> redirect
+  -> completed:false 时 redirect /?tour=1，否则 redirect safe path
 ```
 
 说明：
@@ -290,14 +291,15 @@ MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，
 2. 预期：如果 `requireEmailVerification = true`，跳转到 `/verify-email`
 3. 在 `/verify-email` 输入 6 位验证码
 4. 预期：验证成功后自动进入登录态，不需要再额外输入密码
-5. 页面应在短暂成功提示后跳到目标页
-6. 如果注册时填写了姓名，进入 `/profile` 检查 profile name
-7. 预期：姓名已补写成功
-8. 在 `/verify-email` 点击“重新发送”
-9. 预期：提示发送成功，不报错
-10. 输入错误验证码
-11. 预期：留在当前页，并显示清晰错误
-12. 输入正确验证码
+5. 页面应在短暂成功提示后跳到目标页；无显式 redirect 时目标页是 `/?tour=1`
+6. Guided Tour 完成或跳过后应写 `onboarding_completed:{userId}` 本地 marker，并 best-effort 调后端 complete API；之后正常 `?tour=1` 不应再次展示
+7. 如果注册时填写了姓名，进入 `/profile` 检查 profile name
+8. 预期：姓名已补写成功
+9. 在 `/verify-email` 点击“重新发送”
+10. 预期：提示发送成功，不报错
+11. 输入错误验证码
+12. 预期：留在当前页，并显示清晰错误
+13. 输入正确验证码
 13. 预期：仍然能顺利完成登录成功
 
 ### G. 邮箱验证链接模式

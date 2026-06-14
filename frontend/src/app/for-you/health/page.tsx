@@ -9,7 +9,6 @@ import PaywallGuard from '@/components/PaywallGuard';
 import { usePortfolio } from '@/hooks/queries/use-portfolio';
 import { useHealthReport, useGenerateHealthCheck } from '@/hooks/queries/use-health';
 import { HealthScore, DiagnosisOutput } from '@/lib/api';
-import { FeedbackBar } from '@/components/memory/FeedbackBar';
 
 const DIMENSION_LABELS: Record<keyof Omit<HealthScore, 'total'>, { label: string; icon: string; desc: string }> = {
   dispersion: { label: '分散度', icon: '🎯', desc: '板块分布均衡程度' },
@@ -54,7 +53,7 @@ function TotalScore({ score }: { score: number }) {
   );
 }
 
-function DiagnosisPanel({ diagnosis, reportId }: { diagnosis: DiagnosisOutput; reportId?: string }) {
+function DiagnosisPanel({ diagnosis }: { diagnosis: DiagnosisOutput }) {
   return (
     <div className="space-y-4">
       {/* One-line summary */}
@@ -114,12 +113,6 @@ function DiagnosisPanel({ diagnosis, reportId }: { diagnosis: DiagnosisOutput; r
         </div>
       )}
 
-      {/* Feedback */}
-      <FeedbackBar
-        targetType="health_diagnosis"
-        targetId={`health:${reportId || 'unknown'}`}
-        snapshot={{ text: diagnosis.one_line }}
-      />
     </div>
   );
 }
@@ -255,7 +248,7 @@ function HealthContent() {
 
             {/* Diagnosis */}
             {displayReport.diagnosis && (
-              <DiagnosisPanel diagnosis={displayReport.diagnosis} reportId={displayReport.report_id || displayReport.generated_at} />
+              <DiagnosisPanel diagnosis={displayReport.diagnosis} />
             )}
 
             {/* Metadata + regenerate */}

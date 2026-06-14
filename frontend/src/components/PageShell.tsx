@@ -97,6 +97,7 @@ function PageShellInner({ children }: { children: React.ReactNode }) {
  * PageShell wraps all pages with Navbar + Footer.
  * When ?from=wechat is present (WebView in mini program),
  * skip the shell entirely for a clean fullscreen experience.
+ * Focused WebView flows skip global chrome.
  * Wrapped in Suspense to support static generation.
  */
 export function PageShell({ children }: { children: React.ReactNode }) {

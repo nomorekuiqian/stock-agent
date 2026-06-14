@@ -16,13 +16,15 @@
   /* Editorial headlines: reserved for brand/landing moments, not body copy. */
   --font-serif:
     "LXGW WenKai", var(--font-instrument-serif), "Songti SC", Georgia, serif;
-  /* Body/UI text: sans-first for dense Chinese financial interfaces. */
+  /* Body/UI text: ChatGPT-style system UI stack for Chinese readability. */
   --font-sans:
-    "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC",
-    var(--font-dm-sans), system-ui, sans-serif;
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   --font-reading:
-    "HarmonyOS Sans SC", "Noto Sans SC", "Source Han Sans SC", "PingFang SC",
-    "Microsoft YaHei", var(--font-dm-sans), system-ui, sans-serif;
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
 
   /* NOTE: color tokens are NOT defined here. Runtime color values live in
@@ -481,7 +483,9 @@ h6 {
     bottom: 0.35rem;
     width: 1px;
     background: color-mix(in srgb, var(--foreground) 18%, transparent);
-    transition: background 0.2s ease, width 0.2s ease;
+    transition:
+      background 0.2s ease,
+      width 0.2s ease;
   }
   .editorial-item:hover::before {
     background: var(--primary);
@@ -525,8 +529,8 @@ h6 {
 
 .animate-fade-in-up {
   animation: fade-in-up var(--motion-duration, 0.5s)
-    var(--motion-ease, cubic-bezier(0.22, 1, 0.36, 1))
-    var(--motion-delay, 0ms) forwards;
+    var(--motion-ease, cubic-bezier(0.22, 1, 0.36, 1)) var(--motion-delay, 0ms)
+    forwards;
   opacity: 0;
 }
 
@@ -961,8 +965,16 @@ h6 {
 
 /* Thinking dots — three dots that pulse in sequence */
 @keyframes thinking-dot {
-  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1); }
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .thinking-dot {
   display: inline-block;
@@ -972,13 +984,23 @@ h6 {
   background: var(--primary);
   animation: thinking-dot 1.4s ease-in-out infinite;
 }
-.thinking-dot:nth-child(2) { animation-delay: 0.16s; }
-.thinking-dot:nth-child(3) { animation-delay: 0.32s; }
+.thinking-dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.thinking-dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
 
 /* Status label crossfade — smooth swap when tool activity text changes */
 @keyframes status-label-in {
-  0% { opacity: 0; transform: translateY(4px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-status-label {
   animation: status-label-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -1210,8 +1232,14 @@ select:focus-visible {
    does not soft-throb like animate-pulse. Removed the instant streaming ends.
    The blanket prefers-reduced-motion rule below disables it automatically. */
 @keyframes caret-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 .chat-caret {
   animation: caret-blink 1.05s steps(1, end) infinite;

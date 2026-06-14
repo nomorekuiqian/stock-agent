@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { ChevronRight, LockKeyhole, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -38,6 +38,7 @@ function MobileNavItem({
     return (
       <Link
         href={section.href}
+        data-guided-tour-target={section.tourTarget}
         onClick={onClose}
         className={`flex items-center rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
           isSectionActive
@@ -65,6 +66,7 @@ function MobileNavItem({
       >
         <Link
           href={section.href}
+          data-guided-tour-target={section.tourTarget}
           onClick={onClose}
           className="flex-1 px-4 py-3 text-sm font-medium hover:text-foreground transition-colors"
         >
@@ -114,6 +116,7 @@ function MobileNavItem({
 
 export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
+  const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
   const { isPro, isMax, isLoading: subLoading, plan } = useSubscription();
   const { has: hasFlag } = useFeatureFlags();
@@ -125,6 +128,23 @@ export function MobileMenu() {
     watchlistExtended: hasEntitlement('watchlist_extended'),
     isAdmin,
   });
+  const tourParam = searchParams.get('tour');
+
+  useEffect(() => {
+    const shouldShowTour = tourParam === '1' || tourParam === 'home';
+    const isMobileNav = window.matchMedia('(max-width: 1023px)').matches;
+    if (shouldShowTour && isMobileNav) {
+      const frame = window.requestAnimationFrame(() => setIsOpen(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    return undefined;
+  }, [tourParam]);
+
+  useEffect(() => {
+    const closeAfterTour = () => setIsOpen(false);
+    window.addEventListener('home-guided-tour-finished', closeAfterTour);
+    return () => window.removeEventListener('home-guided-tour-finished', closeAfterTour);
+  }, []);
 
   return (
     <div className="lg:hidden">

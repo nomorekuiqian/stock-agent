@@ -77,13 +77,22 @@ export function Navbar() {
                   label={section.label}
                   href={section.href}
                   items={section.children}
+                  tourTarget={section.tourTarget}
                 />
               ) : section.highlight ? (
-                <NavLinkHighlight key={section.href} href={section.href}>
+                <NavLinkHighlight
+                  key={section.href}
+                  href={section.href}
+                  tourTarget={section.tourTarget}
+                >
                   {section.label}
                 </NavLinkHighlight>
               ) : (
-                <NavLink key={section.href} href={section.href}>
+                <NavLink
+                  key={section.href}
+                  href={section.href}
+                  tourTarget={section.tourTarget}
+                >
                   {section.label}
                 </NavLink>
               ),
@@ -127,13 +136,22 @@ function XLogo({ className }: { className?: string }) {
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+  tourTarget,
+}: {
+  href: string;
+  children: React.ReactNode;
+  tourTarget?: string;
+}) {
   const pathname = usePathname();
   const isActive = isNavHrefActive(pathname, href);
 
   return (
     <Link
       href={href}
+      data-guided-tour-target={tourTarget}
       className={`group flex h-9 items-center rounded-lg px-3.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
         isActive
           ? 'bg-muted/45 text-foreground'
@@ -145,13 +163,22 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
-function NavLinkHighlight({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLinkHighlight({
+  href,
+  children,
+  tourTarget,
+}: {
+  href: string;
+  children: React.ReactNode;
+  tourTarget?: string;
+}) {
   const pathname = usePathname();
   const isActive = isNavHrefActive(pathname, href);
 
   return (
     <Link
       href={href}
+      data-guided-tour-target={tourTarget}
       className={`group flex h-9 items-center rounded-lg px-3.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
         isActive
           ? 'bg-primary/10 text-primary'
@@ -167,10 +194,12 @@ function NavDropdown({
   label,
   href,
   items,
+  tourTarget,
 }: {
   label: string;
   href?: string;
   items: NavChild[];
+  tourTarget?: string;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -221,6 +250,7 @@ function NavDropdown({
       {href ? (
         <Link
           href={href}
+          data-guided-tour-target={tourTarget}
           aria-expanded={open}
           aria-haspopup="true"
           aria-controls={menuId}
@@ -241,6 +271,7 @@ function NavDropdown({
       ) : (
         <button
           type="button"
+          data-guided-tour-target={tourTarget}
           aria-expanded={open}
           aria-haspopup="true"
           aria-controls={menuId}

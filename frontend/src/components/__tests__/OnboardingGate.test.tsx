@@ -79,11 +79,11 @@ describe('OnboardingGate', () => {
     expect(mocks.replace).not.toHaveBeenCalled();
   });
 
-  it('redirects only when the backend explicitly reports incomplete onboarding', async () => {
+  it('redirects incomplete onboarding users to the homepage guided tour', async () => {
     mocks.onboardingStatus.mockResolvedValue({ completed: false });
 
     renderGate();
 
-    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/onboarding'));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/?tour=1'));
   });
 });

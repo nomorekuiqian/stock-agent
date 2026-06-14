@@ -15,11 +15,9 @@ import { STOCK_NAMES } from '@/lib/stock-names';
 import StockListItem from './StockListItem';
 import StockDetailPanel from './StockDetailPanel';
 import Link from 'next/link';
-import { FeedbackBar } from '@/components/memory/FeedbackBar';
 
 interface StockOverviewPanelProps {
   stocks: StockAnalysis[];
-  digestDate?: string;
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
   /**
@@ -443,14 +441,12 @@ function MobileStockItem({
   isOpen,
   isHighlighted,
   onToggle,
-  digestDate,
   weightPct,
 }: {
   stock: StockAnalysis;
   isOpen: boolean;
   isHighlighted: boolean;
   onToggle: () => void;
-  digestDate?: string;
   weightPct?: number;
 }) {
   const changeValue = parseChangePercent(stock.daily_change);
@@ -520,13 +516,6 @@ function MobileStockItem({
             </svg>
           </Link>
 
-          {digestDate && (
-            <FeedbackBar
-              targetType="digest_quick_take"
-              targetId={`quick_take:${stock.symbol}:${digestDate}`}
-              snapshot={{ text: stock.quick_take?.slice(0, 200) }}
-            />
-          )}
         </div>
       )}
     </div>
@@ -542,7 +531,6 @@ function MobileHoldingItem({
   digestStock,
   isOpen,
   onToggle,
-  digestDate,
   thesis,
   headlines,
   briefs,
@@ -552,7 +540,6 @@ function MobileHoldingItem({
   digestStock?: StockAnalysis;
   isOpen: boolean;
   onToggle: () => void;
-  digestDate?: string;
   thesis?: string;
   headlines?: DigestHeadlineNews[];
   briefs?: DigestBriefNews[];
@@ -645,13 +632,6 @@ function MobileHoldingItem({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
-              {digestDate && (
-                <FeedbackBar
-                  targetType="digest_quick_take"
-                  targetId={`quick_take:${holding.symbol}:${digestDate}`}
-                  snapshot={{ text: digestStock.quick_take?.slice(0, 200) }}
-                />
-              )}
             </>
           ) : (
             <HoldingFallbackPanel
@@ -747,7 +727,6 @@ function HoldingsGroup({
   digestStockMap,
   selectedSymbol,
   onSelect,
-  digestDate,
   thesisMap,
   onThesisSaved,
   headlines,
@@ -758,7 +737,6 @@ function HoldingsGroup({
   digestStockMap: Record<string, StockAnalysis>;
   selectedSymbol: string;
   onSelect: (sym: string) => void;
-  digestDate?: string;
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
   headlines?: DigestHeadlineNews[];
@@ -790,7 +768,6 @@ function HoldingsGroup({
           {selectedDigestStock ? (
             <StockDetailPanel
               stock={selectedDigestStock}
-              digestDate={digestDate}
               thesis={thesisMap?.[selectedHolding.symbol]}
               onThesisSaved={onThesisSaved}
             />
@@ -815,7 +792,6 @@ function HoldingsGroup({
             digestStock={digestStockMap[h.symbol]}
             isOpen={h.symbol === selectedHolding.symbol}
             onToggle={() => onSelect(h.symbol === selectedHolding.symbol ? '' : h.symbol)}
-            digestDate={digestDate}
             thesis={thesisMap?.[h.symbol]}
             headlines={headlines}
             briefs={briefs}
@@ -835,7 +811,6 @@ function StockGroup({
   stocks,
   selectedSymbol,
   onSelect,
-  digestDate,
   thesisMap,
   onThesisSaved,
   selectedStock,
@@ -844,7 +819,6 @@ function StockGroup({
   stocks: StockAnalysis[];
   selectedSymbol: string;
   onSelect: (sym: string) => void;
-  digestDate?: string;
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
   selectedStock?: StockAnalysis;
@@ -873,7 +847,6 @@ function StockGroup({
           {selectedStock && (
             <StockDetailPanel
               stock={selectedStock}
-              digestDate={digestDate}
               thesis={thesisMap?.[selectedStock.symbol]}
               onThesisSaved={onThesisSaved}
             />
@@ -890,7 +863,6 @@ function StockGroup({
             isOpen={stock.symbol === selectedSymbol}
             isHighlighted={isNotableMove(stock.daily_change)}
             onToggle={() => onSelect(stock.symbol === selectedSymbol ? '' : stock.symbol)}
-            digestDate={digestDate}
             weightPct={weightMap?.[stock.symbol]}
           />
         ))}
@@ -905,7 +877,6 @@ function StockGroup({
 
 export default function StockOverviewPanel({
   stocks,
-  digestDate,
   thesisMap,
   onThesisSaved,
   portfolioSymbols,
@@ -1027,7 +998,6 @@ export default function StockOverviewPanel({
             digestStockMap={digestStockMap}
             selectedSymbol={selectedSymbol}
             onSelect={setSelectedSymbol}
-            digestDate={digestDate}
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
             headlines={headlines}
@@ -1062,7 +1032,6 @@ export default function StockOverviewPanel({
                 stocks={portfolioStocks}
                 selectedSymbol={selectedSymbol}
                 onSelect={setSelectedSymbol}
-                digestDate={digestDate}
                 thesisMap={thesisMap}
                 onThesisSaved={onThesisSaved}
                 selectedStock={portfolioStocks.find((s) => s.symbol === selectedSymbol) || portfolioStocks[0]}
@@ -1086,7 +1055,6 @@ export default function StockOverviewPanel({
             stocks={watchlistStocks}
             selectedSymbol={selectedSymbol}
             onSelect={setSelectedSymbol}
-            digestDate={digestDate}
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
             selectedStock={watchlistStocks.find((s) => s.symbol === selectedSymbol) || watchlistStocks[0]}
