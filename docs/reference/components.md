@@ -76,7 +76,7 @@ AI 个股分析卡片，支持三种状态。
 
 ### OnboardingGate
 全局 onboarding 守卫组件。
-- **功能**: 对已登录用户先读 `onboarding_completed:{userId}` 本地 marker，仅在后端明确返回 `completed:false` 时跳转 `/onboarding`
+- **功能**: 对已登录用户先读 `onboarding_completed:{userId}` 本地 marker，仅在后端明确返回 `completed:false` 时跳转首页 `/?tour=1`；首页 tour 自身也会在正常 `tour=1` 入口上跳过已完成用户，`tour=home` 才强制预览
 - **使用场景**: 全站 `Providers` 内挂载
 
 ### LoginGate
@@ -125,7 +125,7 @@ AI 个股分析卡片，支持三种状态。
 
 | 组件 | 说明 | 使用场景 |
 |------|------|----------|
-| FeedbackBar | thumbs up/down 反馈入口 | `/for-you/health`, `/research`, KOL 对话 |
+| FeedbackBar | Research/KOL 回答 thumbs up/down 反馈入口 | `/research`, KOL 对话 |
 | QuickThesisInput | 快速 thesis 输入 | `/for-you/health` |
 
 ---

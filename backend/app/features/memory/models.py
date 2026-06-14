@@ -1,7 +1,7 @@
 """
-Memory models — Pydantic schemas for feedback + suggestion tracking.
+Memory models — Pydantic schemas for runtime feedback + suggestion tracking.
 
-Tables: ai_feedback, suggestion_tracking
+Tables: suggestion_tracking; runtime feedback is stored on agent_session_events.
 Schema: backend/migrations/u1c_memory_schema.sql
 """
 
@@ -37,19 +37,6 @@ class FeedbackInput(BaseModel):
     turn_id: Optional[str] = Field(None, max_length=200)
     client_event_id: Optional[str] = Field(None, max_length=240)
     message_event_id: Optional[str] = Field(None, max_length=200)
-
-
-class FeedbackRow(BaseModel):
-    """A row from the ai_feedback table."""
-
-    id: Optional[str] = None
-    user_id: str
-    target_type: str
-    target_id: str
-    sentiment: int
-    reason: Optional[str] = None
-    snapshot: Optional[dict] = None
-    created_at: Optional[datetime] = None
 
 
 # =============================================================================

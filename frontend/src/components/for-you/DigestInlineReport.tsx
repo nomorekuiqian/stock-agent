@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { DigestResponse, DigestHeadlineNews, DigestBriefNews, DigestEvent, HoldingView } from '@/lib/api';
 import { formatReportDate, formatCalendarDate, isMarketToday, formatCompactTimestamp } from '@/lib/timezone';
 import StockOverviewPanel from './StockOverviewPanel';
-import { FeedbackBar } from '@/components/memory/FeedbackBar';
 
 interface DigestInlineReportProps {
   digest: DigestResponse;
@@ -111,7 +110,6 @@ export default function DigestInlineReport({
           </div>
           <StockOverviewPanel
             stocks={digest.stocks}
-            digestDate={digest.timestamp.split('T')[0]}
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
             portfolioSymbols={portfolioSymbols}
@@ -184,11 +182,6 @@ export default function DigestInlineReport({
                 <NewsTimestamp timestamp={item.published_at} />
                 <p className="text-sm text-foreground mb-2">{item.fact_summary}</p>
                 <p className="text-sm text-muted-foreground leading-relaxed">{item.deep_analysis}</p>
-                <FeedbackBar
-                  targetType="digest_headline"
-                  targetId={`digest_headline:${digest.timestamp.split('T')[0]}:${index}`}
-                  snapshot={{ text: item.fact_summary?.slice(0, 200) }}
-                />
               </div>
             ))}
           </div>

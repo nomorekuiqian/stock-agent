@@ -46,29 +46,23 @@ Does NOT cover (needs manual / integration):
 
 | # | Step | Expected |
 |---|------|----------|
-| A1 | Sign up with brand new email | After email-verification, redirect lands on `/onboarding` (not `/today`) |
-| A2 | Step 1 Welcome page | Banner shows "推特日报（前 3 封免费）" + "AI 投研对话（每天 2 次）" — **no "14 天 Max"** wording anywhere |
-| A3 | Click "开始设置自选股" | Goes to Step 2 (watchlist builder) |
-| A4 | Try "下一步" with 0 stocks | Button disabled, copy reads "还需添加 3 只" |
-| A5 | Add 1 stock | Button still disabled, "还需添加 2 只" |
-| A6 | Click "一键加全部 (7)" on Mag 7 row | All 7 Mag 7 tickers added |
-| A7 | Counter shows "7/25", "下一步" enabled | Yes |
-| A8 | Try to add a 26th stock (search + select) | Disabled, counter caps at 25 |
-| A9 | Click "下一步" | Saves watchlist; transitions to Step 3 modal |
-| A10 | Step 3 modal shows "为你的 7 只自选股, 每天生成专属日报" | Sample preview block shows a Mag 7 ticker (likely NVDA / AAPL / TSLA / MSFT) |
-| A11 | Click "稍后再说" | `POST /api/user/onboarding/complete` fires → redirect `/today` |
-| A12 | Visit `/onboarding` directly afterwards | NOT redirected anywhere — user can revisit (but it's stale) |
-| A13 | Verify in DB: `SELECT onboarding_completed_at FROM public.subscriptions WHERE user_id = '<test-uid>'` | Non-null timestamp |
+| A1 | Sign up with brand new email | After email-verification, redirect lands on `/?tour=1` (not `/today`) |
+| A2 | Guided Tour starts | Top nav entries `AI 研究助手` / `每日简报` / `投研` / `我的` are highlighted in sequence, and the final step reminds the user to add watchlist stocks |
+| A3 | Complete or skip the tour | `POST /api/user/onboarding/complete` fires best-effort; URL cleans back to `/` |
+| A4 | Verify in DB: `SELECT onboarding_completed_at FROM public.subscriptions WHERE user_id = '<test-uid>'` | Non-null timestamp when backend completion succeeds |
+| A5 | Visit `/?tour=1` again after completion | Tour does not start; URL cleans back to `/` |
+| A6 | Visit `/?tour=home` after completion | Tour starts for manual QA/debug preview |
+| A7 | Visit `/onboarding` directly afterwards | Route no longer exists; user is not bounced into a stale standalone onboarding flow |
 
-### Group B — New user Step 3 → Stripe Checkout
+### Group B — For-You setup after signup
 
 Use a second fresh signup.
 
 | # | Step | Expected |
 |---|------|----------|
-| B1 | Complete Steps 1-2 (add ≥3 stocks) | Reach Step 3 modal |
-| B2 | Click "升级 Pro 立即激活" | (a) `POST /api/user/onboarding/complete` fires; (b) browser redirects to a Stripe Checkout URL on `checkout.stripe.com` |
-| B3 | Cancel Stripe → returns to `/pricing?canceled=true` | User is NOT bounced back to `/onboarding` (already marked complete) |
+| B1 | Visit `/for-you` with no watchlist | Empty state CTA points to `/for-you/watchlist` |
+| B2 | Add symbols in `/for-you/watchlist` | Watchlist persists and `/for-you` can render the preview/digest path |
+| B3 | Visit `/for-you/onboarding` | Investment profile page is still available as the real profile setup surface |
 
 ### Group C — Existing user backfill
 
@@ -76,7 +70,7 @@ Use a known existing paid user (any of the 146 backfilled accounts from migratio
 
 | # | Step | Expected |
 |---|------|----------|
-| C1 | Sign in | Redirect goes to `/today` directly (NOT `/onboarding`) |
+| C1 | Sign in | Redirect goes to `/today` directly (not `/?tour=1`) |
 | C2 | Verify in DB: `SELECT onboarding_completed_at FROM public.subscriptions WHERE user_id = '<existing-uid>'` | Non-null timestamp (set by Phase 0 backfill) |
 
 ### Group D — Auto-trial gone
@@ -145,4 +139,4 @@ calls return `disabled=true` and send no email.
 
 - Behavior-trigger emails (Phase 4 in plan, not in this round)
 - Reactivation cohort flow for expired-trial users (Phase 3 in plan)
-- Client-side `onboarding_completed_at` middleware guard — for now, only auth-callback redirect catches new users. Users who abandon Step 1 mid-flow may escape onboarding until next sign-in.
+- Server-side onboarding middleware guard — current flow relies on auth callback + client `OnboardingGate`; middleware remains cookie-gate only.

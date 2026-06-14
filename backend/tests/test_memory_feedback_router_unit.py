@@ -32,9 +32,7 @@ async def test_post_feedback_routes_runtime_answer_to_agent_session_event(monkey
     from app.shared import agent_runtime_feedback
 
     update_mock = AsyncMock(return_value={"id": "event-1"})
-    save_mock = AsyncMock(return_value="feedback-1")
     monkeypatch.setattr(agent_runtime_feedback, "update_agent_message_feedback", update_mock)
-    monkeypatch.setattr(memory_router.memory_db, "save_feedback", save_mock)
     monkeypatch.setattr(memory_router.posthog, "posthog_client", None)
 
     body = FeedbackInput(
@@ -57,7 +55,6 @@ async def test_post_feedback_routes_runtime_answer_to_agent_session_event(monkey
     )
 
     assert result == {"success": True, "id": "event-1"}
-    save_mock.assert_not_awaited()
     update_mock.assert_awaited_once_with(
         user_id="user-1",
         agent_id="research_agent",
@@ -76,15 +73,13 @@ async def test_post_feedback_routes_runtime_answer_to_agent_session_event(monkey
 
 
 @pytest.mark.asyncio
-async def test_post_feedback_falls_back_to_memory_store_without_runtime_identifiers(monkeypatch):
-    """Missing runtime identifiers should not call the runtime feedback writer."""
+async def test_post_feedback_ignores_missing_runtime_identifiers(monkeypatch):
+    """Missing runtime identifiers should not call any feedback writer."""
     from app.features.memory import router as memory_router
     from app.shared import agent_runtime_feedback
 
     update_mock = AsyncMock(return_value={"id": "event-1"})
-    save_mock = AsyncMock(return_value="feedback-1")
     monkeypatch.setattr(agent_runtime_feedback, "update_agent_message_feedback", update_mock)
-    monkeypatch.setattr(memory_router.memory_db, "save_feedback", save_mock)
     monkeypatch.setattr(memory_router.posthog, "posthog_client", None)
 
     body = FeedbackInput(
@@ -101,18 +96,8 @@ async def test_post_feedback_falls_back_to_memory_store_without_runtime_identifi
         user_id="user-1",
     )
 
-    assert result == {"success": True, "id": "feedback-1"}
+    assert result == {"success": True, "id": None}
     update_mock.assert_not_awaited()
-    save_mock.assert_awaited_once_with(
-        "user-1",
-        {
-            "target_type": "research_agent_answer",
-            "target_id": "research:draft:message-1",
-            "sentiment": 1,
-            "reason": None,
-            "snapshot": None,
-        },
-    )
 
 
 def test_feedback_input_accepts_runtime_clear_sentiment():

@@ -1,4 +1,5 @@
 export const DEFAULT_AUTH_REDIRECT = '/today';
+export const SIGNUP_TOUR_REDIRECT = '/?tour=1';
 
 export function sanitizeRedirectPath(
   input: string | null | undefined,

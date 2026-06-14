@@ -5,7 +5,7 @@
 ### 主要页面
 | 路由 | 页面 | 数据来源 | 需要认证 |
 |------|------|----------|----------|
-| `/` | 首页 (Landing) | 无 API 调用 | 否 |
+| `/` | 首页 (Landing + Guided Tour) | 可选 Backend (onboarding complete, 仅 `?tour=1` 完成/跳过时) | 否 |
 | `/today` | 市场日报 | Insforge (getLatestReport) + Backend (getMarketAnalysis) | 否 |
 | `/today/[id]` | 日报详情 | Insforge (getReportById) | 否 |
 | `/today/archive` | 日报存档 | Insforge (getReportsList) | 否 |
@@ -16,6 +16,7 @@
 | `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
 | `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
 | `/qinbafrank` | Qinbafrank 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
+| `/frank-agent` | Frank waitlist 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
 | `/kol` | 博主研究室总入口 | 静态卡片：Qinbafrank / Serenity 研究室选择 | 否 |
 | `/kol/[username]` | KOL 博主研究室概览 | qinbafrank 根页静态销售页；Serenity 根页供应链研究室首页；其他 persona 用 skill 资产 + Backend cockpit/feed | 浏览否；qinbafrank 子页需 Ultra |
 | `/kol/[username]/chat` | KOL 对话入口 | Backend (kolResearch chatStream) | qinbafrank 1 次试问后需 Ultra |
@@ -48,7 +49,6 @@
 | `/verify-email` | 邮箱验证 | Insforge Auth (verifyEmail + resendVerificationEmail) | 否 |
 | `/forgot-password` | 忘记密码 | Insforge Auth (sendPasswordResetEmail) | 否 |
 | `/reset-password` | 重置密码 | Insforge Auth (resetPassword) | 否 |
-| `/onboarding` | 用户引导 | 无 API 调用 | 否 |
 | `/pricing` | 定价页 | Backend (payment API) | 否 |
 | `/pricing/success` | 支付成功 | Backend (payment API) | 否 |
 | `/request-access` | 申请邀请码 | Backend (invites/qualify) | 是（middleware cookie gate） |
@@ -81,7 +81,7 @@
 
 ### `/` 首页
 - Hero + 功能介绍 + 订阅表单 + 信任标识 (LogoMarquee)
-- 纯展示页面，无 API 调用
+- 支持 `?tour=1` 启动注册后 Guided Tour，高亮顶部导航的 AI 研究助手 / 每日简报 / 投研 / 我的入口，并提醒用户在「我的」里添加自选股；启动前会跳过已完成用户并清理 URL，完成或跳过时 best-effort 调 onboarding complete API。调试/微调用 `?tour=home` 强制显示。
 
 ### `/today` 市场日报
 - 先从 Insforge 查询今日/最新报告
@@ -117,7 +117,10 @@
 ### `/qinbafrank` Qinbafrank 旧链接兼容页
 - Server page，仅执行 `redirect('/kol/qinbafrank')`，并保留原 query 参数。
 - 保留在 `PUBLIC_ROUTES` 中，避免历史分享链接被 middleware 先拦到登录页。
-- 旧 `/frank-agent` route 已删除，不再作为兼容入口。
+
+### `/frank-agent` Frank waitlist 旧链接兼容页
+- Server page，仅执行 `redirect('/kol/qinbafrank')`，并保留原 query 参数。
+- 保留在 `PUBLIC_ROUTES` 中，承接旧 Twitter/UTM waitlist 外链，避免冷流量被 middleware 提前拦截。
 
 ### `/kol` 博主研究室总入口
 - Server page，无 API 调用。展示 Qinbafrank 与 Serenity 两张研究室卡片、模块深链、选择建议和边界说明。
@@ -208,11 +211,12 @@
 - Google OAuth 按钮
 - 登录后重定向到之前页面 (sessionStorage)
 - 注册态在需要验证邮箱时会跳到 `/verify-email`
+- 无显式 redirect 的注册默认落到 `/?tour=1`，由首页 Guided Tour 完成新用户主引导
 
 ### `/verify-email` 邮箱验证
 - 支持验证码验证和邮件链接验证两种模式
 - 支持 resend verification email
-- 验证成功后恢复 session，并跳回原始 redirect
+- 验证成功后恢复 session，并跳回原始 redirect；注册默认 redirect 是 `/?tour=1`
 
 ### `/feedback` 邮件反馈处理
 - 接收邮件中的反馈链接参数 (report_date, email, rating)

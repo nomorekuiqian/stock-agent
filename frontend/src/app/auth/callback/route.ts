@@ -59,6 +59,6 @@ export async function GET(request: NextRequest) {
   }
 
   const safePath = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/today';
-  const finalPath = needsOnboarding ? '/onboarding' : safePath;
+  const finalPath = needsOnboarding ? '/?tour=1' : safePath;
   return NextResponse.redirect(new URL(finalPath, baseUrl));
 }

@@ -1,5 +1,5 @@
 """
-Memory DB access — ai_feedback + suggestion_tracking via Insforge EF.
+Memory DB access — suggestion_tracking via Insforge EF.
 
 Edge Function source: backend/app/edge_functions/memory.js
 Schema:               backend/migrations/u1c_memory_schema.sql
@@ -14,7 +14,7 @@ import httpx
 from app.core.config import EDGE_FUNCTION_SECRET
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
-from app.features.memory.models import FeedbackRow, SuggestionRow
+from app.features.memory.models import SuggestionRow
 
 logger = get_logger(__name__)
 
@@ -55,33 +55,6 @@ async def _call(
     except Exception as e:
         logger.warning("memory EF %s error: %s", action, e)
         return {"success": False, "error": str(e)}
-
-
-# =============================================================================
-# Feedback
-# =============================================================================
-
-
-async def save_feedback(user_id: str, feedback: dict) -> Optional[str]:
-    """Save user feedback. Returns feedback ID or None on failure."""
-    data = await _call("save_feedback", body={"user_id": user_id, **feedback})
-    if data.get("success"):
-        return data.get("data", {}).get("id")
-    return None
-
-
-async def get_recent_feedback(
-    user_id: str, days: int = 7, limit: int = 20
-) -> List[FeedbackRow]:
-    """Get recent feedback rows for a user."""
-    data = await _call(
-        "recent_feedback",
-        method="GET",
-        params={"user_id": user_id, "days": str(days), "limit": str(limit)},
-    )
-    if not data.get("success"):
-        return []
-    return [FeedbackRow(**r) for r in (data.get("data") or [])]
 
 
 # =============================================================================

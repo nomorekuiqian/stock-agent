@@ -1,7 +1,7 @@
 """
 Memory router — feedback + suggestion tracking endpoints.
 
-POST /api/feedback              Record user thumbs-up/thumbs-down
+POST /api/feedback              Record runtime assistant thumbs-up/thumbs-down
 GET  /api/suggestion-tracking/recent   Get recent suggestion tracking rows
 """
 
@@ -26,7 +26,7 @@ async def post_feedback(
     body: FeedbackInput,
     user_id: str = Depends(verify_user_token),
 ):
-    """Record user feedback on AI-generated content."""
+    """Record user feedback on runtime assistant content."""
     if (
         body.target_type == "research_agent_answer"
         and body.agent_id
@@ -64,28 +64,12 @@ async def post_feedback(
         logger.info("agent message feedback update returned None")
         return {"success": True, "id": None}
 
-    feedback_data = {
-        "target_type": body.target_type,
-        "target_id": body.target_id,
-        "sentiment": body.sentiment,
-        "reason": body.reason,
-        "snapshot": body.snapshot,
-    }
-    feedback_id = await memory_db.save_feedback(user_id, feedback_data)
-    if feedback_id:
-        if posthog.posthog_client:
-            posthog.posthog_client.capture(
-                distinct_id=user_id,
-                event="ai_content_feedback_submitted",
-                properties={
-                    "target_type": body.target_type,
-                    "sentiment": body.sentiment,
-                },
-            )
-        return {"success": True, "id": feedback_id}
-
-    # DB might not be deployed yet — accept silently
-    logger.info("feedback save returned None (EF may not be deployed)")
+    logger.info(
+        "ignored non-runtime feedback target_type=%s has_agent_id=%s has_session_id=%s",
+        body.target_type,
+        bool(body.agent_id),
+        bool(body.session_id),
+    )
     return {"success": True, "id": None}
 
 

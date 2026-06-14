@@ -107,9 +107,9 @@ python scripts/check_qinbafrank_stripe_readiness.py \
   - `intro_sent_count`: int — 已发推特日报 intro 数 (max 3)
   - `triggered_at`: `{trigger_key: ISO_timestamp}` — 行为触发邮件 cooldown (Phase 4)
 - `subscriptions.reactivation_state` (TEXT, default NULL): enum `NULL` / `cohort_a` / `cohort_b` / `cohort_c` / `cold` (Phase 3 使用)
-- `subscriptions.onboarding_completed_at` (TIMESTAMP, default NULL): Step 1/2/3 全部完成的时间
+- `subscriptions.onboarding_completed_at` (TIMESTAMP, default NULL): 首页 Guided Tour 完成或跳过的时间
 
-未完成 onboarding (`onboarding_completed_at IS NULL`) 的用户访问受限页面 → 由 Next.js middleware 拦截 redirect `/onboarding` (排除 `/onboarding` 自身、auth callback、`/api/*`、静态资源).
+未完成 onboarding (`onboarding_completed_at IS NULL`) 的用户访问受限页面 → 由前端 `OnboardingGate` 在后端明确返回 `completed:false` 时跳转首页 `/?tour=1`。Next.js middleware 只做 cookie gate，不再负责 onboarding redirect。
 
 ## CTA Tier 决策
 
@@ -132,15 +132,17 @@ python scripts/check_qinbafrank_stripe_readiness.py \
 - 新增试用优先使用 Stripe Trial Subscription，这样到期、取消和 entitlement 清理都走 Stripe webhook；`access_expires_at` 主要作为历史/手动 grant 兜底。
 - Stripe `trialing` subscription 也代表 active access；前端 display/activation 和 deleted webhook replacement-sub 检查都必须兼容 `trialing`。
 
-## Onboarding 流程 (强制)
+## Onboarding 流程
 
-3 步, **必须完成**:
+新用户主路径是首页轻量 Guided Tour：
 
-1. **Welcome**: 价值主张 (今天就能用: 1 次 AI 投研体验 + 首份推特日报 + 自选股提醒; 建好自选股, 解锁每天专属日报)
-2. **建自选股 (强制, 至少 3 只, 推荐 5-10)**: 不允许 skip; UI 鼓励多加, 上限 25, 一键加 Mag 7 等 popular groups
-3. **专属日报 modal**: 标题 "为你的 X 只自选股, 每天生成专属日报"; 嵌一份**通用样本** (从 Mag 7 池 `AAPL/MSFT/GOOGL/AMZN/META/NVDA/TSLA` 选一只, 不基于用户实际持仓 mock); 主 CTA "升级 Pro 立即激活" → 直接 `POST /api/payment/checkout-session` (`tier="pro"`, `source="onboarding"`), 跳 Stripe 托管页; 次 CTA "稍后再说"
+1. 注册或首次 OAuth 后默认落到 `/?tour=1`；该入口会先检查本地/后端完成状态，已完成用户不再显示 tour。
+2. 首页 `HomeGuidedTour` 用 spotlight/coach-mark 高亮真实 UI，不再强制进入独立 onboarding 页面。
+3. Tour 高亮顶部导航的四个入口：AI 研究助手、每日简报、投研、我的，简短说明每天看简报、需要深挖时进 Agent、从个股/宏观/博主研究室切入，以及在「我的」里添加自选股启动专属监控。
+4. 用户点“完成导览”或“跳过”时，前端 best-effort 调 `POST /api/user/onboarding/complete`，写 `onboarding_completed_at = NOW()`，并写本地 `onboarding_completed:{userId}` marker。
+5. 手动调试使用 `/?tour=home` 强制预览；不要把它作为注册默认 redirect。
 
-完成后写 `onboarding_completed_at = NOW()`, 落地 `/today`. 顶部配额 widget: "今天还可以: 2 次 AI 投研对话".
+独立 `/onboarding` 页面已移除；更细的自选股和持仓设置继续放在 `/for-you/onboarding`、`/for-you/watchlist` 等真实功能页里承接。
 
 ## 监控边界
 
