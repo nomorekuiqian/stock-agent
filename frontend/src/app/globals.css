@@ -16,11 +16,11 @@
   /* Editorial headlines: LXGW WenKai (async CDN) for Chinese, Instrument Serif (next/font) for English */
   --font-serif:
     "LXGW WenKai", var(--font-instrument-serif), "Songti SC", Georgia, serif;
-  /* Body text: LXGW WenKai first for the Chinese-first editorial voice.
-     HarmonyOS / DM Sans stay as crisp fallbacks for unsupported glyphs. */
+  /* Body text: HarmonyOS Sans SC first for dense Chinese reading.
+     LXGW WenKai stays available for editorial headings via --font-serif. */
   --font-sans:
-    "LXGW WenKai", "HarmonyOS Sans SC", var(--font-dm-sans), "PingFang SC",
-    "Microsoft YaHei", system-ui, sans-serif;
+    "HarmonyOS Sans SC", var(--font-dm-sans), "PingFang SC", "Microsoft YaHei",
+    system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
 
   /* NOTE: color tokens are NOT defined here. Runtime color values live in

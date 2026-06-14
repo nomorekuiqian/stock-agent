@@ -17,7 +17,7 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 | GitHub workflow | Insforge schedule | Schedule ID | Cron UTC | Proxy job | 状态 |
 |---|---|---|---|---|---|
 | `daily-report.yml` | `Cron - Daily Market Report` | `4df141ee-d090-4292-a784-f49feeef34a0` | `0 22 * * 1-5` | `daily_report` | active |
-| `daily-digest.yml` | `Cron - Daily Personal Digest` | `8658badd-6537-44ac-bebb-4aa45352af78` | `15 22 * * 1-5` | `daily_digest` | active |
+| `daily-digest.yml` | `Cron - Daily Personal Digest` | `8658badd-6537-44ac-bebb-4aa45352af78` | `30 22 * * 1-5` | `daily_digest` | active |
 | `weekly-report.yml` | `Cron - Weekly Macro Report` | `cca2235d-05b1-43e7-aa8d-4032519d418b` | `0 17 * * 0` | `weekly_report` | active |
 | `onboarding-drip.yml` | `Cron - Onboarding Drip` | `29f09615-aacd-4d3b-a31c-8d8bbae2df07` | `0 23 * * *` | `onboarding_drip` | legacy no-op |
 | `screener-universe-refresh.yml` | `Cron - Screener Universe Refresh` | `f236991b-6678-46eb-a24a-1e7b1a7d8a07` | `0 23 * * 1-5` | `screener_universe_refresh` | active |
@@ -27,7 +27,7 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 | `kol-list-sync.yml` | `Cron - KOL List Sync` | `7aa01b1d-54a6-4b7d-9004-192af0e008b5` | `0 20 * * *` | `kol_list_sync` | active |
 | `kol-tweets-fetch.yml` | `Cron - KOL Tweets Ingestion` | `694a6eb6-3f20-43e8-83f9-197aefcdbe85` | `0 * * * *` | `kol_tweets_ingestion` | active |
 | `twitter-digest-generate.yml` | `Cron - Twitter Digest Generate` | `58df517a-89e6-4b0f-90a5-1929c1d8fbd9` | `30 20 * * 1-5` | `twitter_digest_generate` | active |
-| `twitter-digest-broadcast.yml` | `Cron - Twitter Digest Broadcast` | `49ee46f5-2300-40f6-8a63-6dd5d1af13be` | `2 22 * * 1-5` | `twitter_digest_broadcast` | active |
+| `twitter-digest-broadcast.yml` | `Cron - Twitter Digest Broadcast` | `49ee46f5-2300-40f6-8a63-6dd5d1af13be` | `15 22 * * 1-5` | `twitter_digest_broadcast` | active |
 
 ## 额外直连 Schedule
 
@@ -42,9 +42,10 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 它只写 `vector_documents` / `vector_chunks`; KOL tweet 拉取和 enrichment 仍由
 `Cron - KOL Tweets Ingestion` 负责。
 
-`twitter_digest_broadcast` 从原 `0 22 * * 1-5` 调整到 `2 22 * * 1-5`，
-避免 pg_cron 精确触发时与 `daily_report` 同分钟撞 Resend 限流。GitHub
-Actions 时代的调度抖动会天然错开，迁到 Insforge 后需要显式错峰。
+2026-06-13: 晚间邮件错峰为 `daily_report` 18:00 ET (`0 22 * * 1-5`),
+`twitter_digest_broadcast` 18:15 ET (`15 22 * * 1-5`), `daily_digest`
+18:30 ET (`30 22 * * 1-5`)。避免 pg_cron 精确触发时同分钟撞 Resend
+限流，同时改善用户连续收到多封晚报的体验。
 
 2026-06-06: onboarding drip 邮件已删除。`onboarding_drip` schedule 如果继续触发，
 只会经 `cron-trigger` 调用 legacy backend endpoint 并返回 `disabled=true`，不会发送邮件。
