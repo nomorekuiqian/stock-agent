@@ -878,14 +878,7 @@ export interface ActionBarResponse {
 
 // Feedback
 export interface FeedbackInput {
-  target_type:
-    | 'digest_quick_take'
-    | 'digest_headline'
-    | 'health_diagnosis'
-    | 'action_bar_headline'
-    | 'action_bar_chip'
-    | 'top_event'
-    | 'research_agent_answer';
+  target_type: 'research_agent_answer';
   target_id: string;
   /** 1 = thumbs up, -1 = thumbs down, 0 = clear previous feedback. */
   sentiment: 1 | -1 | 0;
@@ -1217,6 +1210,7 @@ export interface KolResearchRequest {
 export interface KolResearchResponse {
   persona_username: string;
   message: string;
+  options: string[];
   kol_chunks: KolPersonaChunk[];
   activated_skills: string[];
   tool_calls: KolToolCallSummary[];

@@ -2,6 +2,7 @@
 
 Mirrors the shape of /api/research/* with two extras:
 - `persona_username`: which KOL methodology is active (currently only "qinbafrank")
+- `options`: LLM-generated follow-up chips for the shared /research UI
 - `kol_chunks`: search_kol_tweets hits, populated by the agent run loop
 """
 
@@ -86,6 +87,13 @@ class KolResearchResponse(BaseModel):
 
     persona_username: str
     message: str = Field(..., description="Markdown answer for the user.")
+    options: List[str] = Field(
+        default_factory=list,
+        description=(
+            "3-4 LLM-generated follow-up chips in Chinese. Each item is a "
+            "plain user message that can be sent directly when clicked."
+        ),
+    )
     kol_chunks: List[PersonaChunkResult] = Field(default_factory=list)
     activated_skills: List[str] = Field(
         default_factory=list,

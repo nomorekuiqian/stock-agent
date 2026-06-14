@@ -1144,6 +1144,24 @@ describe('buildKolPersistedMessages', () => {
       { id: 'a-456', role: 'assistant', content: '第二答' },
     ]);
   });
+
+  it('persists assistant follow-up options for KOL turns', () => {
+    const messages = buildKolPersistedMessages({
+      existingMessages: [],
+      isFirstTurn: true,
+      userMessage: '分析 NVDA',
+      assistantMessage: 'NVDA 回答',
+      assistantOptions: ['查 NVDA 历史观点', 'NVDA 的打脸条件'],
+      timestamp: 789,
+    });
+
+    expect(messages[1]).toEqual({
+      id: 'a-789',
+      role: 'assistant',
+      content: 'NVDA 回答',
+      options: ['查 NVDA 历史观点', 'NVDA 的打脸条件'],
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-from app.features.kol_research.agent import _sanitize_user_facing_markdown
+import pytest
+
+from app.features.kol_research import agent as kol_agent_module
+from app.features.kol_research.agent import (
+    generate_kol_follow_up_options,
+    _normalize_follow_up_options,
+    _sanitize_user_facing_markdown,
+    _slim_content_context_for_follow_up,
+)
 
 
 def test_sanitizer_translates_internal_coverage_label():
@@ -68,3 +76,59 @@ def test_sanitizer_preserves_frank_methodology_terms_for_frank_persona():
     assert "杀逻辑" in out
     assert "判断状态" not in out
     assert "估值回撤" not in out
+
+
+def test_follow_up_options_filter_trading_advice_and_deduplicate():
+    out = _normalize_follow_up_options([
+        " 1. 哪些数据会证伪 NVDA 逻辑? ",
+        "哪些数据会证伪 NVDA 逻辑?",
+        "这只股票可以买入吗?",
+        "给我一个目标价",
+        "把 MU 和 AVGO 放一起比",
+    ])
+
+    assert out == [
+        "哪些数据会证伪 NVDA 逻辑?",
+        "把 MU 和 AVGO 放一起比",
+    ]
+
+
+def test_follow_up_context_slimmer_keeps_only_useful_fields():
+    out = _slim_content_context_for_follow_up({
+        "type": "stock",
+        "label": "NVDA 个股研究",
+        "summary": "NVDA",
+        "symbol": "NVDA",
+        "params": {"symbol": "NVDA", "tab": "earnings", "ignored": "x"},
+        "quote": {"price": 180, "change_percent": 2.1, "extra": "drop"},
+        "large_blob": {"ignore": True},
+    })
+
+    assert out == {
+        "type": "stock",
+        "label": "NVDA 个股研究",
+        "summary": "NVDA",
+        "symbol": "NVDA",
+        "params": {"symbol": "NVDA", "tab": "earnings"},
+        "quote": {"price": 180, "change_percent": 2.1},
+    }
+
+
+@pytest.mark.asyncio
+async def test_follow_up_generator_is_best_effort_when_runner_fails(monkeypatch):
+    async def fail_create_session(**_kwargs):
+        raise RuntimeError("runner unavailable")
+
+    monkeypatch.setattr(
+        kol_agent_module._follow_up_options_runner.session_service,
+        "create_session",
+        fail_create_session,
+    )
+
+    out = await generate_kol_follow_up_options(
+        user_message="NVDA 怎么看?",
+        assistant_message="答案",
+        persona_username="qinbafrank",
+    )
+
+    assert out == []
