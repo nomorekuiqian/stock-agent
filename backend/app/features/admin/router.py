@@ -91,8 +91,17 @@ def _categorize_users(users: list[dict[str, Any]]) -> dict[str, Any]:
         access_expires_at = user.get("access_expires_at")
         plan = user.get("plan")
         status = user.get("status")
+        is_lifetime = bool(user.get("is_lifetime"))
+        has_stripe_subscription = bool(user.get("stripe_subscription_id"))
 
-        if plan in ("pro", "max", "ultra") and status == "active" and not access_expires_at:
+        if is_lifetime:
+            category = "paid"
+        elif (
+            plan in ("pro", "max", "ultra")
+            and status == "active"
+            and not access_expires_at
+            and has_stripe_subscription
+        ):
             category = "paid"
         elif access_expires_at:
             expires = _parse_dt(access_expires_at)

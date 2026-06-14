@@ -213,6 +213,8 @@ class TestFilterActiveSubscribersFailOpen:
                         "is_lifetime": False,
                         "entitlements": ["personal_digest_email"],
                         "access_expires_at": None,
+                        "status": "active",
+                        "stripe_subscription_id": "sub_paid",
                     }],
                 }
             },
@@ -223,10 +225,8 @@ class TestFilterActiveSubscribersFailOpen:
         assert len(result) == 1
         assert result[0]["_is_real_paid"] is True
 
-    async def test_legacy_trial_user_classified_as_paid(self):
-        """Post-freemium: trial users (with access_expires_at) still get
-        `_is_real_paid=True` because they have entitlements. The plan keeps
-        legacy trial users on PAID CTA until their trial winds down naturally."""
+    async def test_trial_user_classified_as_not_real_paid(self):
+        """Trial/grant users keep access but should receive the upsell CTA."""
         from app.features.subscription import email_service
 
         future = "2099-12-31T00:00:00Z"
@@ -241,6 +241,8 @@ class TestFilterActiveSubscribersFailOpen:
                         "is_lifetime": False,
                         "entitlements": ["personal_digest_email"],
                         "access_expires_at": future,
+                        "status": "active",
+                        "stripe_subscription_id": "sub_trial_or_grant",
                     }],
                 }
             },
@@ -249,7 +251,7 @@ class TestFilterActiveSubscribersFailOpen:
             result = await email_service._filter_active_subscribers(entitled)
 
         assert len(result) == 1
-        assert result[0]["_is_real_paid"] is True
+        assert result[0]["_is_real_paid"] is False
 
 
 class TestTierClassification:
@@ -264,17 +266,22 @@ class TestTierClassification:
         assert is_real_paid_sub({"is_lifetime": True}) is True
 
     def test_paid_no_expiry_is_paid(self):
-        sub = {"entitlements": ["personal_digest_email"], "access_expires_at": None}
+        sub = {
+            "status": "active",
+            "stripe_subscription_id": "sub_paid",
+            "entitlements": ["personal_digest_email"],
+            "access_expires_at": None,
+        }
         assert is_real_paid_sub(sub) is True
 
-    def test_legacy_trial_with_expiry_still_paid_under_freemium(self):
-        """Post-freemium: access_expires_at no longer demotes the user — any
-        entitlements present mean paid CTA. See docs/plans/active/freemium-lifecycle-email.md."""
+    def test_trial_with_expiry_is_not_real_paid(self):
         sub = {
+            "status": "active",
+            "stripe_subscription_id": "sub_trial_or_grant",
             "entitlements": ["personal_digest_email"],
             "access_expires_at": "2026-12-31T00:00:00Z",
         }
-        assert is_real_paid_sub(sub) is True
+        assert is_real_paid_sub(sub) is False
 
     def test_no_entitlements_is_not_paid(self):
         assert is_real_paid_sub({"entitlements": []}) is False

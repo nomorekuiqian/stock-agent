@@ -7,7 +7,7 @@ lock the Python fallback semantics used when the edge/RPC deployment is behind.
 import pytest
 
 from app.features.admin import router as admin_router
-from app.features.admin.router import _page_legacy_dashboard
+from app.features.admin.router import _categorize_users, _page_legacy_dashboard
 
 
 def _user(
@@ -71,6 +71,54 @@ def test_dashboard_tags_or_within_group_and_across_groups():
         "total": 2,
         "total_pages": 1,
     }
+
+
+def test_dashboard_category_paid_requires_lifetime_or_stripe_paid():
+    result = _categorize_users([
+        {
+            "user_id": "paid",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_subscription_id": "sub_paid",
+            "access_expires_at": None,
+            "is_lifetime": False,
+        },
+        {
+            "user_id": "lifetime",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_subscription_id": None,
+            "access_expires_at": None,
+            "is_lifetime": True,
+        },
+        {
+            "user_id": "grant",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_subscription_id": None,
+            "access_expires_at": "2099-01-01T00:00:00+00:00",
+            "is_lifetime": False,
+        },
+        {
+            "user_id": "manual",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_subscription_id": None,
+            "access_expires_at": None,
+            "is_lifetime": False,
+        },
+    ])
+
+    categories = {user["user_id"]: user["category"] for user in result["users"]}
+    assert categories == {
+        "paid": "paid",
+        "lifetime": "paid",
+        "grant": "active_trial",
+        "manual": "never_trialed",
+    }
+    assert result["summary"]["paid"] == 2
+    assert result["summary"]["active_trial"] == 1
+    assert result["summary"]["never_trialed"] == 1
 
 
 def test_dashboard_pagination_slices_after_sort_and_filter():

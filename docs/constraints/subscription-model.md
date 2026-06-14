@@ -116,9 +116,11 @@ python scripts/check_qinbafrank_stripe_readiness.py \
 `is_real_paid_sub(sub)` (`backend/app/features/subscription/cta_tier.py`):
 
 1. `is_lifetime=true` → **True**
-2. `entitlements` 为空 → **False**
-3. `access_expires_at` 非空 → **False**（非 Stripe grant / 试用用户进入 Free CTA）
-4. 否则 → **True**（有 entitlements 且无 grant expiry，视作真付费）
+2. `access_expires_at` 非空 → **False**（非 Stripe grant / 试用用户进入 Free CTA）
+3. `status != "active"` → **False**（Stripe trialing/canceled 不算真付费）
+4. `stripe_subscription_id` 为空 → **False**（手工 grant 不算真付费）
+5. `entitlements` 为空 → **False**
+6. 否则 → **True**（active Stripe subscription + entitlements + 无 grant expiry）
 
 ## Grant 到期与同步
 
