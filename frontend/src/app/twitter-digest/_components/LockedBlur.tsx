@@ -41,21 +41,21 @@ export function LockedBlur({
       aria-label={label ? `${label}（订阅解锁）` : '订阅解锁'}
     >
       {label && (
-        <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/85 font-data">
+        <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
           {label}
         </div>
       )}
       {sample.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/85">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           {sample.map((kol) => (
             <span
               key={kol}
-              className="font-data text-foreground/75 normal-case tracking-normal"
+              className="font-data text-foreground normal-case tracking-normal"
             >
               @{kol}
             </span>
           ))}
-          <span className="text-muted-foreground/55 normal-case tracking-normal">等</span>
+          <span className="text-muted-foreground normal-case tracking-normal">等</span>
         </div>
       )}
       <div
@@ -119,7 +119,7 @@ export function UpgradeBanner({
     >
       <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2 max-w-xl">
-          <p className="text-[11px] uppercase tracking-[0.25em] text-amber-700 dark:text-amber-300 font-data">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
             Premium Intelligence
           </p>
           <h3 className="text-xl md:text-2xl font-editorial text-foreground">

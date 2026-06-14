@@ -300,7 +300,7 @@ function StatPill({ label, value, accent }: { label: string; value: string; acce
         ? 'bg-primary/10 border border-primary/20'
         : 'bg-card/80 border border-border/30'
     }`}>
-      <span className="text-muted-foreground/60">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       <span className={`font-data tabular-nums ${accent ? 'text-primary' : 'text-foreground'}`}>
         {value}
       </span>
@@ -393,7 +393,7 @@ function FundamentalTab({
           <div className="grid grid-cols-4 gap-px bg-border/20 rounded-lg overflow-hidden">
             {group.items.map((m) => (
               <div key={m.label} className="bg-card/80 px-3 py-2.5 flex flex-col items-center">
-                <div className="text-xs text-muted-foreground/60">{m.label}</div>
+                <div className="text-xs text-muted-foreground">{m.label}</div>
                 <div className={`font-data text-sm mt-1 tabular-nums ${('color' in m && m.color) || 'text-foreground'}`}>{m.value}</div>
               </div>
             ))}
@@ -461,7 +461,7 @@ function FundamentalTab({
 /** Table header cell */
 function ThCol({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
   return (
-    <th className={`py-2 px-3 text-muted-foreground/70 font-medium text-${align} text-xs`}>
+    <th className={`py-2 px-3 text-muted-foreground font-medium text-${align} text-xs`}>
       {children}
     </th>
   );
@@ -511,7 +511,7 @@ function AnalysisSection({
         </div>
         <div className="text-center">
           <p className="text-sm text-foreground font-medium">{title}</p>
-          {subtitle && <p className="text-xs text-muted-foreground/70 mt-0.5">{subtitle}</p>}
+          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
         </div>
         <button
           onClick={onGenerate}
@@ -532,12 +532,12 @@ function AnalysisSection({
             {title}
           </h3>
           {subtitle && (
-            <span className="text-xs text-muted-foreground/50">{subtitle}</span>
+            <span className="text-xs text-muted-foreground">{subtitle}</span>
           )}
         </div>
         <button
           onClick={onGenerate}
-          className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-pointer flex items-center gap-1"
+          className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" strokeLinecap="round" strokeLinejoin="round" />

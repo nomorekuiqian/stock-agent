@@ -66,7 +66,7 @@ export function OpeningSection({
           className="flex flex-wrap justify-center items-center gap-2 md:gap-3 pt-1"
           aria-label="今日最热"
         >
-          <span className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground/65">
+          <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             今日最热
           </span>
           {topTicker && <RadarChip kind="ticker" item={topTicker} />}
@@ -100,7 +100,7 @@ function RadarChip({ kind, item }: { kind: 'ticker' | 'sector' | 'event'; item: 
     <>
       {labelNode}
       {kols > 0 && (
-        <span className="text-[10px] font-data tabular-nums text-muted-foreground/70 group-hover:text-sky-400/85 transition-colors">
+        <span className="text-xs font-data tabular-nums text-muted-foreground transition-colors group-hover:text-sky-400">
           {kols} KOL
         </span>
       )}

@@ -328,9 +328,9 @@ function ProfileContent(): ReactNode {
                 onChange={(e) => { setName(e.target.value); setMessage(null); }}
                 placeholder="输入你的昵称"
                 maxLength={50}
-                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
+                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
               />
-              <p className="mt-2 text-xs text-muted-foreground">此昵称将用于每日邮件的称呼</p>
+              <p className="mt-2 text-sm text-muted-foreground">此昵称将用于每日邮件的称呼</p>
             </div>
 
             <div className="bg-card border border-border/50 rounded-xl p-4">
@@ -525,7 +525,7 @@ function ProfileContent(): ReactNode {
                   {portalError ? (
                     <p className="text-xs text-red-400 text-center mt-2">{portalError}</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground/70 text-center mt-2">修改付款方式、查看账单或取消订阅</p>
+                    <p className="text-sm text-muted-foreground/70 text-center mt-2">修改付款方式、查看账单或取消订阅</p>
                   )}
                 </div>
               ) : isCanceled ? (

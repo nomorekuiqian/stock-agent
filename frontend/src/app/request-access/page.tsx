@@ -273,7 +273,7 @@ export default function RequestAccessPage(): ReactNode {
               placeholder="请描述你目前最头疼的问题，或者对产品的期待和建议..."
               rows={3}
               maxLength={500}
-              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200 resize-none"
+              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200 resize-none"
             />
           </div>
 

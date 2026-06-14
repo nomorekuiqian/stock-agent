@@ -66,7 +66,7 @@ export default function FilterProgress({ steps, appliedFilters }: FilterProgress
           {steps.map((step, i) => (
             <span key={i} className="flex items-center gap-2">
               {i > 0 && (
-                <svg className="w-3 h-3 text-muted-foreground/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-3 h-3 text-muted-foreground/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18l6-6-6-6" />
                 </svg>
               )}
@@ -81,7 +81,7 @@ export default function FilterProgress({ steps, appliedFilters }: FilterProgress
                 {step.count.toLocaleString()}
               </span>
               {step.label && (
-                <span className="text-muted-foreground/60 text-xs">{step.label}</span>
+                <span className="text-xs text-muted-foreground">{step.label}</span>
               )}
             </span>
           ))}
@@ -98,7 +98,7 @@ export default function FilterProgress({ steps, appliedFilters }: FilterProgress
             >
               <span>{FIELD_LABELS[f.field] || f.field}</span>
               <span className="text-primary/50">{OP_LABELS[f.op] || f.op}</span>
-              <span className="font-data">{formatFilterValue(f.value)}</span>
+              <span>{formatFilterValue(f.value)}</span>
             </span>
           ))}
         </div>

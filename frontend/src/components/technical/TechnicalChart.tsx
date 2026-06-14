@@ -739,7 +739,9 @@ export function TechnicalChart({ data, annotations, height = 600 }: TechnicalCha
             </span>
           )}
           {indicators.adx && (indicatorData?.adx.length ?? 0) > 0 && (
-            <span className="font-data">ADX &gt; 25 强趋势 · &lt; 20 弱趋势</span>
+            <span>
+              <span className="font-data">ADX &gt; 25</span> 强趋势 · <span className="font-data">&lt; 20</span> 弱趋势
+            </span>
           )}
         </div>
       )}

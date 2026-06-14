@@ -41,7 +41,7 @@ export function getMainNavSections({
       label: '投研',
       href: '/stock',
       children: [
-        { href: '/kol/qinbafrank', label: '博主研究室' },
+        { href: '/kol', label: '博主研究室' },
         { href: '/stock', label: '个股研究' },
         { href: '/macro', label: '宏观研究' },
       ],

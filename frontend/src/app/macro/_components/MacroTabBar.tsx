@@ -28,7 +28,7 @@ export function MacroTabBar() {
                 className={`shrink-0 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors relative ${
                   isActive
                     ? 'text-primary'
-                    : 'text-muted-foreground/60 hover:text-foreground'
+                    : 'text-muted-foreground/70 hover:text-foreground'
                 }`}
               >
                 {tab.label}

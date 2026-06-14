@@ -238,7 +238,7 @@ export function HistoryAreaChart({
   if (error) {
     return (
       <div style={{ height }} className="flex items-center justify-center">
-        <span className="text-xs text-muted-foreground">暂无可用图表数据</span>
+        <span className="text-sm text-muted-foreground">暂无可用图表数据</span>
       </div>
     );
   }
@@ -246,7 +246,7 @@ export function HistoryAreaChart({
   if (hasNoData) {
     return (
       <div style={{ height }} className="flex items-center justify-center">
-        <span className="text-xs text-muted-foreground">暂无可用图表数据</span>
+        <span className="text-sm text-muted-foreground">暂无可用图表数据</span>
       </div>
     );
   }

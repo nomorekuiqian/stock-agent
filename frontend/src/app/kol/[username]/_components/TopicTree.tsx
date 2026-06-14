@@ -116,13 +116,13 @@ function TopicRow({
         active
           ? 'bg-primary/10 text-primary'
           : disabled
-            ? 'text-muted-foreground/40 cursor-not-allowed'
+            ? 'text-muted-foreground/70 cursor-not-allowed'
             : 'text-muted-foreground hover:bg-card/40 hover:text-foreground'
       }`}
     >
       <span className="truncate font-medium">{label}</span>
       <span
-        className={`font-data text-[11px] tabular-nums ${
+        className={`font-data text-xs tabular-nums ${
           active ? 'text-primary/80' : 'text-muted-foreground/70 group-hover:text-muted-foreground'
         }`}
       >

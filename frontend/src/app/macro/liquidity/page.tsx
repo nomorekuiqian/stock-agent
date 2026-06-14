@@ -122,7 +122,7 @@ function LiquidityHeroCard({
       {/* Primary big number */}
       <div className="mb-1">
         <span
-          className={`text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
+          className={`text-data-hero font-bold font-data tracking-tighter leading-tight transition-colors duration-300 ${
             selected
               ? getColorClass(accentColor)
               : 'text-foreground group-hover:text-foreground'

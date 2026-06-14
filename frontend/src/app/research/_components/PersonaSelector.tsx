@@ -198,7 +198,7 @@ export default function PersonaSelector({
         ) : (
           <DefaultAssistantAvatar className="group-hover/persona:scale-105" />
         )}
-        <span className="max-w-[9rem] truncate leading-none">{activeLabel}</span>
+        <span className="max-w-[9rem] truncate leading-tight">{activeLabel}</span>
         <ChevronDown
           className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           aria-hidden

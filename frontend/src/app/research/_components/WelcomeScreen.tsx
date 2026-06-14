@@ -614,13 +614,13 @@ function CapabilityCardView({
               />
             </div>
             <div className="min-w-0">
-              <h3 className="font-editorial text-lg leading-tight text-foreground">
+              <h3 className="text-lg font-semibold leading-tight text-foreground">
                 {card.title}
               </h3>
             </div>
           </div>
           <div
-            className={`mt-0.5 flex shrink-0 items-center gap-1.5 font-editorial text-sm leading-5 transition-colors ${
+            className={`mt-0.5 flex shrink-0 items-center gap-1.5 text-sm font-medium leading-5 transition-colors ${
               expanded ? a.textActive : `${a.textRest} ${a.textActiveGroupHover}`
             }`}
           >
@@ -717,11 +717,11 @@ function OptionGrid({ options, accent, freeInputPlaceholder, onSubmit, onFreeSub
               />
             )}
             <div className="min-w-0 flex-1">
-              <div className="font-editorial text-sm leading-snug text-foreground">
+              <div className="text-sm font-medium leading-snug text-foreground">
                 {opt.title}
               </div>
               {opt.desc && (
-                <div className="mt-1 truncate font-editorial text-sm leading-5 text-muted-foreground">
+                <div className="mt-1 truncate text-sm leading-5 text-muted-foreground">
                   {opt.desc}
                 </div>
               )}
@@ -836,7 +836,7 @@ function TickerEntry({ chips, accent, onSubmit }: TickerEntryProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 font-editorial text-sm leading-5 text-muted-foreground">热门</span>
+        <span className="mr-1 text-sm font-medium leading-5 text-muted-foreground">热门</span>
         {chips.map((ticker) => (
           <button
             key={ticker}
@@ -915,7 +915,7 @@ function PersonaIntro({
 
         {persona.description ? (
           <p
-            className="mt-4 max-w-xl animate-fade-in-up text-balance font-editorial text-base leading-7 text-muted-foreground"
+            className="font-reading mt-4 max-w-xl animate-fade-in-up text-balance text-base leading-7 text-muted-foreground"
             style={{ animationDelay: '220ms' }}
           >
             {persona.description}

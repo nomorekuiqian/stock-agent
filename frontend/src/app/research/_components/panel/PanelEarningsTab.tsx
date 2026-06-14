@@ -445,7 +445,7 @@ export default function PanelEarningsTab({ symbol, stockData }: { symbol: string
               </div>
             ) : (
               <div className="p-6 text-center">
-                <p className="text-xs text-muted-foreground">该季度暂无电话会纪要</p>
+                <p className="text-sm text-muted-foreground">该季度暂无电话会纪要</p>
               </div>
             )}
           </div>

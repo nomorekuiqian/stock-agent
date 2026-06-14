@@ -43,8 +43,12 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   // from max-w-7xl to full bleed on every navigation / refresh.
   const u = username.toLowerCase();
   const isFrank = u === 'qinbafrank';
+  const isSerenity = u === 'aleabitoreddit';
   const isFrankRoot =
     isFrank &&
+    (pathname === `/kol/${username}` || pathname === `/kol/${username}/`);
+  const isSerenityRoot =
+    isSerenity &&
     (pathname === `/kol/${username}` || pathname === `/kol/${username}/`);
   const isWideWorkspace = u === 'qinbafrank' || u === 'aleabitoreddit';
   const shellWidth = isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl';
@@ -108,7 +112,7 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   if (!ready) {
     return (
       <div className="min-h-screen bg-background">
-        <HeroSkeleton />
+        {!isSerenity ? <HeroSkeleton /> : null}
         <SubNavSkeleton />
         {errored ? (
           <div className={`mx-auto px-4 py-16 text-center text-sm text-muted-foreground md:px-6 ${shellWidth}`}>
@@ -143,6 +147,34 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
       ? 5
       : sectorsQ.data?.sectors.filter((sector) => sector.layer === 'sector').length ??
         profile.sectors.length;
+
+  if (isSerenity) {
+    const mainClassName = isSerenityRoot
+      ? 'min-w-0'
+      : 'min-w-0 px-4 md:px-6 lg:pl-6 lg:pr-6';
+
+    return (
+      <div className="min-h-screen bg-background">
+        <div className={`mx-auto lg:grid lg:grid-cols-[72px_minmax(0,1fr)] ${shellWidth}`}>
+          <aside className="lg:border-r lg:border-border/60 lg:pr-2">
+            <SubNav
+              username={profile.persona.username}
+              displayName={profile.persona.display_name}
+              avatarUrl={avatarUrl}
+              kpis={{
+                latestCount: totalTweets,
+                sectorCount,
+                tickerCount,
+              }}
+            />
+          </aside>
+          <main className={mainClassName}>
+            {gatedChildren}
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

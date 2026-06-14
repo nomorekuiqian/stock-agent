@@ -103,7 +103,7 @@ export default function EconomyView({ embedded, onContextReady }: EconomyViewPro
         <>
           <div className="px-5 pt-4 pb-4">
             <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">ECONOMY</span>
-            <h2 className="text-xl font-editorial text-foreground leading-tight mt-1">经济基本面</h2>
+            <h2 className="mt-1 text-xl font-semibold leading-tight text-foreground">经济基本面</h2>
             <p className="text-sm text-muted-foreground mt-1">增长、就业、信用风险</p>
           </div>
 

@@ -22,7 +22,7 @@ export interface MetricItem {
 const DIRECTION_ARROWS: Record<string, { icon: string; color: string }> = {
   up: { icon: '\u2191', color: 'text-emerald-500' },
   down: { icon: '\u2193', color: 'text-red-500' },
-  flat: { icon: '\u2192', color: 'text-muted-foreground/60' },
+  flat: { icon: '\u2192', color: 'text-muted-foreground/70' },
 };
 
 function TrendBadge({ trend }: { trend: MetricTrend }) {
@@ -146,13 +146,13 @@ export function MacroQuadrant({
       {/* Chart area - full width */}
       <div className="px-3 pb-2">
         {activeMetric && metrics.filter(m => m.chart).length > 1 && (
-          <p className="px-2 pb-1.5 text-[11px] text-muted-foreground/70">
+          <p className="px-2 pb-1.5 text-xs text-muted-foreground">
             正在看 <span className="text-foreground/80 font-medium">{activeMetric.label}</span> 的历史趋势 · 点击上方切换其他指标
           </p>
         )}
         <div className="h-[200px] overflow-hidden rounded-lg">
           {chartNode || (
-            <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground/50">
+            <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
               选择指标查看趋势
             </div>
           )}

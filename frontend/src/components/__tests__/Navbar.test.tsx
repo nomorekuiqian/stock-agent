@@ -88,5 +88,8 @@ describe('Navbar', () => {
     render(<Navbar />);
 
     expect(screen.getAllByText('博主研究室').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('menuitem', { name: '博主研究室' }).every((link) => (
+      link.getAttribute('href') === '/kol'
+    ))).toBe(true);
   });
 });

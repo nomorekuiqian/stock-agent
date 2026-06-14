@@ -272,7 +272,7 @@ export function SectionHeader({ sectionName, title }: { sectionName: string; tit
 
   return (
     <div className="flex items-start gap-3 min-w-0">
-      <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
+      <span className="text-3xl font-data font-bold leading-tight text-foreground tracking-tighter select-none">
         {meta?.number || '00'}
       </span>
       <div className="pt-0.5 min-w-0">

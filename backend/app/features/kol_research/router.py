@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json as _json
+import re
 import time
 from typing import Any
 
@@ -86,6 +87,9 @@ QINBAFRANK_TRIAL_LIMIT = 1
 QINBAFRANK_TRIAL_USAGE_DATE = "1970-01-01"
 
 router = APIRouter(prefix="/api/kol_research", tags=["kol_research"])
+
+_TIMELINE_KEEP_TYPES = {"thesis", "catalyst", "risk_flag", "sector_framework", "trade_action", "macro_view"}
+_TIMELINE_DROP_TYPES = {"noise"}
 
 
 # ---------------------------------------------------------------------------
@@ -347,10 +351,25 @@ async def cockpit_sector(username: str, sector_key: str):
         ):
             detail[field] = _wrap_raw(detail.get(field))
 
-        # Ensure rep_tweets exists (frontend reads detail.rep_tweets directly).
-        # v3 macro skills don't have explicit rep_tweet_ids, so leave empty.
-        detail["rep_tweets"] = detail.get("rep_tweets") or []
-        detail.pop("rep_tweet_ids", None)
+        # Resolve v3 evidence-map tweet ids to slim tweet bodies. The frontend
+        # reads `rep_tweets` directly for the "past comments" column.
+        rep_ids = detail.pop("rep_tweet_ids", []) or []
+        rep_tweets: list[dict] = []
+        if rep_ids:
+            try:
+                idx = await cockpit.get_index(username)
+                by_id = idx.get("by_id") or {}
+                for tid in rep_ids:
+                    slim = by_id.get(str(tid))
+                    if slim is None:
+                        continue
+                    rep_tweets.append({
+                        k: v for k, v in slim.items()
+                        if k != "in_reply_to_username"
+                    })
+            except Exception:  # noqa: BLE001
+                logger.warning("v3 rep_tweet resolution failed", exc_info=True)
+        detail["rep_tweets"] = detail.get("rep_tweets") or rep_tweets
 
         return detail
 
@@ -1726,21 +1745,181 @@ async def cockpit_ticker_detail(username: str, ticker: str):
     return detail
 
 
+def _timeline_claim_from_tweet(tweet: dict) -> str:
+    claim = str(tweet.get("key_claim") or "").strip()
+    if claim:
+        return claim
+    text = " ".join(str(tweet.get("text") or "").split())
+    if not text:
+        text = " ".join(str(tweet.get("article_title") or "").split())
+    return text[:180] if text else ""
+
+
+def _normalize_timeline_stance(stance: Any) -> str | None:
+    s = str(stance or "").lower()
+    if s.startswith("bull"):
+        return "bull"
+    if s.startswith("bear"):
+        return "bear"
+    if s.startswith("neutral") or s.startswith("watch"):
+        return "neutral"
+    return None
+
+
+def _tweet_mentions_symbol(tweet: dict, symbol: str) -> bool:
+    target = symbol.upper()
+    haystack = " ".join(
+        str(tweet.get(field) or "")
+        for field in ("text", "article_title")
+    ).upper()
+    pattern = re.compile(r"(?<![A-Z0-9])\$?" + re.escape(target) + r"(?![A-Z0-9])")
+    return bool(pattern.search(haystack))
+
+
+def _pick_v3_raw_timeline_items(
+    tweets: list[dict],
+    ticker: str,
+    stance: str | None,
+    limit: int,
+) -> list[dict]:
+    eligible: list[dict] = []
+    for tweet in tweets:
+        content_type = tweet.get("content_type")
+        if content_type in _TIMELINE_DROP_TYPES:
+            continue
+        if content_type and content_type not in _TIMELINE_KEEP_TYPES:
+            continue
+        if not _tweet_mentions_symbol(tweet, ticker):
+            continue
+        if not _timeline_claim_from_tweet(tweet):
+            continue
+        eligible.append(tweet)
+    if not eligible:
+        return []
+
+    eligible.sort(key=lambda item: item.get("created_at") or "")
+    if len(eligible) <= limit:
+        chosen = eligible
+    else:
+        earliest, latest = eligible[0], eligible[-1]
+        middle = eligible[1:-1]
+        middle.sort(
+            key=lambda item: (item.get("like_count") or 0, item.get("created_at") or ""),
+            reverse=True,
+        )
+        chosen = [earliest, *middle[: max(0, limit - 2)], latest]
+    chosen.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+
+    return [
+        {
+            "id": str(tweet.get("id") or f"{ticker.upper()}-raw-{index}"),
+            "created_at": tweet.get("created_at"),
+            "url": tweet.get("url"),
+            "like_count": tweet.get("like_count") or 0,
+            "content_type": tweet.get("content_type"),
+            "key_claim": _timeline_claim_from_tweet(tweet),
+            "stance": stance,
+        }
+        for index, tweet in enumerate(chosen)
+    ]
+
+
+def _v3_summary_timeline_items(ticker: str, summary: dict | None, limit: int) -> list[dict]:
+    if not summary:
+        return []
+    stance = _normalize_timeline_stance(summary.get("stance"))
+    nodes: list[tuple[str, str]] = []
+    for content_type, value in (
+        ("thesis", summary.get("thesis")),
+        ("sector_framework", summary.get("key_logic")),
+    ):
+        text = str(value or "").strip()
+        if text:
+            nodes.append((content_type, text))
+    for value in (summary.get("signals_watched") or [])[:3]:
+        text = str(value or "").strip()
+        if text:
+            nodes.append(("catalyst", text))
+    risk_items = [
+        *(summary.get("bear_triggers") or []),
+        *(summary.get("falsifiers") or []),
+        *(summary.get("veto") or []),
+    ]
+    for value in risk_items[:3]:
+        text = str(value or "").strip()
+        if text:
+            nodes.append(("risk_flag", text))
+
+    return [
+        {
+            "id": f"{ticker.upper()}-summary-{index}",
+            "created_at": None,
+            "url": None,
+            "like_count": 0,
+            "content_type": content_type,
+            "key_claim": text,
+            "stance": stance,
+        }
+        for index, (content_type, text) in enumerate(nodes[:limit])
+    ]
+
+
+async def _v3_ticker_timeline(username: str, ticker: str, limit: int) -> dict | None:
+    sym_upper = ticker.upper()
+    ticker_entry = next(
+        (t for t in cockpit_v3.list_tickers_v3(username) if t["ticker"].upper() == sym_upper),
+        None,
+    )
+    if ticker_entry is None:
+        return None
+
+    summary = cockpit_v3.get_ticker_summary(username, ticker_entry["ticker"])
+    stance = _normalize_timeline_stance((summary or {}).get("stance"))
+
+    live = await cockpit.get_ticker_timeline(username, ticker_entry["ticker"], limit=limit)
+    if live and live.get("items"):
+        return live
+
+    raw_items: list[dict] = []
+    try:
+        idx = await cockpit.get_index(username)
+        raw_items = _pick_v3_raw_timeline_items(
+            idx.get("all_tweets") or [],
+            ticker_entry["ticker"],
+            stance,
+            limit,
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("v3 raw ticker timeline failed for %s", ticker_entry["ticker"], exc_info=True)
+
+    items = raw_items or _v3_summary_timeline_items(ticker_entry["ticker"], summary, limit)
+    dates = [item["created_at"] for item in items if item.get("created_at")]
+    return {
+        "ticker": ticker_entry["ticker"],
+        "first": min(dates) if dates else ticker_entry.get("first"),
+        "latest": max(dates) if dates else ticker_entry.get("latest"),
+        "total": ticker_entry.get("count") or len(items),
+        "items": items,
+    }
+
+
 @router.get("/personas/{username}/tickers/{ticker}/timeline")
-async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 1500):
+async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
     """Per-ticker vertical opinion timeline. Picks the most informative
     enrichment-annotated mentions and returns them newest-first.
 
-    Only available for personas with a live tweet index (Frank). v3 personas
-    don't have ingested tweets yet — returns 204 No Content semantics
-    (empty list) instead of 404 to keep the UI simple.
+    v3 personas first reuse the live cockpit index when a ticker is recognized,
+    then fall back to raw text matches and finally the promoted ticker summary.
     """
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
-    if not _is_skill_cockpit(username):
-        return {"ticker": ticker.upper(), "items": []}
     limit = max(3, min(limit, 1500))
+    if not _is_skill_cockpit(username):
+        result = await _v3_ticker_timeline(username, ticker, limit=limit)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Ticker not covered")
+        return result
     result = await cockpit.get_ticker_timeline(username, ticker, limit=limit)
     if result is None:
         raise HTTPException(status_code=404, detail="Ticker not covered")

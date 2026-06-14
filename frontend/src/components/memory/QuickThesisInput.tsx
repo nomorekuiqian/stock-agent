@@ -45,7 +45,7 @@ export function QuickThesisInput({ symbol, onSave, onSkip, context = 'just_added
     <div className="space-y-2 py-2 animate-fade-in-up">
       <p className="text-xs text-muted-foreground">
         {prompt.question}
-        {context !== 'red_alert' && <span className="text-muted-foreground/50 ml-1">(可跳过)</span>}
+        {context !== 'red_alert' && <span className="ml-1 text-muted-foreground/70">(可跳过)</span>}
       </p>
 
       {mode === 'preset' ? (
@@ -71,7 +71,7 @@ export function QuickThesisInput({ symbol, onSave, onSkip, context = 'just_added
           <button
             type="button"
             onClick={onSkip}
-            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors ml-1"
+            className="ml-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             跳过
           </button>
@@ -83,7 +83,7 @@ export function QuickThesisInput({ symbol, onSave, onSkip, context = 'just_added
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, 140))}
             placeholder="例如：看好 AI 基建长期增长"
-            className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-border/50 bg-background text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none transition-colors"
+            className="flex-1 rounded-lg border border-border/50 bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary/50 focus:outline-none transition-colors"
             maxLength={140}
             autoFocus
           />
@@ -102,7 +102,7 @@ export function QuickThesisInput({ symbol, onSave, onSkip, context = 'just_added
           >
             返回
           </button>
-          <span className="text-[10px] text-muted-foreground/50">{text.length}/140</span>
+          <span className="text-xs text-muted-foreground">{text.length}/140</span>
         </div>
       )}
     </div>

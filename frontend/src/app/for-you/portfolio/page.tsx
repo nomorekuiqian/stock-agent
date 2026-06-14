@@ -563,7 +563,7 @@ function PortfolioEditorContent() {
                   onValueChange={onQueryChange}
                   {...inputHandlers}
                   placeholder="搜索股票代码或公司名称..."
-                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none"
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 outline-none"
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -678,14 +678,14 @@ function PortfolioEditorContent() {
                             }
                           }}
                           placeholder="金额"
-                          className="w-24 text-right text-sm font-data font-semibold tabular-nums text-foreground bg-transparent border border-border/50 rounded-md px-2 py-1 outline-none focus:border-primary/50 placeholder:text-muted-foreground/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-24 text-right text-sm font-data font-semibold tabular-nums text-foreground bg-transparent border border-border/50 rounded-md px-2 py-1 outline-none focus:border-primary/50 placeholder:text-muted-foreground/70 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
 
                         {/* Delete button */}
                         <button
                           type="button"
                           onClick={() => handleRemove(holding.symbol)}
-                          className="text-muted-foreground/50 hover:text-red-400 transition-colors shrink-0 cursor-pointer p-1"
+                          className="text-muted-foreground/70 hover:text-red-400 transition-colors shrink-0 cursor-pointer p-1"
                           aria-label={`删除 ${holding.symbol}`}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -695,7 +695,7 @@ function PortfolioEditorContent() {
                       {/* Entry price edit — only shown when shares exist */}
                       {holding.shares != null && holding.shares > 0 && (
                         <div className="flex items-center gap-2 pl-16">
-                          <label className="text-[10px] text-muted-foreground whitespace-nowrap">买入均价</label>
+                          <label className="text-xs text-muted-foreground whitespace-nowrap">买入均价</label>
                           <input
                             type="number"
                             value={holding.entry_price ?? ''}
@@ -712,7 +712,7 @@ function PortfolioEditorContent() {
                             step={0.01}
                           />
                           {holding.shares != null && (
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               = {holding.shares.toFixed(2)} 股
                             </span>
                           )}
@@ -744,7 +744,7 @@ function PortfolioEditorContent() {
 
           {/* Hint text */}
           {holdings.length > 0 && (
-            <p className="text-xs text-muted-foreground/60 text-center">
+            <p className="text-center text-xs text-muted-foreground">
               不填金额 = 等权分配 &middot; 跨币种权重为近似值
             </p>
           )}

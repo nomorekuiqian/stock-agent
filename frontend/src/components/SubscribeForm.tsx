@@ -48,7 +48,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={status === 'loading'}
-          className="min-h-11 flex-1 rounded-lg border border-border/55 bg-background/70 px-4 py-3 text-sm text-foreground transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:bg-muted disabled:text-muted-foreground"
+          className="min-h-11 flex-1 rounded-lg border border-border/55 bg-background/70 px-4 py-3 text-sm text-foreground transition-all placeholder:text-muted-foreground/70 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:bg-muted disabled:text-muted-foreground"
         />
         <button
           type="submit"
@@ -137,7 +137,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 disabled={status === 'loading'}
-                className="min-h-11 w-full rounded-lg border border-[#2a2a2e] bg-[#1a1a1d] px-3.5 py-2.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none disabled:opacity-50"
+                className="min-h-11 w-full rounded-lg border border-[#2a2a2e] bg-[#1a1a1d] px-3.5 py-2.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-primary/40 focus:outline-none disabled:opacity-50"
               />
             </div>
 
@@ -154,7 +154,7 @@ export default function SubscribeForm({ variant = 'card', className = '' }: Subs
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={status === 'loading'}
                 required
-                className="min-h-11 w-full rounded-lg border border-[#2a2a2e] bg-[#1a1a1d] px-3.5 py-2.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none disabled:opacity-50"
+                className="min-h-11 w-full rounded-lg border border-[#2a2a2e] bg-[#1a1a1d] px-3.5 py-2.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-primary/40 focus:outline-none disabled:opacity-50"
               />
             </div>
 

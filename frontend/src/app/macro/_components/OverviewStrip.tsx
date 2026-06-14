@@ -35,7 +35,7 @@ export function OverviewStrip({ verdict, landscape, loading }: OverviewStripProp
   return (
     <div className="rounded-xl border border-border/40 bg-card/60 p-5">
       {verdict && (
-        <p className="text-[15px] text-foreground font-medium leading-relaxed mb-3">{verdict}</p>
+        <p className="mb-3 text-base font-medium leading-relaxed text-foreground">{verdict}</p>
       )}
 
       {summaryText && (

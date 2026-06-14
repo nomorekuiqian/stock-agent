@@ -172,7 +172,7 @@ function CheckoutSuccessContent() {
         {status === 'activating' && (
           <>
             <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-zinc-400">正在激活你的订阅...</p>
+            <p className="text-muted-foreground">正在激活你的订阅...</p>
           </>
         )}
         {status === 'ready' && (
@@ -180,8 +180,8 @@ function CheckoutSuccessContent() {
         )}
         {status === 'timeout' && (
           <div className="space-y-2">
-            <p className="text-zinc-300">激活稍有延迟</p>
-            <p className="text-zinc-500 text-sm">请刷新页面，或联系我们获取帮助</p>
+            <p className="text-foreground">激活稍有延迟</p>
+            <p className="text-muted-foreground text-sm">请刷新页面，或联系我们获取帮助</p>
           </div>
         )}
       </div>

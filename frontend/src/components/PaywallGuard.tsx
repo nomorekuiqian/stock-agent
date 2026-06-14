@@ -178,7 +178,7 @@ function ProToMaxLockScreen({
             <p className="text-sm font-semibold text-white">
               {!STRIPE_LIVE ? '订阅功能即将上线' : loading ? '跳转中...' : '解锁全部功能'}
             </p>
-            <p className="text-xs text-white/80">一次解锁所有内容</p>
+            <p className="text-sm text-white/80">一次解锁所有内容</p>
           </div>
           {loading && (
             <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin shrink-0" />
@@ -272,7 +272,7 @@ function LockScreen({
             label={ctaLabel}
             hideArrow
           />
-          <p className="text-xs text-muted-foreground">一次解锁所有内容</p>
+          <p className="text-sm text-muted-foreground">一次解锁所有内容</p>
         </div>
 
         <div className="text-center">

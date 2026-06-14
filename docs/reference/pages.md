@@ -16,7 +16,8 @@
 | `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
 | `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
 | `/qinbafrank` | Qinbafrank 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
-| `/kol/[username]` | KOL 博主研究室概览 | qinbafrank 根页静态销售页；其他 persona 用 skill 资产 + Backend cockpit/feed | 浏览否；qinbafrank 子页需 Ultra |
+| `/kol` | 博主研究室总入口 | 静态卡片：Qinbafrank / Serenity 研究室选择 | 否 |
+| `/kol/[username]` | KOL 博主研究室概览 | qinbafrank 根页静态销售页；Serenity 根页供应链研究室首页；其他 persona 用 skill 资产 + Backend cockpit/feed | 浏览否；qinbafrank 子页需 Ultra |
 | `/kol/[username]/chat` | KOL 对话入口 | Backend (kolResearch chatStream) | qinbafrank 1 次试问后需 Ultra |
 | `/kol/[username]/highlights` | KOL 精华观点 | Backend (kolResearch feed/topics) | qinbafrank 子页需 Ultra |
 | `/kol/[username]/history` | KOL 历史链接兼容页 | 重定向/兼容 | 否 |
@@ -24,7 +25,8 @@
 | `/kol/[username]/macro` | KOL 宏观框架 | Backend (kolResearch profile/topics) | 否 |
 | `/kol/[username]/sectors` | KOL 板块观点 | Backend (kolResearch sectors) | 否 |
 | `/kol/[username]/stocks` | KOL 个股观点 | Backend (kolResearch tickers) | 否 |
-| `/kol/serenity` | Serenity persona 入口 | 静态/Persona route | 否 |
+| `/kol/serenity` | Serenity persona 入口 | redirect(`/kol/aleabitoreddit`) | 否 |
+| `/kol/serenity/*` | Serenity persona 子路径别名 | redirect(`/kol/aleabitoreddit/*`) | 否 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -117,15 +119,29 @@
 - 保留在 `PUBLIC_ROUTES` 中，避免历史分享链接被 middleware 先拦到登录页。
 - 旧 `/frank-agent` route 已删除，不再作为兼容入口。
 
+### `/kol` 博主研究室总入口
+- Server page，无 API 调用。展示 Qinbafrank 与 Serenity 两张研究室卡片、模块深链、选择建议和边界说明。
+- 顶部导航「投研 → 博主研究室」指向该页，而不是直接进入 `/kol/qinbafrank`。
+- Qinbafrank 卡片入口包含精华、板块、个股、全量库、追问；Serenity 卡片入口包含供应链、个股、内容库、追问，不包含精华库或 AI 周期入口。
+- 页面明确标注研究室基于公开内容整理，研究助手不代表博主本人观点，不构成投资建议。
+
 ### `/kol/qinbafrank` qinbafrank 博主研究室
 - Server page + Client Component,根页面浏览不要求登录；`/kol/qinbafrank/*` 子页先要求登录，再要求 `kol_pack_qinbafrank` Ultra entitlement。
 - 根页是 Qinbafrank 研究室销售首页，首屏标题为 `Qinbafrank 研究室`，核心 offer 是 `Qinbafrank资料包 + AI投研助手`，并保留和子页一致的左侧 `SubNav` / 移动横向导航。CTA 逻辑：未登录跳 `/login?mode=signup&redirect=/kol/qinbafrank?checkout=ultra`；已登录调用 `createCheckout("ultra", "/kol/qinbafrank?welcome=1")`。登录回跳后支持 `checkout=ultra` 自动打开 Stripe 付费流程。
-- 根页包含紧凑资料库入口、资料包内容、适合/不适合人群、示例问题和 Ultra offer；文案强调“基于公开内容整理”，必须保留非投资建议、研究助手不代表 Qinbafrank 本人观点的边界。
+- 根页包含返回 `/kol` 的「所有博主研究室」入口、紧凑资料库入口、资料包内容、适合/不适合人群、示例问题和 Ultra offer；文案强调“基于公开内容整理”，必须保留非投资建议、研究助手不代表 Qinbafrank 本人观点的边界。
 - `/kol/qinbafrank/sectors` 为板块观点页，左侧 5 个板块入口，右侧按左侧「分析框架 / 分析维度切换 / 可展开 Frank 原观点逻辑」+ 右侧「倒序观点时间线」展示；AI 产业额外拆为 8 个子板块，入口桌面端为 4 列 x 2 行网格，子板块详情同样为左侧分析框架 + 右侧观点时间线；完整原文阅读在 `/kol/qinbafrank/highlights`；`/kol/qinbafrank/history` 仅作为旧链接重定向到 `/highlights?topic=market-rules`；`/kol/qinbafrank/stocks` 为个股并结合价格验证；`/kol/qinbafrank/latest` 为全量内容库（过往精华 + 全量原文）
 - `/kol/qinbafrank/sectors` 颜色只表达板块 / 子板块 / 分析维度 / 最新观点状态，交互反馈保持轻量 hover lift 与箭头位移，不做大面积装饰动画
 - 方法论与技能默认来自 `backend/app/features/twitter/methodologies/qinbafrank/`
 - 对话入口调用 `api.kolResearch.chatStream()` -> `POST /api/kol_research/chat/stream`，SSE 展示 skill/tool 进度，并在 final 后展示回答、激活 lens 和命中 chunks
 - 页面明确标注不是 qinbafrank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断
+
+### `/kol/aleabitoreddit` Serenity 博主研究室
+- `/kol/serenity` 和 `/kol/serenity/*` 是友好别名，服务端重定向到 canonical backend username `/kol/aleabitoreddit`。
+- Serenity 页面组使用与 qinbafrank 一致的 SubNav-first 研究室壳，不再渲染通用 `PersonaHero`。根页首屏标题为 `Serenity 研究室`，核心定位是供应链工作台 + AI研究助手。
+- 根页包含返回 `/kol` 的「所有博主研究室」入口、研究室入口、研究室内容、供应链漏斗、适合/不适合和示例问题。
+- Serenity 不设精华库。首页和 SubNav 只暴露供应链地图、个股档案、内容库和研究助手。
+- 首屏 signal card 使用 `cockpitHighConviction` 和 `cockpitTickers` 展示高确信线索与个股快照；供应链漏斗固定为 Mag7 资本开支、Neocloud、光通信、光子学/CPO、衬底材料。
+- 页面明确标注基于公开内容整理，研究助手不代表 Serenity 本人观点，不构成投资建议。
 
 ### `/stock` 个股研究
 - 搜索框 + 热门板块快速入口
