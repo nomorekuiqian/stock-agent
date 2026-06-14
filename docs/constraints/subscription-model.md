@@ -12,7 +12,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 | Pro | `plan="pro"` | `entitlements` 含 PRO_FEATURES, `access_expires_at=NULL` |
 | Max | `plan="max"` | `entitlements` 含 MAX_FEATURES, `access_expires_at=NULL` |
 | Ultra | `plan="ultra"` | `entitlements` 含 `MAX_FEATURES + kol_pack_qinbafrank`, `access_expires_at=NULL` |
-| Lifetime | `is_lifetime=true` | 永久 Max 全功能，不自动包含博主资料包 |
+| Lifetime | `is_lifetime=true` | 永久 Max 全功能；如果 row 的 `entitlements` 含 Ultra feature，则同时拥有对应 Ultra 权益 |
 | 非 Stripe grant (过渡/赠送) | `access_expires_at` 未来 + `plan/status/entitlements` | 读时按 `access_expires_at` 失效；每日 reconciliation 清成 Free/expired |
 
 ## 功能边界
@@ -73,7 +73,9 @@ Ultra 是前台销售产品，Stripe checkout product/tier 为 `ultra`。底层�
 
 新用户开通 Pro/Max/Ultra 走 Stripe Checkout；已有 Pro/Max 真实付费订阅升级更高 tier 走 Stripe Billing Portal `subscription_update_confirm`，不能创建第二个并行订阅。升级使用 `proration_behavior=always_invoice` 的 Billing Portal configuration，由 Stripe 立即按剩余周期收取差价，不能手动退款后重收全额，也不能重新收一整笔目标套餐价格。Checkout 回跳会带 `session_id={CHECKOUT_SESSION_ID}`，成功页调用 `/api/payment/checkout-session/complete` 主动同步；Portal 回跳通过 `subscription-status?fresh=true` 从 Stripe Subscription 刷新本地 plan/status/entitlements。
 
-**Lifetime** (`is_lifetime=true`) 自动 grant 完整 `MAX_FEATURES`，不自动 grant `KOL_PACK_FEATURES`.
+**Lifetime** (`is_lifetime=true`) 自动 grant 完整 `MAX_FEATURES`，并 union row 上存储的 `entitlements`。老 lifetime Max 迁移为 Ultra 时，row 写入 `kol_pack_qinbafrank` 即可让后端 gate 放行。
+
+**Grandfathered Ultra**: 老 Max 用户可在 app DB 中直接迁移为 `plan="ultra"` + `ULTRA_FEATURES`，同时 Stripe 继续按原 Max price 收费。后端 Stripe sync 规则：本地 row 已是 active/trialing Ultra 且 Stripe subscription 仍 active/trialing 时，不因 Stripe 仍报告 Max 而降级；Stripe 非 active、subscription deleted 或 active entitlements 为空时，仍正常清空权限。
 
 ## Qinbafrank Ultra 上线门禁
 
@@ -120,7 +122,7 @@ python scripts/check_qinbafrank_stripe_readiness.py \
 
 ## Grant 到期与同步
 
-- 真付费订阅通过 Stripe Subscription + Entitlements webhook 同步 `plan/status/entitlements`。
+- 真付费订阅通过 Stripe Subscription + Entitlements webhook 同步 `plan/status/entitlements`；老 Max 已迁移为 DB Ultra 的用户例外，active/trialing sync 必须保留本地 Ultra，直到 Stripe 订阅非 active 或删除。
 - Webhook compensation：`checkout.session.completed`、`customer.subscription.updated`、`customer.subscription.deleted` 会调用同一个 entitlement sync，减少 webhook 乱序或漏投造成的漂移。
 - Stripe entitlement sync 写入 `plan/status/entitlements` 时必须清理旧 `access_expires_at`，避免历史 grant 到期字段拦住真实付费订阅。
 - 非 Stripe grant 仍保存在同一张 `subscriptions` 表，用 `access_expires_at` 表达到期时间。

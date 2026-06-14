@@ -1153,6 +1153,166 @@ class TestParseIsoDatetime:
 
 
 # ---------------------------------------------------------------------------
+# Grandfathered Ultra sync preservation
+# ---------------------------------------------------------------------------
+
+
+class TestGrandfatheredUltraSync:
+    """DB-migrated Ultra users must not be downgraded by active Stripe Max syncs."""
+
+    @pytest.mark.asyncio
+    async def test_subscription_sync_preserves_local_ultra_for_active_stripe_max(self):
+        from app.features.payment import service
+        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, ULTRA_FEATURES
+
+        existing = {
+            "user_id": "user-legacy",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_customer_id": "cus_legacy",
+            "stripe_subscription_id": "sub_legacy",
+            "entitlements": sorted(ULTRA_FEATURES),
+        }
+        stripe_sub = {
+            "id": "sub_legacy",
+            "customer": "cus_legacy",
+            "status": "active",
+            "items": {
+                "data": [
+                    {
+                        "id": "si_legacy",
+                        "price": {"id": "price_max_test"},
+                        "current_period_start": 1781232523,
+                        "current_period_end": 1783824523,
+                    }
+                ]
+            },
+        }
+
+        with patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
+            "app.features.payment.service.sync_entitlements_from_stripe",
+            new_callable=AsyncMock,
+            return_value={"synced": True},
+        ):
+            result = await service.sync_subscription_from_stripe(
+                "user-legacy",
+                stripe_subscription=stripe_sub,
+                source="test",
+            )
+
+        assert result["plan"] == "ultra"
+        assert KOL_PACK_QINBAFRANK in result["entitlements"]
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["plan"] == "ultra"
+        assert KOL_PACK_QINBAFRANK in call_kwargs["entitlements"]
+
+    @pytest.mark.asyncio
+    async def test_entitlement_sync_preserves_local_ultra_for_active_stripe_max(self):
+        from app.features.payment import service
+        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, ULTRA_FEATURES
+
+        existing = {
+            "user_id": "user-legacy",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_customer_id": "cus_legacy",
+            "entitlements": sorted(ULTRA_FEATURES),
+        }
+        max_entitlements = [
+            {"id": "ent_ai", "lookup_key": "ai_research_engine"},
+            {"id": "ent_digest", "lookup_key": "twitter_digest"},
+        ]
+
+        with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ), patch(
+            "app.features.payment.service._list_active_entitlements",
+            new_callable=AsyncMock,
+            return_value=max_entitlements,
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ), patch(
+            "app.features.subscription.service.SubscriptionService.sync_resend_segments",
+            return_value=[],
+        ):
+            result = await service.sync_entitlements_from_stripe(
+                "cus_legacy",
+                customer_email="legacy@example.com",
+                source="test",
+            )
+
+        assert result["plan"] == "ultra"
+        assert KOL_PACK_QINBAFRANK in result["entitlements"]
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["plan"] == "ultra"
+        assert KOL_PACK_QINBAFRANK in call_kwargs["entitlements"]
+
+    @pytest.mark.asyncio
+    async def test_empty_entitlement_sync_still_deprovisions_local_ultra(self):
+        from app.features.payment import service
+        from app.features.payment.entitlements import ULTRA_FEATURES
+
+        existing = {
+            "user_id": "user-legacy",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_customer_id": "cus_legacy",
+            "entitlements": sorted(ULTRA_FEATURES),
+        }
+
+        with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ), patch(
+            "app.features.payment.service._list_active_entitlements",
+            new_callable=AsyncMock,
+            return_value=[],
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={"plan": "free", "status": "canceled", "entitlements": []},
+        ), patch(
+            "app.features.subscription.service.SubscriptionService.sync_resend_segments",
+            return_value=[],
+        ):
+            result = await service.sync_entitlements_from_stripe(
+                "cus_legacy",
+                customer_email="legacy@example.com",
+                allow_empty=True,
+                source="test",
+            )
+
+        assert result["plan"] == "free"
+        assert result["entitlements"] == []
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["plan"] == "free"
+        assert call_kwargs["status"] == "canceled"
+        assert call_kwargs["entitlements"] == []
+
+
+# ---------------------------------------------------------------------------
 # _list_active_entitlements pagination
 # ---------------------------------------------------------------------------
 

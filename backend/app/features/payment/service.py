@@ -225,6 +225,35 @@ def _is_active_subscription_status(status: str | None) -> bool:
     return status in ("active", "trialing")
 
 
+def _preserve_local_ultra_when_subscription_active(
+    sub_record: dict | None,
+    plan: str,
+    status: str | None,
+    feature_keys: list[str],
+) -> tuple[str, list[str]]:
+    """Keep DB-migrated Ultra users on Ultra while their Stripe sub is active.
+
+    Grandfathered Max users stay on their current Stripe price, so Stripe can
+    still report the subscription as Max. Once the app DB has been migrated to
+    Ultra, active/trialing Stripe syncs must not downgrade them back to Max.
+    Non-active subscription states still de-provision normally.
+    """
+    if plan == "ultra" or not _is_active_subscription_status(status):
+        return plan, feature_keys
+    if not sub_record or sub_record.get("plan") != "ultra":
+        return plan, feature_keys
+    if not _is_active_subscription_status(sub_record.get("status")):
+        return plan, feature_keys
+
+    from app.features.payment.entitlements import KOL_PACK_FEATURES, ULTRA_FEATURES
+
+    existing_entitlements = set(sub_record.get("entitlements") or [])
+    if not existing_entitlements.intersection(KOL_PACK_FEATURES):
+        return plan, feature_keys
+
+    return "ultra", sorted(ULTRA_FEATURES)
+
+
 def resolve_plan_from_subscription(sub_obj) -> str:
     """Determine plan tier from a Stripe subscription object."""
     d = _to_dict(sub_obj) or {}
@@ -367,6 +396,12 @@ async def sync_subscription_from_stripe(
     period_start, period_end = _get_subscription_period(sub_d)
     cancel_at_period_end, cancel_at, canceled_at = _get_subscription_cancellation(sub_d)
     feature_keys = _canonical_features_for_plan(plan) if _is_active_subscription_status(status) else []
+    plan, feature_keys = _preserve_local_ultra_when_subscription_active(
+        sub_record,
+        plan,
+        status,
+        feature_keys,
+    )
 
     await upsert_subscription(
         user_id=user_id,
@@ -623,6 +658,12 @@ async def sync_entitlements_from_stripe(
         return {"synced": False, "reason": "empty_entitlements"}
 
     plan, status, feature_keys = _normalize_entitlements(raw_feature_keys)
+    plan, feature_keys = _preserve_local_ultra_when_subscription_active(
+        sub_record,
+        plan,
+        status,
+        feature_keys,
+    )
 
     await upsert_subscription(
         user_id=user_id,

@@ -68,8 +68,9 @@ async def has_entitlement(user_id: str, feature: str) -> bool:
     Reads the entitlements JSONB column from Insforge (Layer 2 cache).
     This column is written exclusively by the Stripe entitlements webhook.
 
-    Lifetime users (is_lifetime=true) bypass the entitlements column and
-    always have access to every max feature, even if the column was cleared.
+    Lifetime users (is_lifetime=true) always have access to every max feature.
+    Stored entitlements are unioned in so migrated lifetime rows can carry
+    Ultra-only feature keys without needing Stripe.
     """
     from app.features.payment.db import get_subscription
 
@@ -77,20 +78,22 @@ async def has_entitlement(user_id: str, feature: str) -> bool:
     if not sub:
         return False
 
+    entitlements = set(sub.get("entitlements") or [])
+
     if sub.get("is_lifetime"):
-        return feature in MAX_FEATURES
+        return feature in (MAX_FEATURES | entitlements)
 
     if _is_access_expired(sub.get("access_expires_at")):
         return False
 
-    entitlements = sub.get("entitlements") or []
     return feature in entitlements
 
 
 async def get_user_entitlements(user_id: str) -> Set[str]:
     """Return the full set of entitlements for /api/me/entitlements.
 
-    Lifetime users always receive the full MAX_FEATURES set.
+    Lifetime users always receive the full MAX_FEATURES set plus any stored
+    Ultra-only entitlements on the row.
     """
     from app.features.payment.db import get_subscription
 
@@ -98,10 +101,12 @@ async def get_user_entitlements(user_id: str) -> Set[str]:
     if not sub:
         return set()
 
+    entitlements = set(sub.get("entitlements") or [])
+
     if sub.get("is_lifetime"):
-        return set(MAX_FEATURES)
+        return set(MAX_FEATURES) | entitlements
 
     if _is_access_expired(sub.get("access_expires_at")):
         return set()
 
-    return set(sub.get("entitlements") or [])
+    return entitlements
