@@ -63,8 +63,8 @@
 ```css
 /* 定义在 globals.css @theme 块 */
 --font-serif:  "LXGW WenKai", var(--font-instrument-serif), "Songti SC", Georgia, serif;
---font-sans:   "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", var(--font-dm-sans), system-ui, sans-serif;
---font-reading:"HarmonyOS Sans SC", "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", var(--font-dm-sans), system-ui, sans-serif;
+--font-sans:   ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+--font-reading:ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 --font-mono:   var(--font-jetbrains-mono), monospace;
 ```
 
@@ -73,7 +73,7 @@
 | 元素 | 字体类 | 说明 | 示例 |
 |------|--------|------|------|
 | 页面大标题 | `.font-editorial` | LXGW WenKai / serif, weight 400，仅用于 Hero、落地页和少量编辑化标题 | 日报标题、Hero |
-| 区块标题 | 默认 (sans) | HarmonyOS/PingFang/Noto sans-first, weight 500-600 | "基本面分析" |
+| 区块标题 | 默认 (sans) | system UI / PingFang / Microsoft YaHei 栈，weight 500-600 | "基本面分析" |
 | 正文/描述 | 默认 (sans) / `.font-reading` | 默认 UI 用 sans；长文、Agent 回答、Markdown 报告用 `.font-reading` | 公司简介、分析内容 |
 | 价格/数值 | `.font-data` | mono, tabular-nums | $138.50、+2.35% |
 | 股票代码 | `.font-data` | | NVDA、AAPL |

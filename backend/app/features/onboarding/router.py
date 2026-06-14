@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api", tags=["user"])
 
 @router.get("/user/onboarding-status")
 async def get_onboarding_status(user_id: str = Depends(verify_user_token)):
-    """Whether the user has completed onboarding (Step 1/2/3 done)."""
+    """Whether the user has completed the post-signup guided tour."""
     sub = await get_subscription(user_id)
     completed = bool(sub and sub.get("onboarding_completed_at"))
     return {"completed": completed}

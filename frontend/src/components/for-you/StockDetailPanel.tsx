@@ -3,17 +3,15 @@
 import Link from 'next/link';
 import { StockAnalysis } from '@/lib/api';
 import { formatStockPrice } from '@/lib/currency';
-import { FeedbackBar } from '@/components/memory/FeedbackBar';
 import { QuickThesisInput } from '@/components/memory/QuickThesisInput';
 
 interface StockDetailPanelProps {
   stock: StockAnalysis;
-  digestDate?: string;
   thesis?: string | null;
   onThesisSaved?: (symbol: string, thesis: string) => void;
 }
 
-export default function StockDetailPanel({ stock, digestDate, thesis, onThesisSaved }: StockDetailPanelProps) {
+export default function StockDetailPanel({ stock, thesis, onThesisSaved }: StockDetailPanelProps) {
   const isPositiveDaily = (stock.daily_change ?? '').startsWith('+');
 
   return (
@@ -96,13 +94,6 @@ export default function StockDetailPanel({ stock, digestDate, thesis, onThesisSa
         <p className="text-xs text-muted-foreground mt-3 italic">你的观点: {thesis}</p>
       )}
 
-      {digestDate && (
-        <FeedbackBar
-          targetType="digest_quick_take"
-          targetId={`quick_take:${stock.symbol}:${digestDate}`}
-          snapshot={{ text: stock.quick_take?.slice(0, 200) }}
-        />
-      )}
     </div>
   );
 }

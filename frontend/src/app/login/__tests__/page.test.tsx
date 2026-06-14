@@ -144,7 +144,7 @@ describe('/login page', () => {
     fireEvent.click(screen.getByRole('button', { name: '创建账户' }));
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/verify-email?redirect=%2Ftoday&email=user%40example.com');
+      expect(mockPush).toHaveBeenCalledWith('/verify-email?redirect=%2F%3Ftour%3D1&email=user%40example.com');
     });
     expect(sessionStorage.getItem('pending_verification_email')).toBe('user@example.com');
     expect(sessionStorage.getItem('pending_verification_name')).toBe('Tester');

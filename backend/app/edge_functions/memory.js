@@ -1,10 +1,8 @@
 // Memory Edge Function
-// Handles CRUD on ai_feedback + suggestion_tracking for U1-C.
+// Handles CRUD on suggestion_tracking for U1-C.
 // Schema: see backend/migrations/u1c_memory_schema.sql
 //
 // Actions:
-//   POST ?action=save_feedback     body={user_id, target_type, target_id, sentiment, reason?, snapshot?}
-//   GET  ?action=recent_feedback&user_id=xxx&days=7&limit=20
 //   POST ?action=insert_suggestion body={user_id, source, suggestion_text, symbols?, sectors?, follow_up_at, ...}
 //   GET  ?action=recent_suggestions&user_id=xxx&days=14
 //   GET  ?action=due_today                                   -> suggestions due for T+7 evaluation
@@ -40,61 +38,12 @@ module.exports = async function(request) {
 
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
-  const FEEDBACK = "ai_feedback";
   const TRACKING = "suggestion_tracking";
 
   const ok = (data) => new Response(JSON.stringify({ success: true, data }), { status: 200, headers });
   const fail = (status, error) => new Response(JSON.stringify({ success: false, error }), { status, headers });
 
   try {
-    // -------------------------- save_feedback --------------------------------
-    if (request.method === "POST" && action === "save_feedback") {
-      const body = await request.json();
-      const user_id = body.user_id;
-      if (!user_id) return fail(400, "user_id required");
-
-      const row = {
-        user_id,
-        target_type: body.target_type,
-        target_id: body.target_id,
-        sentiment: body.sentiment,
-        reason: body.reason || null,
-        snapshot: body.snapshot || null,
-      };
-
-      const { data, error } = await client.database
-        .from(FEEDBACK)
-        .insert(row)
-        .select("id")
-        .maybeSingle();
-
-      if (error) return fail(500, error.message);
-      return ok(data || {});
-    }
-
-    // -------------------------- recent_feedback -------------------------------
-    if (request.method === "GET" && action === "recent_feedback") {
-      const user_id = url.searchParams.get("user_id");
-      if (!user_id) return fail(400, "user_id required");
-
-      const days = parseInt(url.searchParams.get("days") || "7", 10);
-      const limit = parseInt(url.searchParams.get("limit") || "20", 10);
-
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-
-      const { data, error } = await client.database
-        .from(FEEDBACK)
-        .select("*")
-        .eq("user_id", user_id)
-        .gte("created_at", since.toISOString())
-        .order("created_at", { ascending: false })
-        .limit(limit);
-
-      if (error) return fail(500, error.message);
-      return ok(data || []);
-    }
-
     // -------------------------- insert_suggestion -----------------------------
     if (request.method === "POST" && action === "insert_suggestion") {
       const body = await request.json();
