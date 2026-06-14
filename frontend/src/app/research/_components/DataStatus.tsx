@@ -52,8 +52,12 @@ export default function DataStatus({
 
   if (inline) {
     return (
-      <span className="text-xs text-muted-foreground/70 font-data tabular-nums">
-        {universeSize > 0 && `${universeSize.toLocaleString()} 只美股`}
+      <span className="text-xs text-muted-foreground/70">
+        {universeSize > 0 && (
+          <>
+            <span className="font-data tabular-nums">{universeSize.toLocaleString()}</span> 只美股
+          </>
+        )}
         {freshness && universeSize > 0 && (
           <> · 更新于{timeAgo(freshness)}</>
         )}
@@ -64,8 +68,12 @@ export default function DataStatus({
 
   return (
     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-      <span className="font-data tabular-nums">
-        {universeSize > 0 ? `${universeSize.toLocaleString()} 只美股` : '数据加载中...'}
+      <span>
+        {universeSize > 0 ? (
+          <>
+            <span className="font-data tabular-nums">{universeSize.toLocaleString()}</span> 只美股
+          </>
+        ) : '数据加载中...'}
       </span>
       {freshness && (
         <>

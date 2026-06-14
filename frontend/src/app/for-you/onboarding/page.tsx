@@ -338,7 +338,7 @@ function StepStocks({
       {stocks.length === 0 && (
         <div className="rounded-xl border border-dashed border-border/50 bg-card/30 py-10 text-center">
           <p className="text-sm text-muted-foreground">搜索并添加你感兴趣的股票</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">也可以跳过此步骤，稍后再添加</p>
+          <p className="mt-1 text-sm text-muted-foreground/70">也可以跳过此步骤，稍后再添加</p>
         </div>
       )}
     </div>

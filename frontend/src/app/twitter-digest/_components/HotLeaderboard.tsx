@@ -43,7 +43,7 @@ export function HotLeaderboard({ theses }: Props) {
             今日 KOL 关注度
           </h2>
         </div>
-        <span className="text-[11px] text-muted-foreground/75 uppercase tracking-wider font-data tabular-nums">
+        <span className="text-xs text-muted-foreground uppercase tracking-wider font-data tabular-nums">
           TOP {sorted.length}
         </span>
       </header>
@@ -71,7 +71,7 @@ function Row({
       >
         <span
           aria-hidden
-          className="font-data text-[10px] tabular-nums text-muted-foreground/50 w-5 text-right"
+          className="font-data text-xs tabular-nums text-muted-foreground/70 w-5 text-right"
         >
           {String(rank).padStart(2, '0')}
         </span>
@@ -89,12 +89,12 @@ function Row({
             />
           </div>
         </div>
-        <span className="shrink-0 font-data tabular-nums text-[11px] text-muted-foreground/75 w-20 text-right">
+        <span className="shrink-0 font-data tabular-nums text-xs text-muted-foreground w-20 text-right">
           <span className="text-foreground/80">{kols}</span>{' '}
-          <span className="text-muted-foreground/60">KOL</span>
-          <span className="mx-1 text-muted-foreground/35">·</span>
+          <span className="text-muted-foreground">KOL</span>
+          <span className="mx-1 text-muted-foreground/70">·</span>
           <span className="text-foreground/70">{thesis.tweet_count}</span>{' '}
-          <span className="text-muted-foreground/60">推</span>
+          <span className="text-muted-foreground">推</span>
         </span>
       </a>
     </li>

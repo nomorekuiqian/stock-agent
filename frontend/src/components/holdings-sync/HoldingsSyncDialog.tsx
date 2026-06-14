@@ -317,7 +317,7 @@ export default function HoldingsSyncDialog({ trigger }: Props) {
               请核对数量与代码后再提交。
             </p>
             <textarea
-              className="h-40 w-full rounded-lg border border-border/40 bg-background p-3 text-sm font-data text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+              className="h-40 w-full rounded-lg border border-border/40 bg-background p-3 text-sm font-data text-foreground placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
               placeholder={"AAPL 10\nMSFT 5 cost=300\n现金 1234.56\n…"}
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}

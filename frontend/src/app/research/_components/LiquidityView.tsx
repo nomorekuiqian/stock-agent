@@ -133,7 +133,7 @@ export default function LiquidityView({ embedded, onContextReady }: LiquidityVie
         <>
           <div className="px-5 pt-4 pb-4">
             <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">LIQUIDITY</span>
-            <h2 className="text-xl font-editorial text-foreground leading-tight mt-1">流动性环境</h2>
+            <h2 className="mt-1 text-xl font-semibold leading-tight text-foreground">流动性环境</h2>
             <p className="text-sm text-muted-foreground mt-1">Fed 资产负债表与货币市场指标</p>
           </div>
 

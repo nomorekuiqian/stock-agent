@@ -95,7 +95,7 @@ export default function FeedFilterBar({ value, onChange, sectors, resultCount }:
 
         {/* Result count chip */}
         {typeof resultCount === 'number' ? (
-          <div className="hidden shrink-0 font-data text-[11px] uppercase tracking-[0.14em] text-muted-foreground md:block">
+          <div className="hidden shrink-0 font-data text-xs uppercase tracking-[0.14em] text-muted-foreground md:block">
             {resultCount.toLocaleString()} 条
           </div>
         ) : null}

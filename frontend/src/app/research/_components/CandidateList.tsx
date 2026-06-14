@@ -220,12 +220,12 @@ export default function CandidateList({ candidates, strategy, expanded = false, 
   if (candidates.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-12 rounded-xl border border-dashed border-border/50">
-        <svg className="w-10 h-10 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-10 h-10 text-muted-foreground/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <div className="text-center">
           <p className="text-sm font-medium text-foreground">无匹配结果</p>
-          <p className="text-xs text-muted-foreground mt-1">尝试调整筛选条件或删除部分条件</p>
+          <p className="text-sm text-muted-foreground mt-1">尝试调整筛选条件或删除部分条件</p>
         </div>
       </div>
     );
@@ -238,7 +238,7 @@ export default function CandidateList({ candidates, strategy, expanded = false, 
       {/* Search bar - only show when enough candidates */}
       {candidates.length > PAGE_SIZE && (
         <div className="relative mb-3">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -249,12 +249,12 @@ export default function CandidateList({ candidates, strategy, expanded = false, 
               setVisibleCount(PAGE_SIZE);
             }}
             placeholder="搜索代码、名称或板块..."
-            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border/50 bg-card text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors"
+            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border/50 bg-card text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-colors"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -495,7 +495,7 @@ function WatchlistBtn({
     <button
       onClick={(e) => onClick(cleanSymbol, e)}
       disabled={atLimit}
-      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
       title={atLimit ? '持仓已满 (25)' : '加入持仓'}
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

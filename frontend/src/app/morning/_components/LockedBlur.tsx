@@ -28,7 +28,7 @@ export function LockedBlur({
       aria-label={label ? `${label}（订阅解锁）` : '订阅解锁'}
     >
       {label && (
-        <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/85 font-data">
+        <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
           {label}
         </div>
       )}
@@ -96,7 +96,7 @@ export function UpgradeBanner({
     >
       <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2 max-w-xl">
-          <p className="text-[11px] uppercase tracking-[0.25em] text-amber-600 dark:text-amber-300 font-data">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-600 dark:text-amber-300">
             Morning Brief · Subscribers Only
           </p>
           <h3 className="text-xl md:text-2xl font-editorial text-foreground">

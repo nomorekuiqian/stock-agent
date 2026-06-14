@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { useKolTickerDetail } from "@/hooks/queries/use-kol-data";
 import type { KolCockpitTweet } from "@/lib/api";
@@ -26,34 +26,6 @@ export default function TickerDetail({ username, ticker }: Props) {
     isError,
   } = useKolTickerDetail(username, ticker);
   const [tab, setTab] = useState<ExcerptTab>("latest");
-
-  // Right column (opinion timeline) is locked to the left column's intrinsic
-  // height at lg+ and scrolls internally. Measuring the left with
-  // ResizeObserver keeps the two visually matched even when content reflows;
-  // matchMedia gates the height constraint so the stacked mobile layout stays
-  // natural.
-  const narrativeRef = useRef<HTMLDivElement | null>(null);
-  const [narrativeHeight, setNarrativeHeight] = useState<number | null>(null);
-  const [isWide, setIsWide] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const sync = () => setIsWide(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
-  useEffect(() => {
-    const node = narrativeRef.current;
-    if (!node || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      setNarrativeHeight(Math.round(node.getBoundingClientRect().height));
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [detail?.ticker]);
 
   if (!ticker) {
     return <EmptyState />;
@@ -139,13 +111,9 @@ export default function TickerDetail({ username, ticker }: Props) {
         </div>
       </div>
 
-      {/* Two-column: 左 静态观点框架 · 右 动态观点时间线.
-          Left's measured height is applied as an explicit `height` on the
-          right column at lg+; flex inside lets the scroll area fill whatever
-          is left after the header. Mobile (stacked) falls back to natural
-          height. */}
+      {/* Two-column: 左 静态观点框架 · 右 动态观点时间线. */}
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-8">
-        <div ref={narrativeRef} className="min-w-0">
+        <div className="min-w-0">
           {detail.summary ? (
             <TickerNarrative summary={detail.summary} />
           ) : (
@@ -162,22 +130,20 @@ export default function TickerDetail({ username, ticker }: Props) {
             </section>
           )}
         </div>
-        <div
-          className="flex min-w-0 flex-col"
-          style={
-            isWide && narrativeHeight
-              ? { height: `${narrativeHeight}px` }
-              : undefined
-          }
-        >
-          <section className="mt-6 flex min-h-0 flex-1 flex-col border-t border-border/40 pt-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <p className={SECTION_LABEL}>
-                观点时间线
-              </p>
-              <span className="h-px flex-1 bg-border/40" aria-hidden />
+        <div className="min-w-0">
+          <section className="mt-6 border-t border-border/40 pt-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className={SECTION_LABEL}>
+                  观点时间线
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  按时间整理关键表态，最新观点在最上方。
+                </p>
+              </div>
+              <span className="h-px min-w-16 flex-1 bg-border/40" aria-hidden />
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+            <div className="max-h-none overflow-y-visible pr-1 lg:max-h-[560px] lg:overflow-y-auto lg:pr-2">
               <TickerOpinionTimeline
                 username={username}
                 ticker={detail.ticker}
@@ -277,7 +243,7 @@ function TabButton({
 }: {
   active: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button

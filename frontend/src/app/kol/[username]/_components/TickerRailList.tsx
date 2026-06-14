@@ -56,7 +56,7 @@ export default function TickerRailList({ tickers, value, onChange }: Props) {
         className="-mr-1 max-h-[60vh] space-y-0.5 overflow-y-auto pr-1"
       >
         {filtered.length === 0 ? (
-          <p className="px-2 py-4 text-center font-data text-[11px] uppercase tracking-[0.14em] text-muted-foreground/70">
+          <p className="px-2 py-4 text-center text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
             无命中
           </p>
         ) : (

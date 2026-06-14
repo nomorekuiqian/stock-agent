@@ -168,12 +168,12 @@ export default function LiveFeed({
                   <button
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-4 py-2 font-data text-xs uppercase tracking-[0.14em] text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-4 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-50"
                   >
                     {loadingMore ? '载入中' : '加载更多'}
                   </button>
                 ) : (
-                  <div className="font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
+                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                     已到底
                   </div>
                 )}
@@ -200,7 +200,7 @@ export default function LiveFeed({
 function FeedEmpty({ onClear }: { onClear: () => void }) {
   return (
     <div className="py-20 text-center">
-      <p className="font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
         当前筛选无命中推文
       </p>
       <button

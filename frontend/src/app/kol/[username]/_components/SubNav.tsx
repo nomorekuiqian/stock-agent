@@ -179,13 +179,6 @@ const SERENITY_ITEMS: NavItem[] = [
     href: (u) => `/kol/${u}/stocks`,
   },
   {
-    key: "macro",
-    label: "AI 周期",
-    icon: Radar,
-    kpi: () => "AI capex + 地缘宏观",
-    href: (u) => `/kol/${u}/macro`,
-  },
-  {
     key: "latest",
     label: "内容库",
     icon: Rss,

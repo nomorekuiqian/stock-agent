@@ -30,10 +30,10 @@ export default function StubPanel({
             <Icon className="h-5 w-5 text-primary" strokeWidth={1.6} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-data text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
               {moduleNumber} · COMING NEXT
             </p>
-            <h2 className="mt-1 font-editorial text-2xl text-foreground md:text-[28px]">
+            <h2 className="mt-1 font-editorial text-2xl text-foreground md:text-3xl">
               {title}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -43,7 +43,7 @@ export default function StubPanel({
         </div>
 
         <div className="mt-7">
-          <p className="font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             下一轮会做的事
           </p>
           <ul className="mt-3 space-y-3">

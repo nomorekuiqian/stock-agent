@@ -283,10 +283,17 @@ export default function QinbafrankUltraLandingClient() {
   const paymentError = checkoutError || portalError;
 
   return (
-    <div className="min-h-screen bg-background font-editorial text-foreground">
+    <div className="min-h-screen bg-background font-reading text-foreground">
       <section className="relative overflow-hidden border-b border-border/35 bg-[linear-gradient(135deg,rgba(16,185,129,0.05),transparent_45%,rgba(245,158,11,0.035))]">
         <div className="mx-auto grid max-w-6xl gap-9 px-4 py-12 md:grid-cols-[minmax(0,1fr)_390px] md:px-6 md:py-16 lg:py-20">
           <div className="flex flex-col justify-center">
+            <Link
+              href="/kol"
+              className="mb-4 inline-flex min-h-[36px] w-fit items-center gap-2 rounded-lg border border-border/45 bg-card/25 px-3 text-sm font-medium text-muted-foreground transition hover:border-primary/30 hover:bg-primary/[0.035] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+            >
+              所有博主研究室
+              <ArrowRight className="h-4 w-4" />
+            </Link>
             <h1 className="max-w-3xl text-balance font-editorial text-4xl leading-tight text-foreground md:text-5xl lg:text-6xl">
               Qinbafrank 研究室
             </h1>

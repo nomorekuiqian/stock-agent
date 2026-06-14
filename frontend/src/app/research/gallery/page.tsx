@@ -144,7 +144,7 @@ export default function PanelGalleryPage() {
               {active.description}
             </p>
           </div>
-          <span className="text-xs text-muted-foreground/50 font-mono">
+          <span className="font-mono text-xs text-muted-foreground">
             {active.id}
           </span>
         </div>

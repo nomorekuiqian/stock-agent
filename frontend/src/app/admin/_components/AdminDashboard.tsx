@@ -13,7 +13,7 @@ type Category = 'all' | 'paid' | 'active_trial' | 'expiring_soon' | 'trial_expir
 type SortKey = 'email' | 'conversations' | 'messages' | 'feedback_count' | 'api_calls' | 'last_active_at' | 'created_at';
 
 const OPS_STATUS_CONFIG: Record<string, { label: string; style: string }> = {
-  '待联系': { label: '待联系', style: 'bg-gray-100 text-gray-600' },
+  '待联系': { label: '待联系', style: 'bg-muted text-muted-foreground' },
   '已联系': { label: '已联系', style: 'bg-blue-100 text-blue-700' },
   '跟进中': { label: '跟进中', style: 'bg-amber-100 text-amber-700' },
   '已反馈': { label: '已反馈', style: 'bg-purple-100 text-purple-700' },
@@ -26,7 +26,7 @@ const CATEGORY_CONFIG: Record<Category, { label: string; color: string; bg: stri
   active_trial:   { label: '试用中', color: 'text-blue-700',     bg: 'bg-blue-50' },
   expiring_soon:  { label: '快到期', color: 'text-amber-700',    bg: 'bg-amber-50' },
   trial_expired:  { label: '已到期', color: 'text-red-700',      bg: 'bg-red-50' },
-  never_trialed:  { label: '未试用', color: 'text-gray-600',     bg: 'bg-gray-50' },
+  never_trialed:  { label: '未试用', color: 'text-muted-foreground',     bg: 'bg-muted/50' },
   paid:           { label: '已付费', color: 'text-emerald-700',  bg: 'bg-emerald-50' },
 };
 
@@ -34,7 +34,7 @@ const BADGE_STYLES: Record<string, string> = {
   active_trial:  'bg-blue-100 text-blue-800',
   expiring_soon: 'bg-amber-100 text-amber-800',
   trial_expired: 'bg-red-100 text-red-700',
-  never_trialed: 'bg-gray-100 text-gray-600',
+  never_trialed: 'bg-muted text-muted-foreground',
   paid:          'bg-emerald-100 text-emerald-800',
 };
 
@@ -386,7 +386,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="搜索邮箱、用户 ID、邀请码..."
-          className="w-full md:w-72 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50"
+          className="w-full md:w-72 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50"
         />
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-xs text-muted-foreground tabular-nums">
@@ -432,7 +432,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {FILTER_GROUPS.map((group) => (
           <div key={group.key} className="flex items-center gap-1.5">
-            <span className="text-[11px] text-muted-foreground/60 font-medium mr-0.5 select-none">
+            <span className="mr-0.5 select-none text-xs font-medium text-muted-foreground">
               {group.label}
             </span>
             {group.chips.map((chip) => {
@@ -442,7 +442,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
                 <button
                   key={chip.tag}
                   onClick={() => toggleTag(chip.tag)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-all border ${
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
                     isActive
                       ? 'border-foreground/20 bg-foreground text-background shadow-sm'
                       : 'border-border bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground'
@@ -450,7 +450,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
                 >
                   {chip.label}
                   <span className={`ml-1 tabular-nums ${
-                    isActive ? 'text-background/70' : 'text-muted-foreground/60'
+                    isActive ? 'text-background/70' : 'text-muted-foreground'
                   }`}>
                     {count}
                   </span>
@@ -474,7 +474,7 @@ export function AdminDashboard({ data: initialData }: { data: DashboardData }) {
               key={s}
               onClick={() => bulkUpdateStatus(s)}
               disabled={bulkSaving}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors disabled:opacity-50 ${
+              className={`rounded-full px-2.5 py-1 text-xs font-medium border transition-colors disabled:opacity-50 ${
                 OPS_STATUS_CONFIG[s]?.style ?? 'bg-muted text-muted-foreground'
               } border-transparent hover:border-current`}
             >
@@ -610,11 +610,11 @@ function DauDashboard({ activity }: { activity: NonNullable<DashboardData['activ
                   className="w-full max-w-5 rounded-t bg-emerald-500/75 transition-colors group-hover:bg-emerald-600"
                   style={{ height: `${height}%` }}
                 />
-                <div className="pointer-events-none absolute bottom-full mb-2 hidden rounded-md border border-border bg-popover px-2 py-1 text-[11px] shadow-sm group-hover:block whitespace-nowrap">
+                <div className="pointer-events-none absolute bottom-full mb-2 hidden rounded-md border border-border bg-popover px-2 py-1 text-xs shadow-sm group-hover:block whitespace-nowrap">
                   {formatCompactDate(row.day)} · {row.active_users} DAU · {row.api_calls} API
                 </div>
               </div>
-              <span className="hidden text-[10px] text-muted-foreground md:block">
+              <span className="hidden text-xs text-muted-foreground md:block">
                 {formatCompactDate(row.day)}
               </span>
             </div>
@@ -636,7 +636,7 @@ function Metric({
 }) {
   return (
     <div>
-      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`mt-1 inline-flex rounded px-1.5 py-0.5 text-lg font-semibold tabular-nums ${valueClassName ?? 'text-foreground'}`}>
         {value}
       </div>
@@ -661,7 +661,7 @@ function SortTh({
       className="text-left px-3 py-2.5 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap"
     >
       {label}
-      {active && <span className="ml-0.5 text-[10px]">{asc ? 'ASC' : 'DESC'}</span>}
+      {active && <span className="ml-0.5 text-xs">{asc ? 'ASC' : 'DESC'}</span>}
     </th>
   );
 }
@@ -676,7 +676,7 @@ function UserRowGroup({
   user: UserRecord; expanded: boolean; onToggle: () => void;
   selected: boolean; onSelect: () => void;
 }) {
-  const badge = BADGE_STYLES[user.category] ?? 'bg-gray-100 text-gray-600';
+  const badge = BADGE_STYLES[user.category] ?? 'bg-muted text-muted-foreground';
   const label = CATEGORY_CONFIG[user.category as Category]?.label ?? user.category;
 
   return (
@@ -744,7 +744,7 @@ function UserRowGroup({
 function OpsStatusBadge({ status }: { status: string | null }) {
   const s = status ?? '待联系';
   const cfg = OPS_STATUS_CONFIG[s];
-  if (!cfg) return <span className="text-xs text-muted-foreground/40">-</span>;
+  if (!cfg) return <span className="text-xs text-muted-foreground/70">-</span>;
   return (
     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${cfg.style}`}>
       {cfg.label}
@@ -753,7 +753,7 @@ function OpsStatusBadge({ status }: { status: string | null }) {
 }
 
 function NumCell({ value }: { value: number }) {
-  if (!value) return <span className="text-xs text-muted-foreground/40">0</span>;
+  if (!value) return <span className="text-xs text-muted-foreground/70">0</span>;
   return <span className="text-xs font-medium">{value}</span>;
 }
 
@@ -761,8 +761,8 @@ function EmailPill({ active, char, title }: { active: boolean; char: string; tit
   return (
     <span
       title={title}
-      className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${
-        active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-300'
+      className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${
+        active ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground/70'
       }`}
     >
       {char}
@@ -792,7 +792,7 @@ function EmailBadges({ user }: { user: UserRecord }) {
 
 const CONTACT_RATING_LABEL: Record<string, { text: string; style: string }> = {
   helpful:     { text: '好评', style: 'bg-emerald-50 text-emerald-700' },
-  neutral:     { text: '一般', style: 'bg-gray-100 text-gray-600' },
+  neutral:     { text: '一般', style: 'bg-muted text-muted-foreground' },
   not_helpful: { text: '差评', style: 'bg-red-50 text-red-700' },
 };
 
@@ -801,18 +801,18 @@ function UserFeedbackBadges({ user }: { user: UserRecord }) {
   const hasQ = user.has_questionnaire;
 
   if (!hasFb && !hasQ) {
-    return <span className="text-xs text-muted-foreground/40">-</span>;
+    return <span className="text-xs text-muted-foreground/70">-</span>;
   }
 
   return (
     <div className="flex flex-wrap gap-1">
       {hasQ && (
-        <span className="inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700">
+        <span className="inline-block rounded-full px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700">
           {user.questionnaire_background || '问卷'}
         </span>
       )}
       {hasFb && (
-        <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+        <span className={`inline-block rounded-full px-1.5 py-0.5 text-xs font-medium ${
           CONTACT_RATING_LABEL[user.contact_feedback_rating ?? '']?.style ?? 'bg-purple-50 text-purple-700'
         }`}>
           {CONTACT_RATING_LABEL[user.contact_feedback_rating ?? '']?.text ?? '反馈'}{user.contact_feedback_count > 1 ? ` x${user.contact_feedback_count}` : ''}
@@ -872,7 +872,7 @@ function UserDetail({ user }: { user: UserRecord }) {
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">功能权限</h4>
           <div className="flex flex-wrap gap-1.5">
             {entitlements.map((e) => (
-              <span key={e} className="bg-muted rounded px-1.5 py-0.5 text-[11px] font-mono text-muted-foreground">
+              <span key={e} className="bg-muted rounded px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
                 {e}
               </span>
             ))}
@@ -888,7 +888,7 @@ function UserDetail({ user }: { user: UserRecord }) {
             {Object.entries(user.api_by_type)
               .sort(([, a], [, b]) => b - a)
               .map(([type, count]) => (
-                <span key={type} className="bg-blue-50 text-blue-800 rounded px-2 py-0.5 text-[11px] font-mono">
+                <span key={type} className="bg-blue-50 text-blue-800 rounded px-2 py-0.5 text-xs font-mono">
                   {type}: {count}
                 </span>
               ))}
@@ -897,7 +897,7 @@ function UserDetail({ user }: { user: UserRecord }) {
       )}
 
       <div className="pt-2 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground/40 font-mono">
+        <span className="text-xs text-muted-foreground font-mono">
           ID: {user.user_id}
         </span>
         <Link

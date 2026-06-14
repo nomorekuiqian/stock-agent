@@ -45,7 +45,7 @@ export default function ResultsPanel({
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
         <div className="w-12 h-12 rounded-2xl bg-card border border-border/50 flex items-center justify-center mb-4">
-          <svg className="w-6 h-6 text-muted-foreground/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg className="w-6 h-6 text-muted-foreground/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
             <path d="M13 13l6 6" />
           </svg>

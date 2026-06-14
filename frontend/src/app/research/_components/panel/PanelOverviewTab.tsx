@@ -124,7 +124,7 @@ export default function PanelOverviewTab({ symbol, stockData }: { symbol: string
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               {healthData.details.map(d => (
                 <div key={d.label} className="flex items-center gap-1 text-xs">
-                  <span className={d.passed ? 'text-emerald-400' : 'text-muted-foreground/60'}>
+                  <span className={d.passed ? 'text-emerald-400' : 'text-muted-foreground/70'}>
                     {d.passed ? '+' : '-'}
                   </span>
                   <span className="text-muted-foreground truncate">{d.label}</span>

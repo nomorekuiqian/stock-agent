@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, isValidElement, memo, type ReactNode } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 type Children = { children?: ReactNode };
@@ -68,7 +68,7 @@ function AgentListItem({ children }: Children) {
   return <li>{parts ? <ArrowChain parts={parts} /> : children}</li>;
 }
 
-const DEFAULT_COMPONENTS = {
+const DEFAULT_COMPONENTS: Components = {
   a: ({ children, href }: Children & { href?: string }) => (
     <a
       href={href}
@@ -81,19 +81,19 @@ const DEFAULT_COMPONENTS = {
   ),
   table: ({ children }: Children) => (
     <div className="my-3 overflow-x-auto rounded-lg border border-border/60">
-      <table className="w-full text-xs border-collapse">{children}</table>
+      <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   ),
   thead: ({ children }: Children) => (
     <thead className="bg-muted/40">{children}</thead>
   ),
   th: ({ children }: Children) => (
-    <th className="px-3 py-2 text-left font-medium text-foreground border-b border-border whitespace-nowrap">
+    <th className="px-3 py-2 text-left font-medium leading-6 text-foreground border-b border-border whitespace-nowrap">
       {children}
     </th>
   ),
   td: ({ children }: Children) => (
-    <td className="px-3 py-2 align-top text-foreground/90 border-b border-border/40">
+    <td className="px-3 py-2 align-top leading-6 text-foreground/90 border-b border-border/40">
       {children}
     </td>
   ),
@@ -108,20 +108,20 @@ const DEFAULT_COMPONENTS = {
       return <code className={className}>{children}</code>;
     }
     return (
-      <code className="font-data text-xs text-foreground/90 bg-muted/60 rounded px-1 py-0.5">
+      <code className="font-mono text-sm text-foreground/90 bg-muted/60 rounded px-1 py-0.5">
         {children}
       </code>
     );
   },
   pre: ({ children }: Children) => (
-    <pre className="my-3 overflow-x-auto bg-muted rounded-lg p-3 text-xs text-foreground">
+    <pre className="my-3 overflow-x-auto bg-muted rounded-lg p-3 font-mono text-sm leading-6 text-foreground">
       {children}
     </pre>
   ),
   hr: () => <hr className="my-3 border-border/40" />,
 };
 
-const AGENT_COMPONENTS = {
+const AGENT_COMPONENTS: Components = {
   ...DEFAULT_COMPONENTS,
   p: AgentParagraph,
   li: AgentListItem,
@@ -138,7 +138,7 @@ const AGENT_COMPONENTS = {
 interface MarkdownBodyProps {
   children: string;
   /** Optional per-call overrides — merged on top of defaults. */
-  components?: Record<string, unknown>;
+  components?: Components;
   /** Agent output often uses ASCII arrows (`->`) and leading `>` as visual flow markers. */
   variant?: 'default' | 'agent';
 }
@@ -155,10 +155,11 @@ function MarkdownBody({ children, components, variant = 'default' }: MarkdownBod
     ? { ...baseComponents, ...components }
     : baseComponents;
   return (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={merged as any}>
-      {children}
-    </ReactMarkdown>
+    <div className="font-reading">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={merged}>
+        {children}
+      </ReactMarkdown>
+    </div>
   );
 }
 

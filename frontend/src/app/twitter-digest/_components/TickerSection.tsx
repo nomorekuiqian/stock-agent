@@ -79,7 +79,7 @@ export function TickerSection({
       />
 
       {thesis.stance_summary && (
-        <p className="mt-4 text-[14px] leading-snug text-muted-foreground italic">
+        <p className="mt-4 text-sm italic leading-6 text-muted-foreground">
           {thesis.stance_summary}
         </p>
       )}
@@ -95,7 +95,7 @@ export function TickerSection({
         </div>
       ) : (
         thesis.synthesis_zh && (
-          <p className="mt-4 text-[15px] leading-[1.85] text-foreground/90 font-editorial">
+          <p className="font-reading mt-4 text-sm leading-7 text-foreground/90 md:text-base md:leading-8">
             {thesis.synthesis_zh}
           </p>
         )
@@ -134,11 +134,11 @@ export function TickerSection({
       ) : (
         total > 0 && (
           <details className="mt-5 group">
-            <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-sky-400 transition-colors py-1.5 select-none">
+            <summary className="list-none cursor-pointer flex items-center gap-2 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-sky-400 select-none">
               <Caret />
               <span className="group-open:hidden">展开论据</span>
               <span className="hidden group-open:inline">收起论据</span>
-              <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
+              <span className="font-data tabular-nums text-muted-foreground/70 normal-case">
                 ({total})
               </span>
               <ToneSummary buy={buyCount} sell={sellCount} obs={obsCount} />
@@ -192,17 +192,17 @@ function Caret() {
 
 function ToneSummary({ buy, sell, obs }: { buy: number; sell: number; obs: number }) {
   return (
-    <span className="ml-auto flex items-center gap-2 text-[10px] font-data tabular-nums normal-case">
+    <span className="ml-auto flex items-center gap-2 text-xs font-data tabular-nums normal-case">
       {buy > 0 && <span className="text-primary/80">买 {buy}</span>}
       {sell > 0 && (
         <>
-          {buy > 0 && <span className="text-muted-foreground/35">·</span>}
+          {buy > 0 && <span className="text-muted-foreground/70">·</span>}
           <span className="text-rose-600/85 dark:text-rose-400/85">卖 {sell}</span>
         </>
       )}
       {obs > 0 && (
         <>
-          {(buy > 0 || sell > 0) && <span className="text-muted-foreground/35">·</span>}
+          {(buy > 0 || sell > 0) && <span className="text-muted-foreground/70">·</span>}
           <span className="text-muted-foreground/75">观 {obs}</span>
         </>
       )}
@@ -221,32 +221,32 @@ function Header({
       <div className="flex items-center gap-3 min-w-0">
         <span
           aria-hidden
-          className="font-data text-[10px] tabular-nums text-muted-foreground/60"
+          className="font-data text-xs tabular-nums text-muted-foreground/70"
         >
           {String(index + 1).padStart(2, '0')}
         </span>
         <Link
           href={`/stock/${ticker}`}
           prefetch={false}
-          className="inline-flex items-baseline gap-0.5 font-data text-2xl md:text-[26px] tracking-tight hover:text-sky-400 transition-colors"
+          className="inline-flex items-baseline gap-0.5 font-data text-2xl tracking-tight transition-colors hover:text-sky-400 md:text-3xl"
           aria-label={`查看 ${ticker} 个股详情`}
         >
           <span className="text-sky-400/70">$</span>
           <span className="text-foreground">{ticker}</span>
         </Link>
         <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${meta.chipClass}`}
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${meta.chipClass}`}
           aria-label={meta.label}
         >
           <span aria-hidden>{meta.emoji}</span>
           <span>{meta.label}</span>
         </span>
       </div>
-      <div className="flex items-baseline gap-3 shrink-0 text-[11px] uppercase tracking-[0.2em] text-muted-foreground/75 font-data">
+      <div className="flex shrink-0 items-baseline gap-3 text-xs uppercase tracking-[0.16em] text-muted-foreground font-data">
         <span className="tabular-nums">
           <span className="text-foreground/85">{kols}</span> KOL
         </span>
-        <span aria-hidden className="text-muted-foreground/35">·</span>
+        <span aria-hidden className="text-muted-foreground/70">·</span>
         <span className="tabular-nums">
           <span className="text-foreground/85">{tweets}</span> 推
         </span>
@@ -276,7 +276,7 @@ const TONE_STYLES: Record<LaneProps['tone'], { bar: string; label: string; bulle
   observation: {
     bar: 'bg-muted-foreground/40',
     label: 'text-muted-foreground',
-    bullet: 'text-muted-foreground/60',
+    bullet: 'text-muted-foreground/70',
   },
 };
 
@@ -287,11 +287,11 @@ function Lane({ label, count, tone, args }: LaneProps) {
       <h4 className="flex items-center gap-2.5">
         <span aria-hidden className={`block w-0.5 h-3.5 rounded-full ${style.bar}`} />
         <span
-          className={`text-[11px] uppercase tracking-[0.22em] font-medium ${style.label}`}
+          className={`text-xs font-medium uppercase tracking-[0.18em] ${style.label}`}
         >
           {label}
         </span>
-        <span className="text-[10px] font-data tabular-nums text-muted-foreground/55">
+        <span className="text-xs font-data tabular-nums text-muted-foreground/70">
           {count}
         </span>
       </h4>
@@ -309,10 +309,10 @@ function ArgumentRow({ arg, bulletClass }: { arg: Argument; bulletClass: string 
     <li className="flex gap-3 text-sm leading-relaxed group">
       <span aria-hidden className={`shrink-0 mt-2 ${bulletClass}`}>·</span>
       <div className="min-w-0 flex-1">
-        <p className="text-foreground/90 font-editorial">
+        <p className="font-reading text-foreground/90">
           {arg.point_zh}
         </p>
-        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground/75">
+        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
           <a
             href={safeUserUrl(arg.kol)}
             target="_blank"
@@ -321,12 +321,12 @@ function ArgumentRow({ arg, bulletClass }: { arg: Argument; bulletClass: string 
           >
             @{arg.kol}
           </a>
-          <span aria-hidden className="text-muted-foreground/35">·</span>
+          <span aria-hidden className="text-muted-foreground/70">·</span>
           <a
             href={safeTweetUrl(arg.tweet_url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground/65 hover:text-sky-400 transition-colors inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-sky-400"
             aria-label="查看原推"
           >
             原推

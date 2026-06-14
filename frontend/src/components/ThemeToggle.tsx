@@ -17,7 +17,7 @@ export function ThemeToggle() {
     return (
       <button
         type="button"
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+        className="p-2 rounded-lg hover:bg-muted/70 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
         aria-label="切换主题"
         disabled
       >
@@ -32,13 +32,13 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+      className="p-2 rounded-lg hover:bg-muted/70 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
       aria-label={isDark ? '切换到亮色主题' : '切换到暗色主题'}
     >
       {isDark ? (
-        <Sun className="w-4 h-4 text-gray-400 hover:text-primary transition-colors" />
+        <Sun className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
       ) : (
-        <Moon className="w-4 h-4 text-gray-500 hover:text-primary transition-colors" />
+        <Moon className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
       )}
     </button>
   );

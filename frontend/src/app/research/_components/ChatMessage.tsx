@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo, useState, useEffect } from 'react';
+import { memo, useMemo, useState, useEffect, type ReactNode } from 'react';
 import { Copy, Check } from 'lucide-react';
 
 import { FeedbackBar } from '@/components/memory/FeedbackBar';
@@ -76,6 +76,49 @@ interface ChatMessageProps {
 function hasMarkdown(text: string): boolean {
   return /(?:^#{1,6}\s|[*_]{1,2}\S|\n[-*]\s|\n\d+\.\s|^\s*\|.+\|\s*$|\n>|\n```|^\s*[-*]\s)/m.test(text);
 }
+
+const RESEARCH_MARKDOWN_COMPONENTS = {
+  table: ({ children }: { children?: ReactNode }) => (
+    <div className="my-4 overflow-x-auto rounded-lg border border-border/70 bg-card/25">
+      <table className="w-full border-collapse text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }: { children?: ReactNode }) => (
+    <thead className="bg-muted/45">{children}</thead>
+  ),
+  th: ({ children }: { children?: ReactNode }) => (
+    <th className="border-b border-border px-3 py-2.5 text-left font-medium leading-6 text-foreground whitespace-nowrap">
+      {children}
+    </th>
+  ),
+  td: ({ children }: { children?: ReactNode }) => (
+    <td className="border-b border-border/40 px-3 py-2.5 align-top leading-6 text-foreground/90">
+      {children}
+    </td>
+  ),
+  blockquote: ({ children }: { children?: ReactNode }) => (
+    <blockquote className="my-4 rounded-lg border border-primary/25 bg-primary/[0.025] px-4 py-2.5 text-foreground/85 [&>p]:my-0">
+      {children}
+    </blockquote>
+  ),
+  code: ({ className, children }: { className?: string; children?: ReactNode }) => {
+    const isBlock = !!className && className.startsWith('language-');
+    if (isBlock) {
+      return <code className={className}>{children}</code>;
+    }
+    return (
+      <code className="rounded bg-muted/65 px-1.5 py-0.5 font-mono text-sm text-foreground/90">
+        {children}
+      </code>
+    );
+  },
+  pre: ({ children }: { children?: ReactNode }) => (
+    <pre className="my-4 overflow-x-auto rounded-lg bg-muted p-3 font-mono text-sm leading-6 text-foreground">
+      {children}
+    </pre>
+  ),
+  hr: () => <hr className="my-4 border-border/40" />,
+};
 
 /**
  * Convert "[#3]" patterns in markdown text into clickable links that open the
@@ -177,7 +220,7 @@ function ChatMessage({
   if (role === 'user') {
     return (
       <div className="flex justify-end animate-msg-enter py-3">
-        <div className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground leading-relaxed border border-border/40">
+        <div className="font-reading max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground border border-border/40">
           {content}
         </div>
       </div>
@@ -228,22 +271,24 @@ function ChatMessage({
               ))}
             </div>
           ) : (isMarkdown || streaming) ? (
-            <div className={`prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed text-foreground
-              prose-headings:text-foreground prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2
-              prose-h1:text-base prose-h2:text-base prose-h3:text-sm prose-h4:text-sm
-              prose-p:text-inherit prose-p:my-2 prose-p:leading-relaxed
+            <div className={`prose prose-sm prose-agent max-w-none dark:prose-invert text-foreground
+              prose-headings:text-foreground prose-headings:font-semibold prose-headings:mt-5 prose-headings:mb-2 prose-headings:tracking-normal
+              prose-h1:text-lg prose-h2:text-base prose-h3:text-sm prose-h4:text-sm
+              prose-p:text-inherit prose-p:my-3
               prose-strong:text-foreground prose-strong:font-semibold
-              prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-li:text-inherit
+              prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:text-inherit
               [&_li_p]:my-0
               ${animate ? 'animate-fade-in' : ''}`}
             >
-              <MarkdownBody variant="agent">{annotatedContent}</MarkdownBody>
+              <MarkdownBody variant="agent" components={RESEARCH_MARKDOWN_COMPONENTS}>
+                {annotatedContent}
+              </MarkdownBody>
               {streaming && (
                 <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
             </div>
           ) : (
-            <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+            <div className="research-message-text text-foreground whitespace-pre-wrap">
               {content}
               {streaming && (
                 <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />

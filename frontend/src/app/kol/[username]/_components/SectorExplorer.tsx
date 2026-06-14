@@ -40,6 +40,8 @@ const CHAIN_BOARDS = new Set([
   'crypto-stablecoin-rwa',
   'defense-and-space',
 ]);
+const NO_ACTIVE_SECTOR = '__none__' as const;
+type ExpandedKey = string | null | typeof NO_ACTIVE_SECTOR;
 
 interface SectorVisual {
   icon: ReactNode;
@@ -169,9 +171,9 @@ const SERENITY_SECTOR_VISUALS: Record<string, SectorVisual> = {
   },
   'defense-and-space': {
     icon: <Shield className="h-4 w-4" />,
-    accent: 'border-slate-400/35 bg-slate-400/[0.055]',
-    iconTone: 'border-slate-400/30 bg-slate-400/10 text-slate-300',
-    bar: 'bg-slate-400/70',
+    accent: 'border-muted-foreground/30 bg-muted/50',
+    iconTone: 'border-muted-foreground/30 bg-muted/50 text-muted-foreground',
+    bar: 'bg-muted-foreground/70',
     badge: '硬资产',
     thesis: '商业航天 + 国防 · RKLB / 太空发射子系统。',
     subtopics: ['RKLB', '商业航天', '国防'],
@@ -210,11 +212,16 @@ export default function SectorExplorer({ username }: Props) {
     () => (data?.sectors ?? []).filter((sector) => sector.layer === 'sector'),
     [data?.sectors],
   );
-  const [expandedKey, setExpandedKey] = useState<string | null>(initialKey);
-  const activeKey =
-    expandedKey && sectorOnly.some((sector) => sector.key === expandedKey)
+  const [expandedKey, setExpandedKey] = useState<ExpandedKey>(initialKey);
+  const selectedKey =
+    expandedKey !== NO_ACTIVE_SECTOR &&
+    expandedKey &&
+    sectorOnly.some((sector) => sector.key === expandedKey)
       ? expandedKey
       : null;
+  const activeKey = isLegacyMacroRoute
+    ? null
+    : selectedKey ?? (expandedKey !== NO_ACTIVE_SECTOR ? sectorOnly[0]?.key ?? null : null);
 
   // Only fetch detail for the currently expanded sector. Other panels fetch
   // on expand. Avoids 1+N requests on first paint when the user only opens 1.
@@ -222,7 +229,7 @@ export default function SectorExplorer({ username }: Props) {
     queries: sectorOnly.map((sector) => ({
       queryKey: queryKeys.kol.sectorDetail(username, sector.key),
       queryFn: () => api.kolResearch.cockpitSector(username, sector.key),
-      enabled: Boolean(username) && sector.key === activeKey,
+      enabled: Boolean(username) && !isLegacyMacroRoute && sector.key === activeKey,
       staleTime: 5 * 60 * 1000,
     })),
   });
@@ -243,10 +250,10 @@ export default function SectorExplorer({ username }: Props) {
   }, [isLegacyMacroRoute, router, username]);
 
   function expandSector(key: string) {
-    const next = activeKey === key ? null : key;
+    const next: ExpandedKey = activeKey === key ? NO_ACTIVE_SECTOR : key;
     setExpandedKey(next);
     const params = new URLSearchParams(searchParams?.toString() ?? '');
-    if (next) {
+    if (next !== NO_ACTIVE_SECTOR) {
       params.set('key', next);
       router.replace(`?${params.toString()}`, { scroll: false });
     } else {
@@ -487,13 +494,15 @@ function SectorMapCard({
             </span>
           ))
         ) : (
-          <span className="text-sm text-muted-foreground">正在读取标的</span>
+          <span className="text-sm text-muted-foreground">
+            {active ? '正在读取标的' : '展开读取标的'}
+          </span>
         )}
       </div>
 
       <div className="mt-4 flex items-center justify-between border-t border-border/35 pt-3">
         <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          {detail ? `${detail.rep_tweets.length} 条原文` : '读取中'}
+          {detail ? `${detail.rep_tweets.length} 条原文` : active ? '读取中' : '展开读取'}
         </span>
         <ChevronDown className={`h-4 w-4 text-muted-foreground transition ${active ? 'rotate-180 text-primary' : 'group-hover:text-primary'}`} />
       </div>
@@ -538,6 +547,7 @@ function SectorNarrativePanel({
   const chatHref =
     `/research?agent=kol&persona=${encodeURIComponent(username)}` +
     `&q=${encodeURIComponent(chatPromptCue)}`;
+  const loadingDetail = open && !detail;
   void personaName;
 
   return (
@@ -579,8 +589,12 @@ function SectorNarrativePanel({
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : loadingDetail ? (
             <LoadingLines />
+          ) : (
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              点击「{expandLabel}」加载这一环节的观点。
+            </p>
           )}
 
           {falsifier ? (
@@ -605,8 +619,12 @@ function SectorNarrativePanel({
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">这个板块暂时没有可展示的代表原文。</p>
             )
-          ) : (
+          ) : loadingDetail ? (
             <LoadingLines />
+          ) : (
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              展开后读取代表原文。
+            </p>
           )}
         </div>
       </div>

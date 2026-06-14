@@ -91,13 +91,13 @@ export function AnalysisSection({ label, content, accentColor = 'teal', defaultO
           <div className={`w-1 h-4 rounded-full ${barColor}`} />
           <h4 className="text-sm font-medium text-foreground group-hover:text-foreground transition-colors">{label}</h4>
         </div>
-        <svg className={`w-3.5 h-3.5 text-muted-foreground/40 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        <svg className={`w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {open && (
-        <div className="px-3 pb-4 pt-3 text-[13px] text-muted-foreground leading-[1.8] prose prose-sm max-w-none
+        <div className="px-3 pb-4 pt-3 text-sm leading-7 text-muted-foreground prose prose-sm max-w-none
           prose-headings:text-foreground prose-headings:font-semibold
           prose-strong:text-foreground prose-strong:font-medium
           prose-p:text-muted-foreground prose-p:my-2.5

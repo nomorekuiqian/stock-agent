@@ -300,7 +300,7 @@ export default function StockResearchPage() {
 
             <div className="flex items-center gap-2 text-muted-foreground/70">
               <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-              <span className="text-xs font-data">市场数据</span>
+              <span className="text-xs font-medium">市场数据</span>
             </div>
           </div>
         </div>

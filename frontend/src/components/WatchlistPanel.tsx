@@ -132,7 +132,7 @@ export default function WatchlistPanel({
                         onFocus={onSearchFocus}
                         disabled={atLimit}
                         placeholder={atLimit ? "已达上限，请先移除股票" : "搜索股票代码或公司名称..."}
-                        className="w-full pl-11 pr-4 py-3 bg-background border border-border/50 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full pl-11 pr-4 py-3 bg-background border border-border/50 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
                       />
                       {isSearching && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">

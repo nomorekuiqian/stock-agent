@@ -2232,7 +2232,7 @@ function ScreenerContent() {
   // Welcome phase — same sidebar as chat phase
   if (state.phase === 'welcome') {
     return (
-      <div className="fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex">
+      <div className="research-typography fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex">
         {mobileHistoryDrawer}
         {/* Shared sidebar */}
         <div
@@ -2319,7 +2319,7 @@ function ScreenerContent() {
 
   // Chat phase - split layout
   return (
-    <div className="fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10">
+    <div className="research-typography fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10">
       {mobileHistoryDrawer}
       {conversationSearchDialog}
       {/* Mobile tab switch */}

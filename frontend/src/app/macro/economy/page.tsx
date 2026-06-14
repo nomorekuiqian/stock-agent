@@ -99,7 +99,7 @@ function HeroCard({
       </div>
 
       <div className="mb-1">
-        <span className={`text-2xl sm:text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
+        <span className={`text-2xl sm:text-data-hero font-bold font-data tracking-tighter leading-tight transition-colors duration-300 ${
           selected ? getColorClass(accentColor) : 'text-foreground group-hover:text-foreground'
         }`}>
           {formatted}
@@ -236,7 +236,7 @@ export default function EconomyPage() {
             </svg>
             返回宏观总览
           </Link>
-          <p className="text-xs text-muted-foreground/60 mt-3">
+          <p className="mt-3 text-xs text-muted-foreground">
             数据来源{' '}
             <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 transition-colors">FRED</a>
             {' '}&middot;{' '}图表{' '}

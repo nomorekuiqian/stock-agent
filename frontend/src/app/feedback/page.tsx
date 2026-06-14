@@ -6,7 +6,7 @@ import Link from "next/link";
 
 function LoadingState() {
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-4">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
         <div className="w-12 h-12 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
       </div>
@@ -107,7 +107,7 @@ function FeedbackContent() {
   // Success state (immediate display)
   if (showSuccess && !showDuplicate) {
     return (
-      <main className="min-h-screen bg-white flex items-center justify-center px-4">
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="max-w-md w-full">
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
@@ -125,14 +125,14 @@ function FeedbackContent() {
                 />
               </svg>
             </div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+            <h1 className="text-2xl font-semibold text-foreground mb-2">
               感谢你的反馈!
             </h1>
-            <p className="text-sm text-gray-500">你的意见对我们非常重要</p>
+            <p className="text-sm text-muted-foreground">你的意见对我们非常重要</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-            <p className="text-sm text-gray-500 mb-6">
+          <div className="bg-background rounded-2xl border border-border p-8 text-center">
+            <p className="text-sm text-muted-foreground mb-6">
               我们会根据你的反馈持续改进日报质量，为你提供更好的市场分析。
             </p>
             <Link
@@ -146,7 +146,7 @@ function FeedbackContent() {
           <div className="text-center mt-6">
             <Link
               href="/"
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               返回首页
             </Link>
@@ -159,7 +159,7 @@ function FeedbackContent() {
   // Duplicate state
   if (showDuplicate) {
     return (
-      <main className="min-h-screen bg-white flex items-center justify-center px-4">
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="max-w-md w-full">
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-4">
@@ -177,16 +177,16 @@ function FeedbackContent() {
                 />
               </svg>
             </div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+            <h1 className="text-2xl font-semibold text-foreground mb-2">
               已收到你的反馈
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               你已经对这份日报提交过反馈了
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-            <p className="text-sm text-gray-500 mb-6">
+          <div className="bg-background rounded-2xl border border-border p-8 text-center">
+            <p className="text-sm text-muted-foreground mb-6">
               你的反馈已更新，感谢你的参与!
             </p>
             <Link
@@ -200,7 +200,7 @@ function FeedbackContent() {
           <div className="text-center mt-6">
             <Link
               href="/"
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               返回首页
             </Link>
@@ -225,7 +225,7 @@ function FeedbackContent() {
   };
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-4">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
@@ -243,17 +243,17 @@ function FeedbackContent() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">出错了</h1>
-          <p className="text-sm text-gray-500">无法处理你的反馈</p>
+          <h1 className="text-2xl font-semibold text-foreground mb-2">出错了</h1>
+          <p className="text-sm text-muted-foreground">无法处理你的反馈</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+        <div className="bg-background rounded-2xl border border-border p-8 text-center">
           <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-6">
             <p className="text-sm text-red-600">
               {getErrorMessage(legacyError)}
             </p>
           </div>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-muted-foreground mb-6">
             请尝试重新点击邮件中的反馈按钮，如果问题持续存在请联系我们。
           </p>
           <Link
@@ -267,7 +267,7 @@ function FeedbackContent() {
         <div className="text-center mt-6">
           <Link
             href="/"
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             返回首页
           </Link>

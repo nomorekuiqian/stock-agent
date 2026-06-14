@@ -55,7 +55,7 @@ export default function SentimentView({ embedded, onContextReady }: SentimentVie
           <div className="absolute inset-0 rounded-full border border-primary/20" />
           <div className="absolute inset-0 rounded-full border-t border-primary animate-spin" />
         </div>
-        <span className="text-xs text-muted-foreground">加载市场情绪数据</span>
+        <span className="text-sm text-muted-foreground">加载市场情绪数据</span>
       </div>
     );
   }
@@ -85,7 +85,7 @@ export default function SentimentView({ embedded, onContextReady }: SentimentVie
         <>
           <div className="px-5 pt-4 pb-4">
             <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">SENTIMENT</span>
-            <h2 className="text-xl font-editorial text-foreground leading-tight mt-1">市场情绪</h2>
+            <h2 className="mt-1 text-xl font-semibold leading-tight text-foreground">市场情绪</h2>
             <p className="text-sm text-muted-foreground mt-1">恐惧贪婪指数、波动率</p>
           </div>
           <div className="border-b border-border/30" />
@@ -107,8 +107,8 @@ export default function SentimentView({ embedded, onContextReady }: SentimentVie
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${overallScore}%`, background: barBg }} />
           </div>
           <div className="flex justify-between mt-1.5">
-            <span className="text-micro text-red-500/60">极度恐惧</span>
-            <span className="text-micro text-emerald-500/60">极度贪婪</span>
+            <span className="text-sm text-red-500">极度恐惧</span>
+            <span className="text-sm text-emerald-500">极度贪婪</span>
           </div>
           <p className="text-sm text-foreground leading-relaxed mt-4">{sentiment.overall_headline}</p>
         </div>

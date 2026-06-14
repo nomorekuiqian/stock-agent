@@ -52,7 +52,7 @@ function FrankLayout({
       <aside className="lg:w-56 lg:shrink-0">
         <div className="space-y-5 rounded-lg border border-border/40 bg-card/20 p-3 lg:sticky lg:top-32 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto">
           <section>
-            <p className="px-2 pb-2 font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="px-2 pb-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
               主题
             </p>
             {topicsQ.isLoading ? (
@@ -66,7 +66,7 @@ function FrankLayout({
             )}
           </section>
           <section>
-            <p className="px-2 pb-2 font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="px-2 pb-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
               个股
             </p>
             <TickerRailList tickers={tickers} value={ticker} onChange={setTicker} />

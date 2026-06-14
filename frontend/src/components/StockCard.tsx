@@ -107,7 +107,7 @@ export default function StockCard({
             aria-label={confirmingRemove ? `确认移除 ${symbol}` : `移除 ${symbol}`}
           >
             {confirmingRemove ? (
-              <span className="text-xs font-medium leading-none whitespace-nowrap">确认?</span>
+              <span className="text-xs font-medium leading-tight whitespace-nowrap">确认?</span>
             ) : (
               <X className="w-3.5 h-3.5" />
             )}

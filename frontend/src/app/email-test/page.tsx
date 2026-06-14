@@ -276,9 +276,9 @@ function EmailTestContent() {
             : 'Welcome Email';
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-muted/50">
       {/* Header */}
-      <section className="bg-white border-b border-gray-100">
+      <section className="bg-background border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
@@ -288,15 +288,15 @@ function EmailTestContent() {
                 </svg>
                 Email Testing
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">Email Template Preview</h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <h1 className="text-xl font-semibold text-foreground">Email Template Preview</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 Preview and test email templates (rendered by backend)
               </p>
             </div>
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
             >
               <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -312,7 +312,7 @@ function EmailTestContent() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeChannel === 'daily_report'
                   ? 'bg-primary/10 text-primary border-primary/30'
-                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                  : 'bg-muted/50 text-muted-foreground border border-border hover:bg-muted'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -327,7 +327,7 @@ function EmailTestContent() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeChannel === 'personal_digest'
                   ? 'bg-primary/10 text-primary border-primary/30'
-                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                  : 'bg-muted/50 text-muted-foreground border border-border hover:bg-muted'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -342,7 +342,7 @@ function EmailTestContent() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeChannel === 'weekly_report'
                   ? 'bg-primary/10 text-primary border-primary/30'
-                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                  : 'bg-muted/50 text-muted-foreground border border-border hover:bg-muted'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -357,7 +357,7 @@ function EmailTestContent() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeChannel === 'twitter_digest'
                   ? 'bg-primary/10 text-primary border-primary/30'
-                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                  : 'bg-muted/50 text-muted-foreground border border-border hover:bg-muted'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -372,7 +372,7 @@ function EmailTestContent() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeChannel === 'welcome'
                   ? 'bg-primary/10 text-primary border-primary/30'
-                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                  : 'bg-muted/50 text-muted-foreground border border-border hover:bg-muted'
               }`}
             >
               <div className="flex items-center gap-2">
@@ -391,11 +391,11 @@ function EmailTestContent() {
           {/* Left Panel - Controls */}
           <div className="lg:col-span-1 space-y-4">
             {/* Send Test Card */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">发送测试邮件</h2>
+            <div className="bg-background rounded-xl border border-border p-5">
+              <h2 className="text-sm font-semibold text-foreground mb-4">发送测试邮件</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                     收件人邮箱
                   </label>
                   <input
@@ -403,7 +403,7 @@ function EmailTestContent() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="test@example.com"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm text-foreground bg-background placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
                 <button
@@ -443,13 +443,13 @@ function EmailTestContent() {
             </div>
 
             {/* Info Card */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">
+            <div className="bg-background rounded-xl border border-border p-5">
+              <h2 className="text-sm font-semibold text-foreground mb-4">
                 {activeChannel === 'daily_report' ? 'Report Info' : activeChannel === 'personal_digest' ? 'Digest Info' : activeChannel === 'weekly_report' ? 'Weekly Report Info' : activeChannel === 'twitter_digest' ? 'Twitter Digest Info' : 'Welcome Info'}
               </h2>
               {loading ? (
-                <div className="flex items-center gap-2 text-gray-400 text-sm">
-                  <div className="w-4 h-4 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
+                <div className="flex items-center gap-2 text-muted-foreground/70 text-sm">
+                  <div className="w-4 h-4 rounded-full border-2 border-border border-t-gray-400 animate-spin" />
                   加载中...
                 </div>
               ) : error ? (
@@ -457,40 +457,40 @@ function EmailTestContent() {
               ) : activeChannel === 'daily_report' && reportInfo ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Report Date</span>
-                    <span className="text-gray-900 font-medium">{reportInfo.date}</span>
+                    <span className="text-muted-foreground">Report Date</span>
+                    <span className="text-foreground font-medium">{reportInfo.date}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Report ID</span>
-                    <span className="text-gray-900 font-medium font-mono text-xs">
+                    <span className="text-muted-foreground">Report ID</span>
+                    <span className="text-foreground font-medium font-mono text-xs">
                       {reportInfo.id.slice(0, 8)}...
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Source</span>
+                    <span className="text-muted-foreground">Source</span>
                     <span className="text-primary font-medium">Backend API</span>
                   </div>
                 </div>
               ) : activeChannel === 'personal_digest' && digestInfo ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Digest Date</span>
-                    <span className="text-gray-900 font-medium">{digestInfo.date}</span>
+                    <span className="text-muted-foreground">Digest Date</span>
+                    <span className="text-foreground font-medium">{digestInfo.date}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Digest ID</span>
-                    <span className="text-gray-900 font-medium font-mono text-xs">
+                    <span className="text-muted-foreground">Digest ID</span>
+                    <span className="text-foreground font-medium font-mono text-xs">
                       {digestInfo.id.slice(0, 8)}...
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">User ID</span>
-                    <span className="text-gray-900 font-medium font-mono text-xs">
+                    <span className="text-muted-foreground">User ID</span>
+                    <span className="text-foreground font-medium font-mono text-xs">
                       {digestInfo.userId.slice(0, 8)}...
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block mb-1">Symbols</span>
+                    <span className="text-muted-foreground block mb-1">Symbols</span>
                     <div className="flex flex-wrap gap-1">
                       {digestInfo.symbols.map((sym) => (
                         <span
@@ -506,24 +506,24 @@ function EmailTestContent() {
               ) : activeChannel === 'weekly_report' && weeklyInfo ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Week</span>
-                    <span className="text-gray-900 font-medium">{weeklyInfo.weekLabel}</span>
+                    <span className="text-muted-foreground">Week</span>
+                    <span className="text-foreground font-medium">{weeklyInfo.weekLabel}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Title</span>
-                    <span className="text-gray-900 font-medium text-xs">{weeklyInfo.title}</span>
+                    <span className="text-muted-foreground">Title</span>
+                    <span className="text-foreground font-medium text-xs">{weeklyInfo.title}</span>
                   </div>
                   {weeklyInfo.reportId && (
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Report ID</span>
-                      <span className="text-gray-900 font-medium font-mono text-xs">
+                      <span className="text-muted-foreground">Report ID</span>
+                      <span className="text-foreground font-medium font-mono text-xs">
                         {weeklyInfo.reportId.slice(0, 8)}...
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Generated</span>
-                    <span className="text-gray-900 font-medium text-xs">
+                    <span className="text-muted-foreground">Generated</span>
+                    <span className="text-foreground font-medium text-xs">
                       {weeklyInfo.generatedAt ? formatTimestamp(weeklyInfo.generatedAt) : '-'}
                     </span>
                   </div>
@@ -531,38 +531,38 @@ function EmailTestContent() {
               ) : activeChannel === 'twitter_digest' && twitterDigestInfo ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Digest Date</span>
-                    <span className="text-gray-900 font-medium">{twitterDigestInfo.digestDate || '-'}</span>
+                    <span className="text-muted-foreground">Digest Date</span>
+                    <span className="text-foreground font-medium">{twitterDigestInfo.digestDate || '-'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Input Tweets</span>
-                    <span className="text-gray-900 font-medium">{twitterDigestInfo.inputTweetCount}</span>
+                    <span className="text-muted-foreground">Input Tweets</span>
+                    <span className="text-foreground font-medium">{twitterDigestInfo.inputTweetCount}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Tracked KOLs</span>
-                    <span className="text-gray-900 font-medium">{twitterDigestInfo.trackedKolCount}</span>
+                    <span className="text-muted-foreground">Tracked KOLs</span>
+                    <span className="text-foreground font-medium">{twitterDigestInfo.trackedKolCount}</span>
                   </div>
                 </div>
               ) : activeChannel === 'welcome' ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Type</span>
-                    <span className="text-gray-900 font-medium">Welcome</span>
+                    <span className="text-muted-foreground">Type</span>
+                    <span className="text-foreground font-medium">Welcome</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Subject</span>
-                    <span className="text-gray-900 font-medium text-xs">{welcomeSubject}</span>
+                    <span className="text-muted-foreground">Subject</span>
+                    <span className="text-foreground font-medium text-xs">{welcomeSubject}</span>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">暂无数据</p>
+                <p className="text-sm text-muted-foreground/70">暂无数据</p>
               )}
 
               {/* Load Specific Report/Digest/Weekly */}
               <div className="mt-4 pt-4 border-t border-gray-100">
                 {activeChannel === 'daily_report' ? (
                   <>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                       Load Specific Report
                     </label>
                     <div className="flex gap-2">
@@ -571,12 +571,12 @@ function EmailTestContent() {
                         value={reportId}
                         onChange={(e) => setReportId(e.target.value)}
                         placeholder="Report ID (UUID)"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="flex-1 px-2 py-1.5 border border-border rounded text-xs font-mono text-foreground bg-background placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <button
                         onClick={() => loadEmailPreview(reportId || undefined, user?.name)}
                         disabled={loading}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-muted text-foreground rounded text-xs font-medium hover:bg-muted/80 disabled:opacity-50"
                       >
                         Load
                       </button>
@@ -584,20 +584,20 @@ function EmailTestContent() {
                   </>
                 ) : activeChannel === 'personal_digest' ? (
                   <>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                       Logged-in User
                     </label>
-                    <div className="px-3 py-2 bg-gray-50 rounded text-xs mb-3">
+                    <div className="px-3 py-2 bg-muted/50 rounded text-xs mb-3">
                       {user ? (
                         <div className="space-y-1">
-                          <div className="font-medium text-gray-900">{user.name || 'No name'}</div>
-                          <div className="text-gray-500 font-mono">{user.email}</div>
+                          <div className="font-medium text-foreground">{user.name || 'No name'}</div>
+                          <div className="text-muted-foreground font-mono">{user.email}</div>
                         </div>
                       ) : (
-                        <div className="text-gray-500">Not logged in - please sign in to preview your digest</div>
+                        <div className="text-muted-foreground">Not logged in - please sign in to preview your digest</div>
                       )}
                     </div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                       Load Specific Digest (optional)
                     </label>
                     <div className="flex gap-2">
@@ -606,12 +606,12 @@ function EmailTestContent() {
                         value={digestId}
                         onChange={(e) => setDigestId(e.target.value)}
                         placeholder="Digest ID (UUID)"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="flex-1 px-2 py-1.5 border border-border rounded text-xs font-mono text-foreground bg-background placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <button
                         onClick={() => loadDigestPreview({ userId: user?.id, digestId: digestId || undefined })}
                         disabled={loading || !digestId}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-muted text-foreground rounded text-xs font-medium hover:bg-muted/80 disabled:opacity-50"
                       >
                         Load
                       </button>
@@ -619,7 +619,7 @@ function EmailTestContent() {
                   </>
                 ) : activeChannel === 'twitter_digest' ? (
                   <>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                       Load Specific Date
                     </label>
                     <div className="flex gap-2">
@@ -628,21 +628,21 @@ function EmailTestContent() {
                         value={twitterDigestDate}
                         onChange={(e) => setTwitterDigestDate(e.target.value)}
                         placeholder="YYYY-MM-DD"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="flex-1 px-2 py-1.5 border border-border rounded text-xs font-mono text-foreground bg-background placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <button
                         onClick={() => loadTwitterDigestPreview(twitterDigestDate || undefined)}
                         disabled={loading}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-muted text-foreground rounded text-xs font-medium hover:bg-muted/80 disabled:opacity-50"
                       >
                         Load
                       </button>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">留空加载最新一期</p>
+                    <p className="text-sm text-muted-foreground/70 mt-2">留空加载最新一期</p>
                   </>
                 ) : activeChannel === 'weekly_report' ? (
                   <>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                       Load Specific Week
                     </label>
                     <div className="flex gap-2">
@@ -651,12 +651,12 @@ function EmailTestContent() {
                         value={weekLabel}
                         onChange={(e) => setWeekLabel(e.target.value)}
                         placeholder="e.g. 2025.W06"
-                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="flex-1 px-2 py-1.5 border border-border rounded text-xs font-mono text-foreground bg-background placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <button
                         onClick={() => loadWeeklyPreview({ week: weekLabel || undefined, firstName: user?.name })}
                         disabled={loading}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-muted text-foreground rounded text-xs font-medium hover:bg-muted/80 disabled:opacity-50"
                       >
                         Load
                       </button>
@@ -664,10 +664,10 @@ function EmailTestContent() {
                   </>
                 ) : (
                   <>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                       Welcome Email
                     </label>
-                    <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-500">
+                    <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
                       Day 3/7/14 onboarding drip 邮件已删除，此处只预览注册欢迎邮件。
                     </p>
                   </>
@@ -679,29 +679,29 @@ function EmailTestContent() {
 
           {/* Right Panel - Email Preview */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-background rounded-xl border border-border overflow-hidden">
               {/* Preview Header */}
-              <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-3 flex-wrap">
+              <div className="px-5 py-3 bg-muted/50 border-b border-border flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded-full bg-red-400" />
                     <div className="w-3 h-3 rounded-full bg-yellow-400" />
                     <div className="w-3 h-3 rounded-full bg-green-400" />
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-muted-foreground">
                     {viewMode === 'preview' ? `${channelLabel} Preview` : 'HTML Source'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Width toggle (only for preview mode) */}
                   {viewMode === 'preview' && (
-                    <div className="inline-flex rounded-md border border-gray-200 bg-white overflow-hidden">
+                    <div className="inline-flex rounded-md border border-border bg-background overflow-hidden">
                       <button
                         onClick={() => setViewWidth('mobile')}
                         className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                           viewWidth === 'mobile'
                             ? 'bg-primary/10 text-primary'
-                            : 'text-gray-600 hover:bg-gray-50'
+                            : 'text-muted-foreground hover:bg-muted/50'
                         }`}
                         title="iPhone 宽度 (390px)"
                       >
@@ -709,10 +709,10 @@ function EmailTestContent() {
                       </button>
                       <button
                         onClick={() => setViewWidth('desktop')}
-                        className={`px-2.5 py-1 text-xs font-medium border-l border-gray-200 transition-colors ${
+                        className={`px-2.5 py-1 text-xs font-medium border-l border-border transition-colors ${
                           viewWidth === 'desktop'
                             ? 'bg-primary/10 text-primary'
-                            : 'text-gray-600 hover:bg-gray-50'
+                            : 'text-muted-foreground hover:bg-muted/50'
                         }`}
                         title="桌面全宽"
                       >
@@ -721,23 +721,23 @@ function EmailTestContent() {
                     </div>
                   )}
                   {/* View mode toggle */}
-                  <div className="inline-flex rounded-md border border-gray-200 bg-white overflow-hidden">
+                  <div className="inline-flex rounded-md border border-border bg-background overflow-hidden">
                     <button
                       onClick={() => setViewMode('preview')}
                       className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                         viewMode === 'preview'
                           ? 'bg-primary/10 text-primary'
-                          : 'text-gray-600 hover:bg-gray-50'
+                          : 'text-muted-foreground hover:bg-muted/50'
                       }`}
                     >
                       预览
                     </button>
                     <button
                       onClick={() => setViewMode('html')}
-                      className={`px-2.5 py-1 text-xs font-medium border-l border-gray-200 transition-colors ${
+                      className={`px-2.5 py-1 text-xs font-medium border-l border-border transition-colors ${
                         viewMode === 'html'
                           ? 'bg-primary/10 text-primary'
-                          : 'text-gray-600 hover:bg-gray-50'
+                          : 'text-muted-foreground hover:bg-muted/50'
                       }`}
                     >
                       HTML
@@ -749,7 +749,7 @@ function EmailTestContent() {
                         navigator.clipboard.writeText(currentHtml);
                         alert('HTML copied to clipboard!');
                       }}
-                      className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -763,8 +763,8 @@ function EmailTestContent() {
               {/* Preview Content */}
               <div className="max-h-[700px] overflow-y-auto">
                 {loading ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                    <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin mb-3" />
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/70">
+                    <div className="w-8 h-8 rounded-full border-2 border-border border-t-gray-400 animate-spin mb-3" />
                     <p className="text-sm">Loading email preview from backend...</p>
                   </div>
                 ) : error ? (
@@ -773,7 +773,7 @@ function EmailTestContent() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <p className="text-sm font-medium">{error}</p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground/70 mt-1">
                       {activeChannel === 'personal_digest'
                         ? 'Make sure you have generated a digest for this user'
                         : activeChannel === 'weekly_report'
@@ -784,11 +784,11 @@ function EmailTestContent() {
                     </p>
                   </div>
                 ) : viewMode === 'preview' ? (
-                  <div className={`flex justify-center ${viewWidth === 'mobile' ? 'bg-gray-100 p-4' : ''}`}>
+                  <div className={`flex justify-center ${viewWidth === 'mobile' ? 'bg-muted p-4' : ''}`}>
                     <iframe
                       srcDoc={currentHtml}
                       title={`${channelLabel} preview`}
-                      className={viewWidth === 'mobile' ? 'bg-white border border-gray-200 rounded shadow-sm' : 'bg-white'}
+                      className={viewWidth === 'mobile' ? 'bg-background border border-border rounded shadow-sm' : 'bg-background'}
                       style={{
                         width: viewWidth === 'mobile' ? '390px' : '100%',
                         maxWidth: '100%',
@@ -798,7 +798,7 @@ function EmailTestContent() {
                     />
                   </div>
                 ) : (
-                  <pre className="p-4 text-xs text-gray-700 bg-gray-50 overflow-x-auto whitespace-pre-wrap font-mono">
+                  <pre className="p-4 text-xs text-foreground bg-muted/50 overflow-x-auto whitespace-pre-wrap font-mono">
                     {currentHtml}
                   </pre>
                 )}
@@ -815,8 +815,8 @@ export default function EmailTestPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-gray-500">Loading...</div>
+        <main className="min-h-screen bg-muted/50 flex items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
         </main>
       }
     >

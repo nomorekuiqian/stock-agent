@@ -572,7 +572,7 @@ export function EarningsTab({
                       </div>
                     ) : (
                       <div className="p-6 text-center">
-                        <p className="text-xs text-muted-foreground">该季度暂无电话会纪要</p>
+                        <p className="text-sm text-muted-foreground">该季度暂无电话会纪要</p>
                       </div>
                     )}
                   </div>
@@ -873,7 +873,7 @@ export function EarningsTab({
           {rightTab === 'cashflow' && !selectedCashflow && (
             <div className="bg-card/50 border border-border/30 rounded-xl p-8 text-center">
               <p className="text-sm text-muted-foreground">该季度暂无现金流量表数据</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">完整数据通常在公司提交 10-Q 后 1-3 个工作日内补全</p>
+              <p className="mt-1 text-sm text-muted-foreground">完整数据通常在公司提交 10-Q 后 1-3 个工作日内补全</p>
             </div>
           )}
           {rightTab === 'cashflow' && selectedCashflow && (
@@ -915,7 +915,7 @@ export function EarningsTab({
           {rightTab === 'balance' && !selectedBalance && (
             <div className="bg-card/50 border border-border/30 rounded-xl p-8 text-center">
               <p className="text-sm text-muted-foreground">该季度暂无资产负债表数据</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">完整数据通常在公司提交 10-Q 后 1-3 个工作日内补全</p>
+              <p className="mt-1 text-sm text-muted-foreground">完整数据通常在公司提交 10-Q 后 1-3 个工作日内补全</p>
             </div>
           )}
           {rightTab === 'balance' && selectedBalance && (

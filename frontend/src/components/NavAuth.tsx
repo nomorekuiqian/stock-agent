@@ -41,7 +41,7 @@ export function NavAuth() {
               </span>
             </div>
             {!subLoading && isPro && (
-              <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-micro font-bold tracking-wider bg-amber-500 text-black leading-none">
+              <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-micro font-bold tracking-wider bg-amber-500 text-black leading-tight">
                 {tierLabel}
               </span>
             )}
@@ -63,7 +63,7 @@ export function NavAuth() {
                 {subLoading ? (
                   <span className="w-8 h-3 rounded bg-muted animate-pulse" />
                 ) : isPro ? (
-                  <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
+                  <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-tight">
                     {tierLabel}
                   </span>
                 ) : null}

@@ -87,7 +87,7 @@ const MACRO_MD_COMPONENTS = {
     <strong className="font-semibold text-foreground">{children}</strong>
   ),
   ul: ({ children }: { children?: ReactNode }) => (
-    <ul className="pl-4 space-y-1.5 my-2 border-l-2 border-border/30">{children}</ul>
+    <ul className="list-disc space-y-1.5 my-2 pl-5">{children}</ul>
   ),
   ol: ({ children }: { children?: ReactNode }) => (
     <ol className="list-decimal pl-5 space-y-1.5 my-2">{children}</ol>
@@ -96,7 +96,7 @@ const MACRO_MD_COMPONENTS = {
     <li className="text-muted-foreground leading-relaxed pl-1">{children}</li>
   ),
   code: ({ children }: { children?: ReactNode }) => (
-    <code className="font-data text-primary bg-primary/10 px-1 py-0.5 rounded text-sm">{children}</code>
+    <code className="font-mono text-primary bg-primary/10 px-1 py-0.5 rounded text-sm">{children}</code>
   ),
 };
 
@@ -220,7 +220,7 @@ export default function MacroOverview({ embedded, onContextReady }: MacroOvervie
             <div className="flex items-center gap-2 mb-3">
               <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">MACRO WEEKLY</span>
             </div>
-            <h2 className="text-xl font-editorial text-foreground leading-tight">
+            <h2 className="text-xl font-semibold leading-tight text-foreground">
               {report.title || '宏观周报'}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
@@ -296,7 +296,7 @@ export default function MacroOverview({ embedded, onContextReady }: MacroOvervie
                       )}
                     </div>
                   </div>
-                  <p className={`text-xs leading-relaxed line-clamp-2 flex-1 ${summary ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
+                  <p className={`line-clamp-2 flex-1 text-xs leading-relaxed ${summary ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
                     {summary || dim.question}
                   </p>
                 </div>

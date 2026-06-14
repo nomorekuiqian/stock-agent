@@ -492,7 +492,7 @@ function RetrievalCard({
       />
       <span
         aria-hidden
-        className="absolute bottom-2 right-3 -z-10 font-editorial text-6xl leading-none text-foreground/[0.035] transition-transform duration-500 group-hover:translate-x-0.5 group-hover:text-primary/[0.08]"
+        className="absolute bottom-2 right-3 -z-10 font-editorial text-6xl leading-tight text-foreground/[0.035] transition-transform duration-500 group-hover:translate-x-0.5 group-hover:text-primary/[0.08]"
       >
         {String(index).padStart(2, '0')}
       </span>
@@ -701,7 +701,7 @@ function XLogo() {
   return (
     <span
       aria-hidden
-      className="grid h-5 w-5 place-items-center rounded-sm bg-foreground font-data text-[11px] font-semibold leading-none text-background"
+      className="grid h-5 w-5 place-items-center rounded-sm bg-foreground font-data text-xs font-semibold leading-tight text-background"
     >
       X
     </span>

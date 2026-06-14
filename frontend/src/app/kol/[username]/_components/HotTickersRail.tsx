@@ -26,10 +26,10 @@ export default function HotTickersRail({ tickers, activeTicker, onSelectTicker }
     <aside className="sticky top-24 hidden h-fit w-[280px] shrink-0 self-start xl:block">
       <div className="rounded-lg border border-border/60 bg-card/40 p-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-data text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             高频标的
           </h2>
-          <span className="font-data text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+          <span className="font-data text-xs uppercase tracking-[0.14em] text-muted-foreground">
             TOP {top.length}
           </span>
         </div>
@@ -66,7 +66,7 @@ export default function HotTickersRail({ tickers, activeTicker, onSelectTicker }
                         style={{ width: `${widthPct}%` }}
                       />
                     </div>
-                    <span className="shrink-0 font-data text-[11px] tabular-nums text-muted-foreground">
+                    <span className="shrink-0 font-data text-xs tabular-nums text-muted-foreground">
                       {t.count}
                     </span>
                   </div>
@@ -75,7 +75,7 @@ export default function HotTickersRail({ tickers, activeTicker, onSelectTicker }
             );
           })}
         </ul>
-        <p className="mt-4 font-data text-[10px] leading-relaxed text-muted-foreground/70">
+        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
           点击筛选他对该标的所有发言
         </p>
       </div>
@@ -86,7 +86,7 @@ export default function HotTickersRail({ tickers, activeTicker, onSelectTicker }
 function PriceMeta({ ticker, price, change }: { ticker: string; price: number | null; change: number | null }) {
   if (price == null) {
     return (
-      <span className="font-data text-[11px] text-muted-foreground/70">无报价</span>
+      <span className="text-xs text-muted-foreground">无报价</span>
     );
   }
   const hasChange = change != null;
@@ -101,7 +101,7 @@ function PriceMeta({ ticker, price, change }: { ticker: string; price: number | 
         ? 'text-primary'
         : 'text-destructive';
   return (
-    <span className={`flex items-center gap-1 font-data text-[11px] tabular-nums ${colorCls}`}>
+    <span className={`flex items-center gap-1 font-data text-xs tabular-nums ${colorCls}`}>
       {formatStockPrice(price, ticker, undefined, { compactPrice: true })}
       {hasChange ? (
         <span className="inline-flex items-center gap-0.5">
