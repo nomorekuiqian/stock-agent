@@ -22,6 +22,7 @@ interface SubscriptionStatus {
 interface SubscriptionContextType {
   isPro: boolean;
   isMax: boolean;
+  isUltra: boolean;
   isLoading: boolean;
   isCheckoutLoading: boolean;
   checkoutError: string | null;
@@ -161,6 +162,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const isPro = !PAYWALL_ENABLED || ((plan === 'pro' || plan === 'max' || plan === 'ultra') && isActive);
   const isMax = !PAYWALL_ENABLED || ((plan === 'max' || plan === 'ultra') && isActive);
+  const isUltra = !PAYWALL_ENABLED || (plan === 'ultra' && isActive);
 
   // Mirrors EntitlementsContext: only "loading" while we've never had data.
   // A refresh failure does not flip back to loading and cannot silently
@@ -298,6 +300,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     () => ({
       isPro,
       isMax,
+      isUltra,
       isLoading,
       isCheckoutLoading,
       checkoutError,
@@ -314,7 +317,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       refreshSubscription,
     }),
     [
-      isPro, isMax, isLoading, isCheckoutLoading, checkoutError, portalError,
+      isPro, isMax, isUltra, isLoading, isCheckoutLoading, checkoutError, portalError,
       plan, status, currentPeriodEnd, accessExpiresAt, cancelAtPeriodEnd, cancelAt, canceledAt,
       createCheckout, openBillingPortal, refreshSubscription,
     ]

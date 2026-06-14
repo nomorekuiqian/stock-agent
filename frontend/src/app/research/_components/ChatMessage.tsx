@@ -1,12 +1,15 @@
 'use client';
 
 import { memo, useMemo, useState, useEffect, type ReactNode } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { ArrowUpRight, Copy, Check, Lock } from 'lucide-react';
 
 import { FeedbackBar } from '@/components/memory/FeedbackBar';
 import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
+import { PRICING } from '@/lib/pricing';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import AssistantAvatar from './AssistantAvatar';
+import type { RequiredProduct } from '../_lib/researchReducer';
 
 /**
  * Inline "Thinking..." line that ChatGPT-style swaps the latest paragraph
@@ -60,6 +63,8 @@ interface ChatMessageProps {
   citations?: KolPersonaChunk[];
   /** When set, AI avatar swaps from the brand mark to the persona's avatar. */
   personaUsername?: string | null;
+  /** Structured paywall target from the backend error event. */
+  requiredProduct?: RequiredProduct | null;
   feedbackTargetId?: string;
   feedbackAgentId?: 'research_agent' | 'kol_research_agent';
   feedbackSessionId?: string | null;
@@ -173,6 +178,18 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function buildUltraReturnPath(personaUsername: string | null | undefined): string {
+  const fallbackPersona = personaUsername || 'qinbafrank';
+  if (typeof window === 'undefined') {
+    return `/research?agent=kol&persona=${encodeURIComponent(fallbackPersona)}`;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  params.set('agent', 'kol');
+  params.set('persona', fallbackPersona);
+  return `/research?${params.toString()}`;
+}
+
 function ChatMessage({
   role,
   content,
@@ -182,6 +199,7 @@ function ChatMessage({
   thinking,
   citations,
   personaUsername,
+  requiredProduct,
   feedbackTargetId,
   feedbackAgentId,
   feedbackSessionId,
@@ -194,10 +212,14 @@ function ChatMessage({
   feedbackPersonaUsername,
   feedbackSentiment,
 }: ChatMessageProps) {
+  const { createCheckout, isCheckoutLoading, isUltra } = useSubscription();
   const isMarkdown = useMemo(() => role === 'assistant' && hasMarkdown(content), [role, content]);
   // Skip per-char animation while streaming (delta-driven) or when content is markdown.
   const shouldAnimate = animate && !isMarkdown && !streaming;
   const [animationDone, setAnimationDone] = useState(!shouldAnimate);
+  const requiresUltra = !isUltra && (
+    requiredProduct === 'ultra' || requiredProduct === 'creator_max_qinbafrank'
+  );
 
   const annotatedContent = useMemo(
     () => annotateCitations(content, citations),
@@ -215,6 +237,10 @@ function ChatMessage({
     const timer = setTimeout(() => setAnimationDone(true), totalDuration);
     return () => clearTimeout(timer);
   }, [shouldAnimate, role, chars.length]);
+
+  const handleUnlockUltra = async () => {
+    await createCheckout('ultra', buildUltraReturnPath(personaUsername));
+  };
 
   // User message
   if (role === 'user') {
@@ -252,7 +278,33 @@ function ChatMessage({
               boundary needs to read as a discrete state, not flow into the page. */}
           {isError ? (
             <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm leading-relaxed text-red-600 dark:text-red-300">
-              {content}
+              <p>{content}</p>
+              {requiresUltra && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleUnlockUltra}
+                    disabled={isCheckoutLoading}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-400"
+                  >
+                    {isCheckoutLoading ? (
+                      <>
+                        <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        跳转中…
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-3.5 w-3.5" aria-hidden />
+                        解锁 Ultra {PRICING.ultraPerMonth}
+                        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                      </>
+                    )}
+                  </button>
+                  <span className="text-xs text-red-600/70 dark:text-red-300/75">
+                    包含博主 Agent 无限使用
+                  </span>
+                </div>
+              )}
             </div>
           ) : !content ? (
             !thinking?.trim() ? (

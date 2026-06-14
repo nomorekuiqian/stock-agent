@@ -1239,7 +1239,16 @@ export type KolResearchStreamEvent =
   | { type: 'thinking'; text: string }
   | { type: 'message_delta'; text: string }
   | { type: 'final'; data: KolResearchResponse }
-  | { type: 'error'; error: string; code?: string; detail?: string; status?: number };
+  | {
+      type: 'error';
+      error?: string;
+      message?: string;
+      code?: string;
+      detail?: string;
+      status?: number;
+      quota_exceeded?: boolean;
+      required_product?: string;
+    };
 
 // --- KOL Persona Cockpit (public read) ---
 
@@ -2735,7 +2744,20 @@ export const api = {
 
     chatStream: async (
       req: ResearchRequest,
-      onEvent: (event: { type: string; tool?: string; description?: string; content?: string; result?: ResearchResult; message?: string; code?: string; quota_exceeded?: boolean }) => void,
+      onEvent: (event: {
+        type: string;
+        tool?: string;
+        description?: string;
+        content?: string;
+        result?: ResearchResult;
+        message?: string;
+        error?: string;
+        detail?: string;
+        status?: number;
+        code?: string;
+        quota_exceeded?: boolean;
+        required_product?: string;
+      }) => void,
       opts?: AuthRequestOptions,
     ): Promise<void> => {
       const baseHeaders = await _authHeaders(

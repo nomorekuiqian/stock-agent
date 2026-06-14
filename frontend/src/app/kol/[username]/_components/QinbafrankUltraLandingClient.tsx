@@ -74,18 +74,18 @@ const INSIDE_PACK: Array<{
     body: '按标的、主题和产业链查 Qinbafrank 公开旧观点。',
   },
   {
-    icon: BookMarked,
+    icon: Newspaper,
     tone: 'amber',
-    eyebrow: '主题库',
-    title: '精选主题',
-    body: 'AI、资本开支、宏观、行情规律、过往推荐公司等主题索引。',
+    eyebrow: '日报',
+    title: '每日日报',
+    body: '包含 4 份日报：盘前早报、盘后市场日报、专属持仓日报、KOL 日报。',
   },
   {
-    icon: FileChartColumn,
+    icon: ChartNoAxesColumnIncreasing,
     tone: 'sky',
-    eyebrow: '档案库',
-    title: '个股档案',
-    body: '把历史研究主线、原文证据、观点变化和当前数据放在一起看。',
+    eyebrow: '个股投研',
+    title: 'AI 个股投研',
+    body: '解锁深度个股分析、基本面拆解、技术面复盘、新闻和同行对比。',
   },
   {
     icon: BrainCircuit,
@@ -158,7 +158,8 @@ const EXAMPLES = [
 const OFFER_ITEMS = [
   'Qinbafrank完整资料库',
   'Qinbafrank专属AI研究助手',
-  '个股深度研究与推特博主日报',
+  'TheMarketBrew全部4份日报',
+  'AI个股投研与Research Agent',
   '研究助手回答不代表本人观点，非投资建议',
 ];
 
@@ -177,9 +178,8 @@ const FIT_SECTIONS: Array<{
     items: [
       'Qinbafrank 的历史研究内容与方法论资料库。',
       '可对话的 Qinbafrank专属AI研究助手。',
-      '公司、行业、宏观主题的结构化解释。',
-      '基于资料脉络的回答。',
-      '持续改进中的研究体验。',
+      'TheMarketBrew 现有全部日报：盘前、盘后、专属持仓、KOL 日报。',
+      'TheMarketBrew 个股投研能力：深度个股分析、Research Agent、行情与新闻上下文。',
     ],
   },
   {
@@ -298,7 +298,7 @@ export default function QinbafrankUltraLandingClient() {
               Qinbafrank 研究室
             </h1>
             <p className="mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
-              Qinbafrank 观点库、精选主题、个股档案和专属AI投研助手
+              Qinbafrank 资料包、专属AI研究助手，以及 TheMarketBrew Ultra 的全部投研服务
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -389,13 +389,13 @@ export default function QinbafrankUltraLandingClient() {
         <div className="grid gap-7 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary/80">
-              资料包内容
+              你能得到什么
             </p>
             <h2 className="mt-3 max-w-xl text-balance font-editorial text-3xl leading-tight md:text-4xl">
-              买到的是资料包，也是一套投研工作流
+              不只是资料包，也是一整套 Ultra 投研工作流
             </h2>
             <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground">
-              不是只买一个聊天入口，而是把可查、可读、可追问的研究材料放进同一个工作台。
+              购买后除了 Qinbafrank 资料包，还会解锁 TheMarketBrew 现有全部付费服务，包括日报、个股投研和 AI Research。
             </p>
           </div>
 
@@ -417,7 +417,7 @@ export default function QinbafrankUltraLandingClient() {
               先说清楚你会得到什么，以及它不适合什么
             </h2>
             <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-              这是一个围绕 Qinbafrank 公开研究脉络整理的学习与研究工具，不是荐股服务、交易信号或收益承诺。
+              这是一个围绕 Qinbafrank 公开研究脉络整理的学习与研究工具，同时包含 TheMarketBrew Ultra 的完整产品权益。它不是荐股服务、交易信号或收益承诺。
             </p>
           </div>
 
@@ -463,7 +463,7 @@ export default function QinbafrankUltraLandingClient() {
               解锁 Qinbafrank研究室
             </h2>
             <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground">
-              适合已经关注 Qinbafrank 方法论，希望把他的公开观点资料包和AI投研助手合在一起使用的用户。
+              适合已经关注 Qinbafrank 方法论，并希望同时使用 TheMarketBrew 日报、个股投研和 AI Research 全部服务的用户。
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {OFFER_ITEMS.map((item) => (
@@ -554,7 +554,7 @@ function OfferCard({
         />
         <div>
           <p className="text-lg font-semibold text-foreground">Qinbafrank研究室</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">资料包 + AI投研助手</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">资料包 + TheMarketBrew Ultra</p>
         </div>
       </div>
 
@@ -564,12 +564,12 @@ function OfferCard({
           <p className="pb-1 text-sm text-muted-foreground">/月</p>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          包含 Qinbafrank资料包和AI投研助手
+          包含 Qinbafrank资料包、4份日报、个股投研和AI投研助手
         </p>
       </div>
 
       <div className="mt-5 grid gap-2">
-        {['观点库 + 精选主题', '个股档案 + 原文证据', 'Qinbafrank专属AI研究助手'].map((item) => (
+        {['Qinbafrank观点库 + 原文证据', '4份日报：盘前 / 盘后 / 专属 / KOL', '个股投研 + AI Research Agent'].map((item) => (
           <div key={item} className="flex items-center gap-2 text-sm text-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary/75" />
             {item}

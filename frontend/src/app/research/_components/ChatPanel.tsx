@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronDown, Lock } from 'lucide-react';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import ChatMessage from './ChatMessage';
 import OptionChips from './OptionChips';
 import ChatInput from './ChatInput';
@@ -10,6 +11,18 @@ import type { ChatMsg } from '../_lib/researchReducer';
 import type { KolPersonaChunk } from '@/lib/api';
 
 export type { ChatMsg };
+
+function buildUltraReturnPath(personaUsername: string | null | undefined): string {
+  const fallbackPersona = personaUsername || 'qinbafrank';
+  if (typeof window === 'undefined') {
+    return `/research?agent=kol&persona=${encodeURIComponent(fallbackPersona)}`;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  params.set('agent', 'kol');
+  params.set('persona', fallbackPersona);
+  return `/research?${params.toString()}`;
+}
 
 export interface ToolActivity {
   tool: string;
@@ -65,6 +78,11 @@ export default function ChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
+  const { createCheckout, isCheckoutLoading, isUltra } = useSubscription();
+
+  const handleUnlockUltra = useCallback(async () => {
+    await createCheckout('ultra', buildUltraReturnPath(personaUsername));
+  }, [createCheckout, personaUsername]);
 
   // Detect user scroll up
   const handleScroll = useCallback(() => {
@@ -111,6 +129,7 @@ export default function ChatPanel({
                 content={msg.content}
                 animate={msg.role === 'assistant' && i === lastAssistantIdx && !msg.streaming}
                 isError={msg.isError}
+                requiredProduct={msg.requiredProduct ?? null}
                 streaming={msg.streaming}
                 thinking={msg.thinking}
                 citations={i === lastAssistantIdx ? citations : undefined}
@@ -215,12 +234,47 @@ export default function ChatPanel({
       {/* Input area */}
       <div className="shrink-0 px-3 sm:px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         {personaUsername && (
-          <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-              @{personaUsername} 视角
-            </span>
-            <span className="text-muted-foreground/70">按博主公开方法论作答</span>
+          <div className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.05] px-3 py-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  @{personaUsername} 博主 Agent
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
+                  <Lock className="h-3 w-3" aria-hidden />
+                  Ultra 无限使用
+                </span>
+              </div>
+              {isUltra ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                  <Check className="h-3 w-3" aria-hidden />
+                  Ultra 已解锁
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleUnlockUltra}
+                  disabled={isCheckoutLoading}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isCheckoutLoading ? (
+                    <>
+                      <span className="h-3 w-3 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
+                      跳转中…
+                    </>
+                  ) : (
+                    <>
+                      解锁 Ultra
+                      <ArrowUpRight className="h-3 w-3" aria-hidden />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            <p className="mt-1 leading-relaxed text-muted-foreground/75">
+              非 Ultra 账号仅可体验有限试问；解锁 Ultra 后可无限使用博主方法论追问。
+            </p>
           </div>
         )}
         <ChatInput

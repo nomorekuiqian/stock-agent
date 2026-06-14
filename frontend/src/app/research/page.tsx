@@ -21,7 +21,7 @@ import {
   STORAGE_KEY,
 } from './_lib/researchReducer';
 import { SCREENER_CONTENT, type ContentContext } from './_lib/contentTypes';
-import type { ChatMsg, LoadConversationData } from './_lib/researchReducer';
+import type { ChatMsg, LoadConversationData, RequiredProduct } from './_lib/researchReducer';
 import type { StockPanelContextPayload as StockContextPayload } from './_components/panel/StockPanelView';
 import type { DailyReportContextPayload } from './_components/DailyReportView';
 import type { MorningReportContextPayload } from './_components/MorningReportView';
@@ -210,6 +210,13 @@ function getAgentErrorMessage(event: {
     return '连接中断，未收到最终回答。常见原因是后端热重载、SSE 被中断或本地服务重启。请重新发送一次。';
   }
   return event.message || event.error || 'AI 助手暂时无法响应';
+}
+
+function normalizeRequiredProduct(value?: string): RequiredProduct | null {
+  if (value === 'max' || value === 'ultra' || value === 'creator_max_qinbafrank') {
+    return value;
+  }
+  return null;
 }
 
 function getContextKey(contextType: string, params: URLSearchParams): string {
@@ -581,6 +588,8 @@ function ScreenerContent() {
     personaUsername: string | null;
   } | null>(null);
   useEffect(() => {
+    if (loadingConversationRef.current) return;
+
     const agentParam = searchParams.get('agent');
     const personaParam = searchParams.get('persona');
 
@@ -680,6 +689,32 @@ function ScreenerContent() {
     }
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : (pathname || '/research'), { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  const syncUrlToLoadedConversation = useCallback((loadedPersona: string | null) => {
+    const nextOverride: { agentKind: AgentKind; personaUsername: string | null } = loadedPersona
+      ? { agentKind: 'kol_research', personaUsername: loadedPersona }
+      : { agentKind: 'research', personaUsername: null };
+    manualPersonaUrlOverride.current = nextOverride;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('q');
+    params.delete('symbol');
+    if (loadedPersona) {
+      params.set('agent', 'kol');
+      params.set('persona', loadedPersona);
+    } else {
+      params.delete('agent');
+      params.delete('persona');
+    }
+
+    const query = params.toString();
+    const nextPath = query ? `${pathname}?${query}` : (pathname || '/research');
+    const currentQuery = searchParams.toString();
+    const currentPath = currentQuery ? `${pathname}?${currentQuery}` : (pathname || '/research');
+    if (nextPath !== currentPath) {
+      router.replace(nextPath, { scroll: false });
+    }
   }, [pathname, router, searchParams]);
 
   // Persist state to sessionStorage on change
@@ -1302,7 +1337,11 @@ function ScreenerContent() {
             // raw message even after we map it to a user-facing string. Grep
             // "[KOL Research] backend error" to find these in DevTools.
             console.warn('[KOL Research] backend error event:', event);
-            dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
+            dispatch({
+              type: 'SET_ERROR',
+              error: getAgentErrorMessage(event),
+              requiredProduct: normalizeRequiredProduct(event.required_product),
+            });
           }
         },
         controller.signal,
@@ -1497,7 +1536,11 @@ function ScreenerContent() {
             streamResult = event.result as ResearchResult;
           } else if (event.type === 'error') {
             streamErrorHandled = true;
-            dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
+            dispatch({
+              type: 'SET_ERROR',
+              error: getAgentErrorMessage(event),
+              requiredProduct: normalizeRequiredProduct(event.required_product),
+            });
           }
         },
         { requiredAuth: !!userId },
@@ -1755,6 +1798,7 @@ function ScreenerContent() {
     // Restore persona via the LOAD_CONVERSATION dispatch (single source of
     // truth, persisted via sessionStorage). agentKind is derived from this.
     const savedPersona = (data.persona_username as string | undefined) ?? null;
+    syncUrlToLoadedConversation(savedPersona);
     dispatch({
       type: 'LOAD_CONVERSATION',
       data: {
@@ -1782,7 +1826,7 @@ function ScreenerContent() {
         dataKeys: conv.data ? Object.keys(conv.data) : [],
       });
     }
-  }, []);
+  }, [syncUrlToLoadedConversation]);
 
   const handleLoadConversation = useCallback(async (conversationId: string) => {
     if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
@@ -1840,6 +1884,7 @@ function ScreenerContent() {
     //   4. If runtime has no session row, the picker payload is used as-is,
     //      matching the pre-runtime behavior.
     const failConversationLoad = () => {
+      syncUrlToLoadedConversation(null);
       dispatch({
         type: 'LOAD_CONVERSATION',
         data: {
@@ -1932,7 +1977,7 @@ function ScreenerContent() {
     } finally {
       loadingConversationRef.current = false;
     }
-  }, [conversations, loadConversationData]);
+  }, [conversations, loadConversationData, syncUrlToLoadedConversation]);
 
   const handleRenameConversation = useCallback(async (conversationId: string, title: string) => {
     const nextTitle = title.trim().slice(0, 50);
