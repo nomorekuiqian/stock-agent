@@ -93,7 +93,7 @@
 
 **前端** (`frontend/src/`):
 - `app/.context.md` — App Router shell、首页、全站 layout
-- `app/{admin,auth,api/auth,contact,dev,email-test,feedback,forgot-password,frank-agent,for-you,kol,login,macro,morning,onboarding,pricing,profile,request-access,research,reset-password,settings,stock,today,twitter-digest,unsubscribe,verify-email,webview-check}/.context.md` — 页面/路由模块
+- `app/{admin,auth,api/auth,contact,dev,email-test,feedback,forgot-password,for-you,kol,login,macro,morning,pricing,profile,qinbafrank,request-access,research,reset-password,settings,stock,today,twitter-digest,unsubscribe,verify-email,webview-check}/.context.md` — 页面/路由模块
 - `{lib,components,contexts,hooks}/.context.md` — 共享层
 - `test/.context.md` — 测试体系
 

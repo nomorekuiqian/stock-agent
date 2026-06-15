@@ -6,24 +6,35 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Body, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
 import stripe
 
-from app.core.config import STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, STRIPE_MAX_PRICE_ID
+from app.core.config import (
+    STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET,
+)
 from app.core.deps import verify_user_token, verify_cron_secret
 from app.features.payment.models import (
+    CompleteCheckoutRequest,
+    CompleteCheckoutResponse,
     CreateCheckoutRequest,
+    CreatePortalRequest,
     CheckoutSessionResponse,
     SubscriptionStatusResponse,
     PortalSessionResponse,
 )
 from app.core.logging import get_logger
 from app.features.payment.service import (
+    complete_checkout_session,
     create_checkout_session,
     create_portal_session,
+    normalize_checkout_product,
+    product_plan,
     reconcile_expired_access_grants,
+    resolve_plan_from_subscription,
+    sync_subscription_from_stripe,
     sync_entitlements_from_stripe,
 )
 from app.features.payment.db import (
@@ -41,31 +52,34 @@ stripe.api_key = STRIPE_SECRET_KEY
 router = APIRouter(prefix="/api/payment", tags=["payment"])
 
 
+def _plan_rank(plan: str | None) -> int:
+    if plan == "ultra":
+        return 3
+    if plan == "max":
+        return 2
+    if plan == "pro":
+        return 1
+    return 0
+
+
+def _is_real_paid_subscription(sub: dict | None) -> bool:
+    if not sub:
+        return False
+    if sub.get("is_lifetime"):
+        return False
+    if sub.get("access_expires_at"):
+        return False
+    if sub.get("status") not in ("active", "trialing"):
+        return False
+    return _plan_rank(sub.get("plan")) > 0
+
+
 def _resolve_plan_from_subscription(sub_obj) -> str:
-    """Determine plan tier ('pro' or 'max') from a Stripe subscription object.
+    """Determine plan tier from a Stripe subscription object.
 
     Checks metadata.tier first, then falls back to matching price IDs.
     """
-    d = _to_dict(sub_obj)
-    tier = d.get("metadata", {}).get("tier")
-    if tier in ("pro", "max"):
-        return tier
-
-    items = d.get("items", {})
-    if hasattr(items, "to_dict"):
-        items = items.to_dict()
-    for item in items.get("data", []):
-        item_d = _to_dict(item)
-        price = item_d.get("price", {})
-        if hasattr(price, "to_dict"):
-            price = price.to_dict()
-        price_id = price.get("id", "")
-        if price_id == STRIPE_MAX_PRICE_ID:
-            return "max"
-        if price_id == STRIPE_PRO_PRICE_ID:
-            return "pro"
-
-    return "pro"
+    return resolve_plan_from_subscription(sub_obj)
 
 
 def _to_dict(obj):
@@ -124,26 +138,92 @@ def _get_cancellation_state(sub_obj) -> Tuple[bool, Optional[str], Optional[str]
 
 @router.post("/checkout-session", response_model=CheckoutSessionResponse)
 async def api_create_checkout(
+    request: Request,
     req: CreateCheckoutRequest,
     token_user_id: str = Depends(verify_user_token),
 ):
     """Create a Stripe Checkout Session and return the URL."""
     if req.user_id != token_user_id:
         raise HTTPException(status_code=403, detail="User ID mismatch")
-    if req.tier not in ("pro", "max"):
-        raise HTTPException(status_code=400, detail="Invalid tier, must be 'pro' or 'max'")
     try:
-        url = await create_checkout_session(req.user_id, req.email, req.return_path, req.tier)
+        checkout_product = normalize_checkout_product(req.product, req.tier)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid checkout product")
+    if req.billing_interval != "monthly":
+        raise HTTPException(status_code=400, detail="Invalid billing_interval")
+    plan = product_plan(checkout_product)
+    existing_sub = await get_subscription(token_user_id)
+    if _is_real_paid_subscription(existing_sub):
+        current_rank = _plan_rank(existing_sub.get("plan"))
+        target_rank = _plan_rank(plan)
+        if target_rank <= current_rank:
+            raise HTTPException(
+                status_code=409,
+                detail="Current subscription already includes this plan",
+            )
+        if existing_sub.get("stripe_customer_id"):
+            try:
+                portal_url = await create_portal_session(
+                    token_user_id,
+                    return_path=req.return_path,
+                    product=checkout_product,
+                    billing_interval=req.billing_interval,
+                    frontend_origin=request.headers.get("origin"),
+                )
+                return CheckoutSessionResponse(checkout_url=portal_url)
+            except ValueError:
+                logger.warning(
+                    "Existing paid subscription missing portal prerequisites user=%s plan=%s target=%s",
+                    token_user_id[:8],
+                    existing_sub.get("plan"),
+                    plan,
+                )
+    try:
+        url = await create_checkout_session(
+            req.user_id,
+            req.email,
+            req.return_path,
+            req.tier,
+            product=checkout_product,
+            billing_interval=req.billing_interval,
+            frontend_origin=request.headers.get("origin"),
+        )
         if posthog.posthog_client:
             posthog.posthog_client.capture(
                 distinct_id=token_user_id,
                 event="checkout_initiated",
-                properties={"tier": req.tier},
+                properties={
+                    "tier": plan,
+                    "product": checkout_product,
+                    "billing_interval": req.billing_interval,
+                },
             )
         return CheckoutSessionResponse(checkout_url=url)
     except Exception as e:
-        logger.error("Checkout session error: %s", e)
+        logger.exception("Checkout session error")
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
+
+
+@router.post("/checkout-session/complete", response_model=CompleteCheckoutResponse)
+async def api_complete_checkout(
+    req: CompleteCheckoutRequest,
+    token_user_id: str = Depends(verify_user_token),
+):
+    """Verify a returned Stripe Checkout Session and sync entitlements."""
+    try:
+        result = await complete_checkout_session(token_user_id, req.session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Checkout completion sync failed")
+        raise HTTPException(status_code=500, detail="Failed to activate checkout session")
+
+    return CompleteCheckoutResponse(
+        success=bool(result.get("synced")),
+        plan=result.get("plan", "free"),
+        status=result.get("status", "none"),
+        entitlements=result.get("entitlements", []),
+    )
 
 
 @router.get("/subscription-status", response_model=SubscriptionStatusResponse)
@@ -154,6 +234,15 @@ async def api_subscription_status(
     """Query subscription status for a user."""
     if fresh:
         invalidate_subscription_cache(user_id)
+        sub_before_refresh = await get_subscription(user_id)
+        if sub_before_refresh and not sub_before_refresh.get("is_lifetime"):
+            try:
+                await sync_subscription_from_stripe(
+                    user_id,
+                    source="subscription-status.fresh",
+                )
+            except Exception as e:
+                logger.warning("fresh subscription Stripe sync failed user=%s: %s", user_id[:8], e)
     sub = await get_subscription(user_id)
     if not sub:
         return SubscriptionStatusResponse(plan="free", status="none")
@@ -178,6 +267,15 @@ async def api_my_entitlements(
 
     if fresh:
         invalidate_subscription_cache(user_id)
+        sub_before_refresh = await get_subscription(user_id)
+        if sub_before_refresh and not sub_before_refresh.get("is_lifetime"):
+            try:
+                await sync_subscription_from_stripe(
+                    user_id,
+                    source="me-entitlements.fresh",
+                )
+            except Exception as e:
+                logger.warning("fresh entitlements Stripe sync failed user=%s: %s", user_id[:8], e)
     ents = await get_user_entitlements(user_id)
     # trial_eligible: user has no subscription record yet (never used trial or paid)
     sub = await get_subscription(user_id)
@@ -188,15 +286,33 @@ async def api_my_entitlements(
 
 
 @router.post("/portal-session", response_model=PortalSessionResponse)
-async def api_portal_session(user_id: str = Depends(verify_user_token)):
+async def api_portal_session(
+    request: Request,
+    req: CreatePortalRequest | None = Body(default=None),
+    user_id: str = Depends(verify_user_token),
+):
     """Create a Stripe Customer Portal session."""
+    req = req or CreatePortalRequest()
+    if req.product:
+        try:
+            normalize_checkout_product(req.product, req.product)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid checkout product")
+    if req.billing_interval != "monthly":
+        raise HTTPException(status_code=400, detail="Invalid billing_interval")
     try:
-        url = await create_portal_session(user_id)
+        url = await create_portal_session(
+            user_id,
+            return_path=req.return_path,
+            product=req.product,
+            billing_interval=req.billing_interval,
+            frontend_origin=request.headers.get("origin"),
+        )
         return PortalSessionResponse(portal_url=url)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error("Portal session error: %s", e)
+    except Exception:
+        logger.exception("Portal session error")
         raise HTTPException(status_code=500, detail="Failed to create portal session")
 
 
@@ -244,30 +360,19 @@ async def stripe_webhook(request: Request):
                     sub_id,
                 )
                 return {"received": True}
-            stripe_sub = await asyncio.to_thread(stripe.Subscription.retrieve, sub_id)
-            period_start, period_end = _get_period(stripe_sub)
-            plan = _resolve_plan_from_subscription(stripe_sub)
-            cancel_at_period_end, cancel_at, canceled_at = _get_cancellation_state(stripe_sub)
-            await upsert_subscription(
-                user_id=user_id,
-                stripe_customer_id=obj.get("customer"),
-                stripe_subscription_id=sub_id,
-                plan=plan,
-                status="active",
-                current_period_start=period_start,
-                current_period_end=period_end,
-                cancel_at_period_end=cancel_at_period_end,
-                cancel_at=cancel_at,
-                canceled_at=canceled_at,
-                clear_cancellation=not (cancel_at_period_end or cancel_at),
-                clear_access_expires_at=True,
+            stripe_sub = await asyncio.to_thread(
+                stripe.Subscription.retrieve,
+                sub_id,
+                expand=["items.data.price"],
             )
-            await sync_entitlements_from_stripe(
-                obj.get("customer"),
+            result = await sync_subscription_from_stripe(
                 user_id=user_id,
-                allow_empty=False,
+                customer_id=obj.get("customer"),
+                subscription_id=sub_id,
+                stripe_subscription=stripe_sub,
                 source="checkout.session.completed",
             )
+            plan = result.get("plan", _resolve_plan_from_subscription(stripe_sub))
             logger.info("Subscription activated for user %s (plan=%s)", user_id, plan)
             if posthog.posthog_client:
                 posthog.posthog_client.set(
@@ -290,30 +395,20 @@ async def stripe_webhook(request: Request):
                 if existing and existing.get("is_lifetime"):
                     logger.info("Skipped subscription.updated for lifetime user %s", user_id)
                     return {"received": True}
-                status = obj.get("status", "active")
-                _, period_end = _get_period(obj)
-                cancel_at_period_end, cancel_at, canceled_at = _get_cancellation_state(obj)
                 customer_id = obj.get("customer")
-                await upsert_subscription(
+                result = await sync_subscription_from_stripe(
                     user_id=user_id,
-                    stripe_customer_id=customer_id,
-                    stripe_subscription_id=obj.get("id"),
-                    status=status,
-                    current_period_end=period_end,
-                    cancel_at_period_end=cancel_at_period_end,
-                    cancel_at=cancel_at,
-                    canceled_at=canceled_at,
-                    clear_cancellation=not (cancel_at_period_end or cancel_at),
+                    customer_id=customer_id,
+                    subscription_id=obj.get("id"),
+                    stripe_subscription=obj,
+                    source="customer.subscription.updated",
                 )
-                if customer_id:
-                    await sync_entitlements_from_stripe(
-                        customer_id,
-                        user_id=user_id,
-                        sub_record=existing,
-                        allow_empty=False,
-                        source="customer.subscription.updated",
-                    )
-                logger.info("Subscription identity updated for user %s: status=%s", user_id, status)
+                logger.info(
+                    "Subscription identity updated for user %s: status=%s plan=%s",
+                    user_id,
+                    result.get("status"),
+                    result.get("plan"),
+                )
         except Exception as e:
             logger.exception("subscription.updated handler failed")
             return JSONResponse(

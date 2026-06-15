@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { useKolCockpitFeed } from '@/hooks/queries/use-kol-data';
+import type { KolCockpitFeedItem, KolCockpitFeedOpts } from '@/lib/api';
 import {
   FRANK_FEATURED_GROUPS,
   getFeaturedByIds,
@@ -57,6 +59,18 @@ interface TimelineRef {
   sourceId: string;
   type: TimelineType;
   note?: string;
+}
+
+interface TimelineDisplayItem {
+  id: string;
+  date: string | null;
+  type: TimelineType;
+  topic: string;
+  title: string;
+  body: string;
+  tickers: string[];
+  sourceUrl: string | null;
+  isDynamic?: boolean;
 }
 
 interface FrankSectorOpinionBoard {
@@ -959,7 +973,12 @@ export default function FrankSectorOpinions({
 
   const boardGroups = useMemo(() => getBoardGroups(selected), [selected]);
   const boardItems = useMemo(() => getUniqueItems(boardGroups), [boardGroups]);
-  const timelineItems = useMemo(() => getTimelineItems(selected), [selected]);
+  const boardFeedOpts = useMemo(() => getBoardFeedOpts(selected), [selected]);
+  const boardFeed = useKolCockpitFeed(username, boardFeedOpts);
+  const timelineItems = useMemo(
+    () => getTimelineItems(selected, boardItems, boardFeed.data?.tweets ?? []),
+    [selected, boardItems, boardFeed.data?.tweets],
+  );
 
   function pickBoard(id: FrankSectorOpinionId) {
     const params = new URLSearchParams(searchParams?.toString() ?? '');
@@ -1075,7 +1094,7 @@ function BoardDetail({
   board: FrankSectorOpinionBoard;
   groups: FrankFeaturedGroup[];
   items: FrankFeaturedContent[];
-  timelineItems: Array<{ ref: TimelineRef; item: FrankFeaturedContent }>;
+  timelineItems: TimelineDisplayItem[];
   username: string;
 }) {
   const firstDate = items[0]?.date ?? '待补原文';
@@ -1120,7 +1139,7 @@ function BoardDetail({
       </header>
 
       {isAIIndustry ? (
-        <AIIndustryDeepDive />
+        <AIIndustryDeepDive timelineItems={timelineItems} />
       ) : (
         <div className="sector-motion-frame grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)] lg:items-start lg:gap-8">
           <BoardFrameworkDeepDive board={board} />
@@ -1135,12 +1154,10 @@ function BoardDetail({
               </p>
             ) : (
               <ol className="relative ml-2 max-h-[34rem] space-y-5 overflow-y-auto border-l border-border/40 pl-5 pr-2">
-                {timelineItems.map(({ ref, item }, index) => (
+                {timelineItems.map((item, index) => (
                   <TimelineNode
-                    key={`${ref.sourceId}-${ref.type}`}
+                    key={`${item.id}-${item.type}`}
                     item={item}
-                    type={ref.type}
-                    note={ref.note}
                     tone={tone}
                     isLatest={index === 0}
                     index={index}
@@ -1192,7 +1209,7 @@ function BoardFrameworkDeepDive({ board }: { board: FrankSectorOpinionBoard }) {
   );
 }
 
-function AIIndustryDeepDive() {
+function AIIndustryDeepDive({ timelineItems }: { timelineItems: TimelineDisplayItem[] }) {
   const [activeId, setActiveId] = useState<AISubsectorId>('memory');
   const active =
     AI_SUBSECTORS.find((sector) => sector.id === activeId) ?? AI_SUBSECTORS[0];
@@ -1217,6 +1234,30 @@ function AIIndustryDeepDive() {
         />
 
         <AISubsectorDetail key={active.id} sector={active} />
+      </section>
+
+      <section className="mt-6 border-t border-border/40 pt-5">
+        <SectionTitle>AI 产业交叉推文</SectionTitle>
+        <p className={cn('-mt-2 mb-4', TYPE.body)}>
+          只要入库原文和 AI 板块关键词或标的交叉，就补进这条板块时间线。
+        </p>
+        {timelineItems.length === 0 ? (
+          <p className="rounded-md border border-dashed border-border/45 px-4 py-10 text-center text-sm text-muted-foreground">
+            暂无可整理的交叉推文
+          </p>
+        ) : (
+          <ol className="relative ml-2 max-h-[30rem] space-y-5 overflow-y-auto border-l border-border/40 pl-5 pr-2">
+            {timelineItems.map((item, index) => (
+              <TimelineNode
+                key={`${item.id}-${item.type}`}
+                item={item}
+                tone={toneClass.primary}
+                isLatest={index === 0}
+                index={index}
+              />
+            ))}
+          </ol>
+        )}
       </section>
     </div>
   );
@@ -1511,15 +1552,11 @@ function AISourceLink({ sourceId }: { sourceId: string }) {
 
 function TimelineNode({
   item,
-  type,
-  note,
   tone,
   isLatest = false,
   index = 0,
 }: {
-  item: FrankFeaturedContent;
-  type: TimelineType;
-  note?: string;
+  item: TimelineDisplayItem;
   tone: (typeof toneClass)[BoardTone];
   isLatest?: boolean;
   index?: number;
@@ -1541,14 +1578,19 @@ function TimelineNode({
 
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <time className="font-data text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
-          {shortDate(item.date)}
+          {shortDate(item.date ?? '')}
         </time>
         <span className={cn('rounded-sm border px-1.5 py-0.5 text-xs font-medium', tone.chip)}>
-          {type}
+          {item.type}
         </span>
         {isLatest ? (
           <span className="rounded-sm border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
             最新
+          </span>
+        ) : null}
+        {item.isDynamic ? (
+          <span className="rounded-sm border border-sky-500/25 bg-sky-500/10 px-1.5 py-0.5 text-xs font-medium text-sky-400">
+            动态入库
           </span>
         ) : null}
         <span className="rounded-sm border border-border/45 bg-card/35 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -1560,11 +1602,11 @@ function TimelineNode({
         {item.title}
       </p>
       <p className={TYPE.timelineBody}>
-        {note ?? item.summary}
+        {item.body}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <TickerChips tickers={item.tickers ?? []} />
-        <SourceLink item={item} />
+        <TickerChips tickers={item.tickers} />
+        <TimelineSourceLink url={item.sourceUrl} />
       </div>
     </li>
   );
@@ -1631,8 +1673,8 @@ function TickerChips({ tickers }: { tickers: string[] }) {
   );
 }
 
-function SourceLink({ item }: { item: FrankFeaturedContent }) {
-  if (!item.sourceUrl) {
+function TimelineSourceLink({ url }: { url: string | null }) {
+  if (!url) {
     return (
       <span className="inline-flex min-h-9 items-center rounded-md border border-border/45 bg-card/35 px-3 text-sm font-medium text-muted-foreground">
         原文待补
@@ -1642,7 +1684,7 @@ function SourceLink({ item }: { item: FrankFeaturedContent }) {
 
   return (
     <Link
-      href={item.sourceUrl}
+      href={url}
       target="_blank"
       rel="noreferrer"
       className="group inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border/45 bg-card/35 px-3 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
@@ -1725,14 +1767,154 @@ function getUniqueItems(groups: FrankFeaturedGroup[]) {
   return sortFeaturedByDateAsc([...byId.values()]);
 }
 
-function getTimelineItems(board: FrankSectorOpinionBoard) {
-  return board.timeline
-    .map((ref) => {
-      const item = getFeaturedByIds([ref.sourceId])[0];
-      return item ? { ref, item } : null;
-    })
-    .filter((entry): entry is { ref: TimelineRef; item: FrankFeaturedContent } => Boolean(entry))
-    .sort((a, b) => itemDateRank(b.item) - itemDateRank(a.item));
+const BOARD_EXTRA_TICKERS: Record<FrankSectorOpinionId, string[]> = {
+  'ai-industry': ['TSM', 'ASML', 'ARM', 'INTC', 'QCOM', 'ON', 'LITE', 'SNDK', 'WDC', 'ORCL', 'MSFT', 'AMZN', 'META', 'AAPL', 'OPENAI', 'ANTHROPIC', 'SPACEX'],
+  'crypto-rwa': ['MSTR', 'BMNR', 'FUTU', 'TIGR', 'BTC', 'ETH', 'SOL', 'USDC', 'USDT', 'DJT', 'RUM'],
+  'market-cycle': ['NVDA', 'QQQ', 'SPY', 'IEF', 'UUP'],
+  'macro-geopolitics': ['SPY', 'QQQ', 'IEF', 'UUP', 'EWY', 'BA', 'NVDA'],
+  'company-theses': ['PLTR', 'HOOD', 'MU', 'AVGO', 'BB', 'NOK', 'IBM', 'EWY', '7709'],
+};
+
+const BOARD_TIMELINE_KEYWORDS: Record<FrankSectorOpinionId, string[]> = {
+  'ai-industry': ['AI', '算力', 'capex', 'Capex', 'HBM', '光互连', '光通信', 'CPU', 'ASIC', '电力', '液冷', 'Agentic', 'Physical AI'],
+  'crypto-rwa': ['RWA', 'rwa', '代币化', '美股代币化', '港股代币化', '稳定币', '链上', '加密券商', '预测市场', 'Polymarket', 'Backpack', 'Bitget', 'Gate', '特朗普账户', '政治股', 'DJT', 'RUM'],
+  'market-cycle': ['杀估值', '杀业绩', '杀逻辑', '美股调整', '回调', '大跌', '反弹', 'FOMO', 'VIX', 'put/call', '仓位'],
+  'macro-geopolitics': ['川普', '特朗普', '关税', '贸易战', '中美', '伊朗', '霍尔木兹', '财政', '流动性', '美债', 'CPI', 'PPI', '地缘'],
+  'company-theses': ['PLTR', 'Palantir', 'HOOD', 'Robinhood', '罗宾汉', '美光', 'Micron', '博通', 'Broadcom', '黑莓', 'BlackBerry', 'Nokia', 'IBM', 'EWY'],
+};
+
+function getBoardFeedOpts(board: FrankSectorOpinionBoard): KolCockpitFeedOpts {
+  return {
+    limit: 1500,
+    offset: 0,
+    tickers: uniqueStrings([...board.tickers, ...BOARD_EXTRA_TICKERS[board.id]]),
+    keywords: BOARD_TIMELINE_KEYWORDS[board.id],
+  };
+}
+
+function getTimelineItems(
+  board: FrankSectorOpinionBoard,
+  featuredItems: FrankFeaturedContent[],
+  feedItems: KolCockpitFeedItem[],
+): TimelineDisplayItem[] {
+  const byId = new Map<string, TimelineDisplayItem>();
+  const manualRefs = new Map(board.timeline.map((ref) => [ref.sourceId, ref]));
+
+  function add(item: TimelineDisplayItem) {
+    if (!byId.has(item.id)) {
+      byId.set(item.id, item);
+    }
+  }
+
+  for (const ref of board.timeline) {
+    const item = getFeaturedByIds([ref.sourceId])[0];
+    if (item) add(featuredTimelineItem(item, ref));
+  }
+
+  for (const item of featuredItems) {
+    const sourceId = item.sourceId ?? item.id;
+    add(featuredTimelineItem(item, manualRefs.get(sourceId)));
+  }
+
+  for (const tweet of feedItems) {
+    const id = String(tweet.id);
+    if (!id || byId.has(id)) continue;
+    add(feedTimelineItem(tweet));
+  }
+
+  return [...byId.values()].sort((a, b) => timelineDateRank(b) - timelineDateRank(a));
+}
+
+function featuredTimelineItem(
+  item: FrankFeaturedContent,
+  ref?: TimelineRef,
+): TimelineDisplayItem {
+  const sourceId = item.sourceId ?? item.id;
+  return {
+    id: sourceId,
+    date: item.date,
+    type: ref?.type ?? inferTimelineType(item),
+    topic: item.topic,
+    title: item.title,
+    body: ref?.note ?? item.summary,
+    tickers: item.tickers ?? [],
+    sourceUrl: item.sourceUrl ?? null,
+  };
+}
+
+function feedTimelineItem(item: KolCockpitFeedItem): TimelineDisplayItem {
+  const title = stripTimelinePrefix(item.key_claim) || compactText(item.text, 72) || '入库原文';
+  return {
+    id: String(item.id),
+    date: item.created_at,
+    type: typeFromFeedContent(item.content_type),
+    topic: feedContentLabel(item.content_type),
+    title,
+    body: compactText(item.text, 150) || title,
+    tickers: item.tickers ?? [],
+    sourceUrl: item.url,
+    isDynamic: true,
+  };
+}
+
+function inferTimelineType(item: FrankFeaturedContent): TimelineType {
+  const text = `${item.title} ${item.summary} ${item.whyItMatters}`;
+  if (/风险|虚无|监管|回撤|证伪/u.test(text)) return '风险';
+  if (/验证|兑现|最新|后续|财报/u.test(text)) return '验证';
+  if (/修正|调整|迭代/u.test(text)) return '修正';
+  if (/争议|暴论/u.test(text)) return '争议';
+  if (/起点|早期|首次|最早/u.test(text)) return '起点';
+  return '补充';
+}
+
+function typeFromFeedContent(contentType: string | null | undefined): TimelineType {
+  switch (contentType) {
+    case 'risk_flag':
+      return '风险';
+    case 'catalyst':
+      return '验证';
+    case 'trade_action':
+      return '修正';
+    case 'thesis':
+    case 'sector_framework':
+    case 'macro_view':
+    default:
+      return '补充';
+  }
+}
+
+function feedContentLabel(contentType: string | null | undefined) {
+  switch (contentType) {
+    case 'thesis':
+      return '投资逻辑';
+    case 'catalyst':
+      return '催化剂';
+    case 'risk_flag':
+      return '风险提示';
+    case 'sector_framework':
+      return '板块框架';
+    case 'trade_action':
+      return '交易动作';
+    case 'macro_view':
+      return '宏观观点';
+    default:
+      return '动态推文';
+  }
+}
+
+function stripTimelinePrefix(value: string | null | undefined) {
+  if (!value) return '';
+  return value.replace(/^\s*(投资逻辑|催化剂|风险|板块框架|交易动作|宏观观点)\s*[:：]\s*/u, '');
+}
+
+function compactText(value: string | null | undefined, maxLength: number) {
+  const text = (value ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function uniqueStrings(items: string[]) {
+  return [...new Set(items.filter(Boolean))];
 }
 
 function sortAISubsectorTimelineDesc(items: AISubsectorTimelineItem[]) {
@@ -1762,8 +1944,8 @@ function shortDate(date: string) {
   return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
 }
 
-function itemDateRank(item: FrankFeaturedContent) {
-  return dateRank(item.date);
+function timelineDateRank(item: TimelineDisplayItem) {
+  return dateRank(item.date ?? '');
 }
 
 function dateRank(date: string) {

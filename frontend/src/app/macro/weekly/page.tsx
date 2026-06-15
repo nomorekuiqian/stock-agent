@@ -57,7 +57,7 @@ const MACRO_MD_COMPONENTS = {
     <strong className="font-semibold text-foreground">{children}</strong>
   ),
   ul: ({ children }: { children?: ReactNode }) => (
-    <ul className="pl-4 space-y-1.5 my-2 border-l-2 border-border/30">{children}</ul>
+    <ul className="list-disc space-y-1.5 my-2 pl-5">{children}</ul>
   ),
   ol: ({ children }: { children?: ReactNode }) => (
     <ol className="list-decimal pl-5 space-y-1.5 my-2">{children}</ol>
@@ -155,7 +155,7 @@ export default function WeeklyReportPage() {
             {/* Week label */}
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-border/40" />
-              <span className="text-xs text-muted-foreground/60 uppercase tracking-wider shrink-0">
+              <span className="shrink-0 text-xs uppercase tracking-wider text-muted-foreground">
                 周报 &middot; {formatWeekLabel(report.week_label)}
               </span>
               <div className="h-px flex-1 bg-border/40" />
@@ -215,10 +215,10 @@ export default function WeeklyReportPage() {
                 <SectionHeader title="下周关注" />
                 <div className="bg-card rounded-xl border border-border overflow-hidden">
                   <div className="hidden md:grid grid-cols-[100px_1fr_1fr_1fr] gap-4 px-5 py-3 border-b border-border bg-muted/30">
-                    <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">日期</span>
-                    <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">事件</span>
-                    <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">高于预期</span>
-                    <span className="font-data text-xs text-muted-foreground uppercase tracking-wider">低于预期</span>
+                    <span className="text-xs font-medium text-muted-foreground">日期</span>
+                    <span className="text-xs font-medium text-muted-foreground">事件</span>
+                    <span className="text-xs font-medium text-muted-foreground">高于预期</span>
+                    <span className="text-xs font-medium text-muted-foreground">低于预期</span>
                   </div>
                   {report.week_ahead.map((event, i) => (
                     <div key={i} className={`px-5 py-4 ${i < report.week_ahead.length - 1 ? 'border-b border-border/50' : ''}`}>

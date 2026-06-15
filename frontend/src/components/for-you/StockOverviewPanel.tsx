@@ -15,11 +15,9 @@ import { STOCK_NAMES } from '@/lib/stock-names';
 import StockListItem from './StockListItem';
 import StockDetailPanel from './StockDetailPanel';
 import Link from 'next/link';
-import { FeedbackBar } from '@/components/memory/FeedbackBar';
 
 interface StockOverviewPanelProps {
   stocks: StockAnalysis[];
-  digestDate?: string;
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
   /**
@@ -177,7 +175,7 @@ function HoldingFallbackPanel({
                 <span className="text-right text-foreground">
                   {formatStockPrice(holding.cost_basis, holding.symbol, undefined, { maximumFractionDigits: 0 })}
                   {holding.entry_price && holding.entry_price > 0 && (
-                    <span className="text-muted-foreground/60 ml-1">
+                    <span className="ml-1 text-muted-foreground/70">
                       (@ {formatStockPrice(holding.entry_price, holding.symbol, undefined, { compactPrice: true })})
                     </span>
                   )}
@@ -216,23 +214,23 @@ function HoldingFallbackPanel({
 
       {/* User thesis (if recorded) */}
       {effectiveThesis && (
-        <div className="rounded-lg border-l-2 border-primary bg-primary/5 px-3 py-2 mb-3">
-          <p className="text-[10px] text-primary/80 font-semibold uppercase tracking-wider mb-1">
+        <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 mb-3">
+          <p className="mb-1 text-xs font-semibold text-primary">
             你的投资观点
           </p>
-          <p className="text-xs text-foreground italic leading-relaxed">{effectiveThesis}</p>
+          <p className="text-sm text-foreground italic leading-relaxed">{effectiveThesis}</p>
         </div>
       )}
 
       {/* Related news from today's digest */}
       {relatedHeadlines.length > 0 && (
         <div className="mb-3">
-          <p className="text-[10px] text-muted-foreground/70 font-semibold uppercase tracking-wider mb-2">
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">
             今日相关头条
           </p>
           <div className="space-y-2">
             {relatedHeadlines.slice(0, 3).map((n, i) => (
-              <div key={`hl-${i}`} className="border-l-2 border-border/50 pl-2.5">
+              <div key={`hl-${i}`} className="rounded-md border border-border/60 bg-background/60 px-2.5 py-2">
                 <a
                   href={n.url || '#'}
                   target="_blank"
@@ -242,7 +240,7 @@ function HoldingFallbackPanel({
                   {n.title}
                 </a>
                 {n.fact_summary && (
-                  <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                     {n.fact_summary}
                   </p>
                 )}
@@ -254,10 +252,10 @@ function HoldingFallbackPanel({
 
       {relatedBriefs.length > 0 && (
         <div className="mb-3">
-          <p className="text-[10px] text-muted-foreground/70 font-semibold uppercase tracking-wider mb-2">
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">
             其他相关新闻
           </p>
-          <ul className="space-y-1.5 text-[11px]">
+          <ul className="space-y-1.5 text-xs">
             {relatedBriefs.slice(0, 3).map((n, i) => (
               <li key={`bf-${i}`}>
                 <a
@@ -277,7 +275,7 @@ function HoldingFallbackPanel({
       {/* Related upcoming events */}
       {relatedEvents.length > 0 && (
         <div className="mb-3">
-          <p className="text-[10px] text-muted-foreground/70 font-semibold uppercase tracking-wider mb-2">
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">
             临近事件
           </p>
           <div className="space-y-1.5">
@@ -289,7 +287,7 @@ function HoldingFallbackPanel({
                 <div key={`ev-${i}`} className="flex items-start gap-2">
                   {cal && (
                     <div
-                      className={`shrink-0 w-9 rounded text-center text-[9px] py-0.5 border ${
+                      className={`shrink-0 w-9 rounded border py-0.5 text-center text-micro ${
                         today
                           ? 'bg-primary/10 border-primary/30 text-primary'
                           : 'bg-card border-border/40 text-muted-foreground'
@@ -302,7 +300,7 @@ function HoldingFallbackPanel({
                   <div className="text-xs text-foreground leading-snug">
                     <span className="font-medium">{e.event}</span>
                     {e.why_important && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{e.why_important}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{e.why_important}</p>
                     )}
                   </div>
                 </div>
@@ -314,7 +312,7 @@ function HoldingFallbackPanel({
 
       {/* Status note + link out */}
       <div className="mt-4 pt-3 border-t border-border/30">
-        <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+        <p className="text-xs text-muted-foreground leading-relaxed">
           {isCash
             ? '现金持仓不参与日报 AI 分析。'
             : hasAnyRelated
@@ -393,7 +391,7 @@ function HoldingRow({ holding, digestStock, isSelected, onSelect }: HoldingRowPr
             {holding.symbol}
           </span>
           {holding.effective_weight_pct > 0 && (
-            <span className="text-[11px] text-muted-foreground/70 font-data">
+            <span className="font-data text-xs text-muted-foreground">
               {holding.effective_weight_pct.toFixed(1)}%
             </span>
           )}
@@ -406,7 +404,7 @@ function HoldingRow({ holding, digestStock, isSelected, onSelect }: HoldingRowPr
       </div>
 
       {/* Row 2: shares × price = market_value (the new requirement) */}
-      <div className="flex items-center justify-between text-[11px] font-data text-muted-foreground/80 tabular-nums">
+      <div className="flex items-center justify-between text-xs font-data text-muted-foreground tabular-nums">
         <span className="truncate">{displayName}</span>
         <span className="shrink-0 ml-2">
           {isCash ? (
@@ -443,14 +441,12 @@ function MobileStockItem({
   isOpen,
   isHighlighted,
   onToggle,
-  digestDate,
   weightPct,
 }: {
   stock: StockAnalysis;
   isOpen: boolean;
   isHighlighted: boolean;
   onToggle: () => void;
-  digestDate?: string;
   weightPct?: number;
 }) {
   const changeValue = parseChangePercent(stock.daily_change);
@@ -472,7 +468,7 @@ function MobileStockItem({
           <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${isPositive ? 'bg-emerald-400' : 'bg-red-400'}`} />
           <span className="font-semibold font-data text-sm text-foreground">{stock.symbol}</span>
           {weightPct != null && (
-            <span className="text-[11px] text-muted-foreground/70 font-data">{weightPct.toFixed(1)}%</span>
+            <span className="font-data text-xs text-muted-foreground">{weightPct.toFixed(1)}%</span>
           )}
           <span className="text-xs text-muted-foreground truncate">{stock.name}</span>
         </div>
@@ -520,13 +516,6 @@ function MobileStockItem({
             </svg>
           </Link>
 
-          {digestDate && (
-            <FeedbackBar
-              targetType="digest_quick_take"
-              targetId={`quick_take:${stock.symbol}:${digestDate}`}
-              snapshot={{ text: stock.quick_take?.slice(0, 200) }}
-            />
-          )}
         </div>
       )}
     </div>
@@ -542,7 +531,6 @@ function MobileHoldingItem({
   digestStock,
   isOpen,
   onToggle,
-  digestDate,
   thesis,
   headlines,
   briefs,
@@ -552,7 +540,6 @@ function MobileHoldingItem({
   digestStock?: StockAnalysis;
   isOpen: boolean;
   onToggle: () => void;
-  digestDate?: string;
   thesis?: string;
   headlines?: DigestHeadlineNews[];
   briefs?: DigestBriefNews[];
@@ -586,7 +573,7 @@ function MobileHoldingItem({
             )}
             <span className="font-semibold font-data text-sm text-foreground">{holding.symbol}</span>
             {holding.effective_weight_pct > 0 && (
-              <span className="text-[11px] text-muted-foreground/70 font-data">
+              <span className="font-data text-xs text-muted-foreground">
                 {holding.effective_weight_pct.toFixed(1)}%
               </span>
             )}
@@ -607,7 +594,7 @@ function MobileHoldingItem({
           </div>
         </div>
 
-        <div className="text-[11px] font-data text-muted-foreground/80 tabular-nums pl-4">
+        <div className="pl-4 text-xs font-data text-muted-foreground tabular-nums">
           {isCash ? (
             holding.market_value != null ? formatStockPrice(holding.market_value, holding.symbol, undefined, { maximumFractionDigits: 0 }) : '—'
           ) : holding.shares != null && holding.price != null ? (
@@ -645,13 +632,6 @@ function MobileHoldingItem({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
-              {digestDate && (
-                <FeedbackBar
-                  targetType="digest_quick_take"
-                  targetId={`quick_take:${holding.symbol}:${digestDate}`}
-                  snapshot={{ text: digestStock.quick_take?.slice(0, 200) }}
-                />
-              )}
             </>
           ) : (
             <HoldingFallbackPanel
@@ -694,7 +674,7 @@ function PortfolioHeader({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">我的持仓</span>
-          <span className="text-[11px] px-2 py-0.5 bg-primary text-primary-foreground rounded-full">{count} 只</span>
+          <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{count} 只</span>
         </div>
         {totalMarketValue != null && (
           <div className="text-right">
@@ -715,7 +695,7 @@ function PortfolioHeader({
         )}
       </div>
       {portfolioSummary && (
-        <div className="px-3 py-2 bg-background rounded-lg border-l-2 border-primary text-xs text-muted-foreground leading-relaxed mb-3">
+        <div className="px-3 py-2 bg-background rounded-lg border border-primary/25 text-xs text-muted-foreground leading-relaxed mb-3">
           {portfolioSummary}
         </div>
       )}
@@ -747,7 +727,6 @@ function HoldingsGroup({
   digestStockMap,
   selectedSymbol,
   onSelect,
-  digestDate,
   thesisMap,
   onThesisSaved,
   headlines,
@@ -758,7 +737,6 @@ function HoldingsGroup({
   digestStockMap: Record<string, StockAnalysis>;
   selectedSymbol: string;
   onSelect: (sym: string) => void;
-  digestDate?: string;
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
   headlines?: DigestHeadlineNews[];
@@ -790,7 +768,6 @@ function HoldingsGroup({
           {selectedDigestStock ? (
             <StockDetailPanel
               stock={selectedDigestStock}
-              digestDate={digestDate}
               thesis={thesisMap?.[selectedHolding.symbol]}
               onThesisSaved={onThesisSaved}
             />
@@ -815,7 +792,6 @@ function HoldingsGroup({
             digestStock={digestStockMap[h.symbol]}
             isOpen={h.symbol === selectedHolding.symbol}
             onToggle={() => onSelect(h.symbol === selectedHolding.symbol ? '' : h.symbol)}
-            digestDate={digestDate}
             thesis={thesisMap?.[h.symbol]}
             headlines={headlines}
             briefs={briefs}
@@ -835,7 +811,6 @@ function StockGroup({
   stocks,
   selectedSymbol,
   onSelect,
-  digestDate,
   thesisMap,
   onThesisSaved,
   selectedStock,
@@ -844,7 +819,6 @@ function StockGroup({
   stocks: StockAnalysis[];
   selectedSymbol: string;
   onSelect: (sym: string) => void;
-  digestDate?: string;
   thesisMap?: Record<string, string>;
   onThesisSaved?: (symbol: string, thesis: string) => void;
   selectedStock?: StockAnalysis;
@@ -873,7 +847,6 @@ function StockGroup({
           {selectedStock && (
             <StockDetailPanel
               stock={selectedStock}
-              digestDate={digestDate}
               thesis={thesisMap?.[selectedStock.symbol]}
               onThesisSaved={onThesisSaved}
             />
@@ -890,7 +863,6 @@ function StockGroup({
             isOpen={stock.symbol === selectedSymbol}
             isHighlighted={isNotableMove(stock.daily_change)}
             onToggle={() => onSelect(stock.symbol === selectedSymbol ? '' : stock.symbol)}
-            digestDate={digestDate}
             weightPct={weightMap?.[stock.symbol]}
           />
         ))}
@@ -905,7 +877,6 @@ function StockGroup({
 
 export default function StockOverviewPanel({
   stocks,
-  digestDate,
   thesisMap,
   onThesisSaved,
   portfolioSymbols,
@@ -1027,7 +998,6 @@ export default function StockOverviewPanel({
             digestStockMap={digestStockMap}
             selectedSymbol={selectedSymbol}
             onSelect={setSelectedSymbol}
-            digestDate={digestDate}
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
             headlines={headlines}
@@ -1062,7 +1032,6 @@ export default function StockOverviewPanel({
                 stocks={portfolioStocks}
                 selectedSymbol={selectedSymbol}
                 onSelect={setSelectedSymbol}
-                digestDate={digestDate}
                 thesisMap={thesisMap}
                 onThesisSaved={onThesisSaved}
                 selectedStock={portfolioStocks.find((s) => s.symbol === selectedSymbol) || portfolioStocks[0]}
@@ -1079,14 +1048,13 @@ export default function StockOverviewPanel({
           {portfolioMode && (hasPortfolio || visibleHoldings.length > 0) && (
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm font-semibold text-muted-foreground">观察列表</span>
-              <span className="text-[11px] px-2 py-0.5 bg-muted text-muted-foreground rounded-full">{watchlistStocks.length} 只</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{watchlistStocks.length} 只</span>
             </div>
           )}
           <StockGroup
             stocks={watchlistStocks}
             selectedSymbol={selectedSymbol}
             onSelect={setSelectedSymbol}
-            digestDate={digestDate}
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
             selectedStock={watchlistStocks.find((s) => s.symbol === selectedSymbol) || watchlistStocks[0]}

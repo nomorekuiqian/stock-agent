@@ -43,17 +43,17 @@ export default function ResearchKbPage() {
   };
 
   return (
-    <div className="mx-auto flex h-screen max-w-3xl flex-col bg-white p-6">
+    <div className="mx-auto flex h-screen max-w-3xl flex-col bg-background p-6">
       <header className="mb-4">
-        <h1 className="text-xl font-semibold text-gray-900">投研助手 · 知识库测试</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-xl font-semibold text-foreground">投研助手 · 知识库测试</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           基于博主历史观点（vector_chunks，当前 16 条）的 RAG E2E 验证页
         </p>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-lg border border-gray-200 p-4">
+      <div className="flex-1 space-y-4 overflow-y-auto rounded-lg border border-border p-4">
         {turns.length === 0 && (
-          <p className="text-sm text-gray-400">试试：qinbafrank 怎么看 AI 算力板块？</p>
+          <p className="text-sm text-muted-foreground/70">试试：qinbafrank 怎么看 AI 算力板块？</p>
         )}
         {turns.map((t, i) => (
           <div key={i} className={t.role === 'user' ? 'text-right' : ''}>
@@ -62,13 +62,13 @@ export default function ResearchKbPage() {
                 'inline-block max-w-full whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ' +
                 (t.role === 'user'
                   ? 'bg-emerald-50 text-emerald-900'
-                  : 'bg-gray-50 text-gray-900')
+                  : 'bg-muted/50 text-foreground')
               }
             >
               {t.content}
             </div>
             {t.chunks && t.chunks.length > 0 && (
-              <details className="mt-2 text-xs text-gray-500">
+              <details className="mt-2 text-xs text-muted-foreground">
                 <summary className="cursor-pointer">
                   引用片段 ({t.chunks.length}) · top sim={t.chunks[0].similarity.toFixed(3)}
                 </summary>
@@ -83,7 +83,7 @@ export default function ResearchKbPage() {
             )}
           </div>
         ))}
-        {loading && <p className="text-sm text-gray-400">检索 + 生成中...</p>}
+        {loading && <p className="text-sm text-muted-foreground/70">检索 + 生成中...</p>}
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
 
@@ -99,14 +99,14 @@ export default function ResearchKbPage() {
           }}
           placeholder="向博主历史观点知识库提问..."
           rows={2}
-          className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+          className="flex-1 resize-none rounded-lg border border-border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
           disabled={loading}
         />
         <button
           type="button"
           onClick={send}
           disabled={loading || !input.trim()}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:bg-gray-300"
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-background disabled:bg-muted"
         >
           发送
         </button>

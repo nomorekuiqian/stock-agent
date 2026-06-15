@@ -90,8 +90,8 @@ export function MacroPageHeader({
           </div>
         </div>
 
-        {/* Row 2: Title block with emerald accent bar */}
-        <div className="border-l-2 border-primary/70 pl-5 md:pl-6">
+        {/* Row 2: Title block */}
+        <div className="rounded-lg border border-primary/20 bg-primary/[0.025] px-5 py-4 md:px-6">
           <h1 className="font-editorial text-2xl md:text-3xl text-foreground leading-[1.15] tracking-tight">
             {title}
           </h1>

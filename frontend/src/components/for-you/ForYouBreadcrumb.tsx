@@ -13,7 +13,7 @@ export function ForYouBreadcrumb({ current }: ForYouBreadcrumbProps) {
       >
         专属
       </Link>
-      <span className="mx-2 text-muted-foreground/50">/</span>
+      <span className="mx-2 text-muted-foreground/70">/</span>
       <span className="text-foreground">{current}</span>
     </nav>
   );

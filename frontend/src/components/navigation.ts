@@ -8,6 +8,7 @@ export interface NavSection {
   href: string;
   label: string;
   highlight?: boolean;
+  tourTarget?: string;
   children?: NavChild[];
 }
 
@@ -27,10 +28,12 @@ export function getMainNavSections({
       label: 'AI 研究助手',
       href: '/research',
       highlight: true,
+      tourTarget: 'nav-research-agent',
     },
     {
       label: '每日简报',
       href: '/today',
+      tourTarget: 'nav-daily-reports',
       children: [
         { href: '/morning', label: '盘前早报' },
         { href: '/today', label: '盘后晚报' },
@@ -40,8 +43,9 @@ export function getMainNavSections({
     {
       label: '投研',
       href: '/stock',
+      tourTarget: 'nav-research-system',
       children: [
-        { href: '/kol/qinbafrank', label: '博主研究室' },
+        { href: '/kol', label: '博主研究室' },
         { href: '/stock', label: '个股研究' },
         { href: '/macro', label: '宏观研究' },
       ],
@@ -49,6 +53,7 @@ export function getMainNavSections({
     {
       label: '我的',
       href: '/for-you',
+      tourTarget: 'nav-my',
       children: forYouV2
         ? [
             { href: '/for-you', label: '专属日报' },

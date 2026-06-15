@@ -4,9 +4,11 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import fs from "node:fs";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const serverPath = path.join(packageDir, "dist", "index.js");
+const authFile = path.join(packageDir, ".tmp-smoke-mcp-auth.json");
 const calls = [];
 
 function personaFromUrl(url) {
@@ -23,9 +25,105 @@ const mock = http.createServer((req, res) => {
     calls.push({
       method: req.method,
       url: req.url,
+      authorization: req.headers.authorization || "",
       body,
     });
     res.setHeader("Content-Type", "application/json");
+
+    if (req.url.includes("/mcp/auth/device/start")) {
+      res.end(JSON.stringify({
+        ok: true,
+        status: "authorization_pending",
+        device_code: "mock-device-code",
+        user_code: "ABCD-EFGH",
+        verification_url: "http://127.0.0.1/mock-authorize",
+        poll_interval_s: 1,
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/auth/device/token")) {
+      res.end(JSON.stringify({
+        ok: true,
+        status: "authorized",
+        mcp_token: "mock-mcp-token",
+        token_type: "Bearer",
+        expires_at: "2099-01-01T00:00:00Z",
+        scopes: ["mcp:persona", "mcp:data"],
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/auth/status")) {
+      res.end(JSON.stringify({
+        ok: true,
+        authenticated: true,
+        user_id: "user-123",
+        scopes: ["mcp:persona", "mcp:data"],
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/auth/revoke")) {
+      res.end(JSON.stringify({
+        ok: true,
+        revoked: true,
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/data/catalog")) {
+      res.end(JSON.stringify({
+        ok: true,
+        tool: "data_catalog",
+        data: { tools: { market_lens_get_brief: {}, market_lens_get_stock_data: {} } },
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/data/brief")) {
+      res.end(JSON.stringify({
+        ok: true,
+        tool: "brief",
+        request: body,
+        data: { briefs: [{ brief_type: body.brief_type, symbol: body.symbol, payload: {} }] },
+        errors: [],
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/data/stock")) {
+      res.end(JSON.stringify({
+        ok: true,
+        tool: "stock_data",
+        request: body,
+        data: { symbol: body.symbol, sections: { quote: {} } },
+        errors: [],
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/data/market")) {
+      res.end(JSON.stringify({
+        ok: true,
+        tool: "market_data",
+        request: body,
+        data: { sections: { market_overview: {} } },
+        errors: [],
+      }));
+      return;
+    }
+
+    if (req.url.includes("/mcp/data/news")) {
+      res.end(JSON.stringify({
+        ok: true,
+        tool: "news",
+        request: body,
+        data: { news: [], count: 0 },
+        errors: [],
+      }));
+      return;
+    }
 
     if (req.url.includes("/mcp/status")) {
       const persona = personaFromUrl(req.url);
@@ -209,6 +307,8 @@ const child = spawn(process.execPath, [serverPath], {
   env: {
     ...process.env,
     THEMARKETBREW_BACKEND_URL: `http://127.0.0.1:${port}/api`,
+    THEMARKETBREW_AUTH_FILE: authFile,
+    THEMARKETBREW_ACCESS_TOKEN: "",
   },
 });
 
@@ -258,6 +358,7 @@ function parseTool(result) {
 }
 
 try {
+  fs.rmSync(authFile, { force: true });
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
@@ -266,6 +367,31 @@ try {
   notify("notifications/initialized");
 
   parseTool(await send("tools/call", { name: "market_lens_status", arguments: {} }));
+  const login = parseTool(await send("tools/call", {
+    name: "market_lens_login",
+    arguments: { client_name: "adapter smoke" },
+  }));
+  parseTool(await send("tools/call", {
+    name: "market_lens_auth_status",
+    arguments: { device_code: login.device_code },
+  }));
+  parseTool(await send("tools/call", { name: "market_lens_data_catalog", arguments: {} }));
+  parseTool(await send("tools/call", {
+    name: "market_lens_get_brief",
+    arguments: { brief_type: "stock", symbol: "NVDA" },
+  }));
+  parseTool(await send("tools/call", {
+    name: "market_lens_get_stock_data",
+    arguments: { symbol: "NVDA", sections: ["quote"] },
+  }));
+  parseTool(await send("tools/call", {
+    name: "market_lens_get_market_data",
+    arguments: { sections: ["market_overview"] },
+  }));
+  parseTool(await send("tools/call", {
+    name: "market_lens_get_news",
+    arguments: { symbols: ["NVDA"], scope: "stock" },
+  }));
   parseTool(await send("tools/call", { name: "market_lens_personas", arguments: {} }));
   parseTool(await send("tools/call", {
     name: "market_lens_list_lenses",
@@ -327,12 +453,15 @@ try {
     name: "market_lens_stock_diagnosis",
     arguments: { persona: "aleabitoreddit", question: "SIVE 的验证窗口怎么看？", ticker: "SIVE" },
   }));
+  parseTool(await send("tools/call", { name: "market_lens_logout", arguments: {} }));
   const backendCalls = calls.filter((call) => (
     call.url.includes("/mcp/search")
     || call.url.includes("/mcp/workflow")
     || call.url.includes("/mcp/lenses")
     || call.url.includes("/mcp/evidence")
     || call.url.includes("/mcp/context")
+    || call.url.includes("/mcp/data")
+    || call.url.includes("/mcp/auth")
   ));
   const workflows = backendCalls
     .map((call) => call.body.workflow)
@@ -342,6 +471,7 @@ try {
   console.log(JSON.stringify({
     ok: true,
     backendCalls: calls.length,
+    authHeaderCalls: calls.filter((call) => call.authorization === "Bearer mock-mcp-token").length,
     serenityCalls: calls.filter((call) => call.url.includes("/personas/aleabitoreddit/")).length,
     workflows,
     searchCalled: backendCalls.some((call) => call.url.includes("/mcp/search")),
@@ -349,4 +479,5 @@ try {
 } finally {
   child.kill();
   mock.close();
+  fs.rmSync(authFile, { force: true });
 }

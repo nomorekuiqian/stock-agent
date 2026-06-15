@@ -1,12 +1,15 @@
 'use client';
 
-import { memo, useMemo, useState, useEffect } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { memo, useMemo, useState, useEffect, type ReactNode } from 'react';
+import { ArrowUpRight, Copy, Check, Lock } from 'lucide-react';
 
 import { FeedbackBar } from '@/components/memory/FeedbackBar';
 import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
+import { PRICING } from '@/lib/pricing';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import AssistantAvatar from './AssistantAvatar';
+import type { RequiredProduct } from '../_lib/researchReducer';
 
 /**
  * Inline "Thinking..." line that ChatGPT-style swaps the latest paragraph
@@ -60,6 +63,8 @@ interface ChatMessageProps {
   citations?: KolPersonaChunk[];
   /** When set, AI avatar swaps from the brand mark to the persona's avatar. */
   personaUsername?: string | null;
+  /** Structured paywall target from the backend error event. */
+  requiredProduct?: RequiredProduct | null;
   feedbackTargetId?: string;
   feedbackAgentId?: 'research_agent' | 'kol_research_agent';
   feedbackSessionId?: string | null;
@@ -76,6 +81,49 @@ interface ChatMessageProps {
 function hasMarkdown(text: string): boolean {
   return /(?:^#{1,6}\s|[*_]{1,2}\S|\n[-*]\s|\n\d+\.\s|^\s*\|.+\|\s*$|\n>|\n```|^\s*[-*]\s)/m.test(text);
 }
+
+const RESEARCH_MARKDOWN_COMPONENTS = {
+  table: ({ children }: { children?: ReactNode }) => (
+    <div className="my-4 overflow-x-auto rounded-lg border border-border/70 bg-card/25">
+      <table className="w-full border-collapse text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }: { children?: ReactNode }) => (
+    <thead className="bg-muted/45">{children}</thead>
+  ),
+  th: ({ children }: { children?: ReactNode }) => (
+    <th className="border-b border-border px-3 py-2.5 text-left font-medium leading-6 text-foreground whitespace-nowrap">
+      {children}
+    </th>
+  ),
+  td: ({ children }: { children?: ReactNode }) => (
+    <td className="border-b border-border/40 px-3 py-2.5 align-top leading-6 text-foreground/90">
+      {children}
+    </td>
+  ),
+  blockquote: ({ children }: { children?: ReactNode }) => (
+    <blockquote className="my-4 rounded-lg border border-primary/25 bg-primary/[0.025] px-4 py-2.5 text-foreground/85 [&>p]:my-0">
+      {children}
+    </blockquote>
+  ),
+  code: ({ className, children }: { className?: string; children?: ReactNode }) => {
+    const isBlock = !!className && className.startsWith('language-');
+    if (isBlock) {
+      return <code className={className}>{children}</code>;
+    }
+    return (
+      <code className="rounded bg-muted/65 px-1.5 py-0.5 font-mono text-sm text-foreground/90">
+        {children}
+      </code>
+    );
+  },
+  pre: ({ children }: { children?: ReactNode }) => (
+    <pre className="my-4 overflow-x-auto rounded-lg bg-muted p-3 font-mono text-sm leading-6 text-foreground">
+      {children}
+    </pre>
+  ),
+  hr: () => <hr className="my-4 border-border/40" />,
+};
 
 /**
  * Convert "[#3]" patterns in markdown text into clickable links that open the
@@ -130,6 +178,18 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function buildUltraReturnPath(personaUsername: string | null | undefined): string {
+  const fallbackPersona = personaUsername || 'qinbafrank';
+  if (typeof window === 'undefined') {
+    return `/research?agent=kol&persona=${encodeURIComponent(fallbackPersona)}`;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  params.set('agent', 'kol');
+  params.set('persona', fallbackPersona);
+  return `/research?${params.toString()}`;
+}
+
 function ChatMessage({
   role,
   content,
@@ -139,6 +199,7 @@ function ChatMessage({
   thinking,
   citations,
   personaUsername,
+  requiredProduct,
   feedbackTargetId,
   feedbackAgentId,
   feedbackSessionId,
@@ -151,10 +212,14 @@ function ChatMessage({
   feedbackPersonaUsername,
   feedbackSentiment,
 }: ChatMessageProps) {
+  const { createCheckout, isCheckoutLoading, isUltra } = useSubscription();
   const isMarkdown = useMemo(() => role === 'assistant' && hasMarkdown(content), [role, content]);
   // Skip per-char animation while streaming (delta-driven) or when content is markdown.
   const shouldAnimate = animate && !isMarkdown && !streaming;
   const [animationDone, setAnimationDone] = useState(!shouldAnimate);
+  const requiresUltra = !isUltra && (
+    requiredProduct === 'ultra' || requiredProduct === 'creator_max_qinbafrank'
+  );
 
   const annotatedContent = useMemo(
     () => annotateCitations(content, citations),
@@ -173,11 +238,15 @@ function ChatMessage({
     return () => clearTimeout(timer);
   }, [shouldAnimate, role, chars.length]);
 
+  const handleUnlockUltra = async () => {
+    await createCheckout('ultra', buildUltraReturnPath(personaUsername));
+  };
+
   // User message
   if (role === 'user') {
     return (
       <div className="flex justify-end animate-msg-enter py-3">
-        <div className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground leading-relaxed border border-border/40">
+        <div className="font-reading max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground border border-border/40">
           {content}
         </div>
       </div>
@@ -209,7 +278,33 @@ function ChatMessage({
               boundary needs to read as a discrete state, not flow into the page. */}
           {isError ? (
             <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm leading-relaxed text-red-600 dark:text-red-300">
-              {content}
+              <p>{content}</p>
+              {requiresUltra && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleUnlockUltra}
+                    disabled={isCheckoutLoading}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-400"
+                  >
+                    {isCheckoutLoading ? (
+                      <>
+                        <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        跳转中…
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-3.5 w-3.5" aria-hidden />
+                        解锁 Ultra {PRICING.ultraPerMonth}
+                        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                      </>
+                    )}
+                  </button>
+                  <span className="text-xs text-red-600/70 dark:text-red-300/75">
+                    包含博主 Agent 无限使用
+                  </span>
+                </div>
+              )}
             </div>
           ) : !content ? (
             !thinking?.trim() ? (
@@ -228,22 +323,24 @@ function ChatMessage({
               ))}
             </div>
           ) : (isMarkdown || streaming) ? (
-            <div className={`prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed text-foreground
-              prose-headings:text-foreground prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2
-              prose-h1:text-base prose-h2:text-base prose-h3:text-sm prose-h4:text-sm
-              prose-p:text-inherit prose-p:my-2 prose-p:leading-relaxed
+            <div className={`prose prose-sm prose-agent max-w-none dark:prose-invert text-foreground
+              prose-headings:text-foreground prose-headings:font-semibold prose-headings:mt-5 prose-headings:mb-2 prose-headings:tracking-normal
+              prose-h1:text-lg prose-h2:text-base prose-h3:text-sm prose-h4:text-sm
+              prose-p:text-inherit prose-p:my-3
               prose-strong:text-foreground prose-strong:font-semibold
-              prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-li:text-inherit
+              prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:text-inherit
               [&_li_p]:my-0
               ${animate ? 'animate-fade-in' : ''}`}
             >
-              <MarkdownBody variant="agent">{annotatedContent}</MarkdownBody>
+              <MarkdownBody variant="agent" components={RESEARCH_MARKDOWN_COMPONENTS}>
+                {annotatedContent}
+              </MarkdownBody>
               {streaming && (
                 <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
             </div>
           ) : (
-            <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+            <div className="research-message-text text-foreground whitespace-pre-wrap">
               {content}
               {streaming && (
                 <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />

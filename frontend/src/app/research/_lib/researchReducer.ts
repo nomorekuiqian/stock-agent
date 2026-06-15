@@ -20,6 +20,7 @@ export interface ChatMsg {
   options?: string[];
   selectedOption?: string | null;
   isError?: boolean;
+  requiredProduct?: RequiredProduct | null;
   /** Streaming placeholder still receiving deltas. Disables animation, shows live caret. */
   streaming?: boolean;
   /** Chain-of-thought chunks accumulated during streaming (KOL agent). */
@@ -34,6 +35,8 @@ export interface ChatMsg {
   feedbackAt?: string | null;
   feedbackPayload?: Record<string, unknown>;
 }
+
+export type RequiredProduct = 'max' | 'ultra' | 'creator_max_qinbafrank';
 
 export interface FilterStep {
   count: number;
@@ -76,7 +79,7 @@ export interface ResearchState {
 export type ResearchAction =
   | { type: 'SEND_MESSAGE'; message: string; sessionId?: string | null; turnId?: string | null }
   | { type: 'RECEIVE_RESPONSE'; result: ResearchResult; sessionId?: string | null; turnId?: string | null }
-  | { type: 'SET_ERROR'; error: string }
+  | { type: 'SET_ERROR'; error: string; requiredProduct?: RequiredProduct | null }
   | { type: 'SET_LOADING'; loading: boolean }
   | { type: 'VIEW_RESULTS' }
   | { type: 'RESET' }
@@ -210,19 +213,28 @@ export function buildKolPersistedMessages({
   isFirstTurn,
   userMessage,
   assistantMessage,
+  assistantOptions,
   timestamp = Date.now(),
 }: {
   existingMessages: ChatMsg[];
   isFirstTurn: boolean;
   userMessage: string;
   assistantMessage: string;
+  assistantOptions?: string[];
   timestamp?: number;
 }): ChatMsg[] {
   const baseMessages = isFirstTurn ? [] : existingMessages;
   return [
     ...baseMessages,
     { id: `u-${timestamp}`, role: 'user', content: userMessage },
-    { id: `a-${timestamp}`, role: 'assistant', content: assistantMessage },
+    {
+      id: `a-${timestamp}`,
+      role: 'assistant',
+      content: assistantMessage,
+      ...(assistantOptions && assistantOptions.length > 0
+        ? { options: assistantOptions }
+        : {}),
+    },
   ];
 }
 
@@ -403,6 +415,7 @@ export function researchReducer(state: ResearchState, action: ResearchAction): R
         role: 'assistant',
         content: action.error,
         isError: true,
+        requiredProduct: action.requiredProduct ?? null,
       };
       return {
         ...state,

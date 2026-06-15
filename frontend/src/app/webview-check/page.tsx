@@ -126,15 +126,15 @@ export default function WebViewCheckPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-white px-4 py-6 text-slate-900">
+    <main className="min-h-screen bg-background px-4 py-6 text-foreground">
       <div className="mx-auto max-w-2xl">
         <h1 className="text-xl font-semibold">WebView 登录态诊断</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           此页面只做只读诊断。用于在微信小程序 web-view PoC 中确认第一方 cookie / session 是否存活。
         </p>
 
         {state.loading ? (
-          <p className="mt-6 text-slate-500">加载中…</p>
+          <p className="mt-6 text-muted-foreground">加载中…</p>
         ) : (
           <div className="mt-6 space-y-5 text-sm">
             <Section title="登录态（基于 httpOnly cookie）">
@@ -177,7 +177,7 @@ export default function WebViewCheckPage() {
                 highlight={state.hasFirstPartyAuthCookie}
               />
               <Row label="cookie 原文" value={state.cookieString || '(空)'} mono small />
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-muted-foreground">
                 说明：<code>app_access_token</code> 和 <code>app_refresh_token</code> 是
                 httpOnly，<code>document.cookie</code> 永远读不到，但它们会随 fetch 送到
                 <code>/api/auth/session</code>。只要上面的「登录态」部分显示已登录，就说明 httpOnly cookie 正常送达。
@@ -233,7 +233,7 @@ function Row({
 }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="shrink-0 text-slate-500">{label}</span>
+      <span className="shrink-0 text-muted-foreground">{label}</span>
       <span
         className={[
           'text-right',

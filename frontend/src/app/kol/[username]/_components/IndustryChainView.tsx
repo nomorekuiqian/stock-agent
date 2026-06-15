@@ -256,7 +256,7 @@ function TickerCard({
               ) : null}
             </>
           ) : (
-            <span className="font-data text-xs text-muted-foreground/70">无报价</span>
+            <span className="text-xs text-muted-foreground/70">无报价</span>
           )}
         </div>
       </div>

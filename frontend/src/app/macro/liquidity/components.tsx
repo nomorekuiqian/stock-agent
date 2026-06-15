@@ -458,7 +458,7 @@ export function SectionHeader({
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-5">
       <div className="flex items-start gap-3 min-w-0">
-        <span className="text-3xl font-data font-bold leading-none text-foreground tracking-tighter select-none">
+        <span className="text-3xl font-data font-bold leading-tight text-foreground tracking-tighter select-none">
           {number}
         </span>
         <div className="pt-0.5 min-w-0">

@@ -41,7 +41,7 @@ export function WatchpointsSection({ watchpoints, locked = false }: Props) {
         <span className="text-xs text-muted-foreground tabular-nums">
           <span className="font-data text-foreground/70">{watchpoints.length}</span> 个事件
         </span>
-        <span className="ml-auto text-[11px] text-muted-foreground/65 italic hidden md:inline">
+        <span className="ml-auto hidden text-xs italic text-muted-foreground md:inline">
           KOL 圈在等什么
         </span>
       </div>
@@ -72,7 +72,7 @@ function Card({ item, index, locked }: { item: WatchpointItem; index: number; lo
         <div className="flex items-baseline gap-3 min-w-0 flex-1">
           <span
             aria-hidden
-            className="font-data text-[10px] tabular-nums text-muted-foreground/55 mt-1"
+            className="mt-1 font-data text-xs tabular-nums text-muted-foreground/70"
           >
             {String(index + 1).padStart(2, '0')}
           </span>
@@ -95,15 +95,15 @@ function Card({ item, index, locked }: { item: WatchpointItem; index: number; lo
           />
         </div>
       ) : (
-        <p className="mt-4 text-[14.5px] leading-[1.85] text-foreground/85 font-editorial">
+        <p className="font-reading mt-4 text-sm leading-7 text-foreground/85 md:text-base md:leading-8">
           {item.why_it_matters_zh}
         </p>
       )}
 
-      <footer className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-muted-foreground/80">
+      <footer className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
         {item.related_tickers.length > 0 && (
           <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground/60 uppercase tracking-[0.2em] mr-1">
+            <span className="mr-1 uppercase tracking-[0.16em] text-muted-foreground">
               涉及
             </span>
             <ul className="flex flex-wrap gap-1.5">
@@ -112,7 +112,7 @@ function Card({ item, index, locked }: { item: WatchpointItem; index: number; lo
                   <Link
                     href={`/stock/${tk}`}
                     prefetch={false}
-                    className="inline-flex items-baseline gap-0.5 font-data text-[12px] hover:text-sky-400 transition-colors"
+                    className="inline-flex items-baseline gap-0.5 font-data text-xs transition-colors hover:text-sky-400"
                     aria-label={`查看 ${tk} 个股详情`}
                   >
                     <span className="text-sky-400/65">$</span>
@@ -126,7 +126,7 @@ function Card({ item, index, locked }: { item: WatchpointItem; index: number; lo
         {item.kols_watching.length > 0 && (
           <span className="ml-auto font-data tabular-nums">
             <span className="text-foreground/80">{item.kols_watching.length}</span>{' '}
-            <span className="text-muted-foreground/60">KOL 在关注</span>
+            <span className="text-muted-foreground">KOL 在关注</span>
           </span>
         )}
       </footer>
@@ -149,7 +149,7 @@ function Card({ item, index, locked }: { item: WatchpointItem; index: number; lo
           )
         : item.evidence && item.evidence.length > 0 && (
             <details className="mt-4 group">
-              <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-sky-400 transition-colors py-1.5 select-none border-t border-border/40 pt-4">
+              <summary className="list-none cursor-pointer flex items-center gap-2 border-t border-border/40 pt-4 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-sky-400 select-none">
                 <svg
                   aria-hidden
                   className="w-3 h-3 transition-transform duration-200 group-open:rotate-90"
@@ -161,7 +161,7 @@ function Card({ item, index, locked }: { item: WatchpointItem; index: number; lo
                 </svg>
                 <span className="group-open:hidden">展开 KOL 原推</span>
                 <span className="hidden group-open:inline">收起</span>
-                <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
+                <span className="font-data tabular-nums text-muted-foreground/70 normal-case">
                   ({item.evidence.length})
                 </span>
               </summary>
@@ -179,10 +179,10 @@ function Card({ item, index, locked }: { item: WatchpointItem; index: number; lo
 function EvidenceRow({ arg }: { arg: Argument }) {
   return (
     <li className="flex gap-3 text-sm leading-relaxed group/row">
-      <span aria-hidden className="shrink-0 mt-2 text-muted-foreground/45">·</span>
+      <span aria-hidden className="shrink-0 mt-2 text-muted-foreground/70">·</span>
       <div className="min-w-0 flex-1">
-        <p className="text-foreground/85 font-editorial">{arg.point_zh}</p>
-        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground/75">
+        <p className="font-reading text-foreground/85">{arg.point_zh}</p>
+        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
           <a
             href={safeUserUrl(arg.kol)}
             target="_blank"
@@ -191,12 +191,12 @@ function EvidenceRow({ arg }: { arg: Argument }) {
           >
             @{arg.kol}
           </a>
-          <span aria-hidden className="text-muted-foreground/35">·</span>
+          <span aria-hidden className="text-muted-foreground/70">·</span>
           <a
             href={safeTweetUrl(arg.tweet_url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground/65 hover:text-sky-400 transition-colors inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-sky-400"
           >
             原推
             <svg
@@ -222,7 +222,7 @@ function EvidenceRow({ arg }: { arg: Argument }) {
 
 function DateChip({ text }: { text: string }) {
   return (
-    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-sky-400/30 bg-sky-400/8 px-2.5 py-0.5 text-[11px] font-data tabular-nums">
+    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-sky-400/30 bg-sky-400/8 px-2.5 py-0.5 text-xs font-data tabular-nums">
       <svg
         aria-hidden
         className="w-3 h-3 text-sky-400/75"

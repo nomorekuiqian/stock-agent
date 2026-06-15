@@ -85,7 +85,7 @@ function HeroCard({
         </span>
       </div>
       <div className="mb-1">
-        <span className={`text-2xl sm:text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${
+        <span className={`text-2xl sm:text-data-hero font-bold font-data tracking-tighter leading-tight transition-colors duration-300 ${
           selected ? getColorClass(accentColor) : 'text-foreground group-hover:text-foreground'
         }`}>{formatted}</span>
       </div>
@@ -98,7 +98,7 @@ function HeroCard({
         </div>
       )}
       <div className={`absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-200 ${selected ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
-        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">点击查看详情</span>
+        <span className="text-sm text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">点击查看详情</span>
       </div>
     </button>
   );
@@ -178,7 +178,7 @@ export default function InflationRatesPage() {
                 >
                   <div className="mb-3"><span className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">{SUB_DIM_NAMES.commodities}</span></div>
                   <div className="mb-1">
-                    <span className={`text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${selectedDim === 'commodities' ? 'text-amber-400' : 'text-foreground group-hover:text-foreground'}`}>
+                    <span className={`text-data-hero font-bold font-data tracking-tighter leading-tight transition-colors duration-300 ${selectedDim === 'commodities' ? 'text-amber-400' : 'text-foreground group-hover:text-foreground'}`}>
                       {goldData?.price != null ? `$${goldData.price.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : 'N/A'}
                     </span>
                   </div>
@@ -189,7 +189,7 @@ export default function InflationRatesPage() {
                     <span className="font-data font-medium text-foreground">{oilData?.price != null ? `$${oilData.price.toFixed(2)}` : 'N/A'}</span>
                   </div>
                   <div className={`absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-200 ${selectedDim === 'commodities' ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
-                    <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">点击查看详情</span>
+                    <span className="text-sm text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">点击查看详情</span>
                   </div>
                 </button>
               </>
@@ -227,7 +227,7 @@ export default function InflationRatesPage() {
                   <div key={comp.series_id} className="bg-card/60 rounded-xl border border-border/40 p-4 text-center">
                     <p className="text-xs text-muted-foreground mb-2">{comp.name_zh}</p>
                     <p className={`text-2xl font-bold font-data tracking-tight ${yoyColor}`}>{yoy != null ? `${yoy.toFixed(1)}%` : '--'}</p>
-                    <p className="text-micro text-muted-foreground mt-1">YoY</p>
+                    <p className="text-sm text-muted-foreground mt-1">YoY</p>
                     {comp.mom_pct != null && (
                       <p className={`text-xs font-data mt-1 ${comp.mom_pct >= 0 ? 'text-red-400/70' : 'text-emerald-400/70'}`}>
                         {comp.mom_pct >= 0 ? '+' : ''}{comp.mom_pct.toFixed(2)}% MoM
@@ -256,7 +256,7 @@ export default function InflationRatesPage() {
                       <div key={key} className="bg-card/60 rounded-xl border border-border/40 p-4 text-center">
                         <p className="text-xs text-muted-foreground mb-2">{SPREAD_NAMES[key] || key}</p>
                         <p className={`text-2xl font-bold font-data tracking-tight ${colorClass}`}>{bps > 0 ? '+' : ''}{bps}<span className="text-sm font-normal ml-0.5">bp</span></p>
-                        <p className="text-micro text-muted-foreground mt-2 leading-snug">{SPREAD_INFO[key] || ''}</p>
+                        <p className="text-sm text-muted-foreground mt-2 leading-snug">{SPREAD_INFO[key] || ''}</p>
                       </div>
                     );
                   })}
@@ -307,7 +307,7 @@ export default function InflationRatesPage() {
                     <div className="bg-card/60 rounded-xl border border-border/40 p-4">
                       <p className="text-xs text-muted-foreground mb-2">金油比 (Gold/Oil)</p>
                       <p className="text-2xl font-bold font-data tracking-tight text-foreground">{goldOilRatio.toFixed(1)}</p>
-                      <p className="text-micro text-muted-foreground mt-2 leading-snug">{interpretRatio(goldOilRatio, 25, 15, '偏高，市场偏向避险', '偏低，风险偏好较强', '处于正常区间')}</p>
+                      <p className="text-sm text-muted-foreground mt-2 leading-snug">{interpretRatio(goldOilRatio, 25, 15, '偏高，市场偏向避险', '偏低，风险偏好较强', '处于正常区间')}</p>
                     </div>
                     {silverData?.price && (() => {
                       const goldSilverRatio = goldData.price! / silverData.price!;
@@ -315,7 +315,7 @@ export default function InflationRatesPage() {
                         <div className="bg-card/60 rounded-xl border border-border/40 p-4">
                           <p className="text-xs text-muted-foreground mb-2">金银比 (Gold/Silver)</p>
                           <p className="text-2xl font-bold font-data tracking-tight text-foreground">{goldSilverRatio.toFixed(1)}</p>
-                          <p className="text-micro text-muted-foreground mt-2 leading-snug">{interpretRatio(goldSilverRatio, 80, 60, '偏高，白银被低估或避险情绪浓', '偏低，市场偏好风险资产', '处于正常区间')}</p>
+                          <p className="text-sm text-muted-foreground mt-2 leading-snug">{interpretRatio(goldSilverRatio, 80, 60, '偏高，白银被低估或避险情绪浓', '偏低，市场偏好风险资产', '处于正常区间')}</p>
                         </div>
                       );
                     })()}
@@ -323,7 +323,7 @@ export default function InflationRatesPage() {
                       <div className="bg-card/60 rounded-xl border border-border/40 p-4">
                         <p className="text-xs text-muted-foreground mb-2">铜金比 (Cu/Au)</p>
                         <p className="text-2xl font-bold font-data tracking-tight text-foreground">{((copperData.price! / goldData.price!) * 1000).toFixed(2)}</p>
-                        <p className="text-micro text-muted-foreground mt-2 leading-snug">上升反映经济乐观，下降反映避险升温</p>
+                        <p className="text-sm text-muted-foreground mt-2 leading-snug">上升反映经济乐观，下降反映避险升温</p>
                       </div>
                     )}
                     <div className="bg-card/60 rounded-xl border border-border/40 p-4">
@@ -331,7 +331,7 @@ export default function InflationRatesPage() {
                       <div className="flex items-baseline gap-2">
                         <span className={`text-lg font-bold font-data ${dxyPositive ? 'text-emerald-500' : 'text-red-500'}`}>DXY {dxyPositive ? '+' : ''}{dxyChange.toFixed(2)}%</span>
                       </div>
-                      <p className="text-micro text-muted-foreground mt-2 leading-snug">美元走强时商品价格承压</p>
+                      <p className="text-sm text-muted-foreground mt-2 leading-snug">美元走强时商品价格承压</p>
                     </div>
                   </div>
                 </section>

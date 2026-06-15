@@ -350,7 +350,7 @@ function WatchlistPageContent() {
                   onValueChange={onQueryChange}
                   {...inputHandlers}
                   placeholder="搜索股票代码或公司名称..."
-                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none"
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 outline-none"
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -391,7 +391,7 @@ function WatchlistPageContent() {
                 <div className="flex items-center gap-2">
                   {showClearConfirm ? (
                     <>
-                      <span className="text-xs text-muted-foreground">确定清空所有持仓?</span>
+                      <span className="text-sm text-muted-foreground">确定清空所有持仓?</span>
                       <button
                         onClick={handleClearAll}
                         className="text-xs font-medium text-red-400 hover:text-red-300 transition-colors cursor-pointer"

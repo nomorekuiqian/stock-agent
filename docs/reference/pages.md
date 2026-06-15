@@ -5,7 +5,7 @@
 ### 主要页面
 | 路由 | 页面 | 数据来源 | 需要认证 |
 |------|------|----------|----------|
-| `/` | 首页 (Landing) | 无 API 调用 | 否 |
+| `/` | 首页 (Landing + Guided Tour) | 可选 Backend (onboarding complete, 仅 `?tour=1` 完成/跳过时) | 否 |
 | `/today` | 市场日报 | Insforge (getLatestReport) + Backend (getMarketAnalysis) | 否 |
 | `/today/[id]` | 日报详情 | Insforge (getReportById) | 否 |
 | `/today/archive` | 日报存档 | Insforge (getReportsList) | 否 |
@@ -15,16 +15,19 @@
 | `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest / getLatestTeaser) | 否（全文需 Max） |
 | `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
 | `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
-| `/frank-agent` | Qinbafrank Agent Waitlist 落地页 | 静态文案 + Auth context | 否 |
-| `/kol/[username]` | KOL 博主研究室概览 | skill 资产 + Backend (kolResearch cockpit/feed) | 浏览否；对话需登录 |
-| `/kol/[username]/chat` | KOL 对话入口 | Backend (kolResearch chatStream) | 发送需登录 |
-| `/kol/[username]/highlights` | KOL 精华观点 | Backend (kolResearch feed/topics) | 否 |
+| `/qinbafrank` | Qinbafrank 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
+| `/frank-agent` | Frank waitlist 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
+| `/kol` | 博主研究室总入口 | 静态卡片：Qinbafrank / Serenity 研究室选择 | 否 |
+| `/kol/[username]` | KOL 博主研究室概览 | qinbafrank 根页静态销售页；Serenity 根页供应链研究室首页；其他 persona 用 skill 资产 + Backend cockpit/feed | 浏览否；qinbafrank 子页需 Ultra |
+| `/kol/[username]/chat` | KOL 对话入口 | Backend (kolResearch chatStream) | qinbafrank 1 次试问后需 Ultra |
+| `/kol/[username]/highlights` | KOL 精华观点 | Backend (kolResearch feed/topics) | qinbafrank 子页需 Ultra |
 | `/kol/[username]/history` | KOL 历史链接兼容页 | 重定向/兼容 | 否 |
 | `/kol/[username]/latest` | KOL 最新内容库 | Backend (kolResearch feed) | 否 |
 | `/kol/[username]/macro` | KOL 宏观框架 | Backend (kolResearch profile/topics) | 否 |
 | `/kol/[username]/sectors` | KOL 板块观点 | Backend (kolResearch sectors) | 否 |
 | `/kol/[username]/stocks` | KOL 个股观点 | Backend (kolResearch tickers) | 否 |
-| `/kol/serenity` | Serenity persona 入口 | 静态/Persona route | 否 |
+| `/kol/serenity` | Serenity persona 入口 | redirect(`/kol/aleabitoreddit`) | 否 |
+| `/kol/serenity/*` | Serenity persona 子路径别名 | redirect(`/kol/aleabitoreddit/*`) | 否 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -40,12 +43,12 @@
 | `/macro/inflation-rates` | 通胀与利率 | Backend (macro-risk/inflation-rates + cpi) | 是 |
 | `/macro/sentiment` | 市场情绪 | Backend (macro-risk/sentiment) | 是 |
 | `/macro/weekly` | 宏观周报 | Backend (weekly-report API) | 是 |
+| `/mcp/authorize` | MCP 客户端授权 | Backend (kol_research MCP device authorize) | 是 |
 | `/login` | 登录 | Insforge Auth | 否 |
 | `/profile` | 用户资料 | Insforge Auth (profiles API) | 是 |
 | `/verify-email` | 邮箱验证 | Insforge Auth (verifyEmail + resendVerificationEmail) | 否 |
 | `/forgot-password` | 忘记密码 | Insforge Auth (sendPasswordResetEmail) | 否 |
 | `/reset-password` | 重置密码 | Insforge Auth (resetPassword) | 否 |
-| `/onboarding` | 用户引导 | 无 API 调用 | 否 |
 | `/pricing` | 定价页 | Backend (payment API) | 否 |
 | `/pricing/success` | 支付成功 | Backend (payment API) | 否 |
 | `/request-access` | 申请邀请码 | Backend (invites/qualify) | 是（middleware cookie gate） |
@@ -78,7 +81,7 @@
 
 ### `/` 首页
 - Hero + 功能介绍 + 订阅表单 + 信任标识 (LogoMarquee)
-- 纯展示页面，无 API 调用
+- 支持 `?tour=1` 启动注册后 Guided Tour，高亮顶部导航的 AI 研究助手 / 每日简报 / 投研 / 我的入口，并提醒用户在「我的」里添加自选股；启动前会跳过已完成用户并清理 URL，完成或跳过时 best-effort 调 onboarding complete API。调试/微调用 `?tour=home` 强制显示。
 
 ### `/today` 市场日报
 - 先从 Insforge 查询今日/最新报告
@@ -111,22 +114,37 @@
 - Max 用户调用 `api.twitterDigest.listArchive(limit, offset)`；未登录 / 非 Max 用户调用 `listArchiveTeaser`
 - 卡片链接到 `/twitter-digest/[date]`，非 Max 仍只看到 teaser
 
-### `/frank-agent` Qinbafrank Agent Waitlist 落地页
-- Server page + Client Component,公开访问，不默认放入主导航；主要承接 Qinbafrank 的 Twitter/UTM 流量
-- 页面按三段组织：一句话介绍 Qinbafrank；说明 Agent 可直接提问、查阅过往内容库、使用专属投研工作流、通过博主视角看市场；最后引导加入 waitlist
-- 首屏标题直接写 `Qinbafrank AI 投研助手 Waitlist`，右侧展示产品入口卡、四项核心能力和 `/kol/qinbafrank` 观点库入口，不展示未解释口径的统计数字
-- CTA 逻辑：未登录跳 `/login?mode=signup&redirect=/request-access?source=qinbafrank-agent`；已登录跳 `/request-access?source=qinbafrank-agent`
-- 埋点：`qinbafrank_waitlist_landing_view`、`qinbafrank_waitlist_cta_click`、`qinbafrank_waitlist_signup_started`、`qinbafrank_waitlist_secondary_cta_click`、`qinbafrank_waitlist_library_click`
-- 文案强调“在 TheMarketBrew 里复用 Qinbafrank 公开研究框架”，必须保留非投资建议、Qinbafrank 本人不会逐条人工回复的边界；本页不触发 checkout、不展示价格、不承诺正式开放时间
+### `/qinbafrank` Qinbafrank 旧链接兼容页
+- Server page，仅执行 `redirect('/kol/qinbafrank')`，并保留原 query 参数。
+- 保留在 `PUBLIC_ROUTES` 中，避免历史分享链接被 middleware 先拦到登录页。
+
+### `/frank-agent` Frank waitlist 旧链接兼容页
+- Server page，仅执行 `redirect('/kol/qinbafrank')`，并保留原 query 参数。
+- 保留在 `PUBLIC_ROUTES` 中，承接旧 Twitter/UTM waitlist 外链，避免冷流量被 middleware 提前拦截。
+
+### `/kol` 博主研究室总入口
+- Server page，无 API 调用。展示 Qinbafrank 与 Serenity 两张研究室卡片、模块深链、选择建议和边界说明。
+- 顶部导航「投研 → 博主研究室」指向该页，而不是直接进入 `/kol/qinbafrank`。
+- Qinbafrank 卡片入口包含精华、板块、个股、全量库、追问；Serenity 卡片入口包含供应链、个股、内容库、追问，不包含精华库或 AI 周期入口。
+- 页面明确标注研究室基于公开内容整理，研究助手不代表博主本人观点，不构成投资建议。
 
 ### `/kol/qinbafrank` qinbafrank 博主研究室
-- Server page + Client Component,页面浏览不要求登录；KOL Research Agent 对话需要登录并开启 `kol_research_agent` flag
-- 首页定位为 qinbafrank 观点总览，首屏直接展示 5 个板块入口：AI 产业、加密 RWA、美股调整规律和行情判断、宏观与地缘、过往推荐公司；header 统计展示板块观点 / 个股档案 / 入库推文，口径分别来自首页 5 个产品入口、`cockpitTickers.tickers.length` 和 `cockpitFeed.raw_total`；单个「向 qinbafrank 提问」Max CTA 进入 KOL Research；下方保留「他的精华 / 个股验证 / 原文证据」三个强入口，其中“他的精华”首页卡片直接展示 7 个主题、25 个子话题和各主题判断原则
+- Server page + Client Component,根页面浏览不要求登录；`/kol/qinbafrank/*` 子页先要求登录，再要求 `kol_pack_qinbafrank` Ultra entitlement。
+- 根页是 Qinbafrank 研究室销售首页，首屏标题为 `Qinbafrank 研究室`，核心 offer 是 `Qinbafrank资料包 + AI投研助手`，并保留和子页一致的左侧 `SubNav` / 移动横向导航。CTA 逻辑：未登录跳 `/login?mode=signup&redirect=/kol/qinbafrank?checkout=ultra`；已登录调用 `createCheckout("ultra", "/kol/qinbafrank?welcome=1")`。登录回跳后支持 `checkout=ultra` 自动打开 Stripe 付费流程。
+- 根页包含返回 `/kol` 的「所有博主研究室」入口、紧凑资料库入口、资料包内容、适合/不适合人群、示例问题和 Ultra offer；文案强调“基于公开内容整理”，必须保留非投资建议、研究助手不代表 Qinbafrank 本人观点的边界。
 - `/kol/qinbafrank/sectors` 为板块观点页，左侧 5 个板块入口，右侧按左侧「分析框架 / 分析维度切换 / 可展开 Frank 原观点逻辑」+ 右侧「倒序观点时间线」展示；AI 产业额外拆为 8 个子板块，入口桌面端为 4 列 x 2 行网格，子板块详情同样为左侧分析框架 + 右侧观点时间线；完整原文阅读在 `/kol/qinbafrank/highlights`；`/kol/qinbafrank/history` 仅作为旧链接重定向到 `/highlights?topic=market-rules`；`/kol/qinbafrank/stocks` 为个股并结合价格验证；`/kol/qinbafrank/latest` 为全量内容库（过往精华 + 全量原文）
 - `/kol/qinbafrank/sectors` 颜色只表达板块 / 子板块 / 分析维度 / 最新观点状态，交互反馈保持轻量 hover lift 与箭头位移，不做大面积装饰动画
 - 方法论与技能默认来自 `backend/app/features/twitter/methodologies/qinbafrank/`
 - 对话入口调用 `api.kolResearch.chatStream()` -> `POST /api/kol_research/chat/stream`，SSE 展示 skill/tool 进度，并在 final 后展示回答、激活 lens 和命中 chunks
 - 页面明确标注不是 qinbafrank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断
+
+### `/kol/aleabitoreddit` Serenity 博主研究室
+- `/kol/serenity` 和 `/kol/serenity/*` 是友好别名，服务端重定向到 canonical backend username `/kol/aleabitoreddit`。
+- Serenity 页面组使用与 qinbafrank 一致的 SubNav-first 研究室壳，不再渲染通用 `PersonaHero`。根页首屏标题为 `Serenity 研究室`，核心定位是供应链工作台 + AI研究助手。
+- 根页包含返回 `/kol` 的「所有博主研究室」入口、研究室入口、研究室内容、供应链漏斗、适合/不适合和示例问题。
+- Serenity 不设精华库。首页和 SubNav 只暴露供应链地图、个股档案、内容库和研究助手。
+- 首屏 signal card 使用 `cockpitHighConviction` 和 `cockpitTickers` 展示高确信线索与个股快照；供应链漏斗固定为 Mag7 资本开支、Neocloud、光通信、光子学/CPO、衬底材料。
+- 页面明确标注基于公开内容整理，研究助手不代表 Serenity 本人观点，不构成投资建议。
 
 ### `/stock` 个股研究
 - 搜索框 + 热门板块快速入口
@@ -163,6 +181,15 @@
 - 6 个 LiquidityCard 展示关键指标
 - NFCI 仪表盘 (NFCIGauge)
 
+### `/mcp/authorize` MCP 客户端授权
+- 需要登录，首层由项目自定义 middleware 拦截；未登录会跳 `/login?redirect=/mcp/authorize?...`
+- 接收 `user_code` query，展示给用户确认
+- 表单 POST 到 `/api/mcp/authorize`
+- Route handler 读取 `app_access_token`，调用 backend
+  `POST /api/kol_research/mcp/auth/device/authorize`
+- 授权成功后提示用户回到 MCP 客户端调用 `market_lens_auth_status`
+- 页面不展示、不存储 MCP bearer token，也不要求用户输入 TheMarketBrew 密码
+
 ### `/research` AI 选股助手
 - 需要登录，首层由项目自定义 middleware 拦截
 - 页面内仍保留 `useAuth()` 的登录兜底跳转
@@ -170,7 +197,7 @@
 ### `/profile` 用户资料
 - 需要登录，未登录跳转 `/login?redirect=/profile`
 - 账户页可修改昵称
-- 订阅页展示免费 / 试用 / Pro / Max / 已取消五种状态
+- 订阅页展示免费 / 试用 / Pro / Max / Ultra / 已取消状态
 - 邮件偏好页会按 `EntitlementsContext` 强制约束可编辑项：
   - `daily_report` 始终可编辑
   - `morning_report` 需要 `morning_report_email`
@@ -184,11 +211,12 @@
 - Google OAuth 按钮
 - 登录后重定向到之前页面 (sessionStorage)
 - 注册态在需要验证邮箱时会跳到 `/verify-email`
+- 无显式 redirect 的注册默认落到 `/?tour=1`，由首页 Guided Tour 完成新用户主引导
 
 ### `/verify-email` 邮箱验证
 - 支持验证码验证和邮件链接验证两种模式
 - 支持 resend verification email
-- 验证成功后恢复 session，并跳回原始 redirect
+- 验证成功后恢复 session，并跳回原始 redirect；注册默认 redirect 是 `/?tour=1`
 
 ### `/feedback` 邮件反馈处理
 - 接收邮件中的反馈链接参数 (report_date, email, rating)

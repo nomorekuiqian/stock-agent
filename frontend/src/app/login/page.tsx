@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { PasswordField } from '@/components/PasswordField';
 import { buildVerifyEmailPath, storePendingVerification } from '@/lib/auth-verification';
-import { DEFAULT_AUTH_REDIRECT, getStoredAuthRedirect, sanitizeRedirectPath } from '@/lib/auth-redirect';
+import { DEFAULT_AUTH_REDIRECT, SIGNUP_TOUR_REDIRECT, getStoredAuthRedirect, sanitizeRedirectPath } from '@/lib/auth-redirect';
 import { isInAppBrowser } from '@/lib/utils';
 
 function LoadingSpinner(): ReactNode {
@@ -58,7 +58,6 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const { signIn, signUp, signInWithGoogle, isAuthenticated, isLoading } = useAuth();
 
-  const redirectUrl = sanitizeRedirectPath(searchParams.get('redirect'), DEFAULT_AUTH_REDIRECT);
   const authError = searchParams.get('error');
 
   const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'signup');
@@ -71,6 +70,10 @@ function LoginPageContent() {
   const [webviewInfo, setWebviewInfo] = useState<{ inApp: boolean; name: string }>({ inApp: false, name: '' });
   const [copied, setCopied] = useState(false);
   const effectiveAuthError = authError;
+  const requestedRedirect = searchParams.get('redirect');
+  const loginRedirectUrl = sanitizeRedirectPath(requestedRedirect, DEFAULT_AUTH_REDIRECT);
+  const signupRedirectUrl = sanitizeRedirectPath(requestedRedirect, SIGNUP_TOUR_REDIRECT);
+  const redirectUrl = isSignUp ? signupRedirectUrl : loginRedirectUrl;
 
   useEffect(() => {
     setWebviewInfo(isInAppBrowser());
@@ -271,7 +274,7 @@ function LoginPageContent() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="你的姓名"
                 required
-                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
+                className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
               />
             </div>
           )}
@@ -287,7 +290,7 @@ function LoginPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
+              className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
             />
           </div>
 

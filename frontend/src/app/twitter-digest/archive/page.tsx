@@ -199,12 +199,12 @@ export default function TwitterDigestArchivePage() {
                   {tickerLabels(item).length > 0 ? tickerLabels(item).map((label) => (
                     <span
                       key={label}
-                      className="inline-flex items-center rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] font-data text-muted-foreground"
+                      className="inline-flex items-center rounded-md border border-border/60 bg-background px-2 py-1 text-xs font-data text-muted-foreground"
                     >
                       {label.startsWith('$') ? label : `$${label}`}
                     </span>
                   )) : (
-                    <span className="text-[11px] text-muted-foreground">暂无热门标的</span>
+                    <span className="text-xs text-muted-foreground">暂无热门标的</span>
                   )}
                 </div>
                 <div className="mt-5 pt-4 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">

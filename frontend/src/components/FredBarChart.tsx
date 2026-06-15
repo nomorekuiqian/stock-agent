@@ -127,7 +127,7 @@ export function FredBarChart({ seriesId, timeRange, height = 200, units }: FredB
   if (loading) {
     return (
       <div style={{ height }} className="flex items-center justify-center">
-        <div className="text-xs text-muted-foreground/50">Loading chart...</div>
+        <div className="text-xs text-muted-foreground">Loading chart...</div>
       </div>
     );
   }

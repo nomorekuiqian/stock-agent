@@ -17,17 +17,17 @@ interface InsightBannerProps {
 const SIGNAL_STYLES = {
   green: {
     dot: 'bg-emerald-500',
-    border: 'border-l-emerald-500',
+    border: 'border-emerald-500/30',
     bg: 'bg-emerald-500/[0.03]',
   },
   yellow: {
     dot: 'bg-amber-400',
-    border: 'border-l-amber-400',
+    border: 'border-amber-400/30',
     bg: 'bg-amber-400/[0.03]',
   },
   red: {
     dot: 'bg-red-500',
-    border: 'border-l-red-500',
+    border: 'border-red-500/30',
     bg: 'bg-red-500/[0.03]',
   },
 };
@@ -50,7 +50,7 @@ const INSIGHT_MD_COMPONENTS = {
     </strong>
   ),
   ul: ({ children }: { children?: ReactNode }) => (
-    <ul className="pl-4 space-y-1 my-2 border-l-2 border-border/30">
+    <ul className="list-disc pl-5 space-y-1 my-2">
       {children}
     </ul>
   ),
@@ -104,9 +104,7 @@ export function InsightBanner({
   const colors = signalColor ? SIGNAL_STYLES[signalColor] : SIGNAL_STYLES.yellow;
 
   return (
-    <div
-      className={`rounded-xl border border-border/40 border-l-2 ${colors.border} ${colors.bg} transition-all duration-300`}
-    >
+    <div className={`rounded-xl border ${colors.border} ${colors.bg} transition-all duration-300`}>
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}

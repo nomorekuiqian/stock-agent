@@ -226,7 +226,7 @@ function SectionHeading({
         </span>
       )}
       {hint && (
-        <span className="ml-auto text-[11px] text-muted-foreground/65 italic hidden md:inline">
+        <span className="ml-auto hidden text-xs italic text-muted-foreground md:inline">
           {hint}
         </span>
       )}

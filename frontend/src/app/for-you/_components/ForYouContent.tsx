@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-import { useFeatureFlags } from '@/hooks/use-feature-flags';
-import { useAuth } from '@/contexts/AuthContext';
-import { useEntitlements } from '@/contexts/EntitlementsContext';
-import { useWatchlist } from '@/hooks/queries/use-watchlist';
-import { usePortfolio } from '@/hooks/queries/use-portfolio';
-import LockedDigestPreview from './LockedDigestPreview';
-import { ForYouPageContentV1 } from './ForYouContentV1';
-import { ForYouPageContentV2 } from './ForYouContentV2';
-import { ForYouSkeleton } from './ForYouSkeleton';
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEntitlements } from "@/contexts/EntitlementsContext";
+import { useWatchlist } from "@/hooks/queries/use-watchlist";
+import { usePortfolio } from "@/hooks/queries/use-portfolio";
+import LockedDigestPreview from "./LockedDigestPreview";
+import { ForYouPageContentV1 } from "./ForYouContentV1";
+import { ForYouPageContentV2 } from "./ForYouContentV2";
+import { ForYouSkeleton } from "./ForYouSkeleton";
 
 export function ForYouContent() {
   const router = useRouter();
   const { has, isLoading: flagsLoading } = useFeatureFlags();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { has: hasEntitlement, isLoading: entLoading } = useEntitlements();
-  const hasAccess = hasEntitlement('for_you_website');
+  const hasAccess = hasEntitlement("for_you_website");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/login?redirect=/for-you');
+      router.push("/login?redirect=/for-you");
     }
   }, [authLoading, isAuthenticated, router]);
 
@@ -37,7 +37,11 @@ export function ForYouContent() {
 
   // Paid: hand off to the existing flow.
   if (hasAccess) {
-    return has('for_you_v2') ? <ForYouPageContentV2 /> : <ForYouPageContentV1 />;
+    return has("for_you_v2") ? (
+      <ForYouPageContentV2 />
+    ) : (
+      <ForYouPageContentV1 />
+    );
   }
 
   // Logged-in but no entitlement: soft-lock preview (portfolio visible,
@@ -51,10 +55,12 @@ function LockedDigestShell() {
   const { data: portfolioData } = usePortfolio(user?.id);
 
   const symbols = useMemo(() => {
-    const portfolioSyms = (portfolioData?.holdings ?? []).map((h: { symbol: string }) =>
-      h.symbol.toUpperCase(),
+    const portfolioSyms = (portfolioData?.holdings ?? []).map(
+      (h: { symbol: string }) => h.symbol.toUpperCase(),
     );
-    const watchlistSyms = (watchlistData?.symbols ?? []).map((s: string) => s.toUpperCase());
+    const watchlistSyms = (watchlistData?.symbols ?? []).map((s: string) =>
+      s.toUpperCase(),
+    );
     return [...new Set([...portfolioSyms, ...watchlistSyms])];
   }, [portfolioData, watchlistData]);
 
@@ -65,14 +71,15 @@ function LockedDigestShell() {
           <div className="flex items-center gap-3 mb-3">
             <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-indigo-500 to-transparent" />
             <span className="text-indigo-600 dark:text-indigo-400 text-xs font-semibold tracking-[0.25em] uppercase">
-              MyBrew · Locked
+              专属日报
             </span>
           </div>
           <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1]">
             MyBrew · 专属日报
           </h1>
           <p className="text-muted-foreground text-sm md:text-base max-w-lg leading-relaxed mt-3">
-            升级 MAX 后,每天美股收盘后为你自动生成持仓 + 自选股的完整 AI 分析。
+            升级 Pro 后,每天美股收盘后为你自动生成持仓 + 自选股的完整 AI
+            分析,并推送专属日报。
           </p>
         </div>
       </section>

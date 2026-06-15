@@ -11,6 +11,7 @@ import {
   trackPaywallView,
   trackPaywallCtaClick,
   trackCheckoutOpen,
+  type CheckoutProduct,
 } from '@/lib/paywall-analytics';
 import { UnlockCTA } from '@/components/UnlockCTA';
 
@@ -22,6 +23,11 @@ interface PaywallGuardProps {
   requiredPlan?: 'pro' | 'max';
   /** Feature key to check via entitlements API. Takes precedence over requiredPlan. */
   requiredFeature?: string;
+  /** Checkout product to open when locked. Defaults to max. */
+  checkoutProduct?: CheckoutProduct;
+  lockTitle?: string;
+  lockDescription?: string;
+  lockCtaLabel?: string;
   /** Preview content to show behind a gradient overlay instead of the full lock screen. */
   preview?: ReactNode;
 }
@@ -32,7 +38,16 @@ const MAX_ONLY_FEATURES = new Set([
   'twitter_digest',
 ]);
 
-export default function PaywallGuard({ children, requiredPlan = 'pro', requiredFeature, preview }: PaywallGuardProps) {
+export default function PaywallGuard({
+  children,
+  requiredPlan = 'pro',
+  requiredFeature,
+  checkoutProduct = 'max',
+  lockTitle,
+  lockDescription,
+  lockCtaLabel,
+  preview,
+}: PaywallGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -85,7 +100,7 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
   const handleUpgradeToMax = async () => {
     trackPaywallCtaClick({
       source: 'paywall_guard_pro_to_max',
-      tier: 'max',
+      tier: checkoutProduct,
       authenticated: isAuthenticated,
     });
     if (!isAuthenticated) {
@@ -94,8 +109,8 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
     }
     if (!STRIPE_LIVE) return;
     setCheckoutLoading(true);
-    trackCheckoutOpen({ source: 'paywall_guard_pro_to_max', tier: 'max' });
-    await createCheckout('max', pathname || undefined);
+    trackCheckoutOpen({ source: 'paywall_guard_pro_to_max', tier: checkoutProduct });
+    await createCheckout(checkoutProduct, pathname || undefined);
     setCheckoutLoading(false);
   };
 
@@ -110,7 +125,14 @@ export default function PaywallGuard({ children, requiredPlan = 'pro', requiredF
   }
 
   // --- Free / unauthenticated user needs any paid plan ---
-  return <LockScreen />;
+  return (
+    <LockScreen
+      checkoutProduct={checkoutProduct}
+      title={lockTitle}
+      description={lockDescription}
+      ctaLabel={lockCtaLabel}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +178,7 @@ function ProToMaxLockScreen({
             <p className="text-sm font-semibold text-white">
               {!STRIPE_LIVE ? '订阅功能即将上线' : loading ? '跳转中...' : '解锁全部功能'}
             </p>
-            <p className="text-xs text-white/80">一次解锁所有内容</p>
+            <p className="text-sm text-white/80">一次解锁所有内容</p>
           </div>
           {loading && (
             <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin shrink-0" />
@@ -210,10 +232,20 @@ function PreviewOverlay({
 // Lock screen — full-page free→max upsell.
 // ---------------------------------------------------------------------------
 
-function LockScreen() {
+function LockScreen({
+  checkoutProduct,
+  title,
+  description,
+  ctaLabel,
+}: {
+  checkoutProduct: CheckoutProduct;
+  title?: string;
+  description?: string;
+  ctaLabel?: string;
+}) {
   useEffect(() => {
-    trackPaywallView({ source: 'paywall_guard', tier: 'max' });
-  }, []);
+    trackPaywallView({ source: 'paywall_guard', tier: checkoutProduct });
+  }, [checkoutProduct]);
 
   return (
     <main className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -224,16 +256,23 @@ function LockScreen() {
           </div>
           <p className="text-xs font-semibold tracking-[0.25em] uppercase text-amber-500 mb-2">TheMarketBrew</p>
           <h1 className="text-2xl font-editorial text-foreground mb-2">
-            解锁全部功能
+            {title || '解锁全部功能'}
           </h1>
           <p className="text-sm text-muted-foreground">
-            推特 KOL 日报、专属持仓日报、AI 投研无限使用与深度个股分析，全部一次解锁
+            {description || '推特 KOL 日报、专属持仓日报、AI 投研无限使用与深度个股分析，全部一次解锁'}
           </p>
         </div>
 
         <div className="flex flex-col items-center gap-3 mb-6">
-          <UnlockCTA source="paywall_guard" variant="primary" size="lg" hideArrow />
-          <p className="text-xs text-muted-foreground">一次解锁所有内容</p>
+          <UnlockCTA
+            source="paywall_guard"
+            tier={checkoutProduct}
+            variant="primary"
+            size="lg"
+            label={ctaLabel}
+            hideArrow
+          />
+          <p className="text-sm text-muted-foreground">一次解锁所有内容</p>
         </div>
 
         <div className="text-center">

@@ -53,6 +53,8 @@ def _trial_sub(entitlements: list) -> dict:
         "entitlements": entitlements,
         "access_expires_at": "2030-01-01T00:00:00Z",
         "invite_code": "AUTO_TRIAL",
+        "status": "active",
+        "stripe_subscription_id": "sub_trial_or_grant",
         "is_lifetime": False,
     }
 
@@ -63,6 +65,8 @@ def _paid_sub(entitlements: list) -> dict:
         "entitlements": entitlements,
         "access_expires_at": None,
         "invite_code": None,
+        "status": "active",
+        "stripe_subscription_id": "sub_paid",
         "is_lifetime": False,
     }
 
@@ -73,6 +77,8 @@ def _free_sub() -> dict:
         "entitlements": [],
         "access_expires_at": None,
         "invite_code": None,
+        "status": "none",
+        "stripe_subscription_id": None,
         "is_lifetime": False,
     }
 
@@ -376,12 +382,10 @@ class TestSyncDailyCtaSegments:
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
-    def test_legacy_trial_user_moves_to_paid_cta(self, _wait, mock_resend):
-        """Post-freemium: legacy trial users (entitlements + access_expires_at)
-        now route to PAID CTA so the model change does not jolt them with
-        upgrade prompts during their remaining trial days. See cta_tier.py."""
+    def test_trial_or_grant_user_moves_to_free_cta(self, _wait, mock_resend):
+        """Trial/grant users may have entitlements, but are not real paid."""
         svc = self._make_cta_service()
-        _mock_current_segments(mock_resend, {"seg-evening"})
+        _mock_current_segments(mock_resend, {"seg-evening", "seg-daily-paid-cta"})
 
         actions = svc.sync_resend_segments(
             "trial@example.com",
@@ -390,9 +394,12 @@ class TestSyncDailyCtaSegments:
 
         add_calls = mock_resend.ContactSegments.add.call_args_list
         added = {c[0][0]["segment_id"] for c in add_calls}
-        assert "seg-daily-paid-cta" in added
-        assert "seg-daily-free-cta" not in added
-        assert "added to daily_paid_cta" in actions
+        remove_calls = mock_resend.ContactSegments.remove.call_args_list
+        removed = {c[0][0]["segment_id"] for c in remove_calls}
+        assert "seg-daily-free-cta" in added
+        assert "seg-daily-paid-cta" in removed
+        assert "added to daily_free_cta" in actions
+        assert "removed from daily_paid_cta" in actions
 
     @patch("app.features.subscription.service.resend")
     @patch("app.features.subscription.service._rate_limit_wait")
@@ -423,7 +430,13 @@ class TestSyncDailyCtaSegments:
 
         actions = svc.sync_resend_segments(
             "lifetime@example.com",
-            {"is_lifetime": True, "entitlements": [], "access_expires_at": None},
+            {
+                "is_lifetime": True,
+                "entitlements": [],
+                "access_expires_at": None,
+                "status": "active",
+                "stripe_subscription_id": None,
+            },
         )
 
         add_calls = mock_resend.ContactSegments.add.call_args_list

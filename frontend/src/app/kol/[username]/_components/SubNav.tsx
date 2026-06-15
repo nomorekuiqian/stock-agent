@@ -105,18 +105,18 @@ const FRANK_ITEMS: NavItem[] = [
     href: (u) => `/kol/${u}`,
   },
   {
-    key: "sectors",
-    label: "板块观点",
-    icon: Layers,
-    kpi: () => "5 个板块观点",
-    href: (u) => `/kol/${u}/sectors`,
-  },
-  {
     key: "highlights",
     label: "精华",
     icon: BookOpenText,
     kpi: () => "7 个主题完整归档",
     href: (u) => `/kol/${u}/highlights`,
+  },
+  {
+    key: "sectors",
+    label: "板块观点",
+    icon: Layers,
+    kpi: () => "5 个板块观点",
+    href: (u) => `/kol/${u}/sectors`,
   },
   {
     key: "stocks",
@@ -177,13 +177,6 @@ const SERENITY_ITEMS: NavItem[] = [
     kpi: (k) =>
       k.tickerCount != null ? `${k.tickerCount} 票覆盖` : "小盘 niche · 公司解码",
     href: (u) => `/kol/${u}/stocks`,
-  },
-  {
-    key: "macro",
-    label: "AI 周期",
-    icon: Radar,
-    kpi: () => "AI capex + 地缘宏观",
-    href: (u) => `/kol/${u}/macro`,
   },
   {
     key: "latest",

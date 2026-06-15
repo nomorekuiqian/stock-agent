@@ -63,7 +63,8 @@
 ```css
 /* 定义在 globals.css @theme 块 */
 --font-serif:  "LXGW WenKai", var(--font-instrument-serif), "Songti SC", Georgia, serif;
---font-sans:   "HarmonyOS Sans SC", var(--font-dm-sans), "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+--font-sans:   ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+--font-reading:ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 --font-mono:   var(--font-jetbrains-mono), monospace;
 ```
 
@@ -71,10 +72,10 @@
 
 | 元素 | 字体类 | 说明 | 示例 |
 |------|--------|------|------|
-| 页面大标题 | `.font-editorial` | serif, weight 400, tracking -0.02em | 日报标题、Hero |
-| 区块标题 | 默认 (sans) | weight 500, tracking -0.025em | "基本面分析" |
-| 正文/描述 | 默认 (sans) | weight 400 | 公司简介、分析内容 |
-| 价格/数值 | `.font-data` | mono, tabular-nums, tracking -0.01em | $138.50、+2.35% |
+| 页面大标题 | `.font-editorial` | LXGW WenKai / serif, weight 400，仅用于 Hero、落地页和少量编辑化标题 | 日报标题、Hero |
+| 区块标题 | 默认 (sans) | system UI / PingFang / Microsoft YaHei 栈，weight 500-600 | "基本面分析" |
+| 正文/描述 | 默认 (sans) / `.font-reading` | 默认 UI 用 sans；长文、Agent 回答、Markdown 报告用 `.font-reading` | 公司简介、分析内容 |
+| 价格/数值 | `.font-data` | mono, tabular-nums | $138.50、+2.35% |
 | 股票代码 | `.font-data` | | NVDA、AAPL |
 | 日期/时间 | `.font-data` | | 2025-01-19、14:30 |
 
@@ -135,9 +136,9 @@
 | 场景 | 值 | Tailwind |
 |------|-----|----------|
 | 正文 | 默认 (0) | 无需设置 |
-| 标题 (sans) | -0.025em | `tracking-tight` |
-| 标题 (editorial) | -0.02em | 已内置于 `.font-editorial` |
-| 数据 (mono) | -0.01em | 已内置于 `.font-data` |
+| 标题 (sans) | 0 | 默认；`tracking-tight` / `tracking-tighter` 在项目内归零 |
+| 标题 (editorial) | 0 | 已内置于 `.font-editorial` |
+| 数据 (mono) | 0 | 已内置于 `.font-data` |
 | 大写英文标签 | 0.15-0.2em | `tracking-[0.15em]` 或 `tracking-[0.2em]` |
 
 **禁止**：`tracking-[0.25em]` 及以上值（过度稀疏，影响可读性）。

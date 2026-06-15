@@ -149,7 +149,7 @@ export default function MorningReportView({
         </div>
 
         {report.title && (
-          <h2 className="text-xl font-editorial text-foreground leading-tight">
+          <h2 className="text-xl font-semibold leading-tight text-foreground">
             {report.title}
           </h2>
         )}

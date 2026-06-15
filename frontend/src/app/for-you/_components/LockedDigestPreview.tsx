@@ -127,8 +127,8 @@ export default function LockedDigestPreview({ symbols }: Props) {
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex gap-4">
               <div className="flex-shrink-0 w-14 rounded-lg p-2 text-center border border-border/30 bg-card">
-                <p className="text-xs font-data uppercase text-muted-foreground/60">···</p>
-                <p className="text-xl font-semibold font-data text-muted-foreground/40">··</p>
+                <p className="text-xs font-data uppercase text-muted-foreground/70">···</p>
+                <p className="text-xl font-semibold font-data text-muted-foreground/70">··</p>
               </div>
               <div className="flex-1 min-w-0 space-y-1.5">
                 <DigestLockedBlur lines={1} />

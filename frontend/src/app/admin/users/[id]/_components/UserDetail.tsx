@@ -29,18 +29,18 @@ const OPS_STATUSES = ['待联系', '已联系', '跟进中', '已反馈', '活�
 const PRIORITIES = [
   { value: 'high', label: '高', color: 'text-red-700 bg-red-50' },
   { value: 'mid', label: '中', color: 'text-amber-700 bg-amber-50' },
-  { value: 'low', label: '低', color: 'text-gray-600 bg-gray-50' },
+  { value: 'low', label: '低', color: 'text-muted-foreground bg-muted/50' },
 ] as const;
 const INTERACTION_TYPES = ['微信', '电话', '邮件', '面聊'] as const;
 const SENTIMENTS = [
   { value: 'positive', label: '积极', color: 'text-emerald-700' },
-  { value: 'neutral', label: '中性', color: 'text-gray-600' },
+  { value: 'neutral', label: '中性', color: 'text-muted-foreground' },
   { value: 'negative', label: '消极', color: 'text-red-700' },
 ] as const;
 const CHANNELS = ['微信群', '小红书', '朋友介绍', 'ProductHunt', '其他'] as const;
 
 const STATUS_COLORS: Record<string, string> = {
-  '待联系': 'bg-gray-100 text-gray-700',
+  '待联系': 'bg-muted text-foreground',
   '已联系': 'bg-blue-100 text-blue-700',
   '跟进中': 'bg-amber-100 text-amber-700',
   '已反馈': 'bg-purple-100 text-purple-700',
@@ -506,7 +506,7 @@ export function UserDetail({
                       addInteraction();
                     }
                   }}
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
                   placeholder="记录一次沟通... (Enter 快速保存)"
                 />
                 <button
@@ -913,7 +913,7 @@ function InteractionCard({
 
 const CONTACT_RATING_STYLES: Record<string, { label: string; style: string }> = {
   helpful:     { label: '很有帮助', style: 'bg-emerald-50 text-emerald-700' },
-  neutral:     { label: '还行', style: 'bg-gray-100 text-gray-600' },
+  neutral:     { label: '还行', style: 'bg-muted text-muted-foreground' },
   not_helpful: { label: '不太行', style: 'bg-red-50 text-red-700' },
 };
 
@@ -935,7 +935,7 @@ function FeedbackSection({
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               问卷反馈
             </h3>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {formatDateTime(questionnaires[0].created_at)}
             </span>
           </div>
@@ -952,7 +952,7 @@ function FeedbackSection({
                   <span className="text-xs text-muted-foreground block mb-1">关注市场</span>
                   <div className="flex flex-wrap gap-1">
                     {q.markets.map((m) => (
-                      <span key={m} className="text-[11px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">
+                      <span key={m} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                         {m}
                       </span>
                     ))}
@@ -964,7 +964,7 @@ function FeedbackSection({
                   <span className="text-xs text-muted-foreground block mb-1">交易风格</span>
                   <div className="flex flex-wrap gap-1">
                     {q.trading_style.map((s) => (
-                      <span key={s} className="text-[11px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">
+                      <span key={s} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                         {s}
                       </span>
                     ))}
@@ -976,7 +976,7 @@ function FeedbackSection({
                   <span className="text-xs text-muted-foreground block mb-1">投研痛点</span>
                   <div className="flex flex-wrap gap-1">
                     {q.pain_points.map((p) => (
-                      <span key={p} className="text-[11px] bg-amber-50 text-amber-700 rounded-full px-2 py-0.5">
+                      <span key={p} className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
                         {p}
                       </span>
                     ))}
@@ -1009,7 +1009,7 @@ function FeedbackSection({
                 <div key={fb.id} className="border border-border/50 rounded-lg p-3 space-y-1.5">
                   <div className="flex items-center gap-2">
                     {ratingCfg && (
-                      <span className={`text-[11px] font-medium rounded-full px-2 py-0.5 ${ratingCfg.style}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ratingCfg.style}`}>
                         {ratingCfg.label}
                       </span>
                     )}
@@ -1117,13 +1117,13 @@ function EmailSubscriptionsSection({
               <div key={ch.key} className="flex items-center justify-between py-1">
                 <div className="flex flex-col">
                   <span className="text-sm">{ch.label}</span>
-                  <span className="text-[11px] text-muted-foreground">{ch.hint}</span>
+                  <span className="text-xs text-muted-foreground">{ch.hint}</span>
                 </div>
                 <span
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                     subscribed
                       ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-gray-100 text-gray-500'
+                      : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {subscribed ? '✓ 已订阅' : '未订阅'}
@@ -1153,7 +1153,7 @@ function EmailSubscriptionsSection({
           >
             {regenStatus.kind === 'pending' ? '正在重新生成...（最多 30 秒）' : '强制刷新今日 digest'}
           </button>
-          <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             重新跑一次 LLM 分析，覆盖今日缓存。<span className="text-amber-600">不会重发邮件</span>。用于测试 prompt/数据变化后的效果，或者用户加完股后立即看到分析。
           </p>
 
@@ -1341,7 +1341,7 @@ function ConversationMessages({ messages }: { messages: ConversationMessage[] | 
                 : 'bg-background border border-border'
             }`}
           >
-            <div className={`text-[10px] font-medium uppercase tracking-wider mb-1 ${
+            <div className={`mb-1 text-xs font-medium uppercase tracking-wider ${
               isUser ? 'text-emerald-700' : 'text-muted-foreground'
             }`}>
               {label}
@@ -1415,12 +1415,12 @@ function HoldingsSection({
           {(focus.length > 0 || style) && (
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {style && (
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   风格: <span className="text-foreground font-medium">{style}</span>
                 </span>
               )}
               {focus.length > 0 && (
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   关注:{' '}
                   {focus.map((f, i) => (
                     <span key={f} className="text-foreground font-medium">
@@ -1445,7 +1445,7 @@ function HoldingsSection({
                 <span className="text-xs font-mono font-semibold text-foreground w-16 shrink-0">
                   {p.symbol}
                 </span>
-                <div className="flex-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                <div className="flex-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                   {p.shares != null && <span>{Number(p.shares).toLocaleString(undefined, { maximumFractionDigits: 4 })} 股</span>}
                   {p.cost_basis != null && <span>成本 {formatStockPrice(Number(p.cost_basis), p.symbol, undefined, { maximumFractionDigits: 0 })}</span>}
                   {p.entry_price != null && <span>入价 {formatStockPrice(Number(p.entry_price), p.symbol, undefined, { compactPrice: true })}</span>}
@@ -1454,7 +1454,7 @@ function HoldingsSection({
                   {p.conviction != null && <span>信心 {p.conviction}/5</span>}
                 </div>
                 {p.thesis && (
-                  <span className="text-[11px] text-foreground italic max-w-[40%] truncate" title={p.thesis}>
+                  <span className="max-w-[40%] truncate text-xs italic text-foreground" title={p.thesis}>
                     “{p.thesis}”
                   </span>
                 )}

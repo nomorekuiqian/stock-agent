@@ -132,7 +132,7 @@ function SettingsContent() {
                           {opt.label}
                         </span>
                         {opt.badge && (
-                          <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary">
                             {opt.badge}
                           </span>
                         )}

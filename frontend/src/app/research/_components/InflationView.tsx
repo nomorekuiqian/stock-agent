@@ -112,7 +112,7 @@ export default function InflationView({ embedded, onContextReady }: InflationVie
         <>
           <div className="px-5 pt-4 pb-4">
             <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">INFLATION & RATES</span>
-            <h2 className="text-xl font-editorial text-foreground leading-tight mt-1">通胀与利率</h2>
+            <h2 className="mt-1 text-xl font-semibold leading-tight text-foreground">通胀与利率</h2>
             <p className="text-sm text-muted-foreground mt-1">CPI、利率、商品信号</p>
           </div>
           <div className="border-b border-border/30" />
@@ -212,7 +212,7 @@ export default function InflationView({ embedded, onContextReady }: InflationVie
                       <div key={key} className="bg-card/60 rounded-xl border border-border/40 p-3 text-center">
                         <p className="text-xs text-muted-foreground mb-1.5">{SPREAD_NAMES[key] || key}</p>
                         <p className={`text-xl font-bold font-data tracking-tight ${getSpreadColor(key, value)}`}>{bps > 0 ? '+' : ''}{bps}<span className="text-sm font-normal ml-0.5">bp</span></p>
-                        <p className="text-micro text-muted-foreground mt-1.5 leading-snug">{SPREAD_INFO[key] || ''}</p>
+                        <p className="text-sm text-muted-foreground mt-1.5 leading-snug">{SPREAD_INFO[key] || ''}</p>
                       </div>
                     );
                   })}
@@ -253,7 +253,7 @@ export default function InflationView({ embedded, onContextReady }: InflationVie
                     <div className="bg-card/60 rounded-xl border border-border/40 p-3">
                       <p className="text-xs text-muted-foreground mb-1.5">金油比</p>
                       <p className="text-xl font-bold font-data tracking-tight text-foreground">{goldOilRatio.toFixed(1)}</p>
-                      <p className="text-micro text-muted-foreground mt-1">{interpretRatio(goldOilRatio, 25, 15, '偏高，避险', '偏低，风险偏好强', '正常区间')}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{interpretRatio(goldOilRatio, 25, 15, '偏高，避险', '偏低，风险偏好强', '正常区间')}</p>
                     </div>
                     {silverData?.price && (() => {
                       const gsr = goldData.price! / silverData.price!;
@@ -261,7 +261,7 @@ export default function InflationView({ embedded, onContextReady }: InflationVie
                         <div className="bg-card/60 rounded-xl border border-border/40 p-3">
                           <p className="text-xs text-muted-foreground mb-1.5">金银比</p>
                           <p className="text-xl font-bold font-data tracking-tight text-foreground">{gsr.toFixed(1)}</p>
-                          <p className="text-micro text-muted-foreground mt-1">{interpretRatio(gsr, 80, 60, '白银被低估', '风险偏好强', '正常区间')}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{interpretRatio(gsr, 80, 60, '白银被低估', '风险偏好强', '正常区间')}</p>
                         </div>
                       );
                     })()}
@@ -269,13 +269,13 @@ export default function InflationView({ embedded, onContextReady }: InflationVie
                       <div className="bg-card/60 rounded-xl border border-border/40 p-3">
                         <p className="text-xs text-muted-foreground mb-1.5">铜金比</p>
                         <p className="text-xl font-bold font-data tracking-tight text-foreground">{((copperData.price! / goldData.price!) * 1000).toFixed(2)}</p>
-                        <p className="text-micro text-muted-foreground mt-1">上升=经济乐观，下降=避险升温</p>
+                        <p className="text-sm text-muted-foreground mt-1">上升=经济乐观，下降=避险升温</p>
                       </div>
                     )}
                     <div className="bg-card/60 rounded-xl border border-border/40 p-3">
                       <p className="text-xs text-muted-foreground mb-1.5">美元 vs 商品</p>
                       <span className={`text-lg font-bold font-data ${dxyChange >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>DXY {dxyChange >= 0 ? '+' : ''}{dxyChange.toFixed(2)}%</span>
-                      <p className="text-micro text-muted-foreground mt-1">美元走强时商品价格承压</p>
+                      <p className="text-sm text-muted-foreground mt-1">美元走强时商品价格承压</p>
                     </div>
                   </div>
                 </section>

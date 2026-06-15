@@ -11,13 +11,12 @@ import {
 } from '@/lib/onboarding-status';
 
 /**
- * Forces logged-in users that have never completed onboarding to land on
- * `/onboarding`. Backs up the OAuth callback redirect (which only fires
+ * Sends logged-in users that have never completed onboarding to the lightweight
+ * homepage guided tour. Backs up the OAuth callback redirect (which only fires
  * during fresh sign-ins) for users that arrive via cookies left behind in
  * a different tab / device.
  *
  * Skipped routes:
- *  - `/onboarding/*` itself (so the page can render)
  *  - public marketing pages that don't require auth — middleware already
  *    lets these through without a cookie, so we mirror the list to avoid
  *    interrupting anonymous browsing if the user is logged in elsewhere.
@@ -43,7 +42,6 @@ const PUBLIC_PREFIXES = [
 ];
 
 function isOnboardingExempt(pathname: string): boolean {
-  if (pathname.startsWith('/onboarding')) return true;
   if (pathname === '/') return true;
   return PUBLIC_PREFIXES.some(
     (p) => p !== '/' && (pathname === p || pathname.startsWith(`${p}/`)),
@@ -80,7 +78,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated || exempt) return;
     if (completed) return;
     if (data && data.completed === false) {
-      router.replace('/onboarding');
+      router.replace('/?tour=1');
     }
   }, [isAuthenticated, exempt, completed, data, router]);
 

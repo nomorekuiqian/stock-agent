@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { DigestResponse, DigestHeadlineNews, DigestBriefNews, DigestEvent, HoldingView } from '@/lib/api';
 import { formatReportDate, formatCalendarDate, isMarketToday, formatCompactTimestamp } from '@/lib/timezone';
 import StockOverviewPanel from './StockOverviewPanel';
-import { FeedbackBar } from '@/components/memory/FeedbackBar';
 
 interface DigestInlineReportProps {
   digest: DigestResponse;
@@ -33,7 +32,7 @@ function NewsTimestamp({ timestamp }: { timestamp?: string }) {
   if (!timestamp) return null;
 
   return (
-    <div className="flex items-center gap-2 pl-1 text-xs leading-none text-muted-foreground/75 font-data mt-1.5 mb-2.5">
+    <div className="flex items-center gap-2 pl-1 text-xs leading-tight text-muted-foreground/75 font-data mt-1.5 mb-2.5">
       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/50">
         <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8v4l2.5 2.5m6.5-2.5a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -111,7 +110,6 @@ export default function DigestInlineReport({
           </div>
           <StockOverviewPanel
             stocks={digest.stocks}
-            digestDate={digest.timestamp.split('T')[0]}
             thesisMap={thesisMap}
             onThesisSaved={onThesisSaved}
             portfolioSymbols={portfolioSymbols}
@@ -184,11 +182,6 @@ export default function DigestInlineReport({
                 <NewsTimestamp timestamp={item.published_at} />
                 <p className="text-sm text-foreground mb-2">{item.fact_summary}</p>
                 <p className="text-sm text-muted-foreground leading-relaxed">{item.deep_analysis}</p>
-                <FeedbackBar
-                  targetType="digest_headline"
-                  targetId={`digest_headline:${digest.timestamp.split('T')[0]}:${index}`}
-                  snapshot={{ text: item.fact_summary?.slice(0, 200) }}
-                />
               </div>
             ))}
           </div>

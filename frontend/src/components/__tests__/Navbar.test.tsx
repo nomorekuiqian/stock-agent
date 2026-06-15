@@ -84,9 +84,21 @@ describe('Navbar', () => {
     expect(screen.queryByText('联系')).toBeNull();
   });
 
+  it('adds guided tour anchors to primary nav entries', () => {
+    const { container } = render(<Navbar />);
+
+    expect(container.querySelector('[data-guided-tour-target="nav-research-agent"]')).toBeTruthy();
+    expect(container.querySelector('[data-guided-tour-target="nav-daily-reports"]')).toBeTruthy();
+    expect(container.querySelector('[data-guided-tour-target="nav-research-system"]')).toBeTruthy();
+    expect(container.querySelector('[data-guided-tour-target="nav-my"]')).toBeTruthy();
+  });
+
   it('shows KOL research under the research menu after rollout', () => {
     render(<Navbar />);
 
     expect(screen.getAllByText('博主研究室').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('menuitem', { name: '博主研究室' }).every((link) => (
+      link.getAttribute('href') === '/kol'
+    ))).toBe(true);
   });
 });

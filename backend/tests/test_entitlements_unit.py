@@ -10,6 +10,7 @@ import pytest
 from unittest.mock import AsyncMock, patch
 
 from app.features.payment.entitlements import (
+    KOL_PACK_QINBAFRANK,
     PRO_FEATURES,
     MAX_FEATURES,
     MAX_ONLY_FEATURES,
@@ -90,6 +91,16 @@ class TestHasEntitlement:
         mock_get_sub.return_value = {"entitlements": sorted(MAX_FEATURES)}
         assert await has_entitlement(MOCK_UID, "nonexistent_feature") is False
 
+    @pytest.mark.asyncio
+    @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
+    async def test_lifetime_unions_stored_ultra_entitlements(self, mock_get_sub):
+        mock_get_sub.return_value = {
+            "is_lifetime": True,
+            "entitlements": [KOL_PACK_QINBAFRANK],
+        }
+
+        assert await has_entitlement(MOCK_UID, KOL_PACK_QINBAFRANK) is True
+
 
 # ---------------------------------------------------------------------------
 # get_user_entitlements
@@ -140,3 +151,16 @@ class TestGetUserEntitlements:
         # PRO_FEATURES ∪ MAX_ONLY_FEATURES — keyed off the live sets so this
         # test stays in sync as feature keys are added (e.g. `twitter_digest`).
         assert len(result) == len(MAX_FEATURES)
+
+    @pytest.mark.asyncio
+    @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
+    async def test_lifetime_returns_max_plus_stored_ultra_entitlements(self, mock_get_sub):
+        mock_get_sub.return_value = {
+            "is_lifetime": True,
+            "entitlements": [KOL_PACK_QINBAFRANK],
+        }
+
+        result = await get_user_entitlements(MOCK_UID)
+
+        assert MAX_FEATURES.issubset(result)
+        assert KOL_PACK_QINBAFRANK in result

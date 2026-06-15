@@ -11,22 +11,24 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 | Free | `plan="free"` 或无 subscription 行 | `entitlements=[]` |
 | Pro | `plan="pro"` | `entitlements` 含 PRO_FEATURES, `access_expires_at=NULL` |
 | Max | `plan="max"` | `entitlements` 含 MAX_FEATURES, `access_expires_at=NULL` |
-| Lifetime | `is_lifetime=true` | 永久全功能 (覆盖 Max) |
+| Ultra | `plan="ultra"` | `entitlements` 含 `MAX_FEATURES + kol_pack_qinbafrank`, `access_expires_at=NULL` |
+| Lifetime | `is_lifetime=true` | 永久 Max 全功能；如果 row 的 `entitlements` 含 Ultra feature，则同时拥有对应 Ultra 权益 |
 | 非 Stripe grant (过渡/赠送) | `access_expires_at` 未来 + `plan/status/entitlements` | 读时按 `access_expires_at` 失效；每日 reconciliation 清成 Free/expired |
 
 ## 功能边界
 
 **Pro / Max 功能不变, 只调整 Free 列**:
 
-| 功能 | Free | Pro | Max |
-|---|---|---|---|
-| `daily_report` (公开版) | 完整 | 完整 | 完整 |
-| 宏观 dashboard | 基础视图 | 完整 | 完整 |
-| watchlist 数量 | 25 | 25 | 25 |
-| AI 投研对话 (`/api/research/chat`) | 2/天 | 2/天 | 无限 |
-| 推特日报 (`twitter_digest`) | 前 3 封 intro 完整版 (注册 D0/D1/D2 自然日), 之后停 | 锁 | 每天完整 |
-| `morning_report_email` / `weekly_report_email` / `personal_digest_email` | 无 | 有 | 有 |
-| 个股深度研究 (`stock_research`) | 无 | 锁 | 无限 |
+| 功能 | Free | Pro | Max | Ultra |
+|---|---|---|---|---|
+| `daily_report` (公开版) | 完整 | 完整 | 完整 | 完整 |
+| 宏观 dashboard | 基础视图 | 完整 | 完整 | 完整 |
+| watchlist 数量 | 25 | 25 | 25 | 25 |
+| AI 投研对话 (`/api/research/chat`) | 2/天 | 2/天 | 无限 | 无限 |
+| Qinbafrank Agent (`/api/kol_research/chat`) | 1 次试问 | 1 次试问 | 1 次试问 | 解锁 |
+| 推特日报 (`twitter_digest`) | 前 3 封 intro 完整版 (注册 D0/D1/D2 自然日), 之后停 | 锁 | 每天完整 | 每天完整 |
+| `morning_report_email` / `weekly_report_email` / `personal_digest_email` | 无 | 有 | 有 | 有 |
+| 个股深度研究 (`stock_research`) | 无 | 锁 | 无限 | 无限 |
 
 后端安全边界必须和上表一致。前端 PaywallGuard 只负责展示/导航，不能作为权限保护。
 
@@ -38,7 +40,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 
 ## 设计原则
 
-1. **watchlist 对 Free 是钩子, 不是价值**: Free / Pro / Max 全部上限 25 — 数量不是付费卖点, 唯一作用是让用户录入"自己的股票"后引导升级 Pro 拿专属日报. Free 用户能加 25 只但收不到任何基于持仓的邮件, 没有日常 ROI; 这是设计意图.
+1. **watchlist 对 Free 是钩子, 不是价值**: Free / Pro / Max / Ultra 全部上限 25 — 数量不是付费卖点, 唯一作用是让用户录入"自己的股票"后引导升级 Pro 拿专属日报. Free 用户能加 25 只但收不到任何基于持仓的邮件, 没有日常 ROI; 这是设计意图.
 2. **AI 投研对话 Pro 不差异化**: Free + Pro 都是 2/天, Max 无限. AI 投研是 Max 独家深度使用功能, **不是 Pro 升级卖点**. Pro 卖点全部在邮件层 (morning / weekly / personal_digest). Max 卖点: 推特日报 + AI 投研无限 + 个股深度无限.
 3. **推特日报 "前 3 封后停"**: 注册自然日 D0/D1/D2 各发 1 封完整版, 周末也发 (跟正常发刊日历独立; 周末无新内容时复用最近一期). D4 onboarding 邮件转化推 Max.
 4. **专属日报通过 onboarding 流程做转化**: Step 2 建完自选股 → Step 3 modal **直跳 Stripe Checkout** (`POST /api/payment/checkout-session` with `tier="pro"`), 不经 `/pricing`.
@@ -62,11 +64,37 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 
 **MAX_FEATURES** = `PRO_FEATURES | MAX_ONLY_FEATURES`
 
-**Lifetime** (`is_lifetime=true`) 自动 grant 完整 `MAX_FEATURES`.
+**KOL_PACK_FEATURES**:
+- `kol_pack_qinbafrank`
+
+**ULTRA_FEATURES** = `MAX_FEATURES | KOL_PACK_FEATURES`
+
+Ultra 是前台销售产品，Stripe checkout product/tier 为 `ultra`。底层写入 `plan="ultra"`，并额外写入 `kol_pack_qinbafrank`，这样 Max 能力和博主资料包权限可以独立判断。旧 `creator_max_qinbafrank` 仅作为 checkout alias 兼容历史链接。
+
+新用户开通 Pro/Max/Ultra 走 Stripe Checkout；已有 Pro/Max 真实付费订阅升级更高 tier 走 Stripe Billing Portal `subscription_update_confirm`，不能创建第二个并行订阅。升级使用 `proration_behavior=always_invoice` 的 Billing Portal configuration，由 Stripe 立即按剩余周期收取差价，不能手动退款后重收全额，也不能重新收一整笔目标套餐价格。Checkout 回跳会带 `session_id={CHECKOUT_SESSION_ID}`，成功页调用 `/api/payment/checkout-session/complete` 主动同步；Portal 回跳通过 `subscription-status?fresh=true` 从 Stripe Subscription 刷新本地 plan/status/entitlements。
+
+**Lifetime** (`is_lifetime=true`) 自动 grant 完整 `MAX_FEATURES`，并 union row 上存储的 `entitlements`。老 lifetime Max 迁移为 Ultra 时，row 写入 `kol_pack_qinbafrank` 即可让后端 gate 放行。
+
+**Grandfathered Ultra**: 老 Max 用户可在 app DB 中直接迁移为 `plan="ultra"` + `ULTRA_FEATURES`，同时 Stripe 继续按原 Max price 收费。后端 Stripe sync 规则：本地 row 已是 active/trialing Ultra 且 Stripe subscription 仍 active/trialing 时，不因 Stripe 仍报告 Max 而降级；Stripe 非 active、subscription deleted 或 active entitlements 为空时，仍正常清空权限。
+
+## Qinbafrank Ultra 上线门禁
+
+生产上线前必须在 live Stripe 环境跑只读 readiness:
+
+```bash
+cd backend
+source venv/bin/activate
+python scripts/check_qinbafrank_stripe_readiness.py \
+  --require-live \
+  --webhook-url https://stock-agent-production.up.railway.app/api/payment/webhook
+```
+
+该脚本必须通过后才能公开售卖资料包。它会验证 Ultra active price、生产 webhook 所需事件，以及 Billing Portal 是否允许已有 Pro/Max 订阅用 `always_invoice` proration 升级到 Ultra price。
 
 ## 配额规则
 
 - **AI 投研对话** (`/api/research/chat`): 无 `ai_research_engine` entitlement 的用户每天 2 次. Redis 计数 (`backend/app/features/quota/`), 按 user_id 或 IP, midnight UTC reset. `quota/service.py:17` `DAILY_LIMIT = 2`.
+- **Qinbafrank Agent** (`/api/kol_research/chat`): 无 `kol_pack_qinbafrank` entitlement 的登录用户可一次性试问 1 次；购买 Ultra 后不限于这条试问门槛，实际调用仍受 Max/运行时风控约束。
 - **推特日报 intro**: 无 `twitter_digest` entitlement 的用户, 注册起 3 个自然日内每天 1 封. `lifecycle_state.intro_sent_count` 跟踪, max 3.
 - **watchlist**: 所有用户最多 25 (Pydantic + 前端校验).
 
@@ -79,22 +107,24 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
   - `intro_sent_count`: int — 已发推特日报 intro 数 (max 3)
   - `triggered_at`: `{trigger_key: ISO_timestamp}` — 行为触发邮件 cooldown (Phase 4)
 - `subscriptions.reactivation_state` (TEXT, default NULL): enum `NULL` / `cohort_a` / `cohort_b` / `cohort_c` / `cold` (Phase 3 使用)
-- `subscriptions.onboarding_completed_at` (TIMESTAMP, default NULL): Step 1/2/3 全部完成的时间
+- `subscriptions.onboarding_completed_at` (TIMESTAMP, default NULL): 首页 Guided Tour 完成或跳过的时间
 
-未完成 onboarding (`onboarding_completed_at IS NULL`) 的用户访问受限页面 → 由 Next.js middleware 拦截 redirect `/onboarding` (排除 `/onboarding` 自身、auth callback、`/api/*`、静态资源).
+未完成 onboarding (`onboarding_completed_at IS NULL`) 的用户访问受限页面 → 由前端 `OnboardingGate` 在后端明确返回 `completed:false` 时跳转首页 `/?tour=1`。Next.js middleware 只做 cookie gate，不再负责 onboarding redirect。
 
 ## CTA Tier 决策
 
 `is_real_paid_sub(sub)` (`backend/app/features/subscription/cta_tier.py`):
 
 1. `is_lifetime=true` → **True**
-2. `entitlements` 为空 → **False**
-3. `access_expires_at` 非空 → **False**（非 Stripe grant / 试用用户进入 Free CTA）
-4. 否则 → **True**（有 entitlements 且无 grant expiry，视作真付费）
+2. `access_expires_at` 非空 → **False**（非 Stripe grant / 试用用户进入 Free CTA）
+3. `status != "active"` → **False**（Stripe trialing/canceled 不算真付费）
+4. `stripe_subscription_id` 为空 → **False**（手工 grant 不算真付费）
+5. `entitlements` 为空 → **False**
+6. 否则 → **True**（active Stripe subscription + entitlements + 无 grant expiry）
 
 ## Grant 到期与同步
 
-- 真付费订阅通过 Stripe Subscription + Entitlements webhook 同步 `plan/status/entitlements`。
+- 真付费订阅通过 Stripe Subscription + Entitlements webhook 同步 `plan/status/entitlements`；老 Max 已迁移为 DB Ultra 的用户例外，active/trialing sync 必须保留本地 Ultra，直到 Stripe 订阅非 active 或删除。
 - Webhook compensation：`checkout.session.completed`、`customer.subscription.updated`、`customer.subscription.deleted` 会调用同一个 entitlement sync，减少 webhook 乱序或漏投造成的漂移。
 - Stripe entitlement sync 写入 `plan/status/entitlements` 时必须清理旧 `access_expires_at`，避免历史 grant 到期字段拦住真实付费订阅。
 - 非 Stripe grant 仍保存在同一张 `subscriptions` 表，用 `access_expires_at` 表达到期时间。
@@ -102,15 +132,17 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 - 新增试用优先使用 Stripe Trial Subscription，这样到期、取消和 entitlement 清理都走 Stripe webhook；`access_expires_at` 主要作为历史/手动 grant 兜底。
 - Stripe `trialing` subscription 也代表 active access；前端 display/activation 和 deleted webhook replacement-sub 检查都必须兼容 `trialing`。
 
-## Onboarding 流程 (强制)
+## Onboarding 流程
 
-3 步, **必须完成**:
+新用户主路径是首页轻量 Guided Tour：
 
-1. **Welcome**: 价值主张 (今天就能用: 1 次 AI 投研体验 + 首份推特日报 + 自选股提醒; 建好自选股, 解锁每天专属日报)
-2. **建自选股 (强制, 至少 3 只, 推荐 5-10)**: 不允许 skip; UI 鼓励多加, 上限 25, 一键加 Mag 7 等 popular groups
-3. **专属日报 modal**: 标题 "为你的 X 只自选股, 每天生成专属日报"; 嵌一份**通用样本** (从 Mag 7 池 `AAPL/MSFT/GOOGL/AMZN/META/NVDA/TSLA` 选一只, 不基于用户实际持仓 mock); 主 CTA "升级 Pro 立即激活" → 直接 `POST /api/payment/checkout-session` (`tier="pro"`, `source="onboarding"`), 跳 Stripe 托管页; 次 CTA "稍后再说"
+1. 注册或首次 OAuth 后默认落到 `/?tour=1`；该入口会先检查本地/后端完成状态，已完成用户不再显示 tour。
+2. 首页 `HomeGuidedTour` 用 spotlight/coach-mark 高亮真实 UI，不再强制进入独立 onboarding 页面。
+3. Tour 高亮顶部导航的四个入口：AI 研究助手、每日简报、投研、我的，简短说明每天看简报、需要深挖时进 Agent、从个股/宏观/博主研究室切入，以及在「我的」里添加自选股启动专属监控。
+4. 用户点“完成导览”或“跳过”时，前端 best-effort 调 `POST /api/user/onboarding/complete`，写 `onboarding_completed_at = NOW()`，并写本地 `onboarding_completed:{userId}` marker。
+5. 手动调试使用 `/?tour=home` 强制预览；不要把它作为注册默认 redirect。
 
-完成后写 `onboarding_completed_at = NOW()`, 落地 `/today`. 顶部配额 widget: "今天还可以: 2 次 AI 投研对话".
+独立 `/onboarding` 页面已移除；更细的自选股和持仓设置继续放在 `/for-you/onboarding`、`/for-you/watchlist` 等真实功能页里承接。
 
 ## 监控边界
 

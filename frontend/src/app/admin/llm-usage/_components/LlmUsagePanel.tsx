@@ -151,12 +151,12 @@ export function LlmUsagePanel({ initialData, initialDays }: Props) {
         <div>
           <Link
             href="/admin"
-            className="text-sm text-neutral-500 hover:text-neutral-900"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             ← 返回 Admin
           </Link>
           <h1 className="text-2xl font-semibold mt-1">LLM 用量看板</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             按 feature 切分的每日 token 消耗与估算费用。价格按 Google 官方公开价粗算，仅供参考。
           </p>
         </div>
@@ -169,7 +169,7 @@ export function LlmUsagePanel({ initialData, initialDays }: Props) {
               className={`px-3 py-1.5 text-sm rounded-md border transition ${
                 opt === days
                   ? 'bg-emerald-600 text-white border-emerald-600'
-                  : 'bg-white text-neutral-700 border-neutral-300 hover:border-emerald-500'
+                  : 'bg-background text-foreground border-border hover:border-emerald-500'
               } disabled:opacity-50`}
             >
               {opt} 天
@@ -178,7 +178,7 @@ export function LlmUsagePanel({ initialData, initialDays }: Props) {
           <button
             onClick={() => void reload(days)}
             disabled={loading}
-            className="px-3 py-1.5 text-sm rounded-md border border-neutral-300 hover:border-emerald-500 disabled:opacity-50"
+            className="px-3 py-1.5 text-sm rounded-md border border-border hover:border-emerald-500 disabled:opacity-50"
           >
             {loading ? '刷新中…' : '刷新'}
           </button>
@@ -198,13 +198,13 @@ export function LlmUsagePanel({ initialData, initialDays }: Props) {
         <SummaryCard label="月度估算" value={formatUsd(monthlyEstimate)} hint="日均 × 30" />
       </section>
 
-      <section className="rounded-lg border border-neutral-200 bg-white p-4">
+      <section className="rounded-lg border border-border bg-background p-4">
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-base font-medium">每日费用堆叠</h2>
-          <span className="text-xs text-neutral-500">单位 USD，按 feature 分层</span>
+          <span className="text-xs text-muted-foreground">单位 USD，按 feature 分层</span>
         </div>
         {chartData.length === 0 ? (
-          <div className="h-80 flex items-center justify-center text-neutral-400 text-sm">
+          <div className="h-80 flex items-center justify-center text-muted-foreground/70 text-sm">
             最近 {days} 天没有数据
           </div>
         ) : (
@@ -238,15 +238,15 @@ export function LlmUsagePanel({ initialData, initialDays }: Props) {
         )}
       </section>
 
-      <section className="rounded-lg border border-neutral-200 bg-white p-4">
+      <section className="rounded-lg border border-border bg-background p-4">
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-base font-medium">Feature 排行（{days} 天合计）</h2>
-          <span className="text-xs text-neutral-500">按估算费用降序</span>
+          <span className="text-xs text-muted-foreground">按估算费用降序</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-neutral-500 border-b border-neutral-200">
+              <tr className="text-left text-muted-foreground border-b border-border">
                 <th className="py-2 pr-4 font-medium">Feature</th>
                 <th className="py-2 pr-4 font-medium text-right">调用</th>
                 <th className="py-2 pr-4 font-medium text-right">输入 tokens</th>
@@ -268,15 +268,15 @@ export function LlmUsagePanel({ initialData, initialDays }: Props) {
                       <span className="font-mono text-xs">{row.feature}</span>
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">{row.calls.toLocaleString()}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums text-neutral-600">{formatTokens(row.prompt_tokens)}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums text-neutral-600">{formatTokens(row.output_tokens)}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-muted-foreground">{formatTokens(row.prompt_tokens)}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-muted-foreground">{formatTokens(row.output_tokens)}</td>
                     <td className="py-2 pr-4 text-right tabular-nums font-medium">{formatUsd(row.est_usd)}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums text-neutral-500">{pct.toFixed(1)}%</td>
+                    <td className="py-2 pr-4 text-right tabular-nums text-muted-foreground">{pct.toFixed(1)}%</td>
                   </tr>
                 );
               })}
               {data.feature_breakdown.length === 0 ? (
-                <tr><td colSpan={6} className="py-6 text-center text-neutral-400">无数据</td></tr>
+                <tr><td colSpan={6} className="py-6 text-center text-muted-foreground/70">无数据</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -288,10 +288,10 @@ export function LlmUsagePanel({ initialData, initialDays }: Props) {
 
 function SummaryCard({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3">
-      <div className="text-xs text-neutral-500">{label}</div>
+    <div className="rounded-lg border border-border bg-background px-4 py-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-2xl font-semibold mt-1 tabular-nums">{value}</div>
-      <div className="text-xs text-neutral-400 mt-1">{hint}</div>
+      <div className="text-xs text-muted-foreground/70 mt-1">{hint}</div>
     </div>
   );
 }

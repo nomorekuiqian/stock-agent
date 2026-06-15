@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
 
 
 # ---------------------------------------------------------------------------
@@ -25,6 +26,34 @@ class TestEntitlementCatalog:
 
         assert "twitter_digest" in MAX_ONLY_FEATURES
         assert "twitter_digest" in MAX_FEATURES
+
+    def test_qinbafrank_pack_is_ultra_only(self):
+        from app.features.payment.entitlements import (
+            KOL_PACK_FEATURES,
+            KOL_PACK_QINBAFRANK,
+            MAX_FEATURES,
+            MAX_ONLY_FEATURES,
+            ULTRA_FEATURES,
+        )
+
+        assert KOL_PACK_QINBAFRANK == "kol_pack_qinbafrank"
+        assert KOL_PACK_QINBAFRANK in KOL_PACK_FEATURES
+        assert KOL_PACK_QINBAFRANK in ULTRA_FEATURES
+        assert KOL_PACK_QINBAFRANK not in MAX_FEATURES
+        assert MAX_FEATURES.issubset(ULTRA_FEATURES)
+        assert MAX_ONLY_FEATURES.issubset(ULTRA_FEATURES)
+
+    def test_qinbafrank_entitlement_normalizes_to_ultra_with_max_features(self):
+        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK
+        from app.features.payment.service import _normalize_entitlements
+
+        plan, status, features = _normalize_entitlements([KOL_PACK_QINBAFRANK])
+
+        assert plan == "ultra"
+        assert status == "active"
+        assert KOL_PACK_QINBAFRANK in features
+        assert "ai_research_engine" in features
+        assert "twitter_digest" in features
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +104,376 @@ class TestCheckoutSession:
         assert "checkout=success" in success_url
         assert "tier=max" in success_url
         assert "next=%2Fresearch%3Fagent%3Dkol%26persona%3Dqinbafrank" in success_url
+        assert "session_id={CHECKOUT_SESSION_ID}" in success_url
+
+    @pytest.mark.asyncio
+    async def test_checkout_return_uses_allowed_request_origin(self):
+        from app.features.payment import service
+
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.test/session"
+
+        with patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+        ), patch.object(
+            service,
+            "FRONTEND_URL",
+            "https://stock-agent-git-codex-qinbafrank-creator-max-the-market-brew.vercel.app",
+        ), patch.object(
+            service,
+            "ALLOWED_ORIGINS",
+            ["https://themarketbrew.com"],
+        ), patch.object(
+            service,
+            "CORS_ALLOWED_ORIGIN_REGEX",
+            r"https://.*-the-market-brew\.vercel\.app",
+        ), patch(
+            "app.features.payment.service.get_or_create_stripe_customer",
+            new_callable=AsyncMock,
+            return_value="cus_test",
+        ), patch(
+            "app.features.payment.service.stripe.checkout.Session.create",
+            return_value=mock_session,
+        ) as mock_create:
+            await service.create_checkout_session(
+                user_id="user-1",
+                email="test@example.com",
+                return_path="/pricing",
+                tier="pro",
+                frontend_origin="https://stock-agent-37gd2tg7u-the-market-brew.vercel.app",
+            )
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["success_url"].startswith(
+            "https://stock-agent-37gd2tg7u-the-market-brew.vercel.app/pricing/success?"
+        )
+        assert kwargs["cancel_url"] == (
+            "https://stock-agent-37gd2tg7u-the-market-brew.vercel.app/pricing?checkout=cancel"
+        )
+
+    @pytest.mark.asyncio
+    async def test_checkout_return_rejects_untrusted_request_origin(self):
+        from app.features.payment import service
+
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.test/session"
+
+        with patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+        ), patch.object(
+            service,
+            "FRONTEND_URL",
+            "https://themarketbrew.com",
+        ), patch.object(
+            service,
+            "ALLOWED_ORIGINS",
+            ["https://themarketbrew.com"],
+        ), patch.object(
+            service,
+            "CORS_ALLOWED_ORIGIN_REGEX",
+            r"https://.*-the-market-brew\.vercel\.app",
+        ), patch(
+            "app.features.payment.service.get_or_create_stripe_customer",
+            new_callable=AsyncMock,
+            return_value="cus_test",
+        ), patch(
+            "app.features.payment.service.stripe.checkout.Session.create",
+            return_value=mock_session,
+        ) as mock_create:
+            await service.create_checkout_session(
+                user_id="user-1",
+                email="test@example.com",
+                return_path="/pricing",
+                tier="pro",
+                frontend_origin="https://evil.example.com",
+            )
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["success_url"].startswith("https://themarketbrew.com/pricing/success?")
+        assert kwargs["cancel_url"] == "https://themarketbrew.com/pricing?checkout=cancel"
+
+    @pytest.mark.asyncio
+    async def test_ultra_checkout_marks_product_and_subscription_metadata(self):
+        from app.features.payment import service
+
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.test/ultra-session"
+
+        with patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+        ), patch.object(
+            service,
+            "FRONTEND_URL",
+            "https://themarketbrew.com",
+        ), patch(
+            "app.features.payment.service.get_or_create_stripe_customer",
+            new_callable=AsyncMock,
+            return_value="cus_test",
+        ), patch(
+            "app.features.payment.service.stripe.checkout.Session.create",
+            return_value=mock_session,
+        ) as mock_create:
+            url = await service.create_checkout_session(
+                user_id="user-1",
+                email="test@example.com",
+                return_path="/kol/qinbafrank?welcome=1",
+                tier="ultra",
+            )
+
+        assert url == "https://checkout.stripe.test/ultra-session"
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["line_items"] == [{"price": "price_ultra_test", "quantity": 1}]
+        assert "tier=ultra" in kwargs["success_url"]
+        assert "product=ultra" in kwargs["success_url"]
+        assert "next=%2Fkol%2Fqinbafrank%3Fwelcome%3D1" in kwargs["success_url"]
+        assert kwargs["cancel_url"] == "https://themarketbrew.com/kol/qinbafrank?welcome=1&checkout=cancel"
+        assert kwargs["metadata"]["tier"] == "ultra"
+        assert kwargs["metadata"]["product"] == "ultra"
+        assert kwargs["subscription_data"]["metadata"]["tier"] == "ultra"
+        assert kwargs["subscription_data"]["metadata"]["product"] == "ultra"
+
+    @pytest.mark.asyncio
+    async def test_ultra_price_resolves_from_lookup_key_when_env_missing(self):
+        from app.features.payment import service
+
+        mock_prices = MagicMock()
+        mock_prices.to_dict.return_value = {
+            "data": [{"id": "price_ultra_lookup"}],
+        }
+
+        with patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test", "ultra": ""},
+        ), patch.object(
+            service,
+            "_RESOLVED_PRICE_ID_CACHE",
+            {},
+        ), patch(
+            "app.features.payment.service.stripe.Price.list",
+            return_value=mock_prices,
+        ) as mock_list:
+            price_id = await service.resolve_price_id_for_product("ultra")
+
+        assert price_id == "price_ultra_lookup"
+        mock_list.assert_called_once_with(
+            lookup_keys=["themarketbrew_ultra_monthly"],
+            active=True,
+            limit=1,
+        )
+
+    def _client_with_auth(self, user_id: str = "user-1"):
+        from app.core.deps import verify_user_token
+        from app.main import app
+
+        app.dependency_overrides[verify_user_token] = lambda: user_id
+        return app, TestClient(app)
+
+    def test_existing_paid_upgrade_uses_portal_instead_of_checkout(self):
+        """Pro -> Max must update the existing Stripe subscription, not create a new one."""
+        app, client = self._client_with_auth("user-1")
+
+        try:
+            with patch(
+                "app.features.payment.router.get_subscription",
+                new_callable=AsyncMock,
+                return_value={
+                    "user_id": "user-1",
+                    "plan": "pro",
+                    "status": "active",
+                    "stripe_customer_id": "cus_123",
+                    "stripe_subscription_id": "sub_123",
+                    "access_expires_at": None,
+                    "is_lifetime": False,
+                },
+            ), patch(
+                "app.features.payment.router.create_portal_session",
+                new_callable=AsyncMock,
+                return_value="https://billing.stripe.test/session",
+            ) as mock_portal, patch(
+                "app.features.payment.router.create_checkout_session",
+                new_callable=AsyncMock,
+            ) as mock_checkout:
+                resp = client.post(
+                    "/api/payment/checkout-session",
+                    json={
+                        "user_id": "user-1",
+                        "email": "test@example.com",
+                        "tier": "max",
+                        "product": "max",
+                        "return_path": "/pricing",
+                    },
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        assert resp.json() == {"checkout_url": "https://billing.stripe.test/session"}
+        mock_portal.assert_awaited_once_with(
+            "user-1",
+            return_path="/pricing",
+            product="max",
+            billing_interval="monthly",
+            frontend_origin=None,
+        )
+        mock_checkout.assert_not_called()
+
+    def test_existing_paid_included_plan_is_rejected(self):
+        """A paid Max user cannot open another Checkout for Max/Pro."""
+        app, client = self._client_with_auth("user-1")
+
+        try:
+            with patch(
+                "app.features.payment.router.get_subscription",
+                new_callable=AsyncMock,
+                return_value={
+                    "user_id": "user-1",
+                    "plan": "max",
+                    "status": "active",
+                    "stripe_customer_id": "cus_123",
+                    "stripe_subscription_id": "sub_123",
+                    "access_expires_at": None,
+                    "is_lifetime": False,
+                },
+            ), patch(
+                "app.features.payment.router.create_portal_session",
+                new_callable=AsyncMock,
+            ) as mock_portal, patch(
+                "app.features.payment.router.create_checkout_session",
+                new_callable=AsyncMock,
+            ) as mock_checkout:
+                resp = client.post(
+                    "/api/payment/checkout-session",
+                    json={
+                        "user_id": "user-1",
+                        "email": "test@example.com",
+                        "tier": "max",
+                        "product": "max",
+                    },
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == "Current subscription already includes this plan"
+        mock_portal.assert_not_called()
+        mock_checkout.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_upgrade_portal_configuration_updates_to_immediate_proration(self):
+        """Upgrade Portal config must immediately invoice prorated differences."""
+        from app.features.payment import service
+
+        current_config = {
+            "id": "bpc_default",
+            "active": True,
+            "is_default": True,
+            "features": {
+                "subscription_update": {
+                    "enabled": True,
+                    "default_allowed_updates": ["price"],
+                    "proration_behavior": "create_prorations",
+                }
+            },
+        }
+        updated_config = {
+            **current_config,
+            "features": {
+                "subscription_update": {
+                    "enabled": True,
+                    "default_allowed_updates": ["price"],
+                    "proration_behavior": "always_invoice",
+                }
+            },
+        }
+
+        with patch.object(
+            service,
+            "_UPGRADE_PORTAL_CONFIGURATION_CACHE",
+            {},
+        ), patch(
+            "app.features.payment.service.stripe.billing_portal.Configuration.list",
+            return_value={"data": [current_config]},
+        ), patch(
+            "app.features.payment.service.stripe.billing_portal.Configuration.modify",
+            return_value=updated_config,
+        ) as mock_modify:
+            config_id = await service._ensure_upgrade_portal_configuration_id()
+
+        assert config_id == "bpc_default"
+        mock_modify.assert_called_once_with(
+            "bpc_default",
+            features={
+                "subscription_update": {
+                    "proration_behavior": "always_invoice",
+                }
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_portal_session_upgrade_uses_proration_configuration(self):
+        """Upgrade sessions are pinned to the always_invoice Portal config."""
+        from app.features.payment import service
+
+        mock_session = MagicMock()
+        mock_session.url = "https://billing.stripe.test/session"
+
+        with patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "user_id": "user-1",
+                "stripe_customer_id": "cus_123",
+                "stripe_subscription_id": "sub_123",
+            },
+        ), patch(
+            "app.features.payment.service.resolve_price_id_for_product",
+            new_callable=AsyncMock,
+            return_value="price_max",
+        ), patch(
+            "app.features.payment.service._retrieve_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "sub_123",
+                "items": {
+                    "data": [
+                        {
+                            "id": "si_123",
+                            "quantity": 1,
+                            "price": {"id": "price_pro"},
+                        }
+                    ]
+                },
+            },
+        ), patch(
+            "app.features.payment.service._ensure_upgrade_portal_configuration_id",
+            new_callable=AsyncMock,
+            return_value="bpc_upgrade_proration",
+        ), patch(
+            "app.features.payment.service.stripe.billing_portal.Session.create",
+            return_value=mock_session,
+        ) as mock_create:
+            url = await service.create_portal_session(
+                "user-1",
+                return_path="/pricing",
+                product="max",
+            )
+
+        assert url == "https://billing.stripe.test/session"
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["configuration"] == "bpc_upgrade_proration"
+        flow = kwargs["flow_data"]
+        assert flow["type"] == "subscription_update_confirm"
+        assert flow["subscription_update_confirm"]["subscription"] == "sub_123"
+        assert flow["subscription_update_confirm"]["items"] == [
+            {"id": "si_123", "price": "price_max", "quantity": 1}
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -381,8 +780,15 @@ class TestWebhookHandler:
             return mock_stripe_sub
 
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
-             patch("app.features.payment.router.asyncio.to_thread", new=AsyncMock(side_effect=fake_to_thread)) as mock_to_thread, \
-             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert:
+             patch("app.features.payment.router.stripe.Subscription.retrieve", return_value=mock_stripe_sub), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=None), \
+             patch("app.features.payment.service.get_subscription", new_callable=AsyncMock, return_value=None), \
+             patch("app.features.payment.service.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch(
+                 "app.features.payment.service.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 return_value={"synced": True},
+             ) as mock_sync:
 
             result = await stripe_webhook(mock_request)
 
@@ -395,41 +801,14 @@ class TestWebhookHandler:
             assert call_kwargs["status"] == "active"
             assert call_kwargs["stripe_customer_id"] == "cus_xyz"
             assert call_kwargs["stripe_subscription_id"] == "sub_abc"
-            assert call_kwargs["clear_cancellation"] is True
+            assert "morning_report_email" in call_kwargs["entitlements"]
             mock_sync.assert_awaited_once_with(
                 "cus_xyz",
                 user_id="user-123",
+                customer_email=None,
                 allow_empty=False,
                 source="checkout.session.completed",
             )
-
-    @pytest.mark.asyncio
-    async def test_checkout_completed_skips_lifetime_user(self):
-        """checkout.session.completed does not overwrite lifetime users."""
-        from app.features.payment.router import stripe_webhook
-
-        event = self._make_event("checkout.session.completed", {
-            "metadata": {"user_id": "user-life"},
-            "subscription": "sub_life",
-            "customer": "cus_life",
-        })
-
-        mock_request = AsyncMock()
-        mock_request.body.return_value = b'payload'
-        mock_request.headers = {"stripe-signature": "sig"}
-
-        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
-             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value={"is_lifetime": True}), \
-             patch("app.features.payment.router.stripe.Subscription.retrieve") as mock_retrieve, \
-             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
-             patch("app.features.payment.router.sync_entitlements_from_stripe", new_callable=AsyncMock) as mock_sync:
-
-            result = await stripe_webhook(mock_request)
-
-            assert result == {"received": True}
-            mock_retrieve.assert_not_called()
-            mock_upsert.assert_not_called()
-            mock_sync.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_checkout_completed_missing_metadata(self):
@@ -471,56 +850,18 @@ class TestWebhookHandler:
 
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
              patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=None), \
-             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert:
+             patch("app.features.payment.service.get_subscription", new_callable=AsyncMock, return_value=None), \
+             patch("app.features.payment.service.upsert_subscription", new_callable=AsyncMock) as mock_upsert:
 
             result = await stripe_webhook(mock_request)
 
             assert result == {"received": True}
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
-            # Identity sync: status + period, no plan when no customer id is present.
+            # The service now writes a full local snapshot, not only identity.
             assert call_kwargs["status"] == "canceled"
-            assert "plan" not in call_kwargs
-
-    @pytest.mark.asyncio
-    async def test_subscription_updated_stores_scheduled_cancellation(self):
-        """subscription.updated stores period-end cancellation state while active."""
-        from app.features.payment.router import stripe_webhook
-
-        event = self._make_event("customer.subscription.updated", {
-            "metadata": {"user_id": "user-123"},
-            "id": "sub_abc",
-            "customer": "cus_xyz",
-            "status": "active",
-            "cancel_at_period_end": False,
-            "cancel_at": 1783794504,
-            "canceled_at": 1781204039,
-            "items": {"data": [{"current_period_end": 1783794504}]},
-        })
-
-        mock_request = AsyncMock()
-        mock_request.body.return_value = b'payload'
-        mock_request.headers = {"stripe-signature": "sig"}
-
-        existing = {"user_id": "user-123", "stripe_customer_id": "cus_xyz"}
-        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
-             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=existing), \
-             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
-             patch(
-                 "app.features.payment.router.sync_entitlements_from_stripe",
-                 new_callable=AsyncMock,
-                 return_value={"synced": True},
-             ):
-
-            result = await stripe_webhook(mock_request)
-
-        assert result == {"received": True}
-        call_kwargs = mock_upsert.call_args[1]
-        assert call_kwargs["status"] == "active"
-        assert call_kwargs["cancel_at_period_end"] is False
-        assert call_kwargs["cancel_at"] == "2026-07-11T18:28:24+00:00"
-        assert call_kwargs["canceled_at"] == "2026-06-11T18:53:59+00:00"
-        assert call_kwargs["clear_cancellation"] is False
+            assert call_kwargs["plan"] == "free"
+            assert call_kwargs["entitlements"] == []
 
     @pytest.mark.asyncio
     async def test_subscription_updated_compensates_entitlements_when_customer_present(self):
@@ -542,9 +883,10 @@ class TestWebhookHandler:
         existing = {"user_id": "user-123", "stripe_customer_id": "cus_xyz"}
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
              patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=existing), \
-             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch("app.features.payment.service.get_subscription", new_callable=AsyncMock, return_value=existing), \
+             patch("app.features.payment.service.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
              patch(
-                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 "app.features.payment.service.sync_entitlements_from_stripe",
                  new_callable=AsyncMock,
                  return_value={"synced": True},
              ) as mock_sync:
@@ -553,13 +895,64 @@ class TestWebhookHandler:
 
             assert result == {"received": True}
             mock_upsert.assert_called_once()
+            assert mock_upsert.call_args.kwargs["plan"] == "pro"
+            assert "morning_report_email" in mock_upsert.call_args.kwargs["entitlements"]
             mock_sync.assert_awaited_once_with(
                 "cus_xyz",
                 user_id="user-123",
-                sub_record=existing,
+                customer_email=None,
                 allow_empty=False,
                 source="customer.subscription.updated",
             )
+
+    @pytest.mark.asyncio
+    async def test_subscription_updated_persists_scheduled_cancellation(self):
+        """Active subscriptions can be scheduled to cancel at period end."""
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("customer.subscription.updated", {
+            "metadata": {"user_id": "user-123", "tier": "ultra"},
+            "id": "sub_abc",
+            "customer": "cus_xyz",
+            "status": "active",
+            "cancel_at_period_end": False,
+            "cancel_at": 1783824523,
+            "canceled_at": 1781235280,
+            "items": {
+                "data": [{
+                    "current_period_start": 1781232523,
+                    "current_period_end": 1783824523,
+                    "price": {"lookup_key": "themarketbrew_ultra_monthly"},
+                }]
+            },
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b"payload"
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        existing = {"user_id": "user-123", "stripe_customer_id": "cus_xyz"}
+        with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=existing), \
+             patch("app.features.payment.service.get_subscription", new_callable=AsyncMock, return_value=existing), \
+             patch("app.features.payment.service.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch(
+                 "app.features.payment.service.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 return_value={"synced": True},
+             ):
+
+            result = await stripe_webhook(mock_request)
+
+        assert result == {"received": True}
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["plan"] == "ultra"
+        assert call_kwargs["status"] == "active"
+        assert call_kwargs["cancel_at_period_end"] is False
+        assert call_kwargs["cancel_at"] == "2026-07-12T02:48:43+00:00"
+        assert call_kwargs["canceled_at"] == "2026-06-12T03:34:40+00:00"
+        assert call_kwargs["clear_cancel_at"] is False
+        assert call_kwargs["clear_canceled_at"] is False
 
     @pytest.mark.asyncio
     async def test_subscription_updated_active_syncs_status(self):
@@ -578,20 +971,20 @@ class TestWebhookHandler:
 
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
              patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=None), \
-             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert:
+             patch("app.features.payment.service.get_subscription", new_callable=AsyncMock, return_value=None), \
+             patch("app.features.payment.service.upsert_subscription", new_callable=AsyncMock) as mock_upsert:
 
             result = await stripe_webhook(mock_request)
 
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
             assert call_kwargs["status"] == "active"
-            assert call_kwargs["clear_cancellation"] is True
-            # Plan is determined by entitlements webhook, not here
-            assert "plan" not in call_kwargs
+            assert call_kwargs["plan"] == "pro"
+            assert "morning_report_email" in call_kwargs["entitlements"]
 
     @pytest.mark.asyncio
-    async def test_subscription_updated_entitlement_sync_failure_returns_502(self):
-        """subscription.updated failures should be retryable by Stripe."""
+    async def test_subscription_updated_entitlement_sync_failure_keeps_snapshot(self):
+        """subscription.updated keeps canonical entitlements if Stripe entitlement sync lags."""
         from app.features.payment.router import stripe_webhook
 
         event = self._make_event("customer.subscription.updated", {
@@ -608,16 +1001,19 @@ class TestWebhookHandler:
 
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
              patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=None), \
-             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock), \
+             patch("app.features.payment.service.get_subscription", new_callable=AsyncMock, return_value=None), \
+             patch("app.features.payment.service.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
              patch(
-                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 "app.features.payment.service.sync_entitlements_from_stripe",
                  new_callable=AsyncMock,
                  side_effect=RuntimeError("stripe unavailable"),
              ):
 
             result = await stripe_webhook(mock_request)
 
-        assert result.status_code == 502
+        assert result == {"received": True}
+        assert mock_upsert.call_args.kwargs["plan"] == "pro"
+        assert "morning_report_email" in mock_upsert.call_args.kwargs["entitlements"]
 
     @pytest.mark.asyncio
     async def test_subscription_deleted_no_active_subs(self):
@@ -765,6 +1161,166 @@ class TestParseIsoDatetime:
         parsed = _parse_iso_datetime("2026-06-06T12:00:00+08:00")
         # 12:00 +08:00 == 04:00 UTC
         assert parsed == datetime(2026, 6, 6, 4, 0, 0, tzinfo=timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# Grandfathered Ultra sync preservation
+# ---------------------------------------------------------------------------
+
+
+class TestGrandfatheredUltraSync:
+    """DB-migrated Ultra users must not be downgraded by active Stripe Max syncs."""
+
+    @pytest.mark.asyncio
+    async def test_subscription_sync_preserves_local_ultra_for_active_stripe_max(self):
+        from app.features.payment import service
+        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, ULTRA_FEATURES
+
+        existing = {
+            "user_id": "user-legacy",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_customer_id": "cus_legacy",
+            "stripe_subscription_id": "sub_legacy",
+            "entitlements": sorted(ULTRA_FEATURES),
+        }
+        stripe_sub = {
+            "id": "sub_legacy",
+            "customer": "cus_legacy",
+            "status": "active",
+            "items": {
+                "data": [
+                    {
+                        "id": "si_legacy",
+                        "price": {"id": "price_max_test"},
+                        "current_period_start": 1781232523,
+                        "current_period_end": 1783824523,
+                    }
+                ]
+            },
+        }
+
+        with patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
+            "app.features.payment.service.sync_entitlements_from_stripe",
+            new_callable=AsyncMock,
+            return_value={"synced": True},
+        ):
+            result = await service.sync_subscription_from_stripe(
+                "user-legacy",
+                stripe_subscription=stripe_sub,
+                source="test",
+            )
+
+        assert result["plan"] == "ultra"
+        assert KOL_PACK_QINBAFRANK in result["entitlements"]
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["plan"] == "ultra"
+        assert KOL_PACK_QINBAFRANK in call_kwargs["entitlements"]
+
+    @pytest.mark.asyncio
+    async def test_entitlement_sync_preserves_local_ultra_for_active_stripe_max(self):
+        from app.features.payment import service
+        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, ULTRA_FEATURES
+
+        existing = {
+            "user_id": "user-legacy",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_customer_id": "cus_legacy",
+            "entitlements": sorted(ULTRA_FEATURES),
+        }
+        max_entitlements = [
+            {"id": "ent_ai", "lookup_key": "ai_research_engine"},
+            {"id": "ent_digest", "lookup_key": "twitter_digest"},
+        ]
+
+        with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ), patch(
+            "app.features.payment.service._list_active_entitlements",
+            new_callable=AsyncMock,
+            return_value=max_entitlements,
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ), patch(
+            "app.features.subscription.service.SubscriptionService.sync_resend_segments",
+            return_value=[],
+        ):
+            result = await service.sync_entitlements_from_stripe(
+                "cus_legacy",
+                customer_email="legacy@example.com",
+                source="test",
+            )
+
+        assert result["plan"] == "ultra"
+        assert KOL_PACK_QINBAFRANK in result["entitlements"]
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["plan"] == "ultra"
+        assert KOL_PACK_QINBAFRANK in call_kwargs["entitlements"]
+
+    @pytest.mark.asyncio
+    async def test_empty_entitlement_sync_still_deprovisions_local_ultra(self):
+        from app.features.payment import service
+        from app.features.payment.entitlements import ULTRA_FEATURES
+
+        existing = {
+            "user_id": "user-legacy",
+            "plan": "ultra",
+            "status": "active",
+            "stripe_customer_id": "cus_legacy",
+            "entitlements": sorted(ULTRA_FEATURES),
+        }
+
+        with patch(
+            "app.features.payment.service.get_subscription_by_customer",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ), patch(
+            "app.features.payment.service._list_active_entitlements",
+            new_callable=AsyncMock,
+            return_value=[],
+        ), patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+        ) as mock_upsert, patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={"plan": "free", "status": "canceled", "entitlements": []},
+        ), patch(
+            "app.features.subscription.service.SubscriptionService.sync_resend_segments",
+            return_value=[],
+        ):
+            result = await service.sync_entitlements_from_stripe(
+                "cus_legacy",
+                customer_email="legacy@example.com",
+                allow_empty=True,
+                source="test",
+            )
+
+        assert result["plan"] == "free"
+        assert result["entitlements"] == []
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["plan"] == "free"
+        assert call_kwargs["status"] == "canceled"
+        assert call_kwargs["entitlements"] == []
 
 
 # ---------------------------------------------------------------------------

@@ -28,7 +28,7 @@ export default function SparklineMini({
   if (!values.length) {
     return (
       <div
-        className="flex items-center justify-center font-data text-[9px] uppercase tracking-wider text-muted-foreground/40"
+        className="flex items-center justify-center font-data text-micro uppercase tracking-wider text-muted-foreground/70"
         style={{ width, height }}
       >
         {emptyHint ?? '—'}

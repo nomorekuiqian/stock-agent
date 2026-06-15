@@ -57,7 +57,7 @@ export default function StockListItem({
           {stock.symbol}
         </span>
         {weightPct != null && (
-          <span className="text-[11px] text-muted-foreground/70 font-data ml-1">
+          <span className="ml-1 text-xs text-muted-foreground font-data">
             {weightPct.toFixed(1)}%
           </span>
         )}

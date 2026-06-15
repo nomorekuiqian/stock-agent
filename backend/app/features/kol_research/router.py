@@ -20,21 +20,23 @@ from __future__ import annotations
 
 import asyncio
 import json as _json
+import re
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.core.deps import verify_user_token_with_email
+from app.core.deps import verify_user_token, verify_user_token_with_email
 from app.core.logging import get_logger
 import app.core.posthog_client as posthog
 from app.core.rate_limit import _get_real_ip
 from app.core.sse import with_heartbeat
 from app.features.quota.service import consume_quota
+from app.features.quota.db import get_usage, increment_usage
 from app.features.flags.db import get_user_flags  # pyright: ignore[reportUnusedImport]  # noqa: F401 — kept for kol_research_agent flag rollback (see require_kol_research_flag)
-from app.features.kol_research import cockpit, cockpit_v3, mcp_materials, skill_cockpit
+from app.features.kol_research import cockpit, cockpit_v3, mcp_auth, mcp_data, mcp_materials, skill_cockpit
 from app.features.kol_research.agent import (
     DEFAULT_PERSONA,
     answer_kol_research,
@@ -43,9 +45,16 @@ from app.features.kol_research.agent import (
 from app.features.kol_research.models import (
     KolMcpContextRequest,
     KolMcpEvidenceByIdsRequest,
+    KolMcpAuthStartRequest,
+    KolMcpAuthTokenRequest,
+    KolMcpAuthorizeDeviceRequest,
+    KolMcpBriefRequest,
     KolMcpLensSearchRequest,
     KolMcpMarketBriefRequest,
+    KolMcpMarketDataRequest,
+    KolMcpNewsRequest,
     KolMcpSearchRequest,
+    KolMcpStockDataRequest,
     KolMcpWorkflowRequest,
     KolMcpWorkflowResponse,
     KolResearchRequest,
@@ -73,8 +82,14 @@ from app.shared.kol_persona.tools import chunk_to_persona_result
 logger = get_logger(__name__)
 
 FLAG_KEY = "kol_research_agent"
+QINBAFRANK_PACK_FEATURE = "kol_pack_qinbafrank"
+QINBAFRANK_TRIAL_LIMIT = 1
+QINBAFRANK_TRIAL_USAGE_DATE = "1970-01-01"
 
 router = APIRouter(prefix="/api/kol_research", tags=["kol_research"])
+
+_TIMELINE_KEEP_TYPES = {"thesis", "catalyst", "risk_flag", "sector_framework", "trade_action", "macro_view"}
+_TIMELINE_DROP_TYPES = {"noise"}
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +116,43 @@ async def require_kol_research_flag(
     #         detail="KOL research agent is not enabled for this account.",
     #     )
     return user_info
+
+
+async def _consume_qinbafrank_pack_access(user_id: str, client_ip: str | None) -> dict:
+    """Allow full Qinbafrank Agent access for pack buyers, otherwise 1 trial."""
+    from app.features.payment.entitlements import has_entitlement
+
+    if await has_entitlement(user_id, QINBAFRANK_PACK_FEATURE):
+        return {"allowed": True, "paid": True, "trial_used": 0}
+
+    identifier = f"kol_pack_qinbafrank_trial:{user_id or client_ip or 'unknown'}"
+    date = QINBAFRANK_TRIAL_USAGE_DATE
+    used = await get_usage(identifier, date)
+    if used >= QINBAFRANK_TRIAL_LIMIT:
+        return {"allowed": False, "paid": False, "trial_used": used}
+
+    new_count = await increment_usage(identifier, "user", date)
+    if not isinstance(new_count, int) or new_count < 0:
+        logger.warning("Qinbafrank trial quota increment failed, allowing request")
+        return {"allowed": True, "paid": False, "trial_used": used}
+    return {"allowed": True, "paid": False, "trial_used": new_count}
+
+
+async def _consume_kol_chat_access(req: KolResearchRequest, user_id: str, client_ip: str | None) -> dict:
+    persona = (req.persona_username or DEFAULT_PERSONA).lower()
+    if persona == "qinbafrank":
+        return await _consume_qinbafrank_pack_access(user_id, client_ip)
+    return await consume_quota(user_id, client_ip)
+
+
+def _kol_quota_error_payload(req: KolResearchRequest) -> dict:
+    persona = (req.persona_username or DEFAULT_PERSONA).lower()
+    if persona == "qinbafrank":
+        return {
+            "message": "Qinbafrank 免费试问已用完，解锁 Qinbafrank 研究室 Ultra 后继续使用",
+            "required_product": "ultra",
+        }
+    return {"message": "今日免费提问次数已用完，升级 Max 解锁无限使用"}
 
 
 # ---------------------------------------------------------------------------
@@ -299,10 +351,25 @@ async def cockpit_sector(username: str, sector_key: str):
         ):
             detail[field] = _wrap_raw(detail.get(field))
 
-        # Ensure rep_tweets exists (frontend reads detail.rep_tweets directly).
-        # v3 macro skills don't have explicit rep_tweet_ids, so leave empty.
-        detail["rep_tweets"] = detail.get("rep_tweets") or []
-        detail.pop("rep_tweet_ids", None)
+        # Resolve v3 evidence-map tweet ids to slim tweet bodies. The frontend
+        # reads `rep_tweets` directly for the "past comments" column.
+        rep_ids = detail.pop("rep_tweet_ids", []) or []
+        rep_tweets: list[dict] = []
+        if rep_ids:
+            try:
+                idx = await cockpit.get_index(username)
+                by_id = idx.get("by_id") or {}
+                for tid in rep_ids:
+                    slim = by_id.get(str(tid))
+                    if slim is None:
+                        continue
+                    rep_tweets.append({
+                        k: v for k, v in slim.items()
+                        if k != "in_reply_to_username"
+                    })
+            except Exception:  # noqa: BLE001
+                logger.warning("v3 rep_tweet resolution failed", exc_info=True)
+        detail["rep_tweets"] = detail.get("rep_tweets") or rep_tweets
 
         return detail
 
@@ -551,22 +618,26 @@ async def cockpit_feed(
     offset: int = 0,
     sector: str | None = None,
     ticker: str | None = None,
+    tickers: str | None = None,
+    keywords: str | None = None,
     topic: str | None = None,
 ):
     """Time-desc tweet feed for the Live Feed module.
 
     Query params:
-      limit  (default 20, max 50)
+      limit  (default 20, max 1500)
       offset (default 0)
       sector — group label or short alias: 'AI 算力链' / 'ai' / '加密·稳定币' / 'crypto' / '宏观' / 'macro'
       ticker — exact ticker symbol (case-insensitive), matches via alias dict
+      tickers — comma-separated ticker symbols, OR matched against per-tweet ticker list
+      keywords — comma-separated text terms, OR matched against tweet text/title/tickers/topics
       topic  — topic-tree node key: 'industry', 'industry/ai_infra', 'macro', 'rules', ...
                See cockpit.get_topic_tree() for the full set.
     """
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
-    limit = max(1, min(limit, 50))
+    limit = max(1, min(limit, 1500))
     offset = max(0, offset)
     return await cockpit.get_feed(
         username,
@@ -574,6 +645,8 @@ async def cockpit_feed(
         offset=offset,
         sector=sector,
         ticker=ticker,
+        tickers=[item.strip() for item in tickers.split(",") if item.strip()] if tickers else None,
+        keywords=[item.strip() for item in keywords.split(",") if item.strip()] if keywords else None,
         topic=topic,
     )
 
@@ -607,12 +680,20 @@ async def cockpit_tweets_by_ids(username: str, ids: str):
 def _market_lens_tool_names() -> list[str]:
     return [
         "market_lens_status",
+        "market_lens_login",
+        "market_lens_auth_status",
+        "market_lens_logout",
         "market_lens_personas",
         "market_lens_list_lenses",
         "market_lens_get_lens",
         "market_lens_search_lenses",
         "market_lens_search_evidence",
         "market_lens_get_evidence_by_ids",
+        "market_lens_data_catalog",
+        "market_lens_get_brief",
+        "market_lens_get_stock_data",
+        "market_lens_get_market_data",
+        "market_lens_get_news",
         "market_lens_build_context",
         "market_lens_stock_diagnosis",
         "market_lens_market_regime",
@@ -988,6 +1069,293 @@ def _question_needs_macro(question: str) -> bool:
     return any(term in q for term in macro_terms)
 
 
+def _question_needs_news(question: str) -> bool:
+    q = question.lower()
+    news_terms = (
+        "news",
+        "latest",
+        "recent",
+        "today",
+        "catalyst",
+        "headline",
+        "breaking",
+        "新闻",
+        "最新",
+        "今天",
+        "催化",
+        "发生",
+    )
+    return any(term in q for term in news_terms)
+
+
+def _default_data_sections(
+    *,
+    workflow: str,
+    question: str,
+    ticker: str | None,
+    tickers: list[str],
+) -> list[str]:
+    sections: list[str] = []
+    if workflow == "stock_diagnosis":
+        sections.append("stock_brief")
+        if any(term in question.lower() for term in ("technical", "rsi", "macd", "support", "resistance", "技术", "支撑", "压力")):
+            sections.append("technical")
+        if _question_needs_news(question):
+            sections.append("news")
+        if _question_needs_macro(question):
+            sections.append("macro_brief")
+    elif workflow == "market_regime":
+        sections.extend(["macro_brief", "market_overview", "economic_calendar"])
+        if _question_needs_news(question):
+            sections.append("market_news")
+    elif workflow == "compare":
+        sections.append("stock_brief")
+        if len(tickers) <= 3:
+            sections.append("peer_brief")
+    elif workflow == "research_memo":
+        sections.append("stock_brief" if ticker or tickers else "macro_brief")
+        sections.append("news")
+    else:
+        if ticker:
+            sections.append("stock_brief")
+        if _question_needs_macro(question):
+            sections.append("macro_brief")
+        if _question_needs_news(question):
+            sections.append("news")
+    return list(dict.fromkeys(sections))
+
+
+def _merge_envelope_context(
+    *,
+    envelope: dict[str, Any],
+    data_context: list[dict[str, Any]],
+    news_context: list[dict[str, Any]],
+    data_freshness: dict[str, Any],
+    data_errors: list[dict[str, Any]],
+) -> None:
+    tool = envelope.get("tool") or "unknown"
+    target = news_context if tool == "news" else data_context
+    target.append(envelope)
+    data_freshness[tool] = envelope.get("freshness") or {}
+    for err in envelope.get("errors") or []:
+        data_errors.append({"tool": tool, **err})
+
+
+async def _mcp_data_context(
+    *,
+    workflow: str,
+    question: str,
+    ticker: str | None,
+    tickers: list[str],
+    include_market_data: bool,
+    data_sections: list[str],
+    news_days: int,
+    mcp_user: dict,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
+    if not include_market_data:
+        return [], [], [], {}, []
+
+    sections = data_sections or _default_data_sections(
+        workflow=workflow,
+        question=question,
+        ticker=ticker,
+        tickers=tickers,
+    )
+    symbols = tickers or ([ticker] if ticker else [])
+    data_context: list[dict[str, Any]] = []
+    news_context: list[dict[str, Any]] = []
+    data_freshness: dict[str, Any] = {}
+    data_errors: list[dict[str, Any]] = []
+    market_context: list[dict[str, Any]] = []
+
+    async def add_envelope(envelope: dict[str, Any]) -> None:
+        _merge_envelope_context(
+            envelope=envelope,
+            data_context=data_context,
+            news_context=news_context,
+            data_freshness=data_freshness,
+            data_errors=data_errors,
+        )
+
+    for section in sections[:8]:
+        if section == "stock_brief":
+            for symbol in symbols:
+                req = KolMcpBriefRequest(brief_type="stock", symbol=symbol)
+                legacy = await mcp_data.legacy_market_brief_payload(req, mcp_user)
+                market_context.append({
+                    "brief_type": legacy["brief_type"],
+                    "symbol": legacy["symbol"],
+                    "payload": legacy["payload"],
+                })
+                await add_envelope(legacy["mcp_envelope"])
+        elif section == "peer_brief":
+            for symbol in symbols[:3]:
+                req = KolMcpBriefRequest(brief_type="peer", symbol=symbol)
+                await add_envelope(await mcp_data.get_brief(req, mcp_user))
+        elif section == "industry_brief" and (ticker or symbols):
+            req = KolMcpBriefRequest(brief_type="industry", symbol=ticker or symbols[0])
+            await add_envelope(await mcp_data.get_brief(req, mcp_user))
+        elif section == "macro_brief":
+            req = KolMcpBriefRequest(brief_type="macro")
+            legacy = await mcp_data.legacy_market_brief_payload(req, mcp_user)
+            market_context.append({
+                "brief_type": legacy["brief_type"],
+                "symbol": None,
+                "payload": legacy["payload"],
+            })
+            await add_envelope(legacy["mcp_envelope"])
+        elif section in {"news", "stock_news"}:
+            await add_envelope(await mcp_data.get_news(
+                KolMcpNewsRequest(symbols=symbols, scope="stock", days=news_days),
+                mcp_user,
+            ))
+        elif section == "market_news":
+            await add_envelope(await mcp_data.get_news(
+                KolMcpNewsRequest(scope="market", days=news_days),
+                mcp_user,
+            ))
+        elif section in {"all_news"}:
+            await add_envelope(await mcp_data.get_news(
+                KolMcpNewsRequest(symbols=symbols, scope="all", days=news_days),
+                mcp_user,
+            ))
+        elif section in {
+            "quote",
+            "profile",
+            "fundamentals",
+            "forward_valuation",
+            "historical_valuation",
+            "technical",
+            "earnings_calendar",
+            "price_history",
+            "earnings_data",
+            "transcript",
+            "insider_trading",
+            "press_releases",
+        } and symbols:
+            for symbol in symbols[:3]:
+                await add_envelope(await mcp_data.get_stock_data(
+                    KolMcpStockDataRequest(symbol=symbol, sections=[section]),
+                    mcp_user,
+                ))
+        elif section in {
+            "market_overview",
+            "macro_risk",
+            "liquidity",
+            "sentiment",
+            "economic_calendar",
+            "earnings_calendar",
+            "morning_report",
+            "weekly_report",
+            "twitter_digest",
+        }:
+            await add_envelope(await mcp_data.get_market_data(
+                KolMcpMarketDataRequest(sections=[section], days=news_days),
+                mcp_user,
+            ))
+        else:
+            data_errors.append({"tool": "data_sections", "section": section, "error": "unsupported data section"})
+
+    return market_context, data_context, news_context, data_freshness, data_errors
+
+
+@router.post("/mcp/auth/device/start")
+async def mcp_auth_device_start(req: KolMcpAuthStartRequest):
+    """Start browser/device auth for a local TheMarketBrew MCP adapter."""
+    try:
+        return await mcp_auth.start_device_authorization(req.client_name)
+    except RuntimeError as exc:
+        logger.warning("mcp auth start failed: %s", exc)
+        raise HTTPException(status_code=502, detail="MCP auth service unavailable") from exc
+
+
+@router.post("/mcp/auth/device/token")
+async def mcp_auth_device_token(req: KolMcpAuthTokenRequest):
+    """Poll device auth and exchange an approved device code for an MCP token."""
+    return await mcp_auth.exchange_device_token(req.device_code)
+
+
+@router.post("/mcp/auth/device/authorize")
+async def mcp_auth_device_authorize(
+    req: KolMcpAuthorizeDeviceRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Approve a device code from a logged-in TheMarketBrew web session."""
+    return await mcp_auth.authorize_device_code(user_code=req.user_code, user_id=user_id)
+
+
+@router.get("/mcp/auth/status")
+async def mcp_auth_status(
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
+    """Return current MCP account token status."""
+    return {
+        "ok": True,
+        "authenticated": True,
+        "user_id": mcp_user.get("user_id"),
+        "token_id": mcp_user.get("token_id"),
+        "scopes": mcp_user.get("scopes") or [],
+        "expires_at": mcp_user.get("expires_at"),
+        "client_name": mcp_user.get("client_name"),
+    }
+
+
+@router.post("/mcp/auth/revoke")
+async def mcp_auth_revoke(
+    authorization: str | None = Header(None),
+    _mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
+    """Revoke the current MCP token."""
+    token = authorization[7:].strip() if authorization and authorization.startswith("Bearer ") else ""
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing MCP token")
+    return await mcp_auth.revoke_mcp_token(token)
+
+
+@router.get("/mcp/data/catalog")
+async def mcp_data_catalog(
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
+    """Catalog of TheMarketBrew MCP data capabilities."""
+    return await mcp_data.data_catalog(mcp_user)
+
+
+@router.post("/mcp/data/brief")
+async def mcp_data_brief(
+    req: KolMcpBriefRequest,
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
+    """Coarse-grained stock/peer/macro/industry brief for MCP clients."""
+    return await mcp_data.get_brief(req, mcp_user)
+
+
+@router.post("/mcp/data/stock")
+async def mcp_data_stock(
+    req: KolMcpStockDataRequest,
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
+    """Fine-grained stock data sections for MCP clients."""
+    return await mcp_data.get_stock_data(req, mcp_user)
+
+
+@router.post("/mcp/data/market")
+async def mcp_data_market(
+    req: KolMcpMarketDataRequest,
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
+    """Market, macro, calendar, and report data sections for MCP clients."""
+    return await mcp_data.get_market_data(req, mcp_user)
+
+
+@router.post("/mcp/data/news")
+async def mcp_data_news(
+    req: KolMcpNewsRequest,
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
+    """Unified news feed for MCP clients."""
+    return await mcp_data.get_news(req, mcp_user)
+
+
 @router.get("/personas/{username}/mcp/status")
 async def mcp_status(username: str):
     """Market Lens backend status."""
@@ -1004,11 +1372,18 @@ async def mcp_status(username: str):
         "mode": "backend_first",
         "persona": persona_summary,
         "tools": _market_lens_tool_names(),
+        "auth": {
+            "account_required": True,
+            "content_tools_require_token": True,
+            "login_tool": "market_lens_login",
+        },
     }
 
 
 @router.get("/mcp/personas")
-async def mcp_personas():
+async def mcp_personas(
+    _mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """List personas that have distilled material available to Market Lens MCP."""
     return {
         "ok": True,
@@ -1030,7 +1405,11 @@ async def mcp_personas():
 
 
 @router.get("/personas/{username}/mcp/lenses")
-async def mcp_list_lenses(username: str, lens_type: str | None = None):
+async def mcp_list_lenses(
+    username: str,
+    lens_type: str | None = None,
+    _mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """Index of all distilled material lenses for one persona."""
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -1041,7 +1420,12 @@ async def mcp_list_lenses(username: str, lens_type: str | None = None):
 
 
 @router.get("/personas/{username}/mcp/lenses/{lens_type}/{lens_id}")
-async def mcp_get_lens(username: str, lens_type: str, lens_id: str):
+async def mcp_get_lens(
+    username: str,
+    lens_type: str,
+    lens_id: str,
+    _mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """Full distilled lens content for one persona/layer/id."""
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -1054,7 +1438,11 @@ async def mcp_get_lens(username: str, lens_type: str, lens_id: str):
 
 
 @router.post("/personas/{username}/mcp/lenses/search")
-async def mcp_search_lenses(username: str, req: KolMcpLensSearchRequest):
+async def mcp_search_lenses(
+    username: str,
+    req: KolMcpLensSearchRequest,
+    _mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """Lexical search over all distilled material lenses."""
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -1071,7 +1459,11 @@ async def mcp_search_lenses(username: str, req: KolMcpLensSearchRequest):
 
 
 @router.post("/personas/{username}/mcp/evidence/by-ids")
-async def mcp_evidence_by_ids(username: str, req: KolMcpEvidenceByIdsRequest):
+async def mcp_evidence_by_ids(
+    username: str,
+    req: KolMcpEvidenceByIdsRequest,
+    _mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """Retrieval of historical tweets referenced by lens Evidence Maps."""
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -1097,7 +1489,11 @@ async def mcp_evidence_by_ids(username: str, req: KolMcpEvidenceByIdsRequest):
 
 
 @router.post("/personas/{username}/mcp/search")
-async def mcp_live_search(username: str, req: KolMcpSearchRequest):
+async def mcp_live_search(
+    username: str,
+    req: KolMcpSearchRequest,
+    _mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """Live MCP vector search over KOL tweet embeddings."""
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -1117,18 +1513,23 @@ async def mcp_live_search(username: str, req: KolMcpSearchRequest):
 
 
 @router.post("/personas/{username}/mcp/market-brief")
-async def mcp_market_brief(username: str, req: KolMcpMarketBriefRequest):
+async def mcp_market_brief(
+    username: str,
+    req: KolMcpMarketBriefRequest,
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """Live MCP bridge to KOL agent brief tools."""
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
-    return await _market_brief_payload(
-        brief_type=req.brief_type,
-        symbol=req.symbol,
-    )
+    return await mcp_data.legacy_market_brief_payload(req, mcp_user)
 
 
 @router.post("/personas/{username}/mcp/context")
-async def mcp_live_context(username: str, req: KolMcpContextRequest):
+async def mcp_live_context(
+    username: str,
+    req: KolMcpContextRequest,
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """Live MCP context with vector evidence and optional market data."""
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -1143,16 +1544,22 @@ async def mcp_live_context(username: str, req: KolMcpContextRequest):
         threshold=0.45,
     )
 
-    market_context: list[dict[str, Any]] = []
-    if req.include_market_data:
-        if ticker:
-            market_context.append(
-                await _market_brief_payload(brief_type="stock", symbol=ticker)
-            )
-        if _question_needs_macro(req.question):
-            market_context.append(
-                await _market_brief_payload(brief_type="macro", symbol=None)
-            )
+    (
+        market_context,
+        data_context,
+        news_context,
+        data_freshness,
+        data_errors,
+    ) = await _mcp_data_context(
+        workflow="build_context",
+        question=req.question,
+        ticker=ticker or None,
+        tickers=[ticker] if ticker else [],
+        include_market_data=req.include_market_data,
+        data_sections=req.data_sections,
+        news_days=req.news_days,
+        mcp_user=mcp_user,
+    )
 
     return {
         "persona_username": username,
@@ -1163,6 +1570,10 @@ async def mcp_live_context(username: str, req: KolMcpContextRequest):
         "market_data_mode": "brief_tools",
         "kol_chunks": [chunk.model_dump() for chunk in chunks],
         "market_context": market_context,
+        "data_context": data_context,
+        "news_context": news_context,
+        "data_freshness": data_freshness,
+        "data_errors": data_errors,
         "methodology_context": _methodology_context(
             username=username,
             workflow="build_context",
@@ -1181,7 +1592,11 @@ async def mcp_live_context(username: str, req: KolMcpContextRequest):
 
 
 @router.post("/personas/{username}/mcp/workflow", response_model=KolMcpWorkflowResponse)
-async def mcp_workflow_context(username: str, req: KolMcpWorkflowRequest):
+async def mcp_workflow_context(
+    username: str,
+    req: KolMcpWorkflowRequest,
+    mcp_user: dict = Depends(mcp_auth.verify_mcp_token),
+):
     """Market Lens workflow context pack for user-owned agents."""
     if not mcp_materials.material_persona_exists(username):
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -1215,13 +1630,22 @@ async def mcp_workflow_context(username: str, req: KolMcpWorkflowRequest):
         threshold=0.45,
     )
 
-    market_context: list[dict[str, Any]] = []
-    if req.include_market_data:
-        symbols_for_briefs = tickers if req.workflow == "compare" else ([ticker] if ticker else [])
-        for symbol in symbols_for_briefs:
-            market_context.append(await _market_brief_payload(brief_type="stock", symbol=symbol))
-        if req.workflow == "market_regime" or _question_needs_macro(req.question):
-            market_context.append(await _market_brief_payload(brief_type="macro", symbol=None))
+    (
+        market_context,
+        data_context,
+        news_context,
+        data_freshness,
+        data_errors,
+    ) = await _mcp_data_context(
+        workflow=req.workflow,
+        question=req.question,
+        ticker=ticker,
+        tickers=tickers,
+        include_market_data=req.include_market_data,
+        data_sections=req.data_sections,
+        news_days=req.news_days,
+        mcp_user=mcp_user,
+    )
 
     methodology_context = _methodology_context(
         username=username,
@@ -1242,6 +1666,10 @@ async def mcp_workflow_context(username: str, req: KolMcpWorkflowRequest):
         market_data_mode="brief_tools" if req.include_market_data else "disabled",
         kol_chunks=[chunk.model_dump() for chunk in chunks],
         market_context=market_context,
+        data_context=data_context,
+        news_context=news_context,
+        data_freshness=data_freshness,
+        data_errors=data_errors,
         methodology_context=methodology_context,
         answer_discipline=_persona_answer_discipline(username),
         suggested_answer_shape=_workflow_answer_shape(req.workflow, username),
@@ -1317,21 +1745,181 @@ async def cockpit_ticker_detail(username: str, ticker: str):
     return detail
 
 
+def _timeline_claim_from_tweet(tweet: dict) -> str:
+    claim = str(tweet.get("key_claim") or "").strip()
+    if claim:
+        return claim
+    text = " ".join(str(tweet.get("text") or "").split())
+    if not text:
+        text = " ".join(str(tweet.get("article_title") or "").split())
+    return text[:180] if text else ""
+
+
+def _normalize_timeline_stance(stance: Any) -> str | None:
+    s = str(stance or "").lower()
+    if s.startswith("bull"):
+        return "bull"
+    if s.startswith("bear"):
+        return "bear"
+    if s.startswith("neutral") or s.startswith("watch"):
+        return "neutral"
+    return None
+
+
+def _tweet_mentions_symbol(tweet: dict, symbol: str) -> bool:
+    target = symbol.upper()
+    haystack = " ".join(
+        str(tweet.get(field) or "")
+        for field in ("text", "article_title")
+    ).upper()
+    pattern = re.compile(r"(?<![A-Z0-9])\$?" + re.escape(target) + r"(?![A-Z0-9])")
+    return bool(pattern.search(haystack))
+
+
+def _pick_v3_raw_timeline_items(
+    tweets: list[dict],
+    ticker: str,
+    stance: str | None,
+    limit: int,
+) -> list[dict]:
+    eligible: list[dict] = []
+    for tweet in tweets:
+        content_type = tweet.get("content_type")
+        if content_type in _TIMELINE_DROP_TYPES:
+            continue
+        if content_type and content_type not in _TIMELINE_KEEP_TYPES:
+            continue
+        if not _tweet_mentions_symbol(tweet, ticker):
+            continue
+        if not _timeline_claim_from_tweet(tweet):
+            continue
+        eligible.append(tweet)
+    if not eligible:
+        return []
+
+    eligible.sort(key=lambda item: item.get("created_at") or "")
+    if len(eligible) <= limit:
+        chosen = eligible
+    else:
+        earliest, latest = eligible[0], eligible[-1]
+        middle = eligible[1:-1]
+        middle.sort(
+            key=lambda item: (item.get("like_count") or 0, item.get("created_at") or ""),
+            reverse=True,
+        )
+        chosen = [earliest, *middle[: max(0, limit - 2)], latest]
+    chosen.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+
+    return [
+        {
+            "id": str(tweet.get("id") or f"{ticker.upper()}-raw-{index}"),
+            "created_at": tweet.get("created_at"),
+            "url": tweet.get("url"),
+            "like_count": tweet.get("like_count") or 0,
+            "content_type": tweet.get("content_type"),
+            "key_claim": _timeline_claim_from_tweet(tweet),
+            "stance": stance,
+        }
+        for index, tweet in enumerate(chosen)
+    ]
+
+
+def _v3_summary_timeline_items(ticker: str, summary: dict | None, limit: int) -> list[dict]:
+    if not summary:
+        return []
+    stance = _normalize_timeline_stance(summary.get("stance"))
+    nodes: list[tuple[str, str]] = []
+    for content_type, value in (
+        ("thesis", summary.get("thesis")),
+        ("sector_framework", summary.get("key_logic")),
+    ):
+        text = str(value or "").strip()
+        if text:
+            nodes.append((content_type, text))
+    for value in (summary.get("signals_watched") or [])[:3]:
+        text = str(value or "").strip()
+        if text:
+            nodes.append(("catalyst", text))
+    risk_items = [
+        *(summary.get("bear_triggers") or []),
+        *(summary.get("falsifiers") or []),
+        *(summary.get("veto") or []),
+    ]
+    for value in risk_items[:3]:
+        text = str(value or "").strip()
+        if text:
+            nodes.append(("risk_flag", text))
+
+    return [
+        {
+            "id": f"{ticker.upper()}-summary-{index}",
+            "created_at": None,
+            "url": None,
+            "like_count": 0,
+            "content_type": content_type,
+            "key_claim": text,
+            "stance": stance,
+        }
+        for index, (content_type, text) in enumerate(nodes[:limit])
+    ]
+
+
+async def _v3_ticker_timeline(username: str, ticker: str, limit: int) -> dict | None:
+    sym_upper = ticker.upper()
+    ticker_entry = next(
+        (t for t in cockpit_v3.list_tickers_v3(username) if t["ticker"].upper() == sym_upper),
+        None,
+    )
+    if ticker_entry is None:
+        return None
+
+    summary = cockpit_v3.get_ticker_summary(username, ticker_entry["ticker"])
+    stance = _normalize_timeline_stance((summary or {}).get("stance"))
+
+    live = await cockpit.get_ticker_timeline(username, ticker_entry["ticker"], limit=limit)
+    if live and live.get("items"):
+        return live
+
+    raw_items: list[dict] = []
+    try:
+        idx = await cockpit.get_index(username)
+        raw_items = _pick_v3_raw_timeline_items(
+            idx.get("all_tweets") or [],
+            ticker_entry["ticker"],
+            stance,
+            limit,
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("v3 raw ticker timeline failed for %s", ticker_entry["ticker"], exc_info=True)
+
+    items = raw_items or _v3_summary_timeline_items(ticker_entry["ticker"], summary, limit)
+    dates = [item["created_at"] for item in items if item.get("created_at")]
+    return {
+        "ticker": ticker_entry["ticker"],
+        "first": min(dates) if dates else ticker_entry.get("first"),
+        "latest": max(dates) if dates else ticker_entry.get("latest"),
+        "total": ticker_entry.get("count") or len(items),
+        "items": items,
+    }
+
+
 @router.get("/personas/{username}/tickers/{ticker}/timeline")
 async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
     """Per-ticker vertical opinion timeline. Picks the most informative
     enrichment-annotated mentions and returns them newest-first.
 
-    Only available for personas with a live tweet index (Frank). v3 personas
-    don't have ingested tweets yet — returns 204 No Content semantics
-    (empty list) instead of 404 to keep the UI simple.
+    v3 personas first reuse the live cockpit index when a ticker is recognized,
+    then fall back to raw text matches and finally the promoted ticker summary.
     """
     persona = get_persona(username)
     if persona is None:
         raise HTTPException(status_code=404, detail="Persona not found")
+    limit = max(3, min(limit, 1500))
     if not _is_skill_cockpit(username):
-        return {"ticker": ticker.upper(), "items": []}
-    limit = max(3, min(limit, 20))
+        result = await _v3_ticker_timeline(username, ticker, limit=limit)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Ticker not covered")
+        return result
     result = await cockpit.get_ticker_timeline(username, ticker, limit=limit)
     if result is None:
         raise HTTPException(status_code=404, detail="Ticker not covered")
@@ -1349,14 +1937,18 @@ async def kol_research_chat(
     request: Request,
     user_info: dict = Depends(require_kol_research_flag),
 ):
-    """Unary KOL research chat. Shares the research daily quota (2/day for
-    free + Pro; Max unlimited) so persona mode can't be used to bypass it."""
+    """Unary KOL research chat.
+
+    Qinbafrank uses its own Ultra pack gate with one free trial question;
+    other personas share the general research quota.
+    """
     client_ip = _get_real_ip(request)
-    quota = await consume_quota(user_info["user_id"], client_ip)
+    quota = await _consume_kol_chat_access(req, user_info["user_id"], client_ip)
     if not quota["allowed"]:
+        error_payload = _kol_quota_error_payload(req)
         raise HTTPException(
             status_code=429,
-            detail="今日免费提问次数已用完，升级 Max 解锁无限使用",
+            detail=error_payload["message"],
         )
     if posthog.posthog_client:
         posthog.posthog_client.capture(
@@ -1384,9 +1976,10 @@ async def kol_research_chat_stream(
     request: Request,
     user_info: dict = Depends(require_kol_research_flag),
 ):
-    """SSE streaming KOL research chat. Shares the research daily quota
-    (2/day for free + Pro; Max unlimited) so persona mode can't be used to
-    bypass it.
+    """SSE streaming KOL research chat.
+
+    Qinbafrank uses its own Ultra pack gate with one free trial question;
+    other personas share the general research quota.
 
     Event types:
       - skill_activated   {skill_name, description}
@@ -1398,17 +1991,18 @@ async def kol_research_chat_stream(
       - error             {error}
     """
     client_ip = _get_real_ip(request)
-    quota = await consume_quota(user_info["user_id"], client_ip)
+    quota = await _consume_kol_chat_access(req, user_info["user_id"], client_ip)
     if not quota["allowed"]:
+        error_payload = _kol_quota_error_payload(req)
         async def quota_error():
-            yield "data: %s\n\n" % _json.dumps(
-                {
-                    "type": "error",
-                    "message": "今日免费提问次数已用完，升级 Max 解锁无限使用",
-                    "quota_exceeded": True,
-                },
-                ensure_ascii=False,
-            )
+            data = {
+                "type": "error",
+                "message": error_payload["message"],
+                "quota_exceeded": True,
+            }
+            if error_payload.get("required_product"):
+                data["required_product"] = error_payload["required_product"]
+            yield "data: %s\n\n" % _json.dumps(data, ensure_ascii=False)
         return StreamingResponse(quota_error(), media_type="text/event-stream")
 
     if posthog.posthog_client:

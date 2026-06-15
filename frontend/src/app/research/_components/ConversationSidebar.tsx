@@ -183,7 +183,7 @@ export default function ConversationSidebar({
           >
             <Search className="w-3.5 h-3.5" aria-hidden="true" />
             <span className="min-w-0 flex-1 text-left">搜索对话</span>
-            <span className="hidden xl:inline-flex items-center rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground/70">
+            <span className="hidden xl:inline-flex items-center rounded border border-border/60 px-1.5 py-0.5 text-xs text-muted-foreground">
               ⌘K
             </span>
           </button>
@@ -217,7 +217,7 @@ export default function ConversationSidebar({
           </div>
         ) : conversations.length === 0 ? (
           <div className="px-3 py-6 text-center">
-            <p className="text-xs text-muted-foreground/70">开始对话后会保存在这里</p>
+            <p className="text-sm text-muted-foreground">开始对话后会保存在这里</p>
           </div>
         ) : (
           <>
@@ -348,11 +348,11 @@ export default function ConversationSidebar({
               {userName || userEmail}
             </span>
             {userTier === 'max' ? (
-              <span className="shrink-0 text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+              <span className="shrink-0 rounded bg-gradient-to-br from-emerald-500 to-emerald-600 px-1.5 py-0.5 text-xs font-bold tracking-wide text-white">
                 MAX
               </span>
             ) : userTier === 'pro' ? (
-              <span className="shrink-0 text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+              <span className="shrink-0 rounded border border-emerald-200 bg-emerald-100 px-1.5 py-0.5 text-xs font-bold tracking-wide text-emerald-700">
                 PRO
               </span>
             ) : null}

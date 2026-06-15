@@ -179,6 +179,28 @@ def _is_cjk(s: str) -> bool:
     return any("一" <= ch <= "鿿" for ch in s)
 
 
+def _matches_keyword(text: str, keyword: str) -> bool:
+    keyword = str(keyword or "").strip()
+    if not keyword:
+        return False
+    if _is_cjk(keyword):
+        return keyword in text
+    return re.search(
+        rf"(?<![A-Za-z0-9]){re.escape(keyword)}(?![A-Za-z0-9])",
+        text,
+        re.IGNORECASE,
+    ) is not None
+
+
+def _tweet_search_text(t: dict) -> str:
+    return " ".join([
+        str(t.get("text") or ""),
+        str(t.get("article_title") or ""),
+        " ".join(str(ticker) for ticker in (t.get("tickers") or [])),
+        " ".join(str(topic) for topic in (t.get("topics") or [])),
+    ])
+
+
 def _build_matchers() -> dict[str, list]:
     """Compile per-ticker matchers. Each entry: list of ('cjk', str) | ('en', regex)."""
     compiled: dict[str, list] = {}
@@ -513,12 +535,28 @@ async def get_ticker_tweets(
     }
 
 
-# Content types that carry actionable opinion. `noise` is filler; `macro_view`
-# is not ticker-specific. Everything else (thesis / catalyst / risk_flag /
-# sector_framework / trade_action) is fair game for the per-ticker timeline.
+# Content types that should not create opinion-timeline nodes even when they
+# mention a ticker. Missing content_type is allowed as a fallback because recent
+# tweets can arrive before the enrichment job has attached key_claim metadata.
+_TIMELINE_DROP_TYPES: frozenset[str] = frozenset({"noise"})
+
+# Content types that carry actionable opinion. Missing content_type is still
+# accepted with a text fallback; these labels are used for scoring and chips.
 _TIMELINE_KEEP_TYPES: frozenset[str] = frozenset(
-    {"thesis", "catalyst", "risk_flag", "sector_framework", "trade_action"}
+    {"thesis", "catalyst", "risk_flag", "sector_framework", "trade_action", "macro_view"}
 )
+
+
+def _timeline_claim_for(t: dict) -> str:
+    claim = str(t.get("key_claim") or "").strip()
+    if claim:
+        return claim
+    text = " ".join(str(t.get("text") or "").split())
+    if not text:
+        text = " ".join(str(t.get("article_title") or "").split())
+    if not text:
+        return ""
+    return text[:180]
 
 
 def _stance_for(ticker: str, stances: Optional[list]) -> Optional[str]:
@@ -537,16 +575,23 @@ def _stance_for(ticker: str, stances: Optional[list]) -> Optional[str]:
 
 def _pick_timeline_items(tweets: list[dict], ticker: str, limit: int) -> list[dict]:
     """Select the most informative subset of mentions to render on the vertical
-    timeline. Rules: keep tweets with a non-empty key_claim AND a non-trivial
-    content_type. Always preserve the earliest + the latest. From the middle
-    pool, pick the top by like_count up to `limit`. Return newest-first for
-    reading from the current view back to the historical origin.
+    timeline. Rules: keep all ticker-intersecting tweets except explicit noise.
+    Prefer enrichment key_claims, but fall back to the original tweet text so
+    new or partially enriched tweets still appear. Always preserve the earliest
+    + latest. From the middle pool, pick the top by like_count up to `limit`.
+    Return newest-first for reading from the current view back to the
+    historical origin.
     """
-    eligible = [
-        t for t in tweets
-        if (t.get("key_claim") or "").strip()
-        and (t.get("content_type") in _TIMELINE_KEEP_TYPES)
-    ]
+    eligible = []
+    for t in tweets:
+        content_type = t.get("content_type")
+        if content_type in _TIMELINE_DROP_TYPES:
+            continue
+        if content_type and content_type not in _TIMELINE_KEEP_TYPES:
+            continue
+        if not _timeline_claim_for(t):
+            continue
+        eligible.append(t)
     if not eligible:
         return []
     eligible.sort(key=lambda t: t.get("created_at") or "")
@@ -574,7 +619,7 @@ def _pick_timeline_items(tweets: list[dict], ticker: str, limit: int) -> list[di
             "url": t.get("url"),
             "like_count": t.get("like_count") or 0,
             "content_type": t.get("content_type"),
-            "key_claim": t.get("key_claim"),
+            "key_claim": _timeline_claim_for(t),
             "stance": _stance_for(ticker, t.get("ticker_stances")),
         })
     return out
@@ -944,6 +989,8 @@ async def get_feed(
     offset: int = 0,
     sector: Optional[str] = None,
     ticker: Optional[str] = None,
+    tickers: Optional[list[str]] = None,
+    keywords: Optional[list[str]] = None,
     topic: Optional[str] = None,
     include_replies: bool = False,
 ) -> dict:
@@ -951,6 +998,7 @@ async def get_feed(
 
     Filters:
       - ticker: exact match against the per-tweet alias-derived ticker list.
+      - tickers / keywords: OR match against ticker list and tweet text/title.
       - sector: matches a group label (or short alias 'ai'/'crypto'/'macro');
                 kept tweets must mention at least one ticker mapped to that group.
       - include_replies: if False (default), drops replies to OTHER users
@@ -979,6 +1027,21 @@ async def get_feed(
     if ticker:
         target = ticker.upper()
         items = [t for t in items if target in (t.get("tickers") or [])]
+
+    if tickers or keywords:
+        targets = {str(t).upper() for t in (tickers or []) if str(t).strip()}
+        terms = [str(term).strip() for term in (keywords or []) if str(term).strip()]
+        items = [
+            t for t in items
+            if (
+                targets
+                and any(str(tk).upper() in targets for tk in (t.get("tickers") or []))
+            )
+            or (
+                terms
+                and any(_matches_keyword(_tweet_search_text(t), term) for term in terms)
+            )
+        ]
 
     if topic:
         # "industry" parent matches any industry/* leaf; specific leaves match

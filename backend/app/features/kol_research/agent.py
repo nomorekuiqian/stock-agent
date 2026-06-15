@@ -36,6 +36,7 @@ from google.adk.runners import InMemoryRunner
 from google.adk.tools.google_search_tool import GoogleSearchTool
 from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
+from pydantic import BaseModel, Field
 
 from app.core.config import (
     AGENT_RUNTIME_KOL_TIMEOUT_S,
@@ -98,8 +99,73 @@ if _GOOGLE_API_KEY and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = _GOOGLE_API_KEY
 
 MODEL = "gemini-3.5-flash"
+FOLLOW_UP_MODEL = "gemini-3.1-flash-lite"
 APP_NAME = "kol_research_agent"
+FOLLOW_UP_APP_NAME = "kol_follow_up_options"
 DEFAULT_PERSONA = "qinbafrank"
+
+
+class _KolFollowUpOptionsOutput(BaseModel):
+    options: List[str] = Field(default_factory=list)
+
+
+_FOLLOW_UP_OPTIONS_INSTRUCTION = """
+你是 TheMarketBrew 研究对话的 follow-up chips 生成器。
+
+你会收到 JSON，包含:
+- persona_username: 当前 KOL persona
+- recent_history: 最近几轮对话
+- user_question: 用户刚问的问题
+- assistant_answer: Agent 刚给出的回答
+- content_context: 用户右侧正在看的股票/报告/宏观上下文摘要
+- evidence: 本轮召回的 KOL 历史证据摘要
+
+你的任务: 生成 3-4 个用户最可能继续点击的问题。
+
+质量标准:
+1. 每个 option 都必须是可以直接发送给 Agent 的中文短问题。
+2. 优先匹配用户刚才真正关心的下一步，不要泛泛补课。
+3. 抓住 assistant_answer 里的未解决张力:
+   - 需要用什么数据验证?
+   - 哪些信号会证伪?
+   - 这个 ticker / 板块和谁最该对比?
+   - KOL 历史上是否有直接观点或观点变化?
+   - 接下来财报、新闻、宏观变量应该看什么?
+4. 尽量复用答案里的具体 ticker、公司、板块、变量、事件，避免空泛词。
+5. 避免模板感问题，例如“继续追问主要风险”“用当前数据验证”。
+6. 不要生成买卖建议、仓位建议、目标价或短线交易问题。
+7. 每条尽量 8-28 个中文字；可以包含 ticker。不要超过 40 个字符。
+8. 不要重复 assistant_answer 已经完整回答过的内容；要引导下一步研究。
+
+输出只填 schema 里的 options 数组。不要输出解释。
+
+好例子:
+- "哪些数据会证伪 NVDA 逻辑?"
+- "把 MU 和 AVGO 放一起比"
+- "Qinbafrank 以前怎么修正过?"
+- "下一季财报最该看什么?"
+- "这会影响 AI Capex 主线吗?"
+
+坏例子:
+- "继续追问主要风险"
+- "用当前数据验证"
+- "这只股票可以买入吗?"
+- "给我一个目标价"
+"""
+
+
+_follow_up_options_agent = LlmAgent(
+    name="kol_follow_up_options",
+    model=FOLLOW_UP_MODEL,
+    instruction=_FOLLOW_UP_OPTIONS_INSTRUCTION,
+    output_schema=_KolFollowUpOptionsOutput,
+    output_key="follow_up_options",
+    after_model_callback=meter("kol_research.follow_up_options", model=FOLLOW_UP_MODEL),
+)
+_follow_up_options_runner = InMemoryRunner(
+    agent=_follow_up_options_agent,
+    app_name=FOLLOW_UP_APP_NAME,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -905,6 +971,182 @@ async def _preload_recent_reports() -> None:
         _recent_reports.set([])
 
 
+_FORBIDDEN_FOLLOW_UP_RE = re.compile(
+    r"(买入|卖出|加仓|减仓|清仓|目标价|止损|荐股|能不能买|该不该买|可以买|要不要买)"
+)
+
+
+def _truncate_text(value: Any, limit: int) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "..."
+
+
+def _slim_content_context_for_follow_up(
+    content_context: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if not isinstance(content_context, dict):
+        return None
+
+    slim: Dict[str, Any] = {}
+    for key in ("type", "label", "summary", "symbol"):
+        if content_context.get(key):
+            slim[key] = content_context.get(key)
+
+    params = content_context.get("params")
+    if isinstance(params, dict):
+        slim["params"] = {
+            k: v
+            for k, v in params.items()
+            if k in {"symbol", "ticker", "date", "tab"} and v
+        }
+
+    quote = content_context.get("quote")
+    if isinstance(quote, dict):
+        slim["quote"] = {
+            k: quote.get(k)
+            for k in ("symbol", "price", "change_percent", "market_cap")
+            if quote.get(k) is not None
+        }
+
+    return slim or None
+
+
+def _slim_chunks_for_follow_up(kol_chunks: List[Any] | None) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for raw in (kol_chunks or [])[:5]:
+        if hasattr(raw, "model_dump"):
+            chunk = raw.model_dump()
+        elif isinstance(raw, dict):
+            chunk = raw
+        else:
+            continue
+        out.append(
+            {
+                "citation_index": chunk.get("citation_index"),
+                "title": chunk.get("title"),
+                "created_at": chunk.get("created_at"),
+                "tickers": chunk.get("tickers") or [],
+                "content": _truncate_text(chunk.get("content"), 280),
+            }
+        )
+    return out
+
+
+def _normalize_follow_up_options(raw_options: Any) -> list[str]:
+    if not isinstance(raw_options, list):
+        return []
+
+    options: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_options:
+        option = str(raw or "").strip()
+        option = re.sub(r"^[\s\-*•\d.、]+", "", option)
+        option = option.strip("「」\"'` ")
+        option = re.sub(r"\s+", " ", option)
+        if not option or option in seen:
+            continue
+        if len(option) > 48:
+            continue
+        if _FORBIDDEN_FOLLOW_UP_RE.search(option):
+            continue
+        seen.add(option)
+        options.append(option)
+        if len(options) >= 4:
+            break
+    return options
+
+
+async def generate_kol_follow_up_options(
+    *,
+    user_message: str,
+    assistant_message: str,
+    persona_username: str,
+    history: List[Dict[str, str]] | None = None,
+    kol_chunks: List[Any] | None = None,
+    content_context: Dict[str, Any] | None = None,
+    timeout: float = 8.0,
+) -> list[str]:
+    """Generate high-intent follow-up chips with a small structured LLM pass.
+
+    This is deliberately best-effort. If the generator is slow or malformed,
+    callers return an empty list and the frontend falls back to deterministic
+    chips so the main answer is never blocked by UI sugar.
+    """
+    payload = {
+        "persona_username": persona_username,
+        "recent_history": [
+            {
+                "role": str(turn.get("role", ""))[:20],
+                "content": _truncate_text(turn.get("content"), 500),
+            }
+            for turn in (history or [])[-6:]
+            if isinstance(turn, dict)
+        ],
+        "user_question": _truncate_text(user_message, 900),
+        "assistant_answer": _truncate_text(assistant_message, 4500),
+        "content_context": _slim_content_context_for_follow_up(content_context),
+        "evidence": _slim_chunks_for_follow_up(kol_chunks),
+    }
+
+    session = None
+    try:
+        session = await _follow_up_options_runner.session_service.create_session(
+            app_name=FOLLOW_UP_APP_NAME,
+            user_id="kol_follow_up",
+        )
+        message = types.Content(
+            parts=[types.Part(text=json.dumps(payload, ensure_ascii=False, default=str))],
+            role="user",
+        )
+        await asyncio.wait_for(
+            _run_follow_up_options_session(session_id=session.id, message=message),
+            timeout=timeout,
+        )
+        session_data = await _follow_up_options_runner.session_service.get_session(
+            app_name=FOLLOW_UP_APP_NAME,
+            user_id="kol_follow_up",
+            session_id=session.id,
+        )
+        state = (session_data.state if session_data else {}) or {}
+        raw = state.get("follow_up_options")
+        if isinstance(raw, str):
+            raw = json.loads(raw)
+        parsed = _KolFollowUpOptionsOutput.model_validate(raw or {})
+        return _normalize_follow_up_options(parsed.options)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "kol follow-up option generation failed: persona=%s err=%s",
+            persona_username,
+            exc,
+        )
+        return []
+    finally:
+        if session is not None:
+            try:
+                await _follow_up_options_runner.session_service.delete_session(
+                    app_name=FOLLOW_UP_APP_NAME,
+                    user_id="kol_follow_up",
+                    session_id=session.id,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+
+async def _run_follow_up_options_session(
+    *,
+    session_id: str,
+    message: types.Content,
+) -> None:
+    async for _ in _follow_up_options_runner.run_async(
+        user_id="kol_follow_up",
+        session_id=session_id,
+        new_message=message,
+    ):
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Public run API
 # ---------------------------------------------------------------------------
@@ -1144,10 +1386,19 @@ async def answer_kol_research(
             chunk_to_persona_result(c, citation_index=i + 1)
             for i, c in enumerate(chunks_buf)
         ]
+        options = await generate_kol_follow_up_options(
+            user_message=message,
+            assistant_message=text,
+            persona_username=persona_username,
+            history=history,
+            kol_chunks=kol_chunks,
+            content_context=content_context,
+        )
 
         return KolResearchResponse(
             persona_username=persona_username,
             message=text,
+            options=options,
             kol_chunks=kol_chunks,
             activated_skills=skills_buf,
             tool_calls=tool_log,
@@ -1461,9 +1712,18 @@ async def stream_kol_research(
             },
             events=stream_events,
         )
+        options = await generate_kol_follow_up_options(
+            user_message=message,
+            assistant_message=final_text,
+            persona_username=persona_username,
+            history=history,
+            kol_chunks=kol_chunks,
+            content_context=content_context,
+        )
         final = KolResearchResponse(
             persona_username=persona_username,
             message=final_text,
+            options=options,
             kol_chunks=kol_chunks,
             activated_skills=skills_buf,
             tool_calls=tool_log,

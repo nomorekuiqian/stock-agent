@@ -877,15 +877,17 @@ export interface ActionBarResponse {
 }
 
 // Feedback
+export type FeedbackTargetType =
+  | 'digest_quick_take'
+  | 'digest_headline'
+  | 'health_diagnosis'
+  | 'action_bar_headline'
+  | 'action_bar_chip'
+  | 'top_event'
+  | 'research_agent_answer';
+
 export interface FeedbackInput {
-  target_type:
-    | 'digest_quick_take'
-    | 'digest_headline'
-    | 'health_diagnosis'
-    | 'action_bar_headline'
-    | 'action_bar_chip'
-    | 'top_event'
-    | 'research_agent_answer';
+  target_type: FeedbackTargetType;
   target_id: string;
   /** 1 = thumbs up, -1 = thumbs down, 0 = clear previous feedback. */
   sentiment: 1 | -1 | 0;
@@ -1217,6 +1219,7 @@ export interface KolResearchRequest {
 export interface KolResearchResponse {
   persona_username: string;
   message: string;
+  options: string[];
   kol_chunks: KolPersonaChunk[];
   activated_skills: string[];
   tool_calls: KolToolCallSummary[];
@@ -1239,7 +1242,16 @@ export type KolResearchStreamEvent =
   | { type: 'thinking'; text: string }
   | { type: 'message_delta'; text: string }
   | { type: 'final'; data: KolResearchResponse }
-  | { type: 'error'; error: string; code?: string; detail?: string; status?: number };
+  | {
+      type: 'error';
+      error?: string;
+      message?: string;
+      code?: string;
+      detail?: string;
+      status?: number;
+      quota_exceeded?: boolean;
+      required_product?: string;
+    };
 
 // --- KOL Persona Cockpit (public read) ---
 
@@ -1453,6 +1465,8 @@ export interface KolCockpitFeedOpts {
   offset?: number;
   sector?: string | null;
   ticker?: string | null;
+  tickers?: string[] | null;
+  keywords?: string[] | null;
   topic?: string | null;
 }
 
@@ -2733,7 +2747,20 @@ export const api = {
 
     chatStream: async (
       req: ResearchRequest,
-      onEvent: (event: { type: string; tool?: string; description?: string; content?: string; result?: ResearchResult; message?: string; code?: string; quota_exceeded?: boolean }) => void,
+      onEvent: (event: {
+        type: string;
+        tool?: string;
+        description?: string;
+        content?: string;
+        result?: ResearchResult;
+        message?: string;
+        error?: string;
+        detail?: string;
+        status?: number;
+        code?: string;
+        quota_exceeded?: boolean;
+        required_product?: string;
+      }) => void,
       opts?: AuthRequestOptions,
     ): Promise<void> => {
       const baseHeaders = await _authHeaders(
@@ -2959,6 +2986,8 @@ export const api = {
       if (opts.offset !== undefined) params.set('offset', String(opts.offset));
       if (opts.sector) params.set('sector', opts.sector);
       if (opts.ticker) params.set('ticker', opts.ticker);
+      if (opts.tickers?.length) params.set('tickers', opts.tickers.join(','));
+      if (opts.keywords?.length) params.set('keywords', opts.keywords.join(','));
       if (opts.topic) params.set('topic', opts.topic);
       const qs = params.toString();
       const url = `${API_BASE_URL}/kol_research/personas/${username}/feed${qs ? `?${qs}` : ''}`;

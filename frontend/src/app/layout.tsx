@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
@@ -98,6 +97,10 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning className={`${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}>
       <head>
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Regular.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Medium.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Bold.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Providers>
@@ -105,21 +108,6 @@ export default function RootLayout({
             {children}
           </PageShell>
         </Providers>
-        <Script id="load-chinese-fonts" strategy="afterInteractive">
-          {`
-            [
-              'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css',
-              'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Regular.css',
-              'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Medium.css',
-              'https://cdn.jsdelivr.net/npm/harmonyos-sans-sc-webfont-splitted@1.0.1/dist/Bold.css'
-            ].forEach(function(href) {
-              var link = document.createElement('link');
-              link.rel = 'stylesheet';
-              link.href = href;
-              document.head.appendChild(link);
-            });
-          `}
-        </Script>
         <Analytics />
         <SpeedInsights />
       </body>

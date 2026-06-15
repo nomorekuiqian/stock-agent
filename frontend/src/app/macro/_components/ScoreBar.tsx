@@ -23,7 +23,7 @@ export function ScoreBar({ value, max = 10, showLabel = true }: ScoreBarProps) {
       {/* Health score number */}
       <div className="flex items-baseline gap-0.5 shrink-0">
         <span className={`text-lg font-data font-bold tabular-nums ${level.color}`}>{health.toFixed(1)}</span>
-        <span className="text-xs text-muted-foreground/50">/{max}</span>
+        <span className="text-xs text-muted-foreground">/{max}</span>
       </div>
 
       {/* Bar: left=bad(red), right=good(green) */}

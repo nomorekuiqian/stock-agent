@@ -124,11 +124,12 @@ test.describe('KOL page login gate', () => {
 
   test('keeps qinbafrank root public but gates sub-pages behind login', async ({ page }) => {
     await page.goto('/kol/qinbafrank');
-    await expect(page.getByText('qinbafrank研究室')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('登录后查看完整内容')).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Qinbafrank 研究室', exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('登录后解锁 Qinbafrank 研究室 Ultra')).not.toBeVisible();
+    await page.waitForLoadState('networkidle');
 
     await page.goto('/kol/qinbafrank/stocks');
-    await expect(page.getByText('登录后查看完整内容')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('登录后解锁 Qinbafrank 研究室 Ultra')).toBeVisible({ timeout: 15000 });
     const gatedMain = page.getByRole('main');
     await expect(gatedMain.getByRole('link', { name: '登录' })).toHaveAttribute(
       'href',

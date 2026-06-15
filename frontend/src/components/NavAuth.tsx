@@ -11,7 +11,7 @@ const itemDefault = `${itemBase} text-muted-foreground hover:text-foreground hov
 
 export function NavAuth() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
-  const { isPro, isMax, isLoading: subLoading } = useSubscription();
+  const { isPro, isMax, isLoading: subLoading, plan } = useSubscription();
 
   if (isLoading || (isAuthenticated && subLoading)) {
     return <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />;
@@ -21,6 +21,7 @@ export function NavAuth() {
     const initials = user.name
       ? user.name.charAt(0).toUpperCase()
       : user.email?.charAt(0).toUpperCase() || 'U';
+    const tierLabel = plan === 'ultra' ? 'ULTRA' : isMax ? 'MAX' : 'PRO';
 
     return (
       <DropdownMenu.Root>
@@ -40,8 +41,8 @@ export function NavAuth() {
               </span>
             </div>
             {!subLoading && isPro && (
-              <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-micro font-bold tracking-wider bg-amber-500 text-black leading-none">
-                {isMax ? 'MAX' : 'PRO'}
+              <span className="absolute -bottom-1 -right-1 px-1 py-px rounded text-micro font-bold tracking-wider bg-amber-500 text-black leading-tight">
+                {tierLabel}
               </span>
             )}
           </button>
@@ -62,8 +63,8 @@ export function NavAuth() {
                 {subLoading ? (
                   <span className="w-8 h-3 rounded bg-muted animate-pulse" />
                 ) : isPro ? (
-                  <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-none">
-                    {isMax ? 'MAX' : 'PRO'}
+                  <span className="px-1.5 py-0.5 rounded text-micro font-bold tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/20 leading-tight">
+                    {tierLabel}
                   </span>
                 ) : null}
               </div>

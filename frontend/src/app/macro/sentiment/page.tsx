@@ -75,7 +75,7 @@ function HeroCard({
         <span className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">{SUB_DIM_NAMES[dim.name] || dim.name_zh}</span>
       </div>
       <div className="mb-1 flex items-baseline gap-1.5">
-        <span className={`text-2xl sm:text-data-hero font-bold font-data tracking-tighter leading-none transition-colors duration-300 ${selected ? getColorClass(accentColor) : 'text-foreground group-hover:text-foreground'}`}>{formatted}</span>
+        <span className={`text-2xl sm:text-data-hero font-bold font-data tracking-tighter leading-tight transition-colors duration-300 ${selected ? getColorClass(accentColor) : 'text-foreground group-hover:text-foreground'}`}>{formatted}</span>
         {ratingLabel && <span className={`text-xs sm:text-sm font-medium ${selected ? getColorClass(accentColor) : 'text-muted-foreground'}`}>{ratingLabel}</span>}
       </div>
       <p className="text-xs text-muted-foreground mb-3">{config.label}</p>
@@ -92,7 +92,7 @@ function HeroCard({
         </div>
       )}
       <div className={`absolute inset-x-0 bottom-2 flex justify-center transition-opacity duration-200 ${selected ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
-        <span className="text-micro text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">点击查看详情</span>
+        <span className="text-sm text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full">点击查看详情</span>
       </div>
     </button>
   );

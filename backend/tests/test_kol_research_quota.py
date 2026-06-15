@@ -1,8 +1,9 @@
 """Quota enforcement on /api/kol_research/chat and /api/kol_research/chat/stream.
 
 The KOL persona chat originally bypassed the daily research quota (free users
-got unlimited persona conversations). These tests pin that down: both unary
-and SSE endpoints must call `consume_quota` and reject when exhausted.
+got unlimited persona conversations). Non-Qinbafrank personas still use the
+general research quota; Qinbafrank uses the Ultra pack gate with 1 lifetime
+trial question.
 """
 from __future__ import annotations
 
@@ -57,7 +58,7 @@ def test_unary_chat_rejects_when_quota_exhausted(client):
             "/api/kol_research/chat",
             json={
                 "message": "test",
-                "persona_username": "qinbafrank",
+                "persona_username": "aleabitoreddit",
                 "history": [],
                 "turn_id": "t1",
             },
@@ -81,7 +82,7 @@ def test_unary_chat_consumes_quota_on_success(client):
         "app.features.kol_research.router.answer_kol_research",
         new_callable=AsyncMock,
         return_value=KolResearchResponse(
-            persona_username="qinbafrank",
+            persona_username="aleabitoreddit",
             message="ok",
         ),
     ) as mock_answer:
@@ -89,7 +90,7 @@ def test_unary_chat_consumes_quota_on_success(client):
             "/api/kol_research/chat",
             json={
                 "message": "test",
-                "persona_username": "qinbafrank",
+                "persona_username": "aleabitoreddit",
                 "history": [],
                 "turn_id": "t2",
             },
@@ -114,7 +115,7 @@ def test_stream_chat_emits_quota_error_when_exhausted(client):
             "/api/kol_research/chat/stream",
             json={
                 "message": "test",
-                "persona_username": "qinbafrank",
+                "persona_username": "aleabitoreddit",
                 "history": [],
                 "turn_id": "t3",
             },
@@ -127,3 +128,62 @@ def test_stream_chat_emits_quota_error_when_exhausted(client):
     mock_consume.assert_awaited_once()
     # Agent must not run when quota gate fires.
     mock_stream.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_qinbafrank_trial_uses_fixed_lifetime_quota_bucket():
+    """Qinbafrank trial must not reset daily."""
+    from app.features.kol_research import router as kol_router
+
+    with patch(
+        "app.features.payment.entitlements.has_entitlement",
+        new_callable=AsyncMock,
+        return_value=False,
+    ) as mock_entitlement, patch(
+        "app.features.kol_research.router.get_usage",
+        new_callable=AsyncMock,
+        return_value=0,
+    ) as mock_get_usage, patch(
+        "app.features.kol_research.router.increment_usage",
+        new_callable=AsyncMock,
+        return_value=1,
+    ) as mock_increment:
+        result = await kol_router._consume_qinbafrank_pack_access("user-1", "1.2.3.4")
+
+    assert result["allowed"] is True
+    mock_entitlement.assert_awaited_once_with("user-1", "kol_pack_qinbafrank")
+    mock_get_usage.assert_awaited_once_with(
+        "kol_pack_qinbafrank_trial:user-1",
+        kol_router.QINBAFRANK_TRIAL_USAGE_DATE,
+    )
+    mock_increment.assert_awaited_once_with(
+        "kol_pack_qinbafrank_trial:user-1",
+        "user",
+        kol_router.QINBAFRANK_TRIAL_USAGE_DATE,
+    )
+
+
+@pytest.mark.asyncio
+async def test_qinbafrank_trial_exhaustion_does_not_increment_again():
+    from app.features.kol_research import router as kol_router
+
+    with patch(
+        "app.features.payment.entitlements.has_entitlement",
+        new_callable=AsyncMock,
+        return_value=False,
+    ), patch(
+        "app.features.kol_research.router.get_usage",
+        new_callable=AsyncMock,
+        return_value=1,
+    ) as mock_get_usage, patch(
+        "app.features.kol_research.router.increment_usage",
+        new_callable=AsyncMock,
+    ) as mock_increment:
+        result = await kol_router._consume_qinbafrank_pack_access("user-1", "1.2.3.4")
+
+    assert result["allowed"] is False
+    mock_get_usage.assert_awaited_once_with(
+        "kol_pack_qinbafrank_trial:user-1",
+        kol_router.QINBAFRANK_TRIAL_USAGE_DATE,
+    )
+    mock_increment.assert_not_awaited()

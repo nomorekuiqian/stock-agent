@@ -38,12 +38,12 @@ export function MacroSection({ thread, index, locked = false }: Props) {
     >
       <header className="flex items-baseline justify-between gap-3 pb-3 border-b border-border/40">
         <h3 className="font-editorial text-lg md:text-xl text-foreground/95 tracking-tight">
-          <span className="text-muted-foreground/55 mr-2 font-data text-xs tabular-nums">
+          <span className="mr-2 font-data text-xs tabular-nums text-muted-foreground/70">
             {String(index + 1).padStart(2, '0')}
           </span>
           {thread.title}
         </h3>
-        <span className="shrink-0 text-[10px] uppercase tracking-[0.22em] text-muted-foreground/65 font-data">
+        <span className="shrink-0 text-xs uppercase tracking-[0.16em] text-muted-foreground font-data">
           {thread.layer === 'macro' ? '宏观' : '行业'}
           {keyPointCount > 0 && (
             <>
@@ -69,7 +69,7 @@ export function MacroSection({ thread, index, locked = false }: Props) {
         </div>
       ) : (
         thread.synthesis_zh && (
-          <p className="mt-4 text-[15px] leading-[1.85] text-foreground/85 font-editorial">
+          <p className="font-reading mt-4 text-sm leading-7 text-foreground/85 md:text-base md:leading-8">
             {thread.synthesis_zh}
           </p>
         )
@@ -93,7 +93,7 @@ export function MacroSection({ thread, index, locked = false }: Props) {
           )
         : thread.key_points.length > 0 && (
             <details className="mt-5 group">
-              <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/75 hover:text-sky-400 transition-colors py-1.5 select-none border-t border-border/40 pt-4">
+              <summary className="list-none cursor-pointer flex items-center gap-2 border-t border-border/40 pt-4 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-sky-400 select-none">
                 <svg
                   aria-hidden
                   className="w-3 h-3 transition-transform duration-200 group-open:rotate-90"
@@ -105,7 +105,7 @@ export function MacroSection({ thread, index, locked = false }: Props) {
                 </svg>
                 <span className="group-open:hidden">展开观点</span>
                 <span className="hidden group-open:inline">收起观点</span>
-                <span className="font-data tabular-nums text-muted-foreground/55 normal-case">
+                <span className="font-data tabular-nums text-muted-foreground/70 normal-case">
                   ({thread.key_points.length})
                 </span>
               </summary>
@@ -123,10 +123,10 @@ export function MacroSection({ thread, index, locked = false }: Props) {
 function KeyPointRow({ arg }: { arg: Argument }) {
   return (
     <li className="flex gap-3 text-sm leading-relaxed group">
-      <span aria-hidden className="shrink-0 mt-2 text-muted-foreground/45">·</span>
+      <span aria-hidden className="shrink-0 mt-2 text-muted-foreground/70">·</span>
       <div className="min-w-0 flex-1">
-        <p className="text-foreground/85 font-editorial">{arg.point_zh}</p>
-        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground/75">
+        <p className="font-reading text-foreground/85">{arg.point_zh}</p>
+        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
           <a
             href={safeUserUrl(arg.kol)}
             target="_blank"
@@ -135,12 +135,12 @@ function KeyPointRow({ arg }: { arg: Argument }) {
           >
             @{arg.kol}
           </a>
-          <span aria-hidden className="text-muted-foreground/35">·</span>
+          <span aria-hidden className="text-muted-foreground/70">·</span>
           <a
             href={safeTweetUrl(arg.tweet_url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground/65 hover:text-sky-400 transition-colors inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-sky-400"
           >
             原推
             <svg

@@ -8,8 +8,8 @@ import { api, type SubscriptionChannel } from '@/lib/api';
 export default function UnsubscribePage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-primary animate-spin" />
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="w-8 h-8 rounded-full border-2 border-border border-t-primary animate-spin" />
       </main>
     }>
       <UnsubscribeContent />
@@ -99,37 +99,37 @@ function UnsubscribeContent() {
   };
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-4">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-muted-foreground/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+          <h1 className="text-2xl font-semibold text-foreground mb-2">
             {copy.title}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {copy.description}
           </p>
         </div>
 
         {status === 'success' ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+          <div className="bg-background rounded-2xl border border-border p-8 text-center">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
               {copy.successTitle}
             </h2>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-muted-foreground mb-6">
               {message}
             </p>
             <div className="space-y-3">
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground/70">
                 改变主意了？
               </p>
               <Link
@@ -141,9 +141,9 @@ function UnsubscribeContent() {
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="bg-background rounded-2xl border border-border p-6 space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
                 邮箱地址
               </label>
               <input
@@ -154,7 +154,7 @@ function UnsubscribeContent() {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={status === 'loading'}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full px-4 py-3 rounded-xl border border-border text-sm text-foreground bg-background placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-muted/50 disabled:text-muted-foreground/70"
               />
             </div>
 
@@ -167,7 +167,7 @@ function UnsubscribeContent() {
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full px-6 py-3 bg-gray-900 text-white rounded-xl font-medium text-sm transition-all hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full px-6 py-3 bg-foreground text-background rounded-xl font-medium text-sm transition-all hover:bg-foreground/90 disabled:bg-muted-foreground disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {status === 'loading' ? (
                 <>
@@ -182,7 +182,7 @@ function UnsubscribeContent() {
               )}
             </button>
 
-            <p className="text-xs text-gray-400 text-center pt-2">
+            <p className="text-xs text-muted-foreground/70 text-center pt-2">
               {copy.footer}
             </p>
           </form>
@@ -191,7 +191,7 @@ function UnsubscribeContent() {
         <div className="text-center mt-6">
           <Link
             href="/"
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             返回首页
           </Link>

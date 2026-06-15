@@ -30,11 +30,11 @@ export default function KolChunksPanel({ chunks, variant = 'panel' }: KolChunksP
     if (variant === 'panel') {
       return (
         <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-          <FileText className="mb-3 h-8 w-8 text-muted-foreground/40" strokeWidth={1.4} />
-          <p className="font-data text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <FileText className="mb-3 h-8 w-8 text-muted-foreground/70" strokeWidth={1.4} />
+          <p className="text-xs font-medium text-muted-foreground">
             原文支持
           </p>
-          <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground/70">
+          <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
             提问后，AI 检索到的博主历史推文会显示在这里，点击 [#N] 引用可跳到对应卡片。
           </p>
         </div>
@@ -146,7 +146,7 @@ function CardList({ chunks }: { chunks: KolPersonaChunk[] }) {
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border/40 px-4 py-3">
-        <p className="font-data text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="text-xs font-medium text-muted-foreground">
           原文支持
         </p>
         <p className="mt-1 text-sm text-foreground">
@@ -223,7 +223,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
               }}
             />
           ) : null}
-          <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-[15px] font-bold text-primary">
+          <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
             {author.slice(0, 2).toUpperCase()}
           </div>
         </div>
@@ -231,7 +231,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
         {/* Main content */}
         <div className="min-w-0 flex-1">
           {/* Header: display name + @handle + relative time, all on one line */}
-          <div className="flex flex-wrap items-baseline gap-x-1 text-[15px] leading-5">
+          <div className="flex flex-wrap items-baseline gap-x-1 text-sm leading-5">
             <span className="truncate font-bold tracking-tight text-foreground">
               {author}
             </span>
@@ -239,7 +239,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
               href={`https://x.com/${author}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="relative z-20 truncate text-[15px] text-muted-foreground hover:underline"
+              className="relative z-20 truncate text-sm text-muted-foreground hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
               @{author}
@@ -253,14 +253,14 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
           </div>
 
           {/* Tweet body — main text with auto-linkification */}
-          <div className="mt-0.5 whitespace-pre-wrap break-words text-[15px] leading-[1.45] text-foreground">
+          <div className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
             {linkifyTweetText(shownOriginal)}
           </div>
 
           {/* Quoted tweet — Twitter's quote-card style: rounded bordered card */}
           {shownQuoted && (
             <div className="mt-2 overflow-hidden rounded-2xl border border-border/60 px-3 py-2">
-              <div className="whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-foreground/85">
+              <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
                 {linkifyTweetText(shownQuoted)}
               </div>
             </div>
@@ -268,7 +268,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
 
           {/* Footer: explicit "view original on X" link + optional expand/collapse */}
           {(chunk.url || longText) && (
-            <div className="mt-2 flex items-center gap-4 text-[13px]">
+            <div className="mt-2 flex items-center gap-4 text-xs">
               {chunk.url && (
                 <a
                   href={chunk.url}
@@ -333,12 +333,12 @@ function InlineFooter({ chunks }: { chunks: KolPersonaChunk[] }) {
           {chunks.map((c) => (
             <li
               key={`${c.source_id}-${c.citation_index}`}
-              className="text-xs text-gray-700 border-l-2 border-emerald-200 pl-2"
+              className="rounded-md border border-emerald-200/70 bg-background/70 px-2 py-1.5 text-xs text-foreground"
             >
               <div className="font-medium text-emerald-700">
                 @{c.author_username || 'unknown'}
                 {c.created_at && (
-                  <span className="text-gray-400"> · {c.created_at.slice(0, 10)}</span>
+                  <span className="text-muted-foreground/70"> · {c.created_at.slice(0, 10)}</span>
                 )}
               </div>
               <div className="mt-0.5 line-clamp-3 whitespace-pre-wrap">{c.content}</div>

@@ -10,8 +10,8 @@ import { STRIPE_LIVE } from '@/lib/pricing';
 import {
   trackPaywallCtaClick,
   trackCheckoutOpen,
+  type CheckoutProduct,
   type PaywallSource,
-  type PaywallTier,
 } from '@/lib/paywall-analytics';
 
 /**
@@ -26,7 +26,7 @@ import {
  *   - morning|twitter-digest archive locks
  *
  * Behavior contract (same across all variants):
- *   1. signed-in + STRIPE_LIVE  → createCheckout(tier, returnPath) → Stripe
+ *   1. signed-in + STRIPE_LIVE  → createCheckout(tier, returnPath) → Checkout or Portal upgrade
  *   2. signed-out               → /login?redirect=<returnPath>
  *   3. !STRIPE_LIVE             → disabled, copy: "订阅功能即将上线"
  *   4. mid-checkout             → spinner + "跳转中..."
@@ -43,8 +43,8 @@ export type UnlockCTASize = 'sm' | 'md' | 'lg';
 interface Props {
   /** Visual treatment. Pick by where the button lives. */
   variant?: UnlockCTAVariant;
-  /** Plan to upgrade to. In-product CTAs are always 'max'. */
-  tier?: PaywallTier;
+  /** Plan to upgrade to. Most in-product CTAs use 'max'; Qinbafrank uses 'ultra'. */
+  tier?: CheckoutProduct;
   /** Where this CTA lives — used for funnel attribution. */
   source: PaywallSource;
   /** Button size. */

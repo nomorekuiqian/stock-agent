@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -11,6 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import FeatureSections from "@/components/FeatureSections";
+import HomeGuidedTour from "@/components/HomeGuidedTour";
 import LandingDelight from "@/components/LandingDelight";
 import SubscribeForm from "@/components/SubscribeForm";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,7 +41,7 @@ const PRICING_TIERS = [
     name: "Pro",
     description: "把日报推送和持仓分析纳入日常流程",
     price: PRICING.pro,
-    original: PRICING.proOriginal,
+    original: undefined,
     suffix: PRICING.interval,
     href: "/pricing",
     cta: "订阅 Pro",
@@ -56,12 +58,12 @@ const PRICING_TIERS = [
     name: "Max",
     description: "解锁完整 AI 投研、博主观点和深度个股研究",
     price: PRICING.max,
-    original: PRICING.maxOriginal,
+    original: undefined,
     suffix: PRICING.interval,
     href: "/pricing",
     cta: "订阅 Max",
     featured: true,
-    note: `${PRICING.maxDiscount} · 新功能优先体验`,
+    note: "新功能优先体验",
     features: [
       "Pro 的所有功能",
       "300+ 美股博主观点聚合",
@@ -172,6 +174,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       <LandingDelight />
+      <Suspense fallback={null}>
+        <HomeGuidedTour />
+      </Suspense>
       <section className="relative -mt-16 flex min-h-screen items-center justify-center overflow-hidden bg-background md:h-screen">
         <div
           aria-hidden

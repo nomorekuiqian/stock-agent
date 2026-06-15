@@ -211,7 +211,7 @@ export default function TwitterDigestView({
           </Link>
         </div>
         {digest.headline && (
-          <h2 className="text-base font-editorial text-foreground leading-snug">
+          <h2 className="text-base font-semibold leading-snug text-foreground">
             {digest.headline}
           </h2>
         )}

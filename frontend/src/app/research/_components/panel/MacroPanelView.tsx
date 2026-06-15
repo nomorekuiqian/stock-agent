@@ -348,7 +348,7 @@ export default function MacroPanelView({
         <div className="flex items-center gap-2 mb-1">
           <span className="text-primary text-xs font-semibold tracking-[0.25em] uppercase">MACRO</span>
         </div>
-        <h2 className="font-data text-2xl font-semibold text-foreground tracking-tight">
+        <h2 className="text-2xl font-semibold text-foreground tracking-tight">
           宏观市场
         </h2>
         <p className="text-sm text-muted-foreground mt-0.5">

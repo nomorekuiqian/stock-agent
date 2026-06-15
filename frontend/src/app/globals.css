@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Fonts loaded via <link> in layout.tsx for CSS order compatibility */
+/* Chinese fonts are loaded via <link> in layout.tsx for early availability. */
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant light (&:is(.light *));
@@ -13,13 +13,18 @@
    ============================================ */
 
 @theme {
-  /* Editorial headlines: LXGW WenKai (async CDN) for Chinese, Instrument Serif (next/font) for English */
+  /* Editorial headlines: reserved for brand/landing moments, not body copy. */
   --font-serif:
     "LXGW WenKai", var(--font-instrument-serif), "Songti SC", Georgia, serif;
-  /* Body text: HarmonyOS Sans SC (async CDN) for Chinese, DM Sans (next/font) for English */
+  /* Body/UI text: ChatGPT-style system UI stack for Chinese readability. */
   --font-sans:
-    "HarmonyOS Sans SC", var(--font-dm-sans), "PingFang SC", "Microsoft YaHei",
-    system-ui, sans-serif;
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --font-reading:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
 
   /* NOTE: color tokens are NOT defined here. Runtime color values live in
@@ -194,11 +199,12 @@ html {
 
 body {
   font-family: var(--font-sans);
+  font-kerning: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--background);
   color: var(--foreground);
-  font-feature-settings: "ss01", "ss02", "cv01";
+  font-feature-settings: "kern";
 }
 
 /* ============================================
@@ -209,28 +215,28 @@ body {
 .font-editorial {
   font-family: var(--font-serif);
   font-weight: 400;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 /* Headlines — line-height decreases as size increases */
 h1 {
   font-family: var(--font-sans);
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
   line-height: 1.15;
 }
 
 h2 {
   font-family: var(--font-sans);
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
   line-height: 1.25;
 }
 
 h3 {
   font-family: var(--font-sans);
   font-weight: 500;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
   line-height: 1.3;
 }
 
@@ -239,7 +245,7 @@ h5,
 h6 {
   font-family: var(--font-sans);
   font-weight: 500;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   line-height: 1.4;
 }
 
@@ -248,7 +254,50 @@ h6 {
   font-family: var(--font-mono);
   font-feature-settings: "tnum", "ss01";
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
+}
+
+/* Research/chat surfaces inherit the global sans-first system explicitly so
+   nested page shells cannot accidentally fall back to editorial body text. */
+.research-typography {
+  font-family: var(--font-sans);
+  font-feature-settings: "kern";
+}
+
+.font-reading {
+  font-family: var(--font-reading, var(--font-sans));
+  font-feature-settings: "kern";
+  letter-spacing: 0;
+}
+
+.research-message-text {
+  font-family: var(--font-reading, var(--font-sans));
+  font-size: 0.9375rem;
+  line-height: 1.78;
+  letter-spacing: 0;
+}
+
+.prose-agent {
+  font-family: var(--font-reading, var(--font-sans));
+  font-size: 0.9375rem;
+  line-height: 1.78;
+  letter-spacing: 0;
+}
+
+.prose-agent :where(p, li, blockquote) {
+  line-height: 1.78;
+}
+
+.prose-agent :where(h1, h2, h3, h4) {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+}
+
+/* Chinese headings should not use negative tracking; keep positive tracking
+   available for short uppercase labels. */
+.tracking-tight,
+.tracking-tighter {
+  letter-spacing: 0;
 }
 
 /* ============================================
@@ -434,7 +483,9 @@ h6 {
     bottom: 0.35rem;
     width: 1px;
     background: color-mix(in srgb, var(--foreground) 18%, transparent);
-    transition: background 0.2s ease, width 0.2s ease;
+    transition:
+      background 0.2s ease,
+      width 0.2s ease;
   }
   .editorial-item:hover::before {
     background: var(--primary);
@@ -478,8 +529,8 @@ h6 {
 
 .animate-fade-in-up {
   animation: fade-in-up var(--motion-duration, 0.5s)
-    var(--motion-ease, cubic-bezier(0.22, 1, 0.36, 1))
-    var(--motion-delay, 0ms) forwards;
+    var(--motion-ease, cubic-bezier(0.22, 1, 0.36, 1)) var(--motion-delay, 0ms)
+    forwards;
   opacity: 0;
 }
 
@@ -914,8 +965,16 @@ h6 {
 
 /* Thinking dots — three dots that pulse in sequence */
 @keyframes thinking-dot {
-  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1); }
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .thinking-dot {
   display: inline-block;
@@ -925,13 +984,23 @@ h6 {
   background: var(--primary);
   animation: thinking-dot 1.4s ease-in-out infinite;
 }
-.thinking-dot:nth-child(2) { animation-delay: 0.16s; }
-.thinking-dot:nth-child(3) { animation-delay: 0.32s; }
+.thinking-dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.thinking-dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
 
 /* Status label crossfade — smooth swap when tool activity text changes */
 @keyframes status-label-in {
-  0% { opacity: 0; transform: translateY(4px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-status-label {
   animation: status-label-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -1163,8 +1232,14 @@ select:focus-visible {
    does not soft-throb like animate-pulse. Removed the instant streaming ends.
    The blanket prefers-reduced-motion rule below disables it automatically. */
 @keyframes caret-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 .chat-caret {
   animation: caret-blink 1.05s steps(1, end) infinite;

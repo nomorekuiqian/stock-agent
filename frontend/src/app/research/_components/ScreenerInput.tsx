@@ -55,7 +55,7 @@ export default function ScreenerInput({
   return (
     <div className="space-y-2">
       <div className="relative">
-        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none">
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
@@ -73,7 +73,7 @@ export default function ScreenerInput({
           className={`
             w-full pl-10 pr-12 py-2.5
             bg-transparent border border-border/30 rounded-lg
-            text-sm text-foreground placeholder:text-muted-foreground/40
+            text-sm text-foreground placeholder:text-muted-foreground/70
             focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary/40
             disabled:opacity-50 disabled:cursor-not-allowed
             transition-all duration-200
@@ -89,7 +89,7 @@ export default function ScreenerInput({
             p-1.5 rounded-lg transition-all duration-200
             ${value.trim() && !loading && !disabled && !isMaxed
               ? 'text-primary hover:bg-primary/10 cursor-pointer'
-              : 'text-muted-foreground/30 cursor-not-allowed'
+              : 'text-muted-foreground/70 cursor-not-allowed'
             }
           `}
           aria-label="Send"
@@ -110,7 +110,7 @@ export default function ScreenerInput({
       {/* Round indicator */}
       {roundCount > 0 && (
         <div className="flex items-center justify-between px-1">
-          <p className="text-xs text-muted-foreground/50">
+          <p className="text-xs text-muted-foreground">
             {isMaxed
               ? '已达最大对话轮数'
               : `对话轮次 ${roundCount}/${maxRounds}`

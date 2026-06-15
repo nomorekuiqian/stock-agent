@@ -653,7 +653,7 @@ function EmailDateView({ rows, maxDelivered }: { rows: EmailMetricsRow[]; maxDel
     <div>
       <div className="mb-2 flex items-baseline justify-between">
         <h3 className="text-sm font-medium text-foreground">按日期</h3>
-        <span className="text-xs text-muted-foreground">悬停柱状图查看详情</span>
+        <span className="text-sm text-muted-foreground">悬停柱状图查看详情</span>
       </div>
       <div className="flex h-36 items-end gap-1">
         {rows.map((row) => {

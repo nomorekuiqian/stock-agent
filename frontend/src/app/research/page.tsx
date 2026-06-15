@@ -20,8 +20,9 @@ import {
   saveState,
   STORAGE_KEY,
 } from './_lib/researchReducer';
+import { buildKolFollowUpOptions } from './_lib/kolFollowUps';
 import { SCREENER_CONTENT, type ContentContext } from './_lib/contentTypes';
-import type { ChatMsg, LoadConversationData } from './_lib/researchReducer';
+import type { ChatMsg, LoadConversationData, RequiredProduct } from './_lib/researchReducer';
 import type { StockPanelContextPayload as StockContextPayload } from './_components/panel/StockPanelView';
 import type { DailyReportContextPayload } from './_components/DailyReportView';
 import type { MorningReportContextPayload } from './_components/MorningReportView';
@@ -171,8 +172,12 @@ function getAgentErrorMessage(event: {
   detail?: string;
   status?: number;
   quota_exceeded?: unknown;
+  required_product?: string;
 }): string {
   if (event.quota_exceeded) {
+    if ((event.required_product === 'ultra' || event.required_product === 'creator_max_qinbafrank') && event.message) {
+      return event.message;
+    }
     return '今日免费提问次数已用完。点击输入框下方的「升级 Max」即可解锁无限使用。';
   }
   if (event.code === 'context_too_long') {
@@ -206,6 +211,13 @@ function getAgentErrorMessage(event: {
     return '连接中断，未收到最终回答。常见原因是后端热重载、SSE 被中断或本地服务重启。请重新发送一次。';
   }
   return event.message || event.error || 'AI 助手暂时无法响应';
+}
+
+function normalizeRequiredProduct(value?: string): RequiredProduct | null {
+  if (value === 'max' || value === 'ultra' || value === 'creator_max_qinbafrank') {
+    return value;
+  }
+  return null;
 }
 
 function getContextKey(contextType: string, params: URLSearchParams): string {
@@ -577,6 +589,8 @@ function ScreenerContent() {
     personaUsername: string | null;
   } | null>(null);
   useEffect(() => {
+    if (loadingConversationRef.current) return;
+
     const agentParam = searchParams.get('agent');
     const personaParam = searchParams.get('persona');
 
@@ -676,6 +690,32 @@ function ScreenerContent() {
     }
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : (pathname || '/research'), { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  const syncUrlToLoadedConversation = useCallback((loadedPersona: string | null) => {
+    const nextOverride: { agentKind: AgentKind; personaUsername: string | null } = loadedPersona
+      ? { agentKind: 'kol_research', personaUsername: loadedPersona }
+      : { agentKind: 'research', personaUsername: null };
+    manualPersonaUrlOverride.current = nextOverride;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('q');
+    params.delete('symbol');
+    if (loadedPersona) {
+      params.set('agent', 'kol');
+      params.set('persona', loadedPersona);
+    } else {
+      params.delete('agent');
+      params.delete('persona');
+    }
+
+    const query = params.toString();
+    const nextPath = query ? `${pathname}?${query}` : (pathname || '/research');
+    const currentQuery = searchParams.toString();
+    const currentPath = currentQuery ? `${pathname}?${currentQuery}` : (pathname || '/research');
+    if (nextPath !== currentPath) {
+      router.replace(nextPath, { scroll: false });
+    }
   }, [pathname, router, searchParams]);
 
   // Persist state to sessionStorage on change
@@ -1248,6 +1288,7 @@ function ScreenerContent() {
 
       let finalMessage = '';
       let finalChunks: KolPersonaChunk[] = [];
+      let finalOptions: string[] = [];
       let finalNavigate: { type: string; params: Record<string, string>; reason?: string } | null = null;
       let errored = false;
 
@@ -1290,6 +1331,9 @@ function ScreenerContent() {
           } else if (event.type === 'final') {
             finalMessage = event.data.message;
             finalChunks = event.data.kol_chunks || [];
+            finalOptions = Array.isArray(event.data.options)
+              ? event.data.options.filter((option): option is string => typeof option === 'string' && option.trim().length > 0)
+              : [];
             finalNavigate = (event.data.navigate as typeof finalNavigate) || null;
           } else if (event.type === 'error') {
             if (controller.signal.aborted) return; // this turn was cancelled — handled by handleCancelLoading
@@ -1298,7 +1342,11 @@ function ScreenerContent() {
             // raw message even after we map it to a user-facing string. Grep
             // "[KOL Research] backend error" to find these in DevTools.
             console.warn('[KOL Research] backend error event:', event);
-            dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
+            dispatch({
+              type: 'SET_ERROR',
+              error: getAgentErrorMessage(event),
+              requiredProduct: normalizeRequiredProduct(event.required_product),
+            });
           }
         },
         controller.signal,
@@ -1322,11 +1370,18 @@ function ScreenerContent() {
         return;
       }
 
+      const fallbackOptions = buildKolFollowUpOptions({
+        userMessage: message,
+        assistantMessage: finalMessage,
+        chunks: finalChunks.length > 0 ? finalChunks : existingChunks,
+        contentContext: activeContext as Record<string, unknown> | undefined,
+      });
+
       // Reuse RECEIVE_RESPONSE by mapping KOL output onto a minimal ResearchResult shape.
       const result: ResearchResult = {
         success: true,
         message: finalMessage,
-        options: [],
+        options: finalOptions.length > 0 ? finalOptions : fallbackOptions,
         candidates: [],
         candidate_count: 0,
         universe_size: 0,
@@ -1387,6 +1442,7 @@ function ScreenerContent() {
           isFirstTurn,
           userMessage: message,
           assistantMessage: finalMessage,
+          assistantOptions: result.options,
         });
         const convData: Record<string, unknown> = {
           messages: allMessages,
@@ -1493,7 +1549,11 @@ function ScreenerContent() {
             streamResult = event.result as ResearchResult;
           } else if (event.type === 'error') {
             streamErrorHandled = true;
-            dispatch({ type: 'SET_ERROR', error: getAgentErrorMessage(event) });
+            dispatch({
+              type: 'SET_ERROR',
+              error: getAgentErrorMessage(event),
+              requiredProduct: normalizeRequiredProduct(event.required_product),
+            });
           }
         },
         { requiredAuth: !!userId },
@@ -1751,6 +1811,7 @@ function ScreenerContent() {
     // Restore persona via the LOAD_CONVERSATION dispatch (single source of
     // truth, persisted via sessionStorage). agentKind is derived from this.
     const savedPersona = (data.persona_username as string | undefined) ?? null;
+    syncUrlToLoadedConversation(savedPersona);
     dispatch({
       type: 'LOAD_CONVERSATION',
       data: {
@@ -1778,7 +1839,7 @@ function ScreenerContent() {
         dataKeys: conv.data ? Object.keys(conv.data) : [],
       });
     }
-  }, []);
+  }, [syncUrlToLoadedConversation]);
 
   const handleLoadConversation = useCallback(async (conversationId: string) => {
     if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
@@ -1836,6 +1897,7 @@ function ScreenerContent() {
     //   4. If runtime has no session row, the picker payload is used as-is,
     //      matching the pre-runtime behavior.
     const failConversationLoad = () => {
+      syncUrlToLoadedConversation(null);
       dispatch({
         type: 'LOAD_CONVERSATION',
         data: {
@@ -1928,7 +1990,7 @@ function ScreenerContent() {
     } finally {
       loadingConversationRef.current = false;
     }
-  }, [conversations, loadConversationData]);
+  }, [conversations, loadConversationData, syncUrlToLoadedConversation]);
 
   const handleRenameConversation = useCallback(async (conversationId: string, title: string) => {
     const nextTitle = title.trim().slice(0, 50);
@@ -2228,7 +2290,7 @@ function ScreenerContent() {
   // Welcome phase — same sidebar as chat phase
   if (state.phase === 'welcome') {
     return (
-      <div className="fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex">
+      <div className="research-typography fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex">
         {mobileHistoryDrawer}
         {/* Shared sidebar */}
         <div
@@ -2315,7 +2377,7 @@ function ScreenerContent() {
 
   // Chat phase - split layout
   return (
-    <div className="fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10">
+    <div className="research-typography fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10">
       {mobileHistoryDrawer}
       {conversationSearchDialog}
       {/* Mobile tab switch */}

@@ -2,6 +2,7 @@
 
 Mirrors the shape of /api/research/* with two extras:
 - `persona_username`: which KOL methodology is active (currently only "qinbafrank")
+- `options`: LLM-generated follow-up chips for the shared /research UI
 - `kol_chunks`: search_kol_tweets hits, populated by the agent run loop
 """
 
@@ -86,6 +87,13 @@ class KolResearchResponse(BaseModel):
 
     persona_username: str
     message: str = Field(..., description="Markdown answer for the user.")
+    options: List[str] = Field(
+        default_factory=list,
+        description=(
+            "3-4 LLM-generated follow-up chips in Chinese. Each item is a "
+            "plain user message that can be sent directly when clicked."
+        ),
+    )
     kol_chunks: List[PersonaChunkResult] = Field(default_factory=list)
     activated_skills: List[str] = Field(
         default_factory=list,
@@ -109,11 +117,102 @@ class KolMcpSearchRequest(BaseModel):
     threshold: float = Field(default=0.45, ge=0.0, le=1.0)
 
 
-class KolMcpMarketBriefRequest(BaseModel):
-    """Live MCP market data bridge for the same brief tools used by KOL agent."""
+class KolMcpAuthStartRequest(BaseModel):
+    """Start browser/device authorization for a local MCP adapter."""
+
+    client_name: Optional[str] = Field(default=None, max_length=120)
+
+
+class KolMcpAuthTokenRequest(BaseModel):
+    """Poll device authorization and exchange it for an MCP token."""
+
+    device_code: str = Field(..., min_length=16, max_length=256)
+
+
+class KolMcpAuthorizeDeviceRequest(BaseModel):
+    """Approve a device authorization from the logged-in website session."""
+
+    user_code: str = Field(..., min_length=4, max_length=32)
+
+
+class KolMcpBriefRequest(BaseModel):
+    """MCP coarse-grained data brief request."""
 
     brief_type: Literal["stock", "peer", "macro", "industry"] = "stock"
     symbol: Optional[str] = Field(default=None, max_length=20)
+    symbols: List[str] = Field(default_factory=list, max_length=5)
+    include_market_data: bool = True
+
+
+class KolMcpMarketBriefRequest(KolMcpBriefRequest):
+    """Compatibility model for the legacy persona-scoped market-brief endpoint."""
+
+
+StockDataSection = Literal[
+    "quote",
+    "profile",
+    "fundamentals",
+    "forward_valuation",
+    "historical_valuation",
+    "technical",
+    "news",
+    "earnings_calendar",
+    "price_history",
+    "earnings_data",
+    "transcript",
+    "insider_trading",
+    "press_releases",
+    "market_overview",
+]
+
+
+class KolMcpStockDataRequest(BaseModel):
+    """MCP fine-grained stock data request."""
+
+    symbol: str = Field(..., min_length=1, max_length=20)
+    sections: List[StockDataSection] = Field(..., min_length=1, max_length=8)
+    days: int = Field(default=7, ge=1, le=30)
+    history_days: int = Field(default=365, ge=5, le=1825)
+    year: Optional[int] = None
+    quarter: Optional[int] = Field(default=None, ge=1, le=4)
+    limit: int = Field(default=30, ge=1, le=100)
+
+
+MarketDataSection = Literal[
+    "market_overview",
+    "macro_brief",
+    "macro_risk",
+    "liquidity",
+    "sentiment",
+    "economic_calendar",
+    "earnings_calendar",
+    "morning_report",
+    "weekly_report",
+    "twitter_digest",
+]
+
+
+class KolMcpMarketDataRequest(BaseModel):
+    """MCP market, macro, calendar, and report data request."""
+
+    sections: List[MarketDataSection] = Field(..., min_length=1, max_length=8)
+    days: int = Field(default=14, ge=1, le=30)
+
+
+class KolMcpNewsRequest(BaseModel):
+    """MCP unified news request."""
+
+    symbols: List[str] = Field(default_factory=list, max_length=10)
+    scope: Literal[
+        "stock",
+        "market",
+        "press_releases",
+        "twitter_digest",
+        "morning_report",
+        "all",
+    ] = "all"
+    days: int = Field(default=7, ge=1, le=30)
+    limit: int = Field(default=20, ge=1, le=50)
 
 
 class KolMcpContextRequest(BaseModel):
@@ -124,6 +223,8 @@ class KolMcpContextRequest(BaseModel):
     sector: Optional[str] = Field(default=None, max_length=120)
     evidence_limit: int = Field(default=6, ge=1, le=12)
     include_market_data: bool = True
+    data_sections: List[str] = Field(default_factory=list, max_length=8)
+    news_days: int = Field(default=7, ge=1, le=30)
 
 
 class KolMcpLensSearchRequest(BaseModel):
@@ -155,6 +256,8 @@ class KolMcpWorkflowRequest(BaseModel):
     sector: Optional[str] = Field(default=None, max_length=120)
     evidence_limit: int = Field(default=6, ge=1, le=12)
     include_market_data: bool = True
+    data_sections: List[str] = Field(default_factory=list, max_length=8)
+    news_days: int = Field(default=7, ge=1, le=30)
     share: bool = False
 
 
@@ -171,6 +274,10 @@ class KolMcpWorkflowResponse(BaseModel):
     market_data_mode: str
     kol_chunks: List[dict] = Field(default_factory=list)
     market_context: List[dict] = Field(default_factory=list)
+    data_context: List[dict] = Field(default_factory=list)
+    news_context: List[dict] = Field(default_factory=list)
+    data_freshness: Dict[str, Any] = Field(default_factory=dict)
+    data_errors: List[dict] = Field(default_factory=list)
     methodology_context: dict = Field(default_factory=dict)
     answer_discipline: List[str] = Field(default_factory=list)
     suggested_answer_shape: List[str] = Field(default_factory=list)
