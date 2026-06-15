@@ -207,9 +207,14 @@ function pctChange(current: number, previous: number): number | null {
 
 function shortDate(day: string): string {
   if (!day) return '暂无';
-  const date = new Date(`${day}T00:00:00Z`);
+  const dateOnly = day.slice(0, 10);
+  const date = new Date(`${dateOnly}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return day;
-  return new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
 }
 
 function isoDateOnly(value: string | null | undefined): string {

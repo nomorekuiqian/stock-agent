@@ -639,19 +639,20 @@ class TestBroadcastWeeklyUsesSegmentOrAudience:
             assert "audience_id" not in create_params
 
 
-class TestWelcomeNoWechatQrCode:
-    """Test that _format_welcome_html() does not include WeChat QR codes."""
+class TestWelcomeEmailCallsToAction:
+    """Test that _format_welcome_html() includes the current onboarding CTAs."""
 
-    def test_qrcode_image_not_in_html(self, email_svc):
-        """WeChat QR storage URLs should not be present in welcome email."""
+    def test_watchlist_cta_in_html(self, email_svc):
+        """Welcome email points new users to set up a watchlist."""
         html = email_svc._format_welcome_html(first_name="Tester")
-        assert "api/storage/buckets/community/objects/wechat-qr" not in html
-        assert "api/storage/buckets/community/objects/wechat-personal-qr" not in html
+        assert "/for-you/watchlist" in html
+        assert "添加我的自选股" in html
 
-    def test_community_section_header_removed(self, email_svc):
-        """Welcome email should not invite users into the WeChat community."""
+    def test_product_sections_in_html(self, email_svc):
+        """Welcome email introduces the product surfaces available today."""
         html = email_svc._format_welcome_html(first_name="Tester")
-        assert "加入社群" not in html
+        assert "你马上可以试的功能" in html
+        assert "每日市场日报" in html
 
 
 class TestResolveAudience:

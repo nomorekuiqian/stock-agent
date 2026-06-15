@@ -230,6 +230,8 @@ class TestNoCrossFeatureImports:
         # engine, durable events). The chat-style features depend on it; it
         # also reads picker_conversations as a migration-period fallback.
         ("kol_research", "agent_runtime"),
+        ("kol_research", "quota"),       # KOL research chat consumes the same quota bucket as research endpoints
+        ("kol_research", "vector"),      # KOL research MCP endpoints expose vector search over embedded KOL content
         ("screener", "agent_runtime"),
         ("agent_runtime", "screener"),
         # Onboarding state lives on the subscriptions table (payment.db).
