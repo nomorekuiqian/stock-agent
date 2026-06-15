@@ -27,8 +27,8 @@ describe('paywall analytics', () => {
   it('mirrors paywall events to Vercel Analytics and PostHog', () => {
     trackPaywallView({ source: 'stock_ai_paywall', tier: 'max' });
     trackPaywallCtaClick({ source: 'stock_ai_paywall', tier: 'max', authenticated: true });
-    trackCheckoutOpen({ source: 'qinbafrank_ultra_landing', tier: 'ultra' });
-    trackCheckoutComplete({ tier: 'ultra' });
+    trackCheckoutOpen({ source: 'qinbafrank_max_landing', tier: 'max' });
+    trackCheckoutComplete({ tier: 'max' });
 
     expect(vercelTrack).toHaveBeenCalledWith('paywall_view', {
       source: 'stock_ai_paywall',
@@ -40,11 +40,11 @@ describe('paywall analytics', () => {
       authenticated: true,
     });
     expect(vercelTrack).toHaveBeenCalledWith('checkout_open', {
-      source: 'qinbafrank_ultra_landing',
-      tier: 'ultra',
+      source: 'qinbafrank_max_landing',
+      tier: 'max',
     });
     expect(vercelTrack).toHaveBeenCalledWith('checkout_complete', {
-      tier: 'ultra',
+      tier: 'max',
     });
 
     expect(productTrack).toHaveBeenCalledWith('paywall_view', {
@@ -57,11 +57,11 @@ describe('paywall analytics', () => {
       authenticated: true,
     });
     expect(productTrack).toHaveBeenCalledWith('checkout_open', {
-      source: 'qinbafrank_ultra_landing',
-      tier: 'ultra',
+      source: 'qinbafrank_max_landing',
+      tier: 'max',
     });
     expect(productTrack).toHaveBeenCalledWith('checkout_complete', {
-      tier: 'ultra',
+      tier: 'max',
     });
   });
 });

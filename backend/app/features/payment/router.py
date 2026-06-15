@@ -53,9 +53,7 @@ router = APIRouter(prefix="/api/payment", tags=["payment"])
 
 
 def _plan_rank(plan: str | None) -> int:
-    if plan == "ultra":
-        return 3
-    if plan == "max":
+    if plan in ("max", "ultra"):
         return 2
     if plan == "pro":
         return 1

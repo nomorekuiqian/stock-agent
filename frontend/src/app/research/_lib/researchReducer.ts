@@ -36,7 +36,7 @@ export interface ChatMsg {
   feedbackPayload?: Record<string, unknown>;
 }
 
-export type RequiredProduct = 'max' | 'ultra' | 'creator_max_qinbafrank';
+export type RequiredProduct = 'max';
 
 export interface FilterStep {
   count: number;

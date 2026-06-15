@@ -22,7 +22,6 @@ interface SubscriptionStatus {
 interface SubscriptionContextType {
   isPro: boolean;
   isMax: boolean;
-  isUltra: boolean;
   isLoading: boolean;
   isCheckoutLoading: boolean;
   checkoutError: string | null;
@@ -59,10 +58,14 @@ function hasActiveAccessStatus(status: string): boolean {
 }
 
 function planRank(plan: string): number {
-  if (plan === 'ultra') return 3;
-  if (plan === 'max') return 2;
+  if (plan === 'max' || plan === 'ultra') return 2;
   if (plan === 'pro') return 1;
   return 0;
+}
+
+function normalizePlan(plan: string | undefined | null): string {
+  if (plan === 'ultra') return 'max';
+  return plan || 'free';
 }
 
 async function fetchSubscriptionStatus(fresh = true): Promise<SubscriptionStatus> {
@@ -122,11 +125,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     retry: 3,
     placeholderData: (prev) => prev,
     // After Stripe checkout returns, poll every second until the webhook
-    // flips plan to pro/max/ultra + status=active. Stops automatically once active.
+    // flips plan to pro/max + status=active. Legacy ultra rows count as max.
     refetchInterval: (q) => {
       if (!isCheckoutReturn) return false;
       const sub = q.state.data as SubscriptionStatus | undefined;
-      if (sub && (sub.plan === 'pro' || sub.plan === 'max' || sub.plan === 'ultra') && hasActiveAccessStatus(sub.status)) {
+      const normalized = normalizePlan(sub?.plan);
+      if (sub && (normalized === 'pro' || normalized === 'max') && hasActiveAccessStatus(sub.status)) {
         return false;
       }
       return 1000;
@@ -138,9 +142,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const completionTrackedRef = useRef(false);
   useEffect(() => {
     if (!isCheckoutReturn || !data) return;
-    if ((data.plan === 'pro' || data.plan === 'max' || data.plan === 'ultra') && hasActiveAccessStatus(data.status)) {
+    const normalized = normalizePlan(data.plan);
+    if ((normalized === 'pro' || normalized === 'max') && hasActiveAccessStatus(data.status)) {
       if (!completionTrackedRef.current) {
-        trackCheckoutComplete({ tier: data.plan as CheckoutProduct });
+        trackCheckoutComplete({ tier: normalized as CheckoutProduct });
         completionTrackedRef.current = true;
       }
       if (typeof window !== 'undefined' && window.history.replaceState) {
@@ -151,7 +156,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }, [isCheckoutReturn, data]);
 
-  const plan = data?.plan || 'free';
+  const plan = normalizePlan(data?.plan);
   const status = data?.status || 'none';
   const currentPeriodEnd = data?.current_period_end || null;
   const accessExpiresAt = data?.access_expires_at || null;
@@ -160,9 +165,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const canceledAt = data?.canceled_at || null;
   const isActive = hasActiveAccessStatus(status) && !isExpired(accessExpiresAt);
 
-  const isPro = !PAYWALL_ENABLED || ((plan === 'pro' || plan === 'max' || plan === 'ultra') && isActive);
-  const isMax = !PAYWALL_ENABLED || ((plan === 'max' || plan === 'ultra') && isActive);
-  const isUltra = !PAYWALL_ENABLED || (plan === 'ultra' && isActive);
+  const isPro = !PAYWALL_ENABLED || ((plan === 'pro' || plan === 'max') && isActive);
+  const isMax = !PAYWALL_ENABLED || (plan === 'max' && isActive);
 
   // Mirrors EntitlementsContext: only "loading" while we've never had data.
   // A refresh failure does not flip back to loading and cannot silently
@@ -300,7 +304,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     () => ({
       isPro,
       isMax,
-      isUltra,
       isLoading,
       isCheckoutLoading,
       checkoutError,
@@ -317,7 +320,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       refreshSubscription,
     }),
     [
-      isPro, isMax, isUltra, isLoading, isCheckoutLoading, checkoutError, portalError,
+      isPro, isMax, isLoading, isCheckoutLoading, checkoutError, portalError,
       plan, status, currentPeriodEnd, accessExpiresAt, cancelAtPeriodEnd, cancelAt, canceledAt,
       createCheckout, openBillingPortal, refreshSubscription,
     ]

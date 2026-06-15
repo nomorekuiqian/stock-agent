@@ -18,9 +18,9 @@
 | `/qinbafrank` | Qinbafrank 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
 | `/frank-agent` | Frank waitlist 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
 | `/kol` | 博主研究室总入口 | 静态卡片：Qinbafrank / Serenity 研究室选择 | 否 |
-| `/kol/[username]` | KOL 博主研究室概览 | qinbafrank 根页静态销售页；Serenity 根页供应链研究室首页；其他 persona 用 skill 资产 + Backend cockpit/feed | 浏览否；qinbafrank 子页需 Ultra |
-| `/kol/[username]/chat` | KOL 对话入口 | Backend (kolResearch chatStream) | qinbafrank 1 次试问后需 Ultra |
-| `/kol/[username]/highlights` | KOL 精华观点 | Backend (kolResearch feed/topics) | qinbafrank 子页需 Ultra |
+| `/kol/[username]` | KOL 博主研究室概览 | qinbafrank 根页静态销售页；Serenity 根页供应链研究室首页；其他 persona 用 skill 资产 + Backend cockpit/feed | 浏览否；qinbafrank 子页需 Max |
+| `/kol/[username]/chat` | KOL 对话入口 | Backend (kolResearch chatStream) | 登录后可用；Free/Pro 每日 2 次，Max 无限 |
+| `/kol/[username]/highlights` | KOL 精华观点 | Backend (kolResearch feed/topics) | qinbafrank 子页需 Max |
 | `/kol/[username]/history` | KOL 历史链接兼容页 | 重定向/兼容 | 否 |
 | `/kol/[username]/latest` | KOL 最新内容库 | Backend (kolResearch feed) | 否 |
 | `/kol/[username]/macro` | KOL 宏观框架 | Backend (kolResearch profile/topics) | 否 |
@@ -129,9 +129,9 @@
 - 页面明确标注研究室基于公开内容整理，研究助手不代表博主本人观点，不构成投资建议。
 
 ### `/kol/qinbafrank` qinbafrank 博主研究室
-- Server page + Client Component,根页面浏览不要求登录；`/kol/qinbafrank/*` 子页先要求登录，再要求 `kol_pack_qinbafrank` Ultra entitlement。
-- 根页是 Qinbafrank 研究室销售首页，首屏标题为 `Qinbafrank 研究室`，核心 offer 是 `Qinbafrank资料包 + AI投研助手`，并保留和子页一致的左侧 `SubNav` / 移动横向导航。CTA 逻辑：未登录跳 `/login?mode=signup&redirect=/kol/qinbafrank?checkout=ultra`；已登录调用 `createCheckout("ultra", "/kol/qinbafrank?welcome=1")`。登录回跳后支持 `checkout=ultra` 自动打开 Stripe 付费流程。
-- 根页包含返回 `/kol` 的「所有博主研究室」入口、紧凑资料库入口、资料包内容、适合/不适合人群、示例问题和 Ultra offer；文案强调“基于公开内容整理”，必须保留非投资建议、研究助手不代表 Qinbafrank 本人观点的边界。
+- Server page + Client Component,根页面浏览不要求登录；`/kol/qinbafrank/*` 子页先要求登录，再要求 Max。
+- 根页是 Qinbafrank 研究室销售首页，首屏标题为 `Qinbafrank 研究室`，核心 offer 是 `Qinbafrank资料包 + AI投研助手`，并保留和子页一致的左侧 `SubNav` / 移动横向导航。CTA 逻辑：未登录跳 `/login?mode=signup&redirect=/kol/qinbafrank?checkout=max`；已登录调用 `createCheckout("max", "/kol/qinbafrank?welcome=1")`。登录回跳后支持 `checkout=max` 自动打开 Stripe 付费流程；旧 `checkout=ultra` 仍兼容触发 Max checkout。
+- 根页包含返回 `/kol` 的「所有博主研究室」入口、紧凑资料库入口、资料包内容、适合/不适合人群、示例问题和 Max offer；文案强调“基于公开内容整理”，必须保留非投资建议、研究助手不代表 Qinbafrank 本人观点的边界。
 - `/kol/qinbafrank/sectors` 为板块观点页，左侧 5 个板块入口，右侧按左侧「分析框架 / 分析维度切换 / 可展开 Frank 原观点逻辑」+ 右侧「倒序观点时间线」展示；AI 产业额外拆为 8 个子板块，入口桌面端为 4 列 x 2 行网格，子板块详情同样为左侧分析框架 + 右侧观点时间线；完整原文阅读在 `/kol/qinbafrank/highlights`；`/kol/qinbafrank/history` 仅作为旧链接重定向到 `/highlights?topic=market-rules`；`/kol/qinbafrank/stocks` 为个股并结合价格验证；`/kol/qinbafrank/latest` 为全量内容库（过往精华 + 全量原文）
 - `/kol/qinbafrank/sectors` 颜色只表达板块 / 子板块 / 分析维度 / 最新观点状态，交互反馈保持轻量 hover lift 与箭头位移，不做大面积装饰动画
 - 方法论与技能默认来自 `backend/app/features/twitter/methodologies/qinbafrank/`
@@ -197,7 +197,7 @@
 ### `/profile` 用户资料
 - 需要登录，未登录跳转 `/login?redirect=/profile`
 - 账户页可修改昵称
-- 订阅页展示免费 / 试用 / Pro / Max / Ultra / 已取消状态
+- 订阅页展示免费 / 试用 / Pro / Max / 已取消状态
 - 邮件偏好页会按 `EntitlementsContext` 强制约束可编辑项：
   - `daily_report` 始终可编辑
   - `morning_report` 需要 `morning_report_email`

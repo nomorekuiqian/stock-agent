@@ -46,7 +46,7 @@ function makeWrapper() {
 
 // PAYWALL_ENABLED is read at module load — tests can't change it at runtime.
 // The visible-from-tests behavior is: at module-level PAYWALL_ENABLED=false,
-// isPro/isMax/isUltra always return true regardless of API response.
+// isPro/isMax always return true regardless of API response.
 
 describe('SubscriptionContext - basic behavior', () => {
   it('isPro is true when paywall is disabled (module-level const)', async () => {
@@ -58,7 +58,6 @@ describe('SubscriptionContext - basic behavior', () => {
 
     expect(result.current.isPro).toBe(true);
     expect(result.current.isMax).toBe(true);
-    expect(result.current.isUltra).toBe(true);
   });
 
   it('does not fetch subscription status when PAYWALL_ENABLED is false', async () => {

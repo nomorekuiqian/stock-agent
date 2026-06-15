@@ -43,7 +43,7 @@ async def api_redeem_invite(
 async def api_auto_trial(
     user_id: str = Depends(verify_user_token),
 ):
-    # Trial model removed (freemium transition). Plan: docs/plans/active/freemium-lifecycle-email.md
+    # Trial model removed during the freemium transition.
     logger.info("Auto-trial endpoint called by user=%s — returning 410 Gone", user_id[:8])
     raise HTTPException(
         status_code=410,

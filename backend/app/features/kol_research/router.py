@@ -34,7 +34,6 @@ import app.core.posthog_client as posthog
 from app.core.rate_limit import _get_real_ip
 from app.core.sse import with_heartbeat
 from app.features.quota.service import consume_quota
-from app.features.quota.db import get_usage, increment_usage
 from app.features.flags.db import get_user_flags  # pyright: ignore[reportUnusedImport]  # noqa: F401 — kept for kol_research_agent flag rollback (see require_kol_research_flag)
 from app.features.kol_research import cockpit, cockpit_v3, mcp_auth, mcp_data, mcp_materials, skill_cockpit
 from app.features.kol_research.agent import (
@@ -82,9 +81,6 @@ from app.shared.kol_persona.tools import chunk_to_persona_result
 logger = get_logger(__name__)
 
 FLAG_KEY = "kol_research_agent"
-QINBAFRANK_PACK_FEATURE = "kol_pack_qinbafrank"
-QINBAFRANK_TRIAL_LIMIT = 1
-QINBAFRANK_TRIAL_USAGE_DATE = "1970-01-01"
 
 router = APIRouter(prefix="/api/kol_research", tags=["kol_research"])
 
@@ -118,40 +114,11 @@ async def require_kol_research_flag(
     return user_info
 
 
-async def _consume_qinbafrank_pack_access(user_id: str, client_ip: str | None) -> dict:
-    """Allow full Qinbafrank Agent access for pack buyers, otherwise 1 trial."""
-    from app.features.payment.entitlements import has_entitlement
-
-    if await has_entitlement(user_id, QINBAFRANK_PACK_FEATURE):
-        return {"allowed": True, "paid": True, "trial_used": 0}
-
-    identifier = f"kol_pack_qinbafrank_trial:{user_id or client_ip or 'unknown'}"
-    date = QINBAFRANK_TRIAL_USAGE_DATE
-    used = await get_usage(identifier, date)
-    if used >= QINBAFRANK_TRIAL_LIMIT:
-        return {"allowed": False, "paid": False, "trial_used": used}
-
-    new_count = await increment_usage(identifier, "user", date)
-    if not isinstance(new_count, int) or new_count < 0:
-        logger.warning("Qinbafrank trial quota increment failed, allowing request")
-        return {"allowed": True, "paid": False, "trial_used": used}
-    return {"allowed": True, "paid": False, "trial_used": new_count}
-
-
 async def _consume_kol_chat_access(req: KolResearchRequest, user_id: str, client_ip: str | None) -> dict:
-    persona = (req.persona_username or DEFAULT_PERSONA).lower()
-    if persona == "qinbafrank":
-        return await _consume_qinbafrank_pack_access(user_id, client_ip)
     return await consume_quota(user_id, client_ip)
 
 
 def _kol_quota_error_payload(req: KolResearchRequest) -> dict:
-    persona = (req.persona_username or DEFAULT_PERSONA).lower()
-    if persona == "qinbafrank":
-        return {
-            "message": "Qinbafrank 免费试问已用完，解锁 Qinbafrank 研究室 Ultra 后继续使用",
-            "required_product": "ultra",
-        }
     return {"message": "今日免费提问次数已用完，升级 Max 解锁无限使用"}
 
 
@@ -1939,8 +1906,8 @@ async def kol_research_chat(
 ):
     """Unary KOL research chat.
 
-    Qinbafrank uses its own Ultra pack gate with one free trial question;
-    other personas share the general research quota.
+    All personas share the general research quota. Max users are unlimited via
+    the `ai_research_engine` entitlement in `features.quota`.
     """
     client_ip = _get_real_ip(request)
     quota = await _consume_kol_chat_access(req, user_info["user_id"], client_ip)
@@ -1978,8 +1945,8 @@ async def kol_research_chat_stream(
 ):
     """SSE streaming KOL research chat.
 
-    Qinbafrank uses its own Ultra pack gate with one free trial question;
-    other personas share the general research quota.
+    All personas share the general research quota. Max users are unlimited via
+    the `ai_research_engine` entitlement in `features.quota`.
 
     Event types:
       - skill_activated   {skill_name, description}

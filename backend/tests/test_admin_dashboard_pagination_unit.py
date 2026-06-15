@@ -77,7 +77,7 @@ def test_dashboard_category_paid_requires_lifetime_or_stripe_paid():
     result = _categorize_users([
         {
             "user_id": "paid",
-            "plan": "ultra",
+            "plan": "max",
             "status": "active",
             "stripe_subscription_id": "sub_paid",
             "access_expires_at": None,
@@ -85,7 +85,7 @@ def test_dashboard_category_paid_requires_lifetime_or_stripe_paid():
         },
         {
             "user_id": "lifetime",
-            "plan": "ultra",
+            "plan": "max",
             "status": "active",
             "stripe_subscription_id": None,
             "access_expires_at": None,
@@ -93,7 +93,7 @@ def test_dashboard_category_paid_requires_lifetime_or_stripe_paid():
         },
         {
             "user_id": "grant",
-            "plan": "ultra",
+            "plan": "max",
             "status": "active",
             "stripe_subscription_id": None,
             "access_expires_at": "2099-01-01T00:00:00+00:00",
@@ -101,7 +101,7 @@ def test_dashboard_category_paid_requires_lifetime_or_stripe_paid():
         },
         {
             "user_id": "manual",
-            "plan": "ultra",
+            "plan": "max",
             "status": "active",
             "stripe_subscription_id": None,
             "access_expires_at": None,

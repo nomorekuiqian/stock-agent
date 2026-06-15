@@ -9,12 +9,13 @@ export type PaywallSource =
   | 'paywall_guard'
   | 'paywall_guard_pro_to_max'
   | 'qinbafrank_ultra_landing'
+  | 'qinbafrank_max_landing'
   | 'kol_pack_paywall'
   | 'stock_ai_paywall'
   | 'personal_digest'
   | 'research_quota';
 
-export type PaywallTier = 'pro' | 'max' | 'ultra';
+export type PaywallTier = 'pro' | 'max';
 export type CheckoutProduct = PaywallTier;
 
 type Props = {

@@ -43,7 +43,7 @@ export type UnlockCTASize = 'sm' | 'md' | 'lg';
 interface Props {
   /** Visual treatment. Pick by where the button lives. */
   variant?: UnlockCTAVariant;
-  /** Plan to upgrade to. Most in-product CTAs use 'max'; Qinbafrank uses 'ultra'. */
+  /** Plan to upgrade to. */
   tier?: CheckoutProduct;
   /** Where this CTA lives — used for funnel attribution. */
   source: PaywallSource;

@@ -9,16 +9,15 @@ vi.mock('@/contexts/SubscriptionContext', () => ({
   useSubscription: (...args: unknown[]) => mockUseSubscription(...args),
 }));
 
-function mockSubscription(isUltra: boolean) {
+function mockSubscription(isMax: boolean) {
   mockUseSubscription.mockReturnValue({
-    isPro: isUltra,
-    isMax: isUltra,
-    isUltra,
+    isPro: isMax,
+    isMax,
     isLoading: false,
     isCheckoutLoading: false,
     checkoutError: null,
     portalError: null,
-    plan: isUltra ? 'ultra' : 'pro',
+    plan: isMax ? 'max' : 'pro',
     status: 'active',
     currentPeriodEnd: null,
     accessExpiresAt: null,
@@ -42,7 +41,7 @@ function renderKolPanel() {
   );
 }
 
-describe('ChatPanel KOL Ultra CTA', () => {
+describe('ChatPanel KOL Max CTA', () => {
   afterEach(() => {
     cleanup();
   });
@@ -54,22 +53,22 @@ describe('ChatPanel KOL Ultra CTA', () => {
     }
   });
 
-  it('hides KOL usage limit banner for Ultra users', () => {
+  it('hides KOL usage limit banner for Max users', () => {
     mockSubscription(true);
 
     renderKolPanel();
 
     expect(screen.queryByText(/@qinbafrank 博主 Agent/)).toBeNull();
-    expect(screen.queryByText(/非 Ultra 账号仅可体验有限试问/)).toBeNull();
-    expect(screen.queryByRole('button', { name: /解锁 Ultra/ })).toBeNull();
+    expect(screen.queryByText(/非 Max 账号使用每日免费额度/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /升级 Max/ })).toBeNull();
   });
 
-  it('keeps checkout CTA visible for non-Ultra users', () => {
+  it('keeps checkout CTA visible for non-Max users', () => {
     mockSubscription(false);
 
     renderKolPanel();
 
-    expect(screen.getByRole('button', { name: /解锁 Ultra/ })).toBeTruthy();
-    expect(screen.getByText(/非 Ultra 账号仅可体验有限试问/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /升级 Max/ })).toBeTruthy();
+    expect(screen.getByText(/非 Max 账号使用每日免费额度/)).toBeTruthy();
   });
 });

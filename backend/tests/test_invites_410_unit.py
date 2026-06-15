@@ -2,7 +2,7 @@
 `/api/invites/redeem` and `/api/invites/auto-trial`.
 
 Both routes used to create 14-day Max trials; after the freemium switch
-(docs/plans/active/freemium-lifecycle-email.md) they must return HTTP 410
+they must return HTTP 410
 so older frontend builds and tooling fail fast instead of silently
 believing they granted access.
 """

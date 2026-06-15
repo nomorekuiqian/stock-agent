@@ -27,31 +27,26 @@ class TestEntitlementCatalog:
         assert "twitter_digest" in MAX_ONLY_FEATURES
         assert "twitter_digest" in MAX_FEATURES
 
-    def test_qinbafrank_pack_is_ultra_only(self):
+    def test_qinbafrank_pack_is_legacy_only(self):
         from app.features.payment.entitlements import (
             KOL_PACK_FEATURES,
             KOL_PACK_QINBAFRANK,
             MAX_FEATURES,
-            MAX_ONLY_FEATURES,
-            ULTRA_FEATURES,
         )
 
         assert KOL_PACK_QINBAFRANK == "kol_pack_qinbafrank"
         assert KOL_PACK_QINBAFRANK in KOL_PACK_FEATURES
-        assert KOL_PACK_QINBAFRANK in ULTRA_FEATURES
         assert KOL_PACK_QINBAFRANK not in MAX_FEATURES
-        assert MAX_FEATURES.issubset(ULTRA_FEATURES)
-        assert MAX_ONLY_FEATURES.issubset(ULTRA_FEATURES)
 
-    def test_qinbafrank_entitlement_normalizes_to_ultra_with_max_features(self):
+    def test_qinbafrank_legacy_entitlement_normalizes_to_max_features(self):
         from app.features.payment.entitlements import KOL_PACK_QINBAFRANK
         from app.features.payment.service import _normalize_entitlements
 
         plan, status, features = _normalize_entitlements([KOL_PACK_QINBAFRANK])
 
-        assert plan == "ultra"
+        assert plan == "max"
         assert status == "active"
-        assert KOL_PACK_QINBAFRANK in features
+        assert KOL_PACK_QINBAFRANK not in features
         assert "ai_research_engine" in features
         assert "twitter_digest" in features
 
@@ -88,6 +83,10 @@ class TestCheckoutSession:
             new_callable=AsyncMock,
             return_value="cus_test",
         ), patch(
+            "app.features.payment.service._is_active_price",
+            new_callable=AsyncMock,
+            return_value=True,
+        ), patch(
             "app.features.payment.service.stripe.checkout.Session.create",
             return_value=mock_session,
         ) as mock_create:
@@ -105,6 +104,14 @@ class TestCheckoutSession:
         assert "tier=max" in success_url
         assert "next=%2Fresearch%3Fagent%3Dkol%26persona%3Dqinbafrank" in success_url
         assert "session_id={CHECKOUT_SESSION_ID}" in success_url
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["automatic_tax"] == {"enabled": True}
+        assert kwargs["billing_address_collection"] == "required"
+        assert kwargs["customer_update"] == {
+            "address": "auto",
+            "name": "auto",
+        }
+        assert kwargs["tax_id_collection"] == {"enabled": True}
 
     @pytest.mark.asyncio
     async def test_checkout_return_uses_allowed_request_origin(self):
@@ -116,7 +123,7 @@ class TestCheckoutSession:
         with patch.object(
             service,
             "PRICE_ID_MAP",
-            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+            {"pro": "price_pro_test", "max": "price_max_test"},
         ), patch.object(
             service,
             "FRONTEND_URL",
@@ -133,6 +140,10 @@ class TestCheckoutSession:
             "app.features.payment.service.get_or_create_stripe_customer",
             new_callable=AsyncMock,
             return_value="cus_test",
+        ), patch(
+            "app.features.payment.service._is_active_price",
+            new_callable=AsyncMock,
+            return_value=True,
         ), patch(
             "app.features.payment.service.stripe.checkout.Session.create",
             return_value=mock_session,
@@ -163,7 +174,7 @@ class TestCheckoutSession:
         with patch.object(
             service,
             "PRICE_ID_MAP",
-            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+            {"pro": "price_pro_test", "max": "price_max_test"},
         ), patch.object(
             service,
             "FRONTEND_URL",
@@ -181,6 +192,10 @@ class TestCheckoutSession:
             new_callable=AsyncMock,
             return_value="cus_test",
         ), patch(
+            "app.features.payment.service._is_active_price",
+            new_callable=AsyncMock,
+            return_value=True,
+        ), patch(
             "app.features.payment.service.stripe.checkout.Session.create",
             return_value=mock_session,
         ) as mock_create:
@@ -197,7 +212,7 @@ class TestCheckoutSession:
         assert kwargs["cancel_url"] == "https://themarketbrew.com/pricing?checkout=cancel"
 
     @pytest.mark.asyncio
-    async def test_ultra_checkout_marks_product_and_subscription_metadata(self):
+    async def test_legacy_ultra_checkout_aliases_to_max_metadata(self):
         from app.features.payment import service
 
         mock_session = MagicMock()
@@ -206,7 +221,7 @@ class TestCheckoutSession:
         with patch.object(
             service,
             "PRICE_ID_MAP",
-            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+            {"pro": "price_pro_test", "max": "price_max_test"},
         ), patch.object(
             service,
             "FRONTEND_URL",
@@ -215,6 +230,10 @@ class TestCheckoutSession:
             "app.features.payment.service.get_or_create_stripe_customer",
             new_callable=AsyncMock,
             return_value="cus_test",
+        ), patch(
+            "app.features.payment.service._is_active_price",
+            new_callable=AsyncMock,
+            return_value=True,
         ), patch(
             "app.features.payment.service.stripe.checkout.Session.create",
             return_value=mock_session,
@@ -228,42 +247,52 @@ class TestCheckoutSession:
 
         assert url == "https://checkout.stripe.test/ultra-session"
         kwargs = mock_create.call_args.kwargs
-        assert kwargs["line_items"] == [{"price": "price_ultra_test", "quantity": 1}]
-        assert "tier=ultra" in kwargs["success_url"]
-        assert "product=ultra" in kwargs["success_url"]
+        assert kwargs["line_items"] == [{"price": "price_max_test", "quantity": 1}]
+        assert "tier=max" in kwargs["success_url"]
+        assert "product=max" in kwargs["success_url"]
         assert "next=%2Fkol%2Fqinbafrank%3Fwelcome%3D1" in kwargs["success_url"]
         assert kwargs["cancel_url"] == "https://themarketbrew.com/kol/qinbafrank?welcome=1&checkout=cancel"
-        assert kwargs["metadata"]["tier"] == "ultra"
-        assert kwargs["metadata"]["product"] == "ultra"
-        assert kwargs["subscription_data"]["metadata"]["tier"] == "ultra"
-        assert kwargs["subscription_data"]["metadata"]["product"] == "ultra"
+        assert kwargs["metadata"]["tier"] == "max"
+        assert kwargs["metadata"]["product"] == "max"
+        assert kwargs["subscription_data"]["metadata"]["tier"] == "max"
+        assert kwargs["subscription_data"]["metadata"]["product"] == "max"
+
+    def test_legacy_ultra_product_normalizes_to_max(self):
+        from app.features.payment import service
+
+        assert service.normalize_checkout_product("ultra", "ultra") == "max"
+        assert service.normalize_checkout_product("creator_max_qinbafrank", "pro") == "max"
 
     @pytest.mark.asyncio
-    async def test_ultra_price_resolves_from_lookup_key_when_env_missing(self):
+    async def test_price_resolves_from_lookup_key_when_configured_price_inactive(self):
         from app.features.payment import service
 
         mock_prices = MagicMock()
         mock_prices.to_dict.return_value = {
-            "data": [{"id": "price_ultra_lookup"}],
+            "data": [{"id": "price_pro_lookup"}],
         }
 
         with patch.object(
             service,
             "PRICE_ID_MAP",
-            {"pro": "price_pro_test", "max": "price_max_test", "ultra": ""},
+            {"pro": "price_inactive", "max": "price_max_test"},
         ), patch.object(
             service,
             "_RESOLVED_PRICE_ID_CACHE",
             {},
         ), patch(
+            "app.features.payment.service._is_active_price",
+            new_callable=AsyncMock,
+            return_value=False,
+        ), patch(
             "app.features.payment.service.stripe.Price.list",
             return_value=mock_prices,
         ) as mock_list:
-            price_id = await service.resolve_price_id_for_product("ultra")
+            price_id = await service.resolve_price_id_for_product("pro")
 
-        assert price_id == "price_ultra_lookup"
+        assert price_id == "price_pro_lookup"
         mock_list.assert_called_once_with(
-            lookup_keys=["themarketbrew_ultra_monthly"],
+            lookup_keys=["themarketbrew_pro_monthly"],
             active=True,
             limit=1,
         )
@@ -770,17 +799,8 @@ class TestWebhookHandler:
             "items": {"data": []},
         }
 
-        import stripe
-
-        async def fake_to_thread(func, *args, **kwargs):
-            assert getattr(func, "__self__", None) is stripe.Subscription
-            assert getattr(func, "__name__", "") == "retrieve"
-            assert args == ("sub_abc",)
-            assert kwargs == {}
-            return mock_stripe_sub
-
         with patch("app.features.payment.router.stripe.Webhook.construct_event", return_value=event), \
-             patch("app.features.payment.router.stripe.Subscription.retrieve", return_value=mock_stripe_sub), \
+             patch("app.features.payment.router.stripe.Subscription.retrieve", return_value=mock_stripe_sub) as mock_retrieve, \
              patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value=None), \
              patch("app.features.payment.service.get_subscription", new_callable=AsyncMock, return_value=None), \
              patch("app.features.payment.service.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
@@ -793,7 +813,7 @@ class TestWebhookHandler:
             result = await stripe_webhook(mock_request)
 
             assert result == {"received": True}
-            mock_to_thread.assert_awaited_once()
+            mock_retrieve.assert_called_once_with("sub_abc", expand=["items.data.price"])
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
             assert call_kwargs["user_id"] == "user-123"
@@ -946,7 +966,7 @@ class TestWebhookHandler:
 
         assert result == {"received": True}
         call_kwargs = mock_upsert.call_args.kwargs
-        assert call_kwargs["plan"] == "ultra"
+        assert call_kwargs["plan"] == "max"
         assert call_kwargs["status"] == "active"
         assert call_kwargs["cancel_at_period_end"] is False
         assert call_kwargs["cancel_at"] == "2026-07-12T02:48:43+00:00"
@@ -1164,17 +1184,17 @@ class TestParseIsoDatetime:
 
 
 # ---------------------------------------------------------------------------
-# Grandfathered Ultra sync preservation
+# Legacy Ultra sync normalization
 # ---------------------------------------------------------------------------
 
 
-class TestGrandfatheredUltraSync:
-    """DB-migrated Ultra users must not be downgraded by active Stripe Max syncs."""
+class TestLegacyUltraSync:
+    """Legacy Ultra rows are normalized back to Max during active syncs."""
 
     @pytest.mark.asyncio
-    async def test_subscription_sync_preserves_local_ultra_for_active_stripe_max(self):
+    async def test_subscription_sync_normalizes_local_ultra_for_active_stripe_max(self):
         from app.features.payment import service
-        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, ULTRA_FEATURES
+        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, MAX_FEATURES
 
         existing = {
             "user_id": "user-legacy",
@@ -1182,7 +1202,7 @@ class TestGrandfatheredUltraSync:
             "status": "active",
             "stripe_customer_id": "cus_legacy",
             "stripe_subscription_id": "sub_legacy",
-            "entitlements": sorted(ULTRA_FEATURES),
+            "entitlements": sorted(MAX_FEATURES | {KOL_PACK_QINBAFRANK}),
         }
         stripe_sub = {
             "id": "sub_legacy",
@@ -1203,7 +1223,7 @@ class TestGrandfatheredUltraSync:
         with patch.object(
             service,
             "PRICE_ID_MAP",
-            {"pro": "price_pro_test", "max": "price_max_test", "ultra": "price_ultra_test"},
+            {"pro": "price_pro_test", "max": "price_max_test"},
         ), patch(
             "app.features.payment.service.get_subscription",
             new_callable=AsyncMock,
@@ -1222,23 +1242,23 @@ class TestGrandfatheredUltraSync:
                 source="test",
             )
 
-        assert result["plan"] == "ultra"
-        assert KOL_PACK_QINBAFRANK in result["entitlements"]
+        assert result["plan"] == "max"
+        assert KOL_PACK_QINBAFRANK not in result["entitlements"]
         call_kwargs = mock_upsert.call_args.kwargs
-        assert call_kwargs["plan"] == "ultra"
-        assert KOL_PACK_QINBAFRANK in call_kwargs["entitlements"]
+        assert call_kwargs["plan"] == "max"
+        assert KOL_PACK_QINBAFRANK not in call_kwargs["entitlements"]
 
     @pytest.mark.asyncio
-    async def test_entitlement_sync_preserves_local_ultra_for_active_stripe_max(self):
+    async def test_entitlement_sync_normalizes_local_ultra_for_active_stripe_max(self):
         from app.features.payment import service
-        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, ULTRA_FEATURES
+        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, MAX_FEATURES
 
         existing = {
             "user_id": "user-legacy",
             "plan": "ultra",
             "status": "active",
             "stripe_customer_id": "cus_legacy",
-            "entitlements": sorted(ULTRA_FEATURES),
+            "entitlements": sorted(MAX_FEATURES | {KOL_PACK_QINBAFRANK}),
         }
         max_entitlements = [
             {"id": "ent_ai", "lookup_key": "ai_research_engine"},
@@ -1270,23 +1290,23 @@ class TestGrandfatheredUltraSync:
                 source="test",
             )
 
-        assert result["plan"] == "ultra"
-        assert KOL_PACK_QINBAFRANK in result["entitlements"]
+        assert result["plan"] == "max"
+        assert KOL_PACK_QINBAFRANK not in result["entitlements"]
         call_kwargs = mock_upsert.call_args.kwargs
-        assert call_kwargs["plan"] == "ultra"
-        assert KOL_PACK_QINBAFRANK in call_kwargs["entitlements"]
+        assert call_kwargs["plan"] == "max"
+        assert KOL_PACK_QINBAFRANK not in call_kwargs["entitlements"]
 
     @pytest.mark.asyncio
     async def test_empty_entitlement_sync_still_deprovisions_local_ultra(self):
         from app.features.payment import service
-        from app.features.payment.entitlements import ULTRA_FEATURES
+        from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, MAX_FEATURES
 
         existing = {
             "user_id": "user-legacy",
             "plan": "ultra",
             "status": "active",
             "stripe_customer_id": "cus_legacy",
-            "entitlements": sorted(ULTRA_FEATURES),
+            "entitlements": sorted(MAX_FEATURES | {KOL_PACK_QINBAFRANK}),
         }
 
         with patch(

@@ -38,8 +38,9 @@ KOL_PACK_FEATURES: Set[str] = {
 }
 
 MAX_FEATURES: Set[str] = PRO_FEATURES | MAX_ONLY_FEATURES
-ULTRA_FEATURES: Set[str] = MAX_FEATURES | KOL_PACK_FEATURES
-ALL_FEATURES: Set[str] = MAX_FEATURES | KOL_PACK_FEATURES
+# Legacy only. Ultra is no longer a sellable tier and active rows should not
+# carry this key after the Ultra -> Max migration.
+ALL_FEATURES: Set[str] = MAX_FEATURES
 
 
 def _is_access_expired(access_expires_at: str | None) -> bool:
@@ -69,8 +70,8 @@ async def has_entitlement(user_id: str, feature: str) -> bool:
     This column is written exclusively by the Stripe entitlements webhook.
 
     Lifetime users (is_lifetime=true) always have access to every max feature.
-    Stored entitlements are unioned in so migrated lifetime rows can carry
-    Ultra-only feature keys without needing Stripe.
+    Stored entitlements are intentionally ignored for legacy KOL pack keys
+    because Ultra has been folded back into Max.
     """
     from app.features.payment.db import get_subscription
 
@@ -78,22 +79,20 @@ async def has_entitlement(user_id: str, feature: str) -> bool:
     if not sub:
         return False
 
-    entitlements = set(sub.get("entitlements") or [])
-
     if sub.get("is_lifetime"):
-        return feature in (MAX_FEATURES | entitlements)
+        return feature in MAX_FEATURES
 
     if _is_access_expired(sub.get("access_expires_at")):
         return False
 
+    entitlements = set(sub.get("entitlements") or [])
     return feature in entitlements
 
 
 async def get_user_entitlements(user_id: str) -> Set[str]:
     """Return the full set of entitlements for /api/me/entitlements.
 
-    Lifetime users always receive the full MAX_FEATURES set plus any stored
-    Ultra-only entitlements on the row.
+    Lifetime users always receive the full MAX_FEATURES set.
     """
     from app.features.payment.db import get_subscription
 
@@ -101,12 +100,11 @@ async def get_user_entitlements(user_id: str) -> Set[str]:
     if not sub:
         return set()
 
-    entitlements = set(sub.get("entitlements") or [])
-
     if sub.get("is_lifetime"):
-        return set(MAX_FEATURES) | entitlements
+        return set(MAX_FEATURES)
 
     if _is_access_expired(sub.get("access_expires_at")):
         return set()
 
+    entitlements = set(sub.get("entitlements") or [])
     return entitlements

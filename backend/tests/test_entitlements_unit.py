@@ -93,13 +93,13 @@ class TestHasEntitlement:
 
     @pytest.mark.asyncio
     @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
-    async def test_lifetime_unions_stored_ultra_entitlements(self, mock_get_sub):
+    async def test_lifetime_ignores_stored_legacy_kol_entitlements(self, mock_get_sub):
         mock_get_sub.return_value = {
             "is_lifetime": True,
             "entitlements": [KOL_PACK_QINBAFRANK],
         }
 
-        assert await has_entitlement(MOCK_UID, KOL_PACK_QINBAFRANK) is True
+        assert await has_entitlement(MOCK_UID, KOL_PACK_QINBAFRANK) is False
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +154,7 @@ class TestGetUserEntitlements:
 
     @pytest.mark.asyncio
     @patch("app.features.payment.db.get_subscription", new_callable=AsyncMock)
-    async def test_lifetime_returns_max_plus_stored_ultra_entitlements(self, mock_get_sub):
+    async def test_lifetime_returns_max_without_stored_legacy_kol_entitlements(self, mock_get_sub):
         mock_get_sub.return_value = {
             "is_lifetime": True,
             "entitlements": [KOL_PACK_QINBAFRANK],
@@ -162,5 +162,5 @@ class TestGetUserEntitlements:
 
         result = await get_user_entitlements(MOCK_UID)
 
-        assert MAX_FEATURES.issubset(result)
-        assert KOL_PACK_QINBAFRANK in result
+        assert result == MAX_FEATURES
+        assert KOL_PACK_QINBAFRANK not in result

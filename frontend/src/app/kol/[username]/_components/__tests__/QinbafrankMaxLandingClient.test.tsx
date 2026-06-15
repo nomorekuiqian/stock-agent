@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import QinbafrankUltraLandingClient from "../QinbafrankUltraLandingClient";
+import QinbafrankMaxLandingClient from "../QinbafrankMaxLandingClient";
 
 const mockPush = vi.fn();
 const mockCreateCheckout = vi.fn();
@@ -54,25 +54,27 @@ vi.mock("@/contexts/SubscriptionContext", () => ({
   useSubscription: () => mockUseSubscription(),
 }));
 
-function setSubscriptionState(overrides: Partial<ReturnType<typeof baseSubscriptionState>> = {}) {
-  mockUseSubscription.mockReturnValue({
-    ...baseSubscriptionState(),
-    ...overrides,
-  });
-}
-
 function baseSubscriptionState() {
   return {
     createCheckout: mockCreateCheckout,
     isCheckoutLoading: false,
     checkoutError: null,
     portalError: null,
-    isUltra: false,
+    isMax: false,
     isLoading: false,
   };
 }
 
-describe("QinbafrankUltraLandingClient", () => {
+function setSubscriptionState(
+  overrides: Partial<ReturnType<typeof baseSubscriptionState>> = {},
+) {
+  mockUseSubscription.mockReturnValue({
+    ...baseSubscriptionState(),
+    ...overrides,
+  });
+}
+
+describe("QinbafrankMaxLandingClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearchParams = new URLSearchParams();
@@ -84,14 +86,14 @@ describe("QinbafrankUltraLandingClient", () => {
     setSubscriptionState();
   });
 
-  it("routes Ultra users to the Qinbafrank Agent from every primary CTA", () => {
-    setSubscriptionState({ isUltra: true });
+  it("routes Max users to the Qinbafrank Agent from every primary CTA", () => {
+    setSubscriptionState({ isMax: true });
 
-    render(<QinbafrankUltraLandingClient />);
+    render(<QinbafrankMaxLandingClient />);
 
     const ctas = screen.getAllByRole("button", { name: /立即使用/ });
     expect(ctas).toHaveLength(3);
-    expect(screen.queryByRole("button", { name: /立即解锁 Ultra/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /立即解锁 Max/ })).toBeNull();
 
     fireEvent.click(ctas[0]);
 
@@ -101,16 +103,16 @@ describe("QinbafrankUltraLandingClient", () => {
     expect(mockCreateCheckout).not.toHaveBeenCalled();
   });
 
-  it("keeps the checkout CTA for non-Ultra users", () => {
-    render(<QinbafrankUltraLandingClient />);
+  it("keeps the checkout CTA for non-Max users", () => {
+    render(<QinbafrankMaxLandingClient />);
 
-    const ctas = screen.getAllByRole("button", { name: /立即解锁 Ultra/ });
+    const ctas = screen.getAllByRole("button", { name: /立即解锁 Max/ });
     expect(ctas).toHaveLength(3);
 
     fireEvent.click(ctas[0]);
 
     expect(mockCreateCheckout).toHaveBeenCalledWith(
-      "ultra",
+      "max",
       "/kol/qinbafrank?welcome=1",
     );
     expect(mockPush).not.toHaveBeenCalled();

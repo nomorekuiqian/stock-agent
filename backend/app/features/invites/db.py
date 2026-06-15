@@ -1,6 +1,6 @@
 """
 Access-request form storage. Trial / invite code creation is removed
-(freemium transition — see docs/plans/active/freemium-lifecycle-email.md).
+during the freemium transition.
 """
 
 from app.core.database import get_insforge_service

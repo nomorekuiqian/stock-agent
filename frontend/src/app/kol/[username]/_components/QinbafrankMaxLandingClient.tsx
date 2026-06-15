@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { track } from "@vercel/analytics";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { track } from '@vercel/analytics';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Archive,
   ArrowRight,
@@ -22,47 +22,43 @@ import {
   PackageCheck,
   ShieldCheck,
   type LucideIcon,
-} from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useSubscription } from "@/contexts/SubscriptionContext";
-import { PRICING } from "@/lib/pricing";
-import { trackProductEvent } from "@/lib/product-analytics";
-import {
-  trackCheckoutOpen,
-  trackPaywallCtaClick,
-} from "@/lib/paywall-analytics";
+} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { PRICING } from '@/lib/pricing';
+import { trackProductEvent } from '@/lib/product-analytics';
+import { trackCheckoutOpen, trackPaywallCtaClick } from '@/lib/paywall-analytics';
 
-type CtaLocation = "hero" | "offer";
-type Tone = "emerald" | "amber" | "sky" | "neutral";
+type CtaLocation = 'hero' | 'offer';
+type Tone = 'emerald' | 'amber' | 'sky' | 'neutral';
 
-const PRODUCT = "ultra" as const;
-const LANDING_PATH = "/kol/qinbafrank";
-const RETURN_PATH = "/kol/qinbafrank?welcome=1";
-const AGENT_PATH = "/research?agent=kol&persona=qinbafrank";
+const PRODUCT = 'max' as const;
+const LANDING_PATH = '/kol/qinbafrank';
+const RETURN_PATH = '/kol/qinbafrank?welcome=1';
+const AGENT_PATH = '/research?agent=kol&persona=qinbafrank';
 
-const TONE_CLASS: Record<Tone, { card: string; icon: string; label: string }> =
-  {
-    emerald: {
-      card: "border-primary/25 bg-primary/[0.04]",
-      icon: "border-primary/25 bg-primary/[0.08] text-primary",
-      label: "text-primary",
-    },
-    amber: {
-      card: "border-amber-500/25 bg-amber-500/[0.045]",
-      icon: "border-amber-500/25 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300",
-      label: "text-amber-700 dark:text-amber-300",
-    },
-    sky: {
-      card: "border-sky-500/25 bg-sky-500/[0.04]",
-      icon: "border-sky-500/25 bg-sky-500/[0.075] text-sky-700 dark:text-sky-300",
-      label: "text-sky-700 dark:text-sky-300",
-    },
-    neutral: {
-      card: "border-border/45 bg-card/25",
-      icon: "border-border/45 bg-background/60 text-muted-foreground",
-      label: "text-muted-foreground",
-    },
-  };
+const TONE_CLASS: Record<Tone, { card: string; icon: string; label: string }> = {
+  emerald: {
+    card: 'border-primary/25 bg-primary/[0.04]',
+    icon: 'border-primary/25 bg-primary/[0.08] text-primary',
+    label: 'text-primary',
+  },
+  amber: {
+    card: 'border-amber-500/25 bg-amber-500/[0.045]',
+    icon: 'border-amber-500/25 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300',
+    label: 'text-amber-700 dark:text-amber-300',
+  },
+  sky: {
+    card: 'border-sky-500/25 bg-sky-500/[0.04]',
+    icon: 'border-sky-500/25 bg-sky-500/[0.075] text-sky-700 dark:text-sky-300',
+    label: 'text-sky-700 dark:text-sky-300',
+  },
+  neutral: {
+    card: 'border-border/45 bg-card/25',
+    icon: 'border-border/45 bg-background/60 text-muted-foreground',
+    label: 'text-muted-foreground',
+  },
+};
 
 const INSIDE_PACK: Array<{
   icon: LucideIcon;
@@ -73,31 +69,31 @@ const INSIDE_PACK: Array<{
 }> = [
   {
     icon: Archive,
-    tone: "emerald",
-    eyebrow: "资料库",
-    title: "QinbaFrank观点库",
-    body: "按标的、主题和产业链检索 Qinbafrank 公开观点，每日更新",
+    tone: 'emerald',
+    eyebrow: '资料库',
+    title: '观点库',
+    body: '按标的、主题和产业链查 Qinbafrank 公开旧观点。',
   },
   {
     icon: Newspaper,
-    tone: "amber",
-    eyebrow: "TheMarketBrew日报",
-    title: "每日日报",
-    body: "包含 4 份日报：盘前早报、盘后晚报、专属持仓日报、推特KOL日报。",
+    tone: 'amber',
+    eyebrow: '日报',
+    title: '每日日报',
+    body: '包含 4 份日报：盘前早报、盘后市场日报、专属持仓日报、KOL 日报。',
   },
   {
     icon: ChartNoAxesColumnIncreasing,
-    tone: "sky",
-    eyebrow: "TheMarketBrew个股投研",
-    title: "AI 个股投研",
-    body: "解锁深度个股分析、基本面拆解、技术面复盘、新闻和同行对比。",
+    tone: 'sky',
+    eyebrow: '个股投研',
+    title: 'AI 个股投研',
+    body: '解锁深度个股分析、基本面拆解、技术面复盘、新闻和同行对比。',
   },
   {
     icon: BrainCircuit,
-    tone: "neutral",
-    eyebrow: "研究助手",
-    title: "Qinbafrank专属AI研究助手",
-    body: "用博主框架拆新闻、财报、个股和你的真实问题。",
+    tone: 'neutral',
+    eyebrow: '研究助手',
+    title: '专属AI研究助手',
+    body: '用公开框架拆新闻、财报、个股和你的真实问题。',
   },
 ];
 
@@ -109,49 +105,63 @@ const LIBRARY_ENTRIES: Array<{
   href: string;
 }> = [
   {
-    icon: BookMarked,
-    tone: "amber",
-    title: "过往精华",
-    eyebrow: "7 个主题",
-    href: "/kol/qinbafrank/highlights",
+    icon: Layers,
+    tone: 'emerald',
+    title: '板块观点',
+    eyebrow: '5 个板块',
+    href: '/kol/qinbafrank/sectors',
   },
   {
-    icon: Layers,
-    tone: "emerald",
-    title: "板块观点",
-    eyebrow: "5 个板块",
-    href: "/kol/qinbafrank/sectors",
+    icon: BookMarked,
+    tone: 'amber',
+    title: '过往精华',
+    eyebrow: '7 个主题',
+    href: '/kol/qinbafrank/highlights',
   },
   {
     icon: FileChartColumn,
-    tone: "sky",
-    title: "个股档案",
-    eyebrow: "82支股票",
-    href: "/kol/qinbafrank/stocks",
+    tone: 'sky',
+    title: '个股档案',
+    eyebrow: '推荐档案',
+    href: '/kol/qinbafrank/stocks',
+  },
+  {
+    icon: Newspaper,
+    tone: 'neutral',
+    title: '全量原文',
+    eyebrow: '精选 + 原文',
+    href: '/kol/qinbafrank/latest',
+  },
+  {
+    icon: ChartNoAxesColumnIncreasing,
+    tone: 'sky',
+    title: '宏观内容',
+    eyebrow: '传导地图',
+    href: '/kol/qinbafrank/macro',
   },
   {
     icon: MessageCircleQuestion,
-    tone: "emerald",
-    title: "研究助手",
-    eyebrow: "专属智能体",
-    href: AGENT_PATH,
+    tone: 'emerald',
+    title: '研究助手',
+    eyebrow: '可追问',
+    href: '/research?agent=kol&persona=qinbafrank',
   },
 ];
 
 const EXAMPLES = [
-  "AI基建板块现在核心机会是什么？",
-  "如何看待近期的市场波动？",
-  "CRCL、COIN、HOOD 这条产业链里，哪只更符合他的框架？",
-  "我手里的 MU、AVGO、AMD，哪个更值得关注？",
-  "SpaceX上市对后续市场有什么影响？",
+  'Qinbafrank 以前怎么看 PLTR？',
+  '这条新闻会改变公司故事吗？',
+  'NVDA 财报应该先看哪几个变量？',
+  '这次下跌是杀估值、杀业绩，还是杀逻辑？',
+  '我的自选列表里哪些值得先复盘？',
 ];
 
 const OFFER_ITEMS = [
-  "Qinbafrank完整资料库",
-  "Qinbafrank专属AI研究助手",
-  "TheMarketBrew全部4份日报",
-  "AI个股投研助手",
-  "研究助手回答不代表本人观点，非投资建议",
+  'Qinbafrank完整资料库',
+  'Qinbafrank专属AI研究助手',
+  'TheMarketBrew全部4份日报',
+  'AI个股投研与Research Agent',
+  '研究助手回答不代表本人观点，非投资建议',
 ];
 
 const FIT_SECTIONS: Array<{
@@ -164,52 +174,50 @@ const FIT_SECTIONS: Array<{
   {
     icon: PackageCheck,
     itemIcon: CheckCircle2,
-    tone: "emerald",
-    title: "你会得到什么",
+    tone: 'emerald',
+    title: '你会得到什么',
     items: [
-      "Qinbafrank的历史研究内容与方法论资料库。",
-      "Qinbafrank专属AI研究助手。",
-      "TheMarketBrew 现有全部日报系列：盘前、盘后、专属持仓、推特KOL日报。",
-      "TheMarketBrew AI深度投研助手",
+      'Qinbafrank 的历史研究内容与方法论资料库。',
+      '可对话的 Qinbafrank专属AI研究助手。',
+      'TheMarketBrew 现有全部日报：盘前、盘后、专属持仓、KOL 日报。',
+      'TheMarketBrew 个股投研能力：深度个股分析、Research Agent、行情与新闻上下文。',
     ],
   },
   {
     icon: GraduationCap,
     itemIcon: CheckCircle2,
-    tone: "sky",
-    title: "适合谁",
+    tone: 'sky',
+    title: '适合谁',
     items: [
-      "想系统学习 Qinbafrank 研究框架的人。",
-      "已经关注 Qinbafrank，但不想在碎片内容里反复翻找的人。",
-      "有关注列表，想用 Qinbafrank 的框架辅助理解的人。",
+      '想系统学习 Qinbafrank 研究框架的人。',
+      '已经关注 Qinbafrank，但不想在碎片内容里反复翻找的人。',
+      '有关注列表，想用 Qinbafrank 的框架辅助理解的人。',
     ],
   },
   {
     icon: CircleSlash2,
     itemIcon: CircleSlash2,
-    tone: "neutral",
-    title: "不适合谁",
+    tone: 'neutral',
+    title: '不适合谁',
     items: [
-      "想要荐股的人。",
-      "想要买卖点的人。",
-      "想要短线交易信号的人。",
-      "想要保证收益的人。",
+      '想要荐股的人。',
+      '想要买卖点的人。',
+      '想要短线交易信号的人。',
+      '想要保证收益的人。',
     ],
   },
 ];
 
-function getAttribution(searchParams: {
-  get: (name: string) => string | null;
-}) {
+function getAttribution(searchParams: { get: (name: string) => string | null }) {
   return {
-    utm_source: searchParams.get("utm_source"),
-    utm_medium: searchParams.get("utm_medium"),
-    utm_campaign: searchParams.get("utm_campaign"),
-    ref: searchParams.get("ref"),
+    utm_source: searchParams.get('utm_source'),
+    utm_medium: searchParams.get('utm_medium'),
+    utm_campaign: searchParams.get('utm_campaign'),
+    ref: searchParams.get('ref'),
   };
 }
 
-export default function QinbafrankUltraLandingClient() {
+export default function QinbafrankMaxLandingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -218,136 +226,110 @@ export default function QinbafrankUltraLandingClient() {
     isCheckoutLoading,
     checkoutError,
     portalError,
-    isUltra,
+    isMax,
     isLoading: subscriptionLoading,
   } = useSubscription();
   const [ctaLocation, setCtaLocation] = useState<CtaLocation | null>(null);
   const autoCheckoutStartedRef = useRef(false);
-  const attribution = useMemo(
-    () => getAttribution(searchParams),
-    [searchParams],
-  );
+  const attribution = useMemo(() => getAttribution(searchParams), [searchParams]);
 
   useEffect(() => {
     const properties = {
-      source: "qinbafrank_ultra",
+      source: 'qinbafrank_max',
       product: PRODUCT,
       path: LANDING_PATH,
       ...attribution,
     };
-    track("qinbafrank_pack_landing_view", properties);
-    trackProductEvent("qinbafrank_pack_landing_view", properties);
+    track('qinbafrank_pack_landing_view', properties);
+    trackProductEvent('qinbafrank_pack_landing_view', properties);
   }, [attribution]);
 
-  const trackCheckoutIntent = useCallback(
-    (location: CtaLocation) => {
-      const properties = {
-        source: "qinbafrank_ultra",
-        product: PRODUCT,
-        location,
-        authenticated: isAuthenticated,
-        ...attribution,
-      };
-      track("qinbafrank_pack_checkout_click", properties);
-      trackProductEvent("qinbafrank_pack_checkout_click", properties);
-      trackPaywallCtaClick({
-        source: "qinbafrank_ultra_landing",
-        tier: PRODUCT,
-        authenticated: isAuthenticated,
-      });
-    },
-    [attribution, isAuthenticated],
-  );
+  const trackCheckoutIntent = useCallback((location: CtaLocation) => {
+    const properties = {
+      source: 'qinbafrank_max',
+      product: PRODUCT,
+      location,
+      authenticated: isAuthenticated,
+      ...attribution,
+    };
+    track('qinbafrank_pack_checkout_click', properties);
+    trackProductEvent('qinbafrank_pack_checkout_click', properties);
+    trackPaywallCtaClick({
+      source: 'qinbafrank_max_landing',
+      tier: PRODUCT,
+      authenticated: isAuthenticated,
+    });
+  }, [attribution, isAuthenticated]);
 
-  const startCheckout = useCallback(
-    async (location: CtaLocation) => {
-      trackCheckoutIntent(location);
+  const startCheckout = useCallback(async (location: CtaLocation) => {
+    trackCheckoutIntent(location);
 
-      if (!isAuthenticated) {
-        const redirect = `${LANDING_PATH}?checkout=ultra`;
-        router.push(
-          `/login?mode=signup&redirect=${encodeURIComponent(redirect)}`,
-        );
-        return;
-      }
-
-      setCtaLocation(location);
-      trackCheckoutOpen({ source: "qinbafrank_ultra_landing", tier: PRODUCT });
-      await createCheckout(PRODUCT, RETURN_PATH);
-      setCtaLocation(null);
-    },
-    [createCheckout, isAuthenticated, router, trackCheckoutIntent],
-  );
-
-  const openAgent = useCallback(
-    (location: CtaLocation) => {
-      const properties = {
-        source: "qinbafrank_ultra",
-        product: PRODUCT,
-        location,
-        authenticated: isAuthenticated,
-        ...attribution,
-      };
-      track("qinbafrank_pack_agent_click", properties);
-      trackProductEvent("qinbafrank_pack_agent_click", properties);
-      router.push(AGENT_PATH);
-    },
-    [attribution, isAuthenticated, router],
-  );
-
-  const handlePrimaryCta = useCallback(
-    (location: CtaLocation) => {
-      if (isUltra) {
-        openAgent(location);
-        return;
-      }
-
-      void startCheckout(location);
-    },
-    [isUltra, openAgent, startCheckout],
-  );
-
-  useEffect(() => {
-    if (
-      authLoading ||
-      subscriptionLoading ||
-      !isAuthenticated ||
-      autoCheckoutStartedRef.current
-    )
-      return;
-    if (!["1", "creator", "ultra"].includes(searchParams.get("checkout") || ""))
-      return;
-    autoCheckoutStartedRef.current = true;
-    if (isUltra) {
-      openAgent("hero");
+    if (!isAuthenticated) {
+      const redirect = `${LANDING_PATH}?checkout=max`;
+      router.push(`/login?mode=signup&redirect=${encodeURIComponent(redirect)}`);
       return;
     }
 
-    trackCheckoutIntent("hero");
-    trackCheckoutOpen({ source: "qinbafrank_ultra_landing", tier: PRODUCT });
+    setCtaLocation(location);
+    trackCheckoutOpen({ source: 'qinbafrank_max_landing', tier: PRODUCT });
+    await createCheckout(PRODUCT, RETURN_PATH);
+    setCtaLocation(null);
+  }, [createCheckout, isAuthenticated, router, trackCheckoutIntent]);
+
+  const openAgent = useCallback((location: CtaLocation) => {
+    const properties = {
+      source: 'qinbafrank_max',
+      product: PRODUCT,
+      location,
+      authenticated: isAuthenticated,
+      ...attribution,
+    };
+    track('qinbafrank_pack_agent_click', properties);
+    trackProductEvent('qinbafrank_pack_agent_click', properties);
+    router.push(AGENT_PATH);
+  }, [attribution, isAuthenticated, router]);
+
+  const handlePrimaryCta = useCallback((location: CtaLocation) => {
+    if (isMax) {
+      openAgent(location);
+      return;
+    }
+    void startCheckout(location);
+  }, [isMax, openAgent, startCheckout]);
+
+  useEffect(() => {
+    if (authLoading || subscriptionLoading || !isAuthenticated || autoCheckoutStartedRef.current) return;
+    if (!['1', 'creator', 'ultra', 'max'].includes(searchParams.get('checkout') || '')) return;
+    autoCheckoutStartedRef.current = true;
+    if (isMax) {
+      openAgent('hero');
+      return;
+    }
+    trackCheckoutIntent('hero');
+    trackCheckoutOpen({ source: 'qinbafrank_max_landing', tier: PRODUCT });
     void createCheckout(PRODUCT, RETURN_PATH);
   }, [
     authLoading,
     createCheckout,
     isAuthenticated,
-    isUltra,
+    isMax,
     openAgent,
     searchParams,
     subscriptionLoading,
     trackCheckoutIntent,
   ]);
 
-  const priceLabel = PRICING.ultraPerMonth;
+  const priceLabel = PRICING.maxPerMonth;
   const ctaAccessLoading = authLoading || subscriptionLoading;
   const ctaCheckoutBusy = ctaLocation !== null || isCheckoutLoading;
-  const ctaBusy = !isUltra && (ctaAccessLoading || ctaCheckoutBusy);
-  const ctaCopy = isUltra
-    ? "立即使用"
+  const ctaBusy = !isMax && (ctaAccessLoading || ctaCheckoutBusy);
+  const ctaCopy = isMax
+    ? '立即使用'
     : ctaCheckoutBusy
-      ? "正在跳转..."
+      ? '正在跳转...'
       : ctaAccessLoading
-        ? "正在确认..."
-        : "立即解锁 Ultra";
+        ? '正在确认...'
+        : '立即解锁 Max';
   const paymentError = checkoutError || portalError;
 
   return (
@@ -366,14 +348,13 @@ export default function QinbafrankUltraLandingClient() {
               Qinbafrank 研究室
             </h1>
             <p className="mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
-              Qinbafrank 资料包、专属AI研究助手，以及 TheMarketBrew Ultra
-              的全部投研服务
+              Qinbafrank 资料包、专属AI研究助手，以及 TheMarketBrew Max 的全部投研服务
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="button"
-                onClick={() => handlePrimaryCta("hero")}
+                onClick={() => handlePrimaryCta('hero')}
                 disabled={ctaBusy}
                 className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-primary/90 px-5 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-70 motion-reduce:transform-none"
               >
@@ -384,14 +365,14 @@ export default function QinbafrankUltraLandingClient() {
                 href="#library-nav"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-border/50 bg-card/20 px-5 py-3 text-sm font-medium text-foreground transition hover:border-primary/25 hover:bg-primary/[0.035] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transform-none"
                 onClick={() => {
-                  track("qinbafrank_pack_sample_click", {
-                    source: "qinbafrank_ultra",
-                    location: "hero_library_nav",
+                  track('qinbafrank_pack_sample_click', {
+                    source: 'qinbafrank_max',
+                    location: 'hero_library_nav',
                     ...attribution,
                   });
-                  trackProductEvent("qinbafrank_pack_sample_click", {
-                    source: "qinbafrank_ultra",
-                    location: "hero_library_nav",
+                  trackProductEvent('qinbafrank_pack_sample_click', {
+                    source: 'qinbafrank_max',
+                    location: 'hero_library_nav',
                     ...attribution,
                   });
                 }}
@@ -424,18 +405,18 @@ export default function QinbafrankUltraLandingClient() {
           <section
             id="library-nav"
             aria-labelledby="library-nav-title"
-            className="order-2 scroll-mt-24 border-t border-border/35 pt-8 md:order-3 md:col-span-2 md:pt-10"
+            className="order-2 scroll-mt-24 border-t border-border/35 pt-6 md:order-3 md:col-span-2"
           >
             <div className="flex items-end justify-between gap-4">
-              <h2
-                id="library-nav-title"
-                className="font-editorial text-2xl leading-snug text-foreground md:text-3xl"
-              >
+              <h2 id="library-nav-title" className="font-editorial text-2xl leading-snug text-foreground md:text-3xl">
                 资料库入口
               </h2>
+              <p className="hidden text-sm leading-relaxed text-muted-foreground md:block">
+                原来的资料库入口仍在这里。
+              </p>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               {LIBRARY_ENTRIES.map((item) => (
                 <LibraryNavLink key={item.title} item={item} />
               ))}
@@ -447,29 +428,24 @@ export default function QinbafrankUltraLandingClient() {
               priceLabel={priceLabel}
               ctaCopy={ctaCopy}
               ctaBusy={ctaBusy}
-              isUsageCta={isUltra}
-              onCtaClick={() => handlePrimaryCta("offer")}
+              onCheckout={() => handlePrimaryCta('offer')}
               error={paymentError}
             />
           </div>
         </div>
       </section>
 
-      <section
-        id="inside-pack"
-        className="mx-auto max-w-6xl scroll-mt-24 px-4 py-12 md:px-6 md:py-14"
-      >
+      <section id="inside-pack" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-12 md:px-6 md:py-14">
         <div className="grid gap-7 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary/80">
               你能得到什么
             </p>
             <h2 className="mt-3 max-w-xl text-balance font-editorial text-3xl leading-tight md:text-4xl">
-              QinbaFrank的公开学习资料和投研框架
+              不只是资料包，也是一整套 Max 投研工作流
             </h2>
             <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground">
-              购买后除了 Qinbafrank 资料包，还会解锁 TheMarketBrew
-              现有全部付费服务，包括日报、个股投研和 AI Research。
+              购买后除了 Qinbafrank 资料包，还会解锁 TheMarketBrew 现有全部付费服务，包括日报、个股投研和 AI Research。
             </p>
           </div>
 
@@ -491,9 +467,7 @@ export default function QinbafrankUltraLandingClient() {
               先说清楚你会得到什么，以及它不适合什么
             </h2>
             <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-              这是一个围绕 Qinbafrank 公开研究脉络整理的学习与研究工具，同时包含
-              TheMarketBrew Ultra
-              的完整产品权益。它不是荐股服务、交易信号或收益承诺。
+              这是一个围绕 Qinbafrank 公开研究脉络整理的学习与研究工具，同时包含 TheMarketBrew Max 的完整产品权益。它不是荐股服务、交易信号或收益承诺。
             </p>
           </div>
 
@@ -521,12 +495,8 @@ export default function QinbafrankUltraLandingClient() {
                 key={question}
                 className="flex min-h-[74px] items-center gap-3 rounded-lg border border-border/40 bg-background/45 px-4 py-3"
               >
-                <span className="font-data text-xs text-primary/80">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <p className="text-sm leading-relaxed text-foreground">
-                  {question}
-                </p>
+                <span className="font-data text-xs text-primary/80">{String(index + 1).padStart(2, '0')}</span>
+                <p className="text-sm leading-relaxed text-foreground">{question}</p>
               </div>
             ))}
           </div>
@@ -543,8 +513,7 @@ export default function QinbafrankUltraLandingClient() {
               解锁 Qinbafrank研究室
             </h2>
             <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground">
-              适合已经关注 Qinbafrank 方法论，并希望同时使用 TheMarketBrew
-              日报、个股投研和 AI Research 全部服务的用户。
+              适合已经关注 Qinbafrank 方法论，并希望同时使用 TheMarketBrew 日报、个股投研和 AI Research 全部服务的用户。
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {OFFER_ITEMS.map((item) => (
@@ -555,9 +524,7 @@ export default function QinbafrankUltraLandingClient() {
               ))}
             </div>
             <p className="mt-6 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              TheMarketBrew 基于 Qinbafrank
-              的公开内容和投研框架整理本资料包。研究助手的回答由系统基于公开资料和市场数据生成，不代表
-              Qinbafrank 本人观点，也不构成投资建议。
+              TheMarketBrew 基于 Qinbafrank 的公开内容和投研框架整理本资料包。研究助手的回答由系统基于公开资料和市场数据生成，不代表 Qinbafrank 本人观点，也不构成投资建议。
             </p>
           </div>
 
@@ -565,8 +532,7 @@ export default function QinbafrankUltraLandingClient() {
             priceLabel={priceLabel}
             ctaCopy={ctaCopy}
             ctaBusy={ctaBusy}
-            isUsageCta={isUltra}
-            onCtaClick={() => handlePrimaryCta("offer")}
+            onCheckout={() => handlePrimaryCta('offer')}
             error={paymentError}
             compact
           />
@@ -592,25 +558,16 @@ function FitSectionCard({
   return (
     <article className={`rounded-lg border p-5 ${tone.card}`}>
       <div className="flex items-center gap-3">
-        <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tone.icon}`}
-        >
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tone.icon}`}>
           <section.icon className="h-4 w-4" />
         </div>
-        <h3 className="font-editorial text-xl font-semibold text-foreground">
-          {section.title}
-        </h3>
+        <h3 className="font-editorial text-xl font-semibold text-foreground">{section.title}</h3>
       </div>
 
       <ul className="mt-5 grid gap-3">
         {section.items.map((item) => (
-          <li
-            key={item}
-            className="flex gap-3 text-sm leading-relaxed text-foreground"
-          >
-            <section.itemIcon
-              className={`mt-0.5 h-4 w-4 shrink-0 ${tone.label}`}
-            />
+          <li key={item} className="flex gap-3 text-sm leading-relaxed text-foreground">
+            <section.itemIcon className={`mt-0.5 h-4 w-4 shrink-0 ${tone.label}`} />
             <span>{item}</span>
           </li>
         ))}
@@ -623,16 +580,14 @@ function OfferCard({
   priceLabel,
   ctaCopy,
   ctaBusy,
-  isUsageCta = false,
-  onCtaClick,
+  onCheckout,
   error,
   compact = false,
 }: {
   priceLabel: string;
   ctaCopy: string;
   ctaBusy: boolean;
-  isUsageCta?: boolean;
-  onCtaClick: () => void;
+  onCheckout: () => void;
   error?: string | null;
   compact?: boolean;
 }) {
@@ -648,20 +603,14 @@ function OfferCard({
           priority={!compact}
         />
         <div>
-          <p className="text-lg font-semibold text-foreground">
-            Qinbafrank研究室
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            包含于TheMarketBrew Ultra
-          </p>
+          <p className="text-lg font-semibold text-foreground">Qinbafrank研究室</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">资料包 + TheMarketBrew Max</p>
         </div>
       </div>
 
       <div className="mt-5 rounded-lg border border-border/35 bg-background/45 p-4">
         <div className="flex items-end gap-2">
-          <p className="font-data text-3xl font-bold text-foreground">
-            {priceLabel.replace("/月", "")}
-          </p>
+          <p className="font-data text-3xl font-bold text-foreground">{priceLabel.replace('/月', '')}</p>
           <p className="pb-1 text-sm text-muted-foreground">/月</p>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
@@ -670,16 +619,8 @@ function OfferCard({
       </div>
 
       <div className="mt-5 grid gap-2">
-        {[
-          "Qinbafrank全料观点库",
-          "Qinbafrank专属AI研究助手",
-          "4份日报：盘前 / 盘后 / 专属 / KOL",
-          "AI个股深度投研助手",
-        ].map((item) => (
-          <div
-            key={item}
-            className="flex items-center gap-2 text-sm text-foreground"
-          >
+        {['Qinbafrank观点库 + 原文证据', '4份日报：盘前 / 盘后 / 专属 / KOL', '个股投研 + AI Research Agent'].map((item) => (
+          <div key={item} className="flex items-center gap-2 text-sm text-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary/75" />
             {item}
           </div>
@@ -688,14 +629,12 @@ function OfferCard({
 
       <button
         type="button"
-        onClick={onCtaClick}
+        onClick={onCheckout}
         disabled={ctaBusy}
         className="mt-6 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-primary/90 px-5 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-70 motion-reduce:transform-none"
       >
         {ctaBusy ? (
           <span className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
-        ) : isUsageCta ? (
-          <ArrowRight className="h-4 w-4" />
         ) : (
           <LockKeyhole className="h-4 w-4" />
         )}
@@ -726,20 +665,16 @@ function LibraryNavLink({
   return (
     <Link
       href={item.href}
-      className={`group flex min-h-[82px] items-center gap-3 rounded-lg border p-3.5 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 motion-reduce:transform-none ${tone.card}`}
+      className={`group flex min-h-[76px] items-center gap-3 rounded-lg border p-3 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 motion-reduce:transform-none ${tone.card}`}
     >
-      <span
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${tone.icon}`}
-      >
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tone.icon}`}>
         <item.icon className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-base font-semibold leading-tight text-foreground">
           {item.title}
         </span>
-        <span
-          className={`mt-1 block truncate text-xs font-medium ${tone.label}`}
-        >
+        <span className={`mt-1 block truncate text-xs font-medium ${tone.label}`}>
           {item.eyebrow}
         </span>
       </span>
@@ -764,19 +699,15 @@ function CapabilityCard({
   return (
     <article className={`rounded-lg border p-4 ${tone.card}`}>
       <div className="flex items-start gap-3">
-        <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tone.icon}`}
-        >
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tone.icon}`}>
           <item.icon className="h-4 w-4" />
         </div>
         <div>
-          <p className={`text-xs font-medium ${tone.label}`}>{item.eyebrow}</p>
-          <h3 className="mt-1 font-editorial text-lg font-semibold text-foreground">
-            {item.title}
-          </h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {item.body}
+          <p className={`text-xs font-medium ${tone.label}`}>
+            {item.eyebrow}
           </p>
+          <h3 className="mt-1 font-editorial text-lg font-semibold text-foreground">{item.title}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
         </div>
       </div>
     </article>

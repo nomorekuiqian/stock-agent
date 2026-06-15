@@ -155,7 +155,7 @@ Agent 惊艳体验 → 截图/录屏 → 社媒传播 → 新用户注册
 | Phase 3 | SEC 财报获取与摘要、向量知识库（研究结果持久化） |
 | Phase 4 | 多 LLM 支持（深度分析用强模型）、Agent 多步推理模式 |
 
-详细工程计划见 [plans/active/agent-upgrade.md](../plans/active/agent-upgrade.md)。
+后续工程计划进入 active 开发时再补充。
 
 ---
 

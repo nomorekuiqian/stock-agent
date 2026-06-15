@@ -94,7 +94,7 @@ describe('CheckoutSuccessPage', () => {
     });
   });
 
-  it('waits for qinbafrank pack entitlement before redirecting after ultra checkout', async () => {
+  it('maps legacy ultra checkout params to Max activation before redirecting', async () => {
     mockSearchParams.set('next', '/kol/qinbafrank?welcome=1');
     mockSearchParams.set('tier', 'ultra');
     mockSearchParams.set('product', 'ultra');
@@ -116,7 +116,7 @@ describe('CheckoutSuccessPage', () => {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
-            entitlements: ['ai_research_engine', 'kol_pack_qinbafrank'],
+            entitlements: ['ai_research_engine'],
             trial_eligible: false,
           }),
         } as Response);

@@ -75,12 +75,13 @@ async def get_or_create_stripe_customer(user_id: str, email: str) -> str:
 PRICE_ID_MAP = {
     "pro": STRIPE_PRO_PRICE_ID,
     "max": STRIPE_MAX_PRICE_ID,
-    "ultra": STRIPE_ULTRA_PRICE_ID,
 }
 
 PRICE_LOOKUP_KEY_MAP = {
-    "ultra": "themarketbrew_ultra_monthly",
+    "pro": "themarketbrew_pro_monthly",
+    "max": "themarketbrew_max_monthly",
 }
+LEGACY_ULTRA_LOOKUP_KEY = "themarketbrew_ultra_monthly"
 
 _RESOLVED_PRICE_ID_CACHE: dict[tuple[str, str], str] = {}
 UPGRADE_PORTAL_PRORATION_BEHAVIOR = "always_invoice"
@@ -88,7 +89,8 @@ _UPGRADE_PORTAL_CONFIGURATION_CACHE: dict[str, str] = {}
 
 LEGACY_CREATOR_MAX_QINBAFRANK_PRODUCT = "creator_max_qinbafrank"
 CHECKOUT_PRODUCT_ALIASES = {
-    LEGACY_CREATOR_MAX_QINBAFRANK_PRODUCT: "ultra",
+    "ultra": "max",
+    LEGACY_CREATOR_MAX_QINBAFRANK_PRODUCT: "max",
 }
 
 CHECKOUT_TIERS = frozenset(PRICE_ID_MAP)
@@ -113,12 +115,7 @@ def price_id_for_product(product: str, billing_interval: str = "monthly") -> str
     return PRICE_ID_MAP.get(product, "")
 
 
-async def resolve_price_id_for_product(product: str, billing_interval: str = "monthly") -> str:
-    """Resolve a Stripe Price ID from env, then fallback to a Dashboard lookup key."""
-    configured = price_id_for_product(product, billing_interval)
-    if configured:
-        return configured
-
+async def _lookup_active_price_id(product: str, billing_interval: str = "monthly") -> str:
     lookup_key = PRICE_LOOKUP_KEY_MAP.get(product)
     if not lookup_key or billing_interval != "monthly":
         return ""
@@ -152,6 +149,36 @@ async def resolve_price_id_for_product(product: str, billing_interval: str = "mo
     if price_id:
         _RESOLVED_PRICE_ID_CACHE[cache_key] = price_id
     return price_id
+
+
+async def _is_active_price(price_id: str) -> bool:
+    try:
+        price = await asyncio.to_thread(stripe.Price.retrieve, price_id)
+    except Exception as e:
+        logger.warning("Stripe configured price retrieve failed price=%s: %s", price_id, e)
+        return False
+    price_d = _to_dict(price) or {}
+    return price_d.get("active") is True
+
+
+async def resolve_price_id_for_product(product: str, billing_interval: str = "monthly") -> str:
+    """Resolve an active Stripe Price ID from env, then fallback to a lookup key."""
+    configured = price_id_for_product(product, billing_interval)
+    if configured:
+        if await _is_active_price(configured):
+            return configured
+        fallback = await _lookup_active_price_id(product, billing_interval)
+        if fallback:
+            logger.warning(
+                "Configured Stripe price inactive; using lookup fallback product=%s price=%s fallback=%s",
+                product,
+                configured,
+                fallback,
+            )
+            return fallback
+        return configured
+
+    return await _lookup_active_price_id(product, billing_interval)
 
 
 def _normalize_return_path(return_path: str | None, default: str = "/for-you") -> str:
@@ -209,11 +236,8 @@ def _canonical_features_for_plan(plan: str) -> list[str]:
     from app.features.payment.entitlements import (
         MAX_FEATURES,
         PRO_FEATURES,
-        ULTRA_FEATURES,
     )
 
-    if plan == "ultra":
-        return sorted(ULTRA_FEATURES)
     if plan == "max":
         return sorted(MAX_FEATURES)
     if plan == "pro":
@@ -225,35 +249,6 @@ def _is_active_subscription_status(status: str | None) -> bool:
     return status in ("active", "trialing")
 
 
-def _preserve_local_ultra_when_subscription_active(
-    sub_record: dict | None,
-    plan: str,
-    status: str | None,
-    feature_keys: list[str],
-) -> tuple[str, list[str]]:
-    """Keep DB-migrated Ultra users on Ultra while their Stripe sub is active.
-
-    Grandfathered Max users stay on their current Stripe price, so Stripe can
-    still report the subscription as Max. Once the app DB has been migrated to
-    Ultra, active/trialing Stripe syncs must not downgrade them back to Max.
-    Non-active subscription states still de-provision normally.
-    """
-    if plan == "ultra" or not _is_active_subscription_status(status):
-        return plan, feature_keys
-    if not sub_record or sub_record.get("plan") != "ultra":
-        return plan, feature_keys
-    if not _is_active_subscription_status(sub_record.get("status")):
-        return plan, feature_keys
-
-    from app.features.payment.entitlements import KOL_PACK_FEATURES, ULTRA_FEATURES
-
-    existing_entitlements = set(sub_record.get("entitlements") or [])
-    if not existing_entitlements.intersection(KOL_PACK_FEATURES):
-        return plan, feature_keys
-
-    return "ultra", sorted(ULTRA_FEATURES)
-
-
 def resolve_plan_from_subscription(sub_obj) -> str:
     """Determine plan tier from a Stripe subscription object."""
     d = _to_dict(sub_obj) or {}
@@ -263,10 +258,10 @@ def resolve_plan_from_subscription(sub_obj) -> str:
         price = _to_dict(item_d.get("price")) or {}
         price_id = price.get("id", "")
         lookup_key = price.get("lookup_key", "")
-        if price_id and price_id == PRICE_ID_MAP.get("ultra"):
-            return "ultra"
-        if lookup_key and lookup_key == PRICE_LOOKUP_KEY_MAP.get("ultra"):
-            return "ultra"
+        if price_id and price_id == STRIPE_ULTRA_PRICE_ID:
+            return "max"
+        if lookup_key and lookup_key == LEGACY_ULTRA_LOOKUP_KEY:
+            return "max"
         if price_id and price_id == PRICE_ID_MAP.get("max"):
             return "max"
         if price_id and price_id == PRICE_ID_MAP.get("pro"):
@@ -274,7 +269,9 @@ def resolve_plan_from_subscription(sub_obj) -> str:
 
     metadata = d.get("metadata", {}) or {}
     tier = metadata.get("tier")
-    if tier in ("pro", "max", "ultra"):
+    if tier == "ultra":
+        return "max"
+    if tier in ("pro", "max"):
         return tier
     product = metadata.get("product")
     if product:
@@ -396,12 +393,6 @@ async def sync_subscription_from_stripe(
     period_start, period_end = _get_subscription_period(sub_d)
     cancel_at_period_end, cancel_at, canceled_at = _get_subscription_cancellation(sub_d)
     feature_keys = _canonical_features_for_plan(plan) if _is_active_subscription_status(status) else []
-    plan, feature_keys = _preserve_local_ultra_when_subscription_active(
-        sub_record,
-        plan,
-        status,
-        feature_keys,
-    )
 
     await upsert_subscription(
         user_id=user_id,
@@ -567,11 +558,10 @@ def _normalize_entitlements(raw_feature_keys: list[str]) -> tuple[str, str, list
         MAX_FEATURES,
         MAX_ONLY_FEATURES,
         PRO_FEATURES,
-        ULTRA_FEATURES,
     )
 
     if KOL_PACK_QINBAFRANK in raw_feature_keys:
-        return "ultra", "active", sorted(ULTRA_FEATURES)
+        return "max", "active", sorted(MAX_FEATURES)
     has_max_feature = any(feature in MAX_ONLY_FEATURES for feature in raw_feature_keys)
     if has_max_feature:
         return "max", "active", sorted(MAX_FEATURES)
@@ -658,12 +648,6 @@ async def sync_entitlements_from_stripe(
         return {"synced": False, "reason": "empty_entitlements"}
 
     plan, status, feature_keys = _normalize_entitlements(raw_feature_keys)
-    plan, feature_keys = _preserve_local_ultra_when_subscription_active(
-        sub_record,
-        plan,
-        status,
-        feature_keys,
-    )
 
     await upsert_subscription(
         user_id=user_id,
@@ -809,7 +793,7 @@ async def create_checkout_session(
     frontend_origin: str | None = None,
 ) -> str:
     """
-    Create a Stripe Checkout Session for Pro, Max, or Ultra subscription.
+    Create a Stripe Checkout Session for Pro or Max subscription.
     Returns the checkout URL.
     """
     checkout_product = normalize_checkout_product(product, tier)
@@ -840,6 +824,13 @@ async def create_checkout_session(
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
+        automatic_tax={"enabled": True},
+        billing_address_collection="required",
+        customer_update={
+            "address": "auto",
+            "name": "auto",
+        },
+        tax_id_collection={"enabled": True},
         success_url=success_url,
         cancel_url=_frontend_url(path, {"checkout": "cancel"}, frontend_origin),
         metadata={

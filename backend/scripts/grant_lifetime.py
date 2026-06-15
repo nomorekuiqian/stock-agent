@@ -3,7 +3,7 @@ Grant (or revoke) lifetime max access for a user by email.
 
 Lifetime users bypass Stripe webhook downgrades — even if their Stripe
 subscription is canceled or never existed, they keep full max entitlements
-forever. See `docs/plans/active/lifetime-max-system.md` for design.
+forever. See `docs/constraints/subscription-model.md` for the contract.
 
 Usage:
     cd backend

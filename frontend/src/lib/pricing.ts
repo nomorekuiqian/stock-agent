@@ -13,9 +13,6 @@ export const PRICING = {
   /** Max tier price */
   max: '$20',
   maxPerMonth: '$20/月',
-  /** Ultra tier: Max + Blogger Research Room Frank pack */
-  ultra: '$30',
-  ultraPerMonth: '$30/月',
   /** Per-period label */
   interval: '/月',
 } as const;

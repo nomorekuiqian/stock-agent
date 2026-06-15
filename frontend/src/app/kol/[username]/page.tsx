@@ -20,7 +20,7 @@ import {
 } from '@/hooks/queries/use-kol-data';
 import { formatStockPrice } from '@/lib/currency';
 import OverviewMiniPreview from './_components/OverviewMiniPreview';
-import QinbafrankUltraLandingClient from './_components/QinbafrankUltraLandingClient';
+import QinbafrankMaxLandingClient from './_components/QinbafrankMaxLandingClient';
 import SerenityOverview from './_components/SerenityOverview';
 import { relativeTimeCN } from './_components/relativeTime';
 
@@ -55,7 +55,7 @@ export default function OverviewPage({
       : `把 @${username} 的公开观点整理成可查询、可验证、可持续跟踪的股票研究框架。`;
 
   if (isFrank) {
-    return <QinbafrankUltraLandingClient />;
+    return <QinbafrankMaxLandingClient />;
   }
 
   if (isSerenity) {

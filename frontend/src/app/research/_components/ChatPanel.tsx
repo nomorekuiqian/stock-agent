@@ -12,7 +12,7 @@ import type { KolPersonaChunk } from '@/lib/api';
 
 export type { ChatMsg };
 
-function buildUltraReturnPath(personaUsername: string | null | undefined): string {
+function buildMaxReturnPath(personaUsername: string | null | undefined): string {
   const fallbackPersona = personaUsername || 'qinbafrank';
   if (typeof window === 'undefined') {
     return `/research?agent=kol&persona=${encodeURIComponent(fallbackPersona)}`;
@@ -78,10 +78,10 @@ export default function ChatPanel({
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = React.useState(false);
-  const { createCheckout, isCheckoutLoading, isUltra } = useSubscription();
+  const { createCheckout, isCheckoutLoading, isMax } = useSubscription();
 
-  const handleUnlockUltra = React.useCallback(async () => {
-    await createCheckout('ultra', buildUltraReturnPath(personaUsername));
+  const handleUnlockMax = React.useCallback(async () => {
+    await createCheckout('max', buildMaxReturnPath(personaUsername));
   }, [createCheckout, personaUsername]);
 
   // Detect user scroll up
@@ -233,7 +233,7 @@ export default function ChatPanel({
 
       {/* Input area */}
       <div className="shrink-0 px-3 sm:px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
-        {personaUsername && !isUltra && (
+        {personaUsername && !isMax && (
           <div className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.05] px-3 py-2 text-xs text-muted-foreground">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -243,12 +243,12 @@ export default function ChatPanel({
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
                   <Lock className="h-3 w-3" aria-hidden />
-                  Ultra 无限使用
+                  Max 无限使用
                 </span>
               </div>
               <button
                 type="button"
-                onClick={handleUnlockUltra}
+                onClick={handleUnlockMax}
                 disabled={isCheckoutLoading}
                 className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -259,14 +259,14 @@ export default function ChatPanel({
                   </>
                 ) : (
                   <>
-                    解锁 Ultra
+                    升级 Max
                     <ArrowUpRight className="h-3 w-3" aria-hidden />
                   </>
                 )}
               </button>
             </div>
             <p className="mt-1 leading-relaxed text-muted-foreground/75">
-              非 Ultra 账号仅可体验有限试问；解锁 Ultra 后可无限使用博主方法论追问。
+              非 Max 账号使用每日免费额度；升级 Max 后可无限使用博主方法论追问。
             </p>
           </div>
         )}

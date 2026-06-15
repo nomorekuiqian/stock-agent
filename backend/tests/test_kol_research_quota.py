@@ -1,9 +1,9 @@
 """Quota enforcement on /api/kol_research/chat and /api/kol_research/chat/stream.
 
-The KOL persona chat originally bypassed the daily research quota (free users
-got unlimited persona conversations). Non-Qinbafrank personas still use the
-general research quota; Qinbafrank uses the Ultra pack gate with 1 lifetime
-trial question.
+All KOL persona chats share the general research quota. Max users become
+unlimited through the quota service because they have the ai_research_engine
+entitlement; Qinbafrank no longer has a separate pack gate or lifetime trial
+bucket.
 """
 from __future__ import annotations
 
@@ -131,59 +131,25 @@ def test_stream_chat_emits_quota_error_when_exhausted(client):
 
 
 @pytest.mark.asyncio
-async def test_qinbafrank_trial_uses_fixed_lifetime_quota_bucket():
-    """Qinbafrank trial must not reset daily."""
+async def test_qinbafrank_uses_general_daily_quota():
     from app.features.kol_research import router as kol_router
+    from app.features.kol_research.models import KolResearchRequest
 
     with patch(
-        "app.features.payment.entitlements.has_entitlement",
+        "app.features.kol_research.router.consume_quota",
         new_callable=AsyncMock,
-        return_value=False,
-    ) as mock_entitlement, patch(
-        "app.features.kol_research.router.get_usage",
-        new_callable=AsyncMock,
-        return_value=0,
-    ) as mock_get_usage, patch(
-        "app.features.kol_research.router.increment_usage",
-        new_callable=AsyncMock,
-        return_value=1,
-    ) as mock_increment:
-        result = await kol_router._consume_qinbafrank_pack_access("user-1", "1.2.3.4")
+        return_value=_ALLOWED_QUOTA,
+    ) as mock_consume:
+        result = await kol_router._consume_kol_chat_access(
+            KolResearchRequest(
+                message="test",
+                persona_username="qinbafrank",
+                history=[],
+                turn_id="t-qinbafrank",
+            ),
+            "user-1",
+            "1.2.3.4",
+        )
 
     assert result["allowed"] is True
-    mock_entitlement.assert_awaited_once_with("user-1", "kol_pack_qinbafrank")
-    mock_get_usage.assert_awaited_once_with(
-        "kol_pack_qinbafrank_trial:user-1",
-        kol_router.QINBAFRANK_TRIAL_USAGE_DATE,
-    )
-    mock_increment.assert_awaited_once_with(
-        "kol_pack_qinbafrank_trial:user-1",
-        "user",
-        kol_router.QINBAFRANK_TRIAL_USAGE_DATE,
-    )
-
-
-@pytest.mark.asyncio
-async def test_qinbafrank_trial_exhaustion_does_not_increment_again():
-    from app.features.kol_research import router as kol_router
-
-    with patch(
-        "app.features.payment.entitlements.has_entitlement",
-        new_callable=AsyncMock,
-        return_value=False,
-    ), patch(
-        "app.features.kol_research.router.get_usage",
-        new_callable=AsyncMock,
-        return_value=1,
-    ) as mock_get_usage, patch(
-        "app.features.kol_research.router.increment_usage",
-        new_callable=AsyncMock,
-    ) as mock_increment:
-        result = await kol_router._consume_qinbafrank_pack_access("user-1", "1.2.3.4")
-
-    assert result["allowed"] is False
-    mock_get_usage.assert_awaited_once_with(
-        "kol_pack_qinbafrank_trial:user-1",
-        kol_router.QINBAFRANK_TRIAL_USAGE_DATE,
-    )
-    mock_increment.assert_not_awaited()
+    mock_consume.assert_awaited_once_with("user-1", "1.2.3.4")

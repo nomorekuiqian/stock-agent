@@ -10,7 +10,7 @@ class CreateCheckoutRequest(BaseModel):
     user_id: str
     email: str
     return_path: Optional[str] = None
-    tier: str = "pro"  # "pro", "max", or "ultra"
+    tier: str = "pro"  # "pro" or "max"; legacy "ultra" aliases to "max"
     product: Optional[str] = None  # Backward-compatible alias, e.g. "creator_max_qinbafrank"
     billing_interval: str = "monthly"
 

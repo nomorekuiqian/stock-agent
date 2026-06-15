@@ -1,15 +1,18 @@
 # 事件雷达数据源增强（专属日报未来事件）Proposal
 
 > Status: Proposal（Backlog / 未进入 active 开发）
-> **定位：本文是 `docs/plans/active/catalyst-events-radar.md` 的增强补充，不是替代。**
-> Related: docs/plans/active/catalyst-events-radar.md（基线，已有 spike 验证）、features/brew/.context.md、backend/scripts/probe_forward_events.py
+> **定位：本文保留事件雷达数据源增强 backlog。恢复开发前需先重建或确认基线设计。**
+> Related: features/brew/.context.md、backend/scripts/probe_forward_events.py
 > 并行关系: 与 `proposals/holdings-sync-design.md` **完全独立**，无先后、无依赖（事件雷达消费 `user_portfolios` ∪ watchlist，与持仓"如何录入"无关）。
 
 ---
 
 ## 阅读约定（避免重复）
 
-`catalyst-events-radar.md` 已完整定义：`catalyst_events` 表 schema、ingest 流水线（Source A/B/C）、去重/合并、`date_precision`/`confidence`/`related_symbols`/`superseded_by` 字段决策、`/api/event-radar` API、`/for-you` 事件雷达 tab、brew 集成、6 阶段排期、成本（~$6/月）。
+原基线设计已从 active plan 中清理。恢复开发时需重新确认：`catalyst_events`
+表 schema、ingest 流水线（Source A/B/C）、去重/合并、`date_precision` /
+`confidence` / `related_symbols` / `superseded_by` 字段决策、`/api/event-radar`
+API、`/for-you` 事件雷达 tab、brew 集成、排期和成本。
 
 **本文不重述以上任何内容。** 本文只补该基线**显式 defer 到 V2 / 列入 NOT-in-scope / 留为待定问题**的部分——这正是本次 deep research 的增量价值落点。
 
@@ -29,7 +32,7 @@
 
 ## 现状：基线已覆盖 vs 本文补齐
 
-| 能力 | 基线 catalyst-events-radar.md | 本文增强 |
+| 能力 | 基线待确认 | 本文增强 |
 |---|---|---|
 | FMP 财报/经济日历镜像 | Source A 已覆盖 | — |
 | 新闻流 LLM 抽取（fan-out） | Source B 已覆盖（spike 验证） | — |

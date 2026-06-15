@@ -28,10 +28,8 @@ Read these before editing:
 3. `frontend/src/app/kol-chat/page.tsx` and `frontend/src/lib/api.ts` if touching chat UI/API calls.
 4. `references/project-map.md` in this skill for paths, endpoints, data tables, and validation commands.
 
-Only read the long plan docs when design intent is needed:
-
-- `docs/plans/active/kol-methodology-distillation.md`
-- `docs/plans/active/twitter-kol-opinion-platform.md`
+For design intent, read `backend/app/features/twitter/methodologies/.context.md`
+and `docs/reference/twitter-kol-source-research.md`.
 
 ## Task Workflow
 

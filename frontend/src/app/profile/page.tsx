@@ -222,21 +222,19 @@ function ProfileContent(): ReactNode {
     ? Math.round((daysLeft / INVITE_DAYS) * 100)
     : 0;
 
-  const normalizedPlan = plan === 'ultra' || plan === 'max' || plan === 'pro' ? plan : 'free';
+  const normalizedPlan = plan === 'max' || plan === 'pro' ? plan : 'free';
   const hasActiveAccessStatus = status === 'active' || status === 'trialing';
   const hasActivePlan = hasActiveAccessStatus && normalizedPlan !== 'free' && (daysLeft === null || daysLeft > 0);
-  const isDisplayUltra = hasActivePlan && normalizedPlan === 'ultra';
   const isDisplayMax = hasActivePlan && normalizedPlan === 'max';
   const isDisplayPro = hasActivePlan && normalizedPlan === 'pro';
   const isPaid = hasActivePlan && daysLeft === null;
   const isPaidPro = isPaid && isDisplayPro;
-  const isPaidMax = isPaid && isDisplayMax;
   const scheduledCancelDate = cancelAt || currentPeriodEnd;
   const isCancellationScheduled = isPaid && (cancelAtPeriodEnd || Boolean(cancelAt));
   const isTrial = hasActivePlan && daysLeft !== null;
   const isCanceled = !hasActivePlan && status === 'canceled';
-  const tierLabel = isDisplayUltra ? 'Ultra' : isDisplayMax ? 'Max' : hasActivePlan ? 'Pro' : null;
-  const tierPrice = isDisplayUltra ? PRICING.ultraPerMonth : isDisplayMax ? PRICING.maxPerMonth : PRICING.proPerMonth;
+  const tierLabel = isDisplayMax ? 'Max' : hasActivePlan ? 'Pro' : null;
+  const tierPrice = isDisplayMax ? PRICING.maxPerMonth : PRICING.proPerMonth;
 
   const urgency = daysLeft !== null
     ? daysLeft <= 3 ? 'red'
@@ -271,8 +269,7 @@ function ProfileContent(): ReactNode {
                 <span className="shrink-0 w-8 h-4 rounded bg-muted animate-pulse" />
               ) : hasActivePlan ? (
                 <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-micro font-medium uppercase tracking-wide ${
-                  isDisplayUltra ? 'bg-sky-500/15 text-sky-400 border border-sky-500/20'
-                    : isDisplayMax ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                  isDisplayMax ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
                     : 'bg-primary/15 text-primary border border-primary/20'
                 }`}>
                   {tierLabel}
@@ -425,18 +422,16 @@ function ProfileContent(): ReactNode {
                   </div>
                 </div>
               ) : isPaid ? (
-                /* ── Paid (Pro, Max, or Ultra) ── */
+                /* ── Paid (Pro or Max) ── */
                 <div className="p-5">
                   <div className="flex items-center gap-3 mb-4">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
                       isCancellationScheduled ? 'bg-amber-400/10'
-                        : isDisplayUltra ? 'bg-sky-400/10'
                         : isDisplayMax ? 'bg-amber-400/10'
                         : 'bg-primary/10'
                     }`}>
                       <svg className={`w-4 h-4 ${
                         isCancellationScheduled ? 'text-amber-400'
-                          : isDisplayUltra ? 'text-sky-400'
                           : isDisplayMax ? 'text-amber-400'
                           : 'text-primary'
                       }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -479,7 +474,6 @@ function ProfileContent(): ReactNode {
                       <span className="text-muted-foreground">状态</span>
                       <span className={`font-medium ${
                         isCancellationScheduled ? 'text-amber-400'
-                          : isDisplayUltra ? 'text-sky-400'
                           : isDisplayMax ? 'text-amber-400'
                           : 'text-primary'
                       }`}>
@@ -495,14 +489,6 @@ function ProfileContent(): ReactNode {
                       className="block w-full px-4 py-2.5 mb-3 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-600/90 transition-colors text-center"
                     >
                       升级到 Max
-                    </Link>
-                  )}
-                  {isPaidMax && (
-                    <Link
-                      href="/pricing"
-                      className="block w-full px-4 py-2.5 mb-3 bg-sky-600 text-white rounded-lg text-sm font-medium hover:bg-sky-600/90 transition-colors text-center"
-                    >
-                      升级到 Ultra
                     </Link>
                   )}
 

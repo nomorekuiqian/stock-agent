@@ -118,7 +118,7 @@ export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
-  const { isPro, isMax, isLoading: subLoading, plan } = useSubscription();
+  const { isPro, isMax, isLoading: subLoading } = useSubscription();
   const { has: hasFlag } = useFeatureFlags();
   const { has: hasEntitlement } = useEntitlements();
   const isAdmin = useIsAdmin();
@@ -204,7 +204,7 @@ export function MobileMenu() {
                       <span className="w-8 h-3 rounded bg-muted animate-pulse" />
                     ) : isPro ? (
                       <span className="rounded border border-amber-500/20 bg-amber-500/15 px-1.5 py-0.5 text-micro font-semibold tracking-wider text-amber-400">
-                        {plan === 'ultra' ? 'ULTRA' : isMax ? 'MAX' : 'PRO'}
+                        {isMax ? 'MAX' : 'PRO'}
                       </span>
                     ) : null}
                   </div>

@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Check, ChevronDown, Crown, Gem, MessageSquareQuote, Zap } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Crown, MessageSquareQuote, Zap } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PRICING, STRIPE_LIVE } from '@/lib/pricing';
 
-type Tier = 'pro' | 'max' | 'ultra';
+type Tier = 'pro' | 'max';
 
 const FREE_FEATURES = ['每日市场日报', '宏观仪表盘', 'AI 投研每日 2 次体验'];
 
@@ -87,26 +87,8 @@ const PLANS: {
       '推特 KOL 日报',
       'AI研究助手',
       'AI 深度个股分析无限使用',
-    ],
-  },
-  {
-    tier: 'ultra',
-    name: 'Ultra',
-    price: PRICING.ultra,
-    priceLabel: PRICING.ultraPerMonth,
-    summary: '适合想完整使用 Qinbafrank 研究室的人。',
-    icon: Gem,
-    accent: {
-      icon: 'text-rose-400',
-      border: 'border-rose-400/35 hover:border-rose-400/55',
-      ring: 'hover:shadow-rose-500/10',
-      button: 'bg-rose-600 text-white hover:bg-rose-600/90',
-      current: 'border-rose-400/30 bg-rose-400/10 text-rose-400',
-    },
-    features: [
-      'Max 全部功能',
       'Qinbafrank完整资料库',
-      'Qinbafrank专属研究助手',
+      '博主 Agent 无限使用',
     ],
   },
 ];
@@ -129,7 +111,6 @@ export default function PricingPage() {
 
   const isPaidPro = isPro && !accessExpiresAt && plan === 'pro';
   const isPaidMax = isMax && !accessExpiresAt && plan === 'max';
-  const isPaidUltra = !accessExpiresAt && plan === 'ultra';
   const loading = authLoading || subLoading;
 
   const handleCheckout = async (tier: Tier) => {
@@ -166,11 +147,11 @@ export default function PricingPage() {
           </p>
         </section>
 
-        {!loading && (isPaidPro || isPaidMax || isPaidUltra) ? (
+        {!loading && (isPaidPro || isPaidMax) ? (
           <div className="mb-6 rounded-lg border border-border/50 bg-card/40 px-4 py-3 text-sm text-muted-foreground">
             当前方案：
             <span className="font-medium text-foreground">
-              {isPaidUltra ? ' Ultra' : isPaidMax ? ' Max' : ' Pro'}
+              {isPaidMax ? ' Max' : ' Pro'}
             </span>
           </div>
         ) : null}
@@ -205,7 +186,7 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-3">
+        <section className="grid gap-4 lg:grid-cols-2">
           {PLANS.map((planItem) => (
             <PlanCard
               key={planItem.tier}
@@ -215,16 +196,13 @@ export default function PricingPage() {
               isAuthenticated={isAuthenticated}
               isCurrent={
                 (planItem.tier === 'pro' && isPaidPro) ||
-                (planItem.tier === 'max' && isPaidMax) ||
-                (planItem.tier === 'ultra' && isPaidUltra)
+                (planItem.tier === 'max' && isPaidMax)
               }
               isIncluded={
-                (planItem.tier === 'pro' && (isPaidMax || isPaidUltra)) ||
-                (planItem.tier === 'max' && isPaidUltra)
+                planItem.tier === 'pro' && isPaidMax
               }
               isUpgrade={
-                (planItem.tier === 'max' && isPaidPro) ||
-                (planItem.tier === 'ultra' && (isPaidPro || isPaidMax))
+                planItem.tier === 'max' && isPaidPro
               }
               onCheckout={handleCheckout}
             />
@@ -272,12 +250,12 @@ export default function PricingPage() {
           <div>
             <h2 className="text-lg font-semibold text-foreground">怎么选</h2>
             <p className="mt-2 text-sm leading-7 text-muted-foreground">
-              只想接收邮件选 Pro；需要自己提问和做个股研究选 Max；要 Qinbafrank 资料包和研究助手选 Ultra。
+              只想接收邮件选 Pro；需要自己提问、做个股研究和使用博主研究室选 Max。
             </p>
           </div>
           <div className="divide-y divide-border/40">
             <FaqItem
-              q="可以从 Pro 升级到 Max 或 Ultra 吗?"
+              q="可以从 Pro 升级到 Max 吗?"
               a="可以。已有订阅用户升级会进入 Stripe 订阅管理流程，按剩余周期处理差额。"
             />
             <FaqItem

@@ -64,7 +64,7 @@ const ROOMS: Room[] = [
     avatar: '/kol-avatars/qinbafrank.png',
     focus: 'AI 大趋势 / 宏观传导 / 公司推荐档案',
     body: '偏宏观权重排序、AI 基础设施重定价和行情规律。适合从大主线、公司案例和历史原文里复盘判断链。',
-    status: 'Ultra 资料包',
+    status: 'Max 权益',
     note: '包含精华库、板块观点、个股档案、全量原文和专属研究助手。',
     modules: [
       { label: '精华', href: '/kol/qinbafrank/highlights', icon: FileChartColumn },

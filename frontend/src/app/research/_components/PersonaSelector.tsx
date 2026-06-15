@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Check, ChevronDown, Glasses, Lock } from "lucide-react";
+import { Check, ChevronDown, Glasses } from "lucide-react";
 import { api } from "@/lib/api";
 import type { KolPersonaSummary } from "@/lib/api";
 
@@ -239,16 +239,10 @@ export default function PersonaSelector({
               : "top-full mt-2 origin-top-left"
           }`}
         >
-          <div className="flex items-center justify-between gap-3 border-b border-border/60 px-3 py-2.5">
-            <div>
-              <div className="text-xs font-medium text-muted-foreground">
-                选择助手视角
-              </div>
+          <div className="border-b border-border/60 px-3 py-2.5">
+            <div className="text-xs font-medium text-muted-foreground">
+              选择助手视角
             </div>
-            <Lock
-              className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-300"
-              aria-hidden
-            />
           </div>
           <button
             type="button"
@@ -291,9 +285,6 @@ export default function PersonaSelector({
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium">
                       @{p.display_name || p.username}
-                    </span>
-                    <span className="shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-700 dark:text-amber-300">
-                      Ultra
                     </span>
                     {active && personaUsername === p.username && (
                       <Check

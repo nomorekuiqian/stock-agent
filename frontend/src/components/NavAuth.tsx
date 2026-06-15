@@ -11,7 +11,7 @@ const itemDefault = `${itemBase} text-muted-foreground hover:text-foreground hov
 
 export function NavAuth() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
-  const { isPro, isMax, isLoading: subLoading, plan } = useSubscription();
+  const { isPro, isMax, isLoading: subLoading } = useSubscription();
 
   if (isLoading || (isAuthenticated && subLoading)) {
     return <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />;
@@ -21,7 +21,7 @@ export function NavAuth() {
     const initials = user.name
       ? user.name.charAt(0).toUpperCase()
       : user.email?.charAt(0).toUpperCase() || 'U';
-    const tierLabel = plan === 'ultra' ? 'ULTRA' : isMax ? 'MAX' : 'PRO';
+    const tierLabel = isMax ? 'MAX' : 'PRO';
 
     return (
       <DropdownMenu.Root>

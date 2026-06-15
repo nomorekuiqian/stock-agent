@@ -492,7 +492,7 @@ async def test_hybrid_session_store_falls_back_when_primary_empty():
 
 # ---------------------------------------------------------------------------
 # Phase 1 plan acceptance — the test cases below codify the verification
-# bullets in docs/plans/active/agent-runtime-next-3-phases.md so a future
+# bullets for the runtime user-facing contract so a future
 # regression in any of these guarantees fails fast in CI.
 # ---------------------------------------------------------------------------
 

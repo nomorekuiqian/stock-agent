@@ -54,7 +54,7 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
   const shellWidth = isWideWorkspace ? 'w-full max-w-none' : 'max-w-7xl';
 
   // qinbafrank sub-pages (sectors / highlights / stocks / latest / macro /
-  // history / chat) require the paid Ultra pack. The persona root
+  // history / chat) require Max. The persona root
   // (`/kol/qinbafrank`) stays public so cold traffic can inspect the product
   // before paying. qinbafrank pages use the same SubNav-first shell as the
   // sales root; page-level headers provide the content title.
@@ -64,15 +64,15 @@ export default function KolPersonaLayout({ children, params }: LayoutProps) {
     Boolean(pathname?.startsWith(`/kol/${username}/`));
   const gatedChildren = isFrankSubpage ? (
     <LoginGate
-      title="登录后解锁 Qinbafrank 研究室 Ultra"
-      description="先登录账户，再开通 Qinbafrank 投研资料包 + TheMarketBrew Ultra。"
+      title="登录后解锁 Qinbafrank 研究室"
+      description="先登录账户，再开通 TheMarketBrew Max。"
     >
       <PaywallGuard
-        requiredFeature="kol_pack_qinbafrank"
-        checkoutProduct="ultra"
-        lockTitle="解锁 Qinbafrank 研究室 Ultra"
-        lockDescription="完整资料库、4份日报、个股投研、原文证据、AI追问和 TheMarketBrew Ultra 全部能力。"
-        lockCtaLabel="解锁 Ultra"
+        requiredPlan="max"
+        checkoutProduct="max"
+        lockTitle="解锁 Qinbafrank 研究室"
+        lockDescription="完整资料库、4份日报、个股投研、原文证据、AI追问和 TheMarketBrew Max 全部能力。"
+        lockCtaLabel="升级 Max"
       >
         {children}
       </PaywallGuard>

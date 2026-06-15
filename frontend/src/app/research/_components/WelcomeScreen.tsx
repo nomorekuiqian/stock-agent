@@ -489,7 +489,7 @@ function DefaultIntro({
     setExpandedId((prev) => (prev === id ? null : id));
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-4xl flex-col justify-start px-4 pb-6 pt-[clamp(3.5rem,13vh,8rem)] sm:px-6 sm:pb-8">
+    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-4xl flex-col justify-start px-4 pb-6 pt-[clamp(3.5rem,calc(50dvh-15rem),24rem)] sm:px-6 sm:pb-8">
       <div className="mb-5 flex justify-center text-center sm:mb-6 animate-fade-in-up">
         <h1 className="font-editorial text-2xl leading-snug text-foreground sm:text-3xl md:text-4xl">
           今天想研究什么
@@ -884,18 +884,18 @@ function PersonaIntro({
   const avatarSrc = `/kol-avatars/${persona.displayName.toLowerCase()}.png`;
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-5xl flex-col justify-start px-4 pb-6 pt-[clamp(3.5rem,12vh,8rem)] text-center sm:px-6 sm:pb-8">
-      <div className="mx-auto mb-5 flex max-w-2xl flex-col items-center sm:mb-6">
-        <div className="relative mb-3 animate-scale-in" style={{ animationDelay: '60ms' }}>
+    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-4xl flex-col justify-start px-4 pb-6 pt-[clamp(3.5rem,calc(50dvh-18.5rem),24rem)] text-center sm:px-6 sm:pb-8">
+      <div className="mx-auto mb-4 flex max-w-2xl flex-col items-center sm:mb-5">
+        <div className="relative mb-2 animate-scale-in" style={{ animationDelay: '60ms' }}>
           <div
             aria-hidden
-            className="absolute inset-0 -m-5 rounded-full bg-primary/12 blur-xl"
+            className="absolute inset-0 -m-4 rounded-full bg-primary/12 blur-xl"
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={avatarSrc}
             alt={persona.displayName}
-            className="relative h-14 w-14 rounded-full object-cover ring-2 ring-primary/35 ring-offset-4 ring-offset-background sm:h-16 sm:w-16"
+            className="relative h-12 w-12 rounded-full object-cover ring-2 ring-primary/35 ring-offset-4 ring-offset-background sm:h-14 sm:w-14"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = 'none';
               const sib = (e.currentTarget as HTMLImageElement).nextElementSibling as HTMLElement | null;
@@ -905,7 +905,7 @@ function PersonaIntro({
               }
             }}
           />
-          <div className="relative hidden h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary/[0.08] font-editorial text-xl text-primary sm:h-16 sm:w-16 sm:text-2xl">
+          <div className="relative hidden h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/[0.08] font-editorial text-lg text-primary sm:h-14 sm:w-14 sm:text-xl">
             {persona.displayName.slice(0, 2).toUpperCase()}
           </div>
         </div>
@@ -916,18 +916,9 @@ function PersonaIntro({
         >
           @{persona.displayName}
         </h1>
-
-        {persona.description ? (
-          <p
-            className="font-editorial mt-4 max-w-xl animate-fade-in-up text-balance text-base leading-7 text-muted-foreground"
-            style={{ animationDelay: '220ms' }}
-          >
-            {persona.description}
-          </p>
-        ) : null}
       </div>
 
-      <div className="mx-auto mb-6 w-full max-w-3xl sm:mb-7 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+      <div className="mx-auto mb-6 w-full max-w-3xl sm:mb-7 animate-fade-in-up" style={{ animationDelay: '220ms' }}>
         <ComposerControls
           personaSelectorEnabled={personaSelectorEnabled}
           agentKind={agentKind}

@@ -175,7 +175,7 @@ function getAgentErrorMessage(event: {
   required_product?: string;
 }): string {
   if (event.quota_exceeded) {
-    if ((event.required_product === 'ultra' || event.required_product === 'creator_max_qinbafrank') && event.message) {
+    if (event.message) {
       return event.message;
     }
     return '今日免费提问次数已用完。点击输入框下方的「升级 Max」即可解锁无限使用。';
@@ -215,7 +215,7 @@ function getAgentErrorMessage(event: {
 
 function normalizeRequiredProduct(value?: string): RequiredProduct | null {
   if (value === 'max' || value === 'ultra' || value === 'creator_max_qinbafrank') {
-    return value;
+    return 'max';
   }
   return null;
 }

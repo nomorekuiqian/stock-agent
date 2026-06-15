@@ -178,7 +178,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function buildUltraReturnPath(personaUsername: string | null | undefined): string {
+function buildMaxReturnPath(personaUsername: string | null | undefined): string {
   const fallbackPersona = personaUsername || 'qinbafrank';
   if (typeof window === 'undefined') {
     return `/research?agent=kol&persona=${encodeURIComponent(fallbackPersona)}`;
@@ -212,14 +212,12 @@ function ChatMessage({
   feedbackPersonaUsername,
   feedbackSentiment,
 }: ChatMessageProps) {
-  const { createCheckout, isCheckoutLoading, isUltra } = useSubscription();
+  const { createCheckout, isCheckoutLoading, isMax } = useSubscription();
   const isMarkdown = useMemo(() => role === 'assistant' && hasMarkdown(content), [role, content]);
   // Skip per-char animation while streaming (delta-driven) or when content is markdown.
   const shouldAnimate = animate && !isMarkdown && !streaming;
   const [animationDone, setAnimationDone] = useState(!shouldAnimate);
-  const requiresUltra = !isUltra && (
-    requiredProduct === 'ultra' || requiredProduct === 'creator_max_qinbafrank'
-  );
+  const requiresMax = !isMax && requiredProduct === 'max';
 
   const annotatedContent = useMemo(
     () => annotateCitations(content, citations),
@@ -238,8 +236,8 @@ function ChatMessage({
     return () => clearTimeout(timer);
   }, [shouldAnimate, role, chars.length]);
 
-  const handleUnlockUltra = async () => {
-    await createCheckout('ultra', buildUltraReturnPath(personaUsername));
+  const handleUnlockMax = async () => {
+    await createCheckout('max', buildMaxReturnPath(personaUsername));
   };
 
   // User message
@@ -279,11 +277,11 @@ function ChatMessage({
           {isError ? (
             <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm leading-relaxed text-red-600 dark:text-red-300">
               <p>{content}</p>
-              {requiresUltra && (
+              {requiresMax && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleUnlockUltra}
+                    onClick={handleUnlockMax}
                     disabled={isCheckoutLoading}
                     className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-500 dark:hover:bg-red-400"
                   >
@@ -295,7 +293,7 @@ function ChatMessage({
                     ) : (
                       <>
                         <Lock className="h-3.5 w-3.5" aria-hidden />
-                        解锁 Ultra {PRICING.ultraPerMonth}
+                        升级 Max {PRICING.maxPerMonth}
                         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
                       </>
                     )}
