@@ -91,6 +91,24 @@ class VectorSearchResponse(BaseModel):
     results: List[VectorChunkResult]
 
 
+class VectorTextSearchRequest(BaseModel):
+    keywords: List[str] = Field(
+        ...,
+        min_length=1,
+        max_length=20,
+        description="Exact keywords / aliases to match against title, content, and metadata text.",
+    )
+    top_k: int = Field(default=8, ge=1, le=50)
+    filters: VectorSearchFilters = Field(default_factory=VectorSearchFilters)
+
+
+class VectorTextSearchResponse(BaseModel):
+    success: bool
+    keywords: List[str]
+    count: int
+    results: List[VectorChunkResult]
+
+
 class VectorContextRequest(VectorSearchRequest):
     max_context_chars: int = Field(default=8000, ge=1000, le=30000)
 

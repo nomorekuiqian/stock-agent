@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Pencil, RefreshCw, Search, X } from 'lucide-react';
 import type { ConversationSummary } from '@/lib/api';
+import { replacePersonaUsernamesForDisplay } from '../_lib/personaDisplay';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,7 +79,7 @@ export default function ConversationSidebar({
   const startRename = (conversation: ConversationSummary) => {
     if (!onRename || requestInFlight) return;
     setEditingId(conversation.id);
-    setDraftTitle(conversation.title || '未命名对话');
+    setDraftTitle(replacePersonaUsernamesForDisplay(conversation.title || '未命名对话'));
   };
 
   const cancelRename = () => {
@@ -221,15 +222,17 @@ export default function ConversationSidebar({
           </div>
         ) : (
           <>
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                className={`group relative mx-0.5 rounded-lg transition-all duration-150 border mb-0.5 ${
-                  conv.id === currentId
-                    ? 'bg-primary/[0.08] border-primary/20'
-                    : 'border-transparent hover:bg-muted/60 hover:border-border/60'
-                }`}
-              >
+            {conversations.map((conv) => {
+              const displayTitle = replacePersonaUsernamesForDisplay(conv.title || '未命名对话');
+              return (
+                <div
+                  key={conv.id}
+                  className={`group relative mx-0.5 rounded-lg transition-all duration-150 border mb-0.5 ${
+                    conv.id === currentId
+                      ? 'bg-primary/[0.08] border-primary/20'
+                      : 'border-transparent hover:bg-muted/60 hover:border-border/60'
+                  }`}
+                >
                 {editingId === conv.id ? (
                   <form
                     className="px-2.5 py-2"
@@ -281,7 +284,7 @@ export default function ConversationSidebar({
                       className={`w-full text-left px-2.5 py-2 pr-12 ${requestInFlight ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                     >
                       <p className="text-xs leading-snug line-clamp-2 text-foreground">
-                        {conv.title || '未命名对话'}
+                        {displayTitle}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {formatRelativeTime(conv.updated_at)}
@@ -293,7 +296,7 @@ export default function ConversationSidebar({
                           type="button"
                           onClick={() => startRename(conv)}
                           disabled={requestInFlight}
-                          aria-label={`重命名对话: ${conv.title || '未命名对话'}`}
+                          aria-label={`重命名对话: ${displayTitle}`}
                           className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                         >
                           <Pencil className="w-3 h-3" aria-hidden="true" />
@@ -302,7 +305,7 @@ export default function ConversationSidebar({
                       <button
                         type="button"
                         onClick={() => onDelete(conv.id)}
-                        aria-label={`删除对话: ${conv.title || '未命名对话'}`}
+                        aria-label={`删除对话: ${displayTitle}`}
                         className="p-0.5 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
                       >
                         <X className="w-3 h-3" aria-hidden="true" />
@@ -310,8 +313,9 @@ export default function ConversationSidebar({
                     </div>
                   </>
                 )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
             {hasMore && onLoadMore && (
               <div ref={sentinelRef} className="px-1 py-2">
                 <button

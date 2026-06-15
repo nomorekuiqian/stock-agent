@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Check, ChevronDown, Glasses } from "lucide-react";
 import { api } from "@/lib/api";
 import type { KolPersonaSummary } from "@/lib/api";
+import { getPersonaDisplayLabel } from "../_lib/personaDisplay";
 
 export type AgentKind = "research" | "kol_research";
 
@@ -186,7 +187,7 @@ export default function PersonaSelector({
   const active = agentKind === "kol_research" && !!personaUsername;
   const activePersona = personas.find((p) => p.username === personaUsername);
   const activeLabel = active
-    ? `@${activePersona?.display_name || personaUsername}`
+    ? getPersonaDisplayLabel(personaUsername, activePersona?.display_name)
     : "默认助手";
   const popoverAlignClass =
     align === "right" ? "left-0 sm:left-auto sm:right-0" : "left-0";
@@ -278,13 +279,13 @@ export default function PersonaSelector({
               >
                 <PersonaAvatar
                   username={p.username}
-                  label={p.display_name || p.username}
+                  label={getPersonaDisplayLabel(p.username, p.display_name)}
                   className="group-hover/persona:scale-105"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium">
-                      @{p.display_name || p.username}
+                      {getPersonaDisplayLabel(p.username, p.display_name)}
                     </span>
                     {active && personaUsername === p.username && (
                       <Check

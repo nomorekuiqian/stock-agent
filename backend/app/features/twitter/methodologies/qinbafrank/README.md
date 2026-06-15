@@ -1,8 +1,8 @@
 # qinbafrank Skill Distillation
 
-> Status: active · Generated: 2026-05-27 · Refreshed: 2026-06-11
+> Status: active · Generated: 2026-05-27 · Refreshed: 2026-06-15
 
-按"core / macro / sector / ticker"四层组织的可调用 skill 系统。初版源自 qinbafrank 1048 条 quality-filtered 推文（2025-10-28 ~ 2026-05-25）；2026-06-11 周更后，离线蒸馏 corpus 覆盖 1400 条保留语料（2025-09-02 ~ 2026-06-11），包含新版 `content_type` 语料和旧版 `quality=keep/high/medium` 兼容语料。
+按"core / macro / sector / ticker"四层组织的可调用 skill 系统。初版源自 qinbafrank 1048 条 quality-filtered 推文（2025-10-28 ~ 2026-05-25）；2026-06-15 周更后，离线蒸馏 corpus 覆盖 1438 条保留语料（2025-09-02 ~ 2026-06-15），包含新版 `content_type` 语料和旧版 `quality=keep/high/medium` 兼容语料。
 
 ## 结构
 
@@ -30,7 +30,7 @@ qinbafrank/
 │   ├── ON.md     BA.md     LITE.md  NOK.md
 │   └── MRVL.md                     recent direct coverage patch (post-static-corpus)
 ├── evidence/
-│   ├── all-tweets.jsonl            1400 条保留语料（gitignored artifact）
+│   ├── all-tweets.jsonl            1438 条保留语料（gitignored artifact）
 │   ├── corpus-manifest.json        语料统计 + 过滤参数
 │   ├── ticker-index.json           ticker -> tweet_ids
 │   ├── sector-index.json           sector -> tweet_ids
@@ -98,19 +98,21 @@ ticker → 落回 sector → 落回 macro → 落回 core
 - 计划外发现：HOOD / AMD / ARM / INTC / TSM / TSLA / CRCL / CRWV / QCOM / ASTS / SNDK / FUTU / TIGR / LUNR / LHX / BMNR / IBM / BB / ON / BA
 - 后续直接覆盖补丁：MRVL（静态蒸馏截至 2026-05-25 未覆盖；2026-05-28 ~ 2026-06-11 后续入库证据已直接讨论）
 - 周更新增光互连 ticker：LITE / NOK（从 sector fallback 升级为独立 playbook）
+- 2026-06-15 周更补充：HOOD 已纳入世界杯事件合约 / Rothera / IPO 散户申购规则证据，`direct_mention_count` 更新为 52。
 
 **Sector playbook：7 个 sector + neocloud 子章节**：
 
 - 计划内全部完成：ai-infrastructure / crypto-stablecoin-rwa / software-ai-disruption / semiconductor-memory-hbm
 - 计划外发现：defense-and-space（语料第三大主题）/ power-and-physical-ai / fintech-brokerage
 - neocloud 作为 ai-infrastructure 子章节（数据量小）
+- 2026-06-15 周更补充：defense-and-space 更新到 302 条 bucket 证据，新增 SpaceX 上市后代理资产分化、RKLB 纳入纳斯达克 100、美伊停战备忘录与霍尔木兹恢复通行证据。
 
 ## 待办
 
 - `eval/holdout-replay.md` — 留出 10-20% 推文，验证 skill 能否解释 holdout 中的分析路径
 - `eval/user-question-eval.md` — 跑预设用户问题集，验证 actionability
 - `eval/rule-diff-check.md` — 规则差异审计
-- Evidence audit — 当前 MRVL / LITE / NOK 增量证据可通过；仍有部分早期 legacy 引用不在本轮 `all-tweets.jsonl` 中，需后续单独回填或降级
+- Evidence audit — 当前 MRVL / LITE / NOK / HOOD / defense-and-space 增量证据可通过；仍有部分早期 legacy 引用不在本轮 `all-tweets.jsonl` 中，需后续单独回填或降级
 - 灰度上线策略（admin flag / query param）
 
 ## 工程产出

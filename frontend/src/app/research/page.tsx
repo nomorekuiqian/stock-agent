@@ -40,6 +40,7 @@ import { type AgentKind } from './_components/PersonaSelector';
 import KolChunksPanel from './_components/KolChunksPanel';
 import type { KolPersonaChunk, KolResearchStreamEvent } from '@/lib/api';
 import { useFeatureFlags } from '@/hooks/use-feature-flags';
+import { getPersonaDisplayLabel } from './_lib/personaDisplay';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -620,8 +621,9 @@ function ScreenerContent() {
     let seedQ = searchParams.get('q') ?? '';
     const symbolParam = searchParams.get('symbol')?.trim();
     if (!seedQ && symbolParam) {
-      const personaName =
-        personaParam.toLowerCase() === 'qinbafrank' ? 'Frank' : `@${personaParam}`;
+      const personaName = personaParam.toLowerCase() === 'qinbafrank'
+        ? 'Frank'
+        : getPersonaDisplayLabel(personaParam, personaParam);
       seedQ = `按 ${personaName} 的框架分析 ${symbolParam.toUpperCase()}：他怎么看这个标的、核心逻辑是什么、有哪些原文依据？`;
     }
     if (!seedQ) {
@@ -1398,6 +1400,7 @@ function ScreenerContent() {
       // This gives all KOL conversations a consistent recognizable name and
       // identifies the persona at a glance.
       const persona = personaUsername || 'qinbafrank';
+      const personaTitleLabel = getPersonaDisplayLabel(persona, persona);
       // Read latest state through ref to avoid stale-closure deps issue with
       // useCallback. On first turn conversationId is null and we generate a
       // title; subsequent turns preserve the existing title.
@@ -1408,7 +1411,7 @@ function ScreenerContent() {
         const preview = message.trim().length > 24
           ? `${message.trim().slice(0, 24)}...`
           : message.trim();
-        titleForRespose = `@${persona} · ${preview}`;
+        titleForRespose = `${personaTitleLabel} · ${preview}`;
       } else {
         // Preserve existing title (reducer keeps state.conversationTitle when
         // result.title is empty — see RECEIVE_RESPONSE case).
@@ -1428,7 +1431,7 @@ function ScreenerContent() {
       try {
         const finalTitle = isFirstTurn
           ? titleForRespose
-          : latestState.conversationTitle || `@${persona} 对话`;
+          : latestState.conversationTitle || `${personaTitleLabel} 对话`;
         // IMPORTANT: latestStateRef.current.messages already contains the
         // user message (added by SEND_MESSAGE earlier in this function) and
         // the finalized assistant message (added by STREAM_DELTA + upgraded
@@ -2471,7 +2474,7 @@ function ScreenerContent() {
               }
               inputPlaceholder={
                 agentKind === 'kol_research'
-                  ? `按 @${personaUsername || 'qinbafrank'} 方法论提问...`
+                  ? `按 ${getPersonaDisplayLabel(personaUsername || 'qinbafrank')} 方法论提问...`
                   : undefined
               }
             />

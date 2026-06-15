@@ -67,7 +67,7 @@ TICKER_ALIASES: dict[str, list[str]] = {
     "NVDA": ["英伟达", "Nvidia", "NVDA"],
     "TSM": ["台积电", "台积", "TSMC", "TSM"],
     "ASML": ["阿斯麦", "ASML"],
-    "AMD": ["超微", "AMD"],
+    "AMD": ["超微", "超威", "超威半导体", "Advanced Micro Devices", "AMD"],
     "ARM": ["ARM"],
     "INTC": ["英特尔", "Intel", "INTC"],
     "AVGO": ["博通", "Broadcom", "AVGO"],

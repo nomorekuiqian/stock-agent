@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getPersonaDisplayName } from '../_lib/personaDisplay';
 
 interface AssistantAvatarProps {
   /** When set, render the persona's avatar image instead of the brand mark. */
@@ -29,13 +30,14 @@ export default function AssistantAvatar({
   const [imgFailed, setImgFailed] = useState(false);
 
   if (personaUsername) {
+    const displayName = getPersonaDisplayName(personaUsername);
     if (!imgFailed) {
       const src = `/kol-avatars/${personaUsername.toLowerCase()}.png`;
       return (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
-          alt={`@${personaUsername}`}
+          alt={displayName}
           className={`${className} shrink-0 rounded-full object-cover ring-1 ring-primary/30`}
           onError={() => setImgFailed(true)}
         />
@@ -44,9 +46,9 @@ export default function AssistantAvatar({
     return (
       <div
         className={`${className} shrink-0 rounded-full bg-emerald-500/15 ring-1 ring-emerald-500/40 flex items-center justify-center font-editorial italic text-xs text-emerald-700`}
-        aria-label={`@${personaUsername}`}
+        aria-label={displayName}
       >
-        {personaUsername.slice(0, 2).toUpperCase()}
+        {displayName.slice(0, 2).toUpperCase()}
       </div>
     );
   }

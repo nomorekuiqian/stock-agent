@@ -13,7 +13,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.features.vector.models import VectorChunkResult, VectorSearchResponse
+from app.features.vector.models import (
+    VectorChunkResult,
+    VectorSearchResponse,
+    VectorTextSearchResponse,
+)
 from app.shared.kol_persona import (
     Persona,
     build_always_on_instruction,
@@ -32,6 +36,22 @@ def _reset_cache():
     clear_persona_cache()
     yield
     clear_persona_cache()
+
+
+@pytest.fixture(autouse=True)
+def _mock_empty_text_search():
+    with patch(
+        "app.shared.kol_persona.tools.vector_text_search",
+        AsyncMock(
+            return_value=VectorTextSearchResponse(
+                success=True,
+                keywords=[],
+                count=0,
+                results=[],
+            )
+        ),
+    ) as mock:
+        yield mock
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +213,51 @@ async def test_search_kol_tweets_labels_reference_source_author():
 
 
 @pytest.mark.asyncio
+async def test_search_kol_tweets_expands_single_ticker_query_for_zsxq_persona(
+    _mock_empty_text_search,
+):
+    """Short ticker-only queries need aliases + ticker metadata to retrieve zsxq posts."""
+    fake_text_resp = VectorTextSearchResponse(
+        success=True,
+        keywords=["AMD"],
+        count=1,
+        results=[_fake_chunk(0, source_id="zsxq-amd")],
+    )
+    _mock_empty_text_search.return_value = fake_text_resp
+    with patch(
+        "app.shared.kol_persona.tools.vector_search",
+        AsyncMock(
+            return_value=VectorSearchResponse(
+                success=True,
+                query="AMD",
+                count=0,
+                results=[],
+            )
+        ),
+    ):
+        out = await search_kol_tweets(
+            "AMD",
+            author_username="pandacircle",
+            k=5,
+            query_variants=["Advanced Micro Devices", "超威半导体", "MI300"],
+        )
+
+    assert "[#1]" in out
+    text_requests = [call.args[0] for call in _mock_empty_text_search.await_args_list]
+    assert any("Advanced Micro Devices" in req.keywords for req in text_requests)
+    assert any("超威半导体" in req.keywords for req in text_requests)
+    assert any("MI300" in req.keywords for req in text_requests)
+    assert any(req.filters.source_types == ["zsxq_thread"] for req in text_requests)
+    assert any(
+        req.filters.metadata == {
+            "author_username": "pandacircle",
+            "tickers": ["AMD"],
+        }
+        for req in text_requests
+    )
+
+
+@pytest.mark.asyncio
 async def test_search_kol_tweets_buffers_chunks_in_contextvar():
     fake_chunks = [_fake_chunk(i) for i in range(2)]
     fake_resp = VectorSearchResponse(
@@ -261,7 +326,7 @@ async def test_search_kol_tweets_degrades_on_vector_failure():
         AsyncMock(side_effect=RuntimeError("vector EF down")),
     ):
         out = await search_kol_tweets("NVDA")
-    assert "unavailable" in out.lower()
+    assert "No prior tweets matched" in out
 
 
 def test_chunk_to_persona_result_preserves_metadata():

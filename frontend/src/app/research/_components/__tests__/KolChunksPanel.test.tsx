@@ -1,11 +1,34 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
+import type { KolPersonaChunk } from '@/lib/api';
 
 import {
+  default as KolChunksPanel,
   extractTweetBody,
+  extractZsxqBody,
   formatRelativeTime,
+  getChunkTimeLabel,
+  getZsxqCircleName,
+  isZsxqChunk,
   linkifyTweetText,
+  sortChunksByTimeDesc,
 } from '../KolChunksPanel';
+
+function mkChunk(overrides: Partial<KolPersonaChunk> = {}): KolPersonaChunk {
+  return {
+    citation_index: 1,
+    source_id: '2225581214885858',
+    title: '超威半导体（AMD.US）：端侧Agent打开中国市场差异化空间',
+    url: 'https://zsxq.com/topic/2225581214885858',
+    content: 'body',
+    similarity: 0.8,
+    author_username: 'pandacircle',
+    created_at: '2026-05-20T00:00:00Z',
+    tickers: ['AMD'],
+    metadata: {},
+    ...overrides,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // extractTweetBody — parse the metadata-prefixed indexed content string
@@ -69,6 +92,133 @@ describe('extractTweetBody', () => {
   it('handles missing quoted section gracefully', () => {
     const raw = 'Original tweet:\nonly original\n';
     expect(extractTweetBody(raw)).toEqual({ original: 'only original', quoted: '' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// zsxq evidence — strip indexing metadata and render as Knowledge Planet source
+// ---------------------------------------------------------------------------
+
+describe('zsxq evidence rendering', () => {
+  const rawZsxq = [
+    'Source: zsxq_thread',
+    'Source ID: 2225581214885858',
+    'Title: 超威半导体（AMD.US）：端侧Agent打开中国市场差异化空间',
+    '',
+    '来源: 潘大的科技交流圈（知识星球动态）',
+    '作者: 潘大研究助理-毕曲直（creator）',
+    '日期: 2026-05-20',
+    '类型: analysis · 动态类型: talk',
+    '标签: #AI硬件/芯片/基础设施/云服务#',
+    '标的: AMD',
+    '标题: 超威半导体（AMD.US）：端侧Agent打开中国市场差异化空间',
+    '',
+    '**超威半导体（AMD.US）：端侧Agent打开中国市场差异化空间**',
+    '',
+    '研报来源：华泰研究',
+  ].join('\n');
+
+  const rawZsxqWithDate = (date: string) => rawZsxq.replace('日期: 2026-05-20', `日期: ${date}`);
+
+  it('detects zsxq chunks from the source marker', () => {
+    expect(isZsxqChunk(mkChunk({ content: rawZsxq }))).toBe(true);
+  });
+
+  it('does not treat ordinary X posts mentioning 知识星球 as zsxq evidence', () => {
+    const xChunk = mkChunk({
+      source_id: 'tweet-zsxq-mention',
+      title: '@pandacircle tweet',
+      url: 'https://x.com/pandacircle/status/1',
+      content: 'Original tweet:\n我在知识星球看到一个观点，但这是 X 推文。',
+      metadata: { source_type: 'kol_tweet' },
+    });
+
+    expect(isZsxqChunk(xChunk)).toBe(false);
+
+    const { container } = render(<KolChunksPanel chunks={[xChunk]} />);
+    expect(container.textContent).toContain('在 X 查看原文');
+    expect(container.textContent).not.toContain('在星球中查看原文');
+  });
+
+  it('removes source/indexing metadata from zsxq body', () => {
+    const body = extractZsxqBody(rawZsxq);
+    expect(body).toContain('超威半导体');
+    expect(body).toContain('研报来源：华泰研究');
+    expect(body).not.toContain('**');
+    expect(body).not.toContain('Source ID');
+    expect(body).not.toContain('来源:');
+    expect(body).not.toContain('作者:');
+    expect(body).not.toContain('日期:');
+  });
+
+  it('uses created_at or zsxq metadata date as the post time label', () => {
+    expect(getChunkTimeLabel(mkChunk({ content: rawZsxq }))).toMatch(/5月20日|2026年5月20日/);
+    expect(getChunkTimeLabel(mkChunk({ content: rawZsxq, created_at: null }))).toMatch(
+      /5月20日|2026年5月20日/,
+    );
+  });
+
+  it('extracts the Knowledge Planet circle name from source metadata', () => {
+    expect(getZsxqCircleName(mkChunk({ content: rawZsxq }))).toBe('潘大的科技交流圈');
+    expect(
+      getZsxqCircleName(mkChunk({ content: rawZsxq.replace(/^来源:.*\n/m, '') })),
+    ).toBe('潘大的科技交流圈');
+  });
+
+  it('renders zsxq cards without tweet chrome or raw metadata fields', () => {
+    const { container } = render(
+      <KolChunksPanel
+        chunks={[mkChunk({ content: rawZsxq, metadata: { source_type: 'zsxq_thread' } })]}
+      />,
+    );
+
+    expect(container.textContent).toContain('潘大的科技交流圈');
+    expect(container.textContent).not.toContain('知识星球原文');
+    expect(container.textContent).toMatch(/5月20日|2026年5月20日/);
+    expect(container.textContent).toContain('在星球中查看原文');
+    expect(container.textContent).toContain('超威半导体');
+    expect(container.textContent).not.toContain('在 X 查看原文');
+    expect(container.textContent).not.toContain('Source ID');
+    expect(container.textContent).not.toContain('@pandacircle');
+
+    const imageSources = Array.from(container.querySelectorAll('img')).map((img) =>
+      img.getAttribute('src'),
+    );
+    expect(imageSources).toContain('/kol-avatars/pandacircle.png');
+    expect(imageSources).toContain('/kol-avatars/zsxq_logo.png');
+  });
+
+  it('sorts rendered evidence cards by post time descending', () => {
+    const older = mkChunk({
+      citation_index: 1,
+      source_id: 'older',
+      content: rawZsxqWithDate('2026-05-07'),
+      created_at: '2026-05-07T00:00:00Z',
+    });
+    const newer = mkChunk({
+      citation_index: 2,
+      source_id: 'newer',
+      content: rawZsxqWithDate('2026-05-20'),
+      created_at: '2026-05-20T00:00:00Z',
+    });
+    const middle = mkChunk({
+      citation_index: 3,
+      source_id: 'middle',
+      content: rawZsxqWithDate('2026-05-12'),
+      created_at: '2026-05-12T00:00:00Z',
+    });
+
+    expect(sortChunksByTimeDesc([older, newer, middle]).map((chunk) => chunk.citation_index)).toEqual([
+      2,
+      3,
+      1,
+    ]);
+
+    const { container } = render(<KolChunksPanel chunks={[older, newer, middle]} />);
+    const renderedIds = Array.from(container.querySelectorAll('li[id^="kol-citation-"]')).map((el) =>
+      el.getAttribute('id'),
+    );
+    expect(renderedIds).toEqual(['kol-citation-2', 'kol-citation-3', 'kol-citation-1']);
   });
 });
 

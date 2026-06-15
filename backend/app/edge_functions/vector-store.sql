@@ -139,3 +139,116 @@ as $$
   order by c.embedding <=> query_embedding
   limit match_count;
 $$;
+
+create or replace function search_vector_chunks_text(
+  keywords text[],
+  match_count int default 8,
+  filters jsonb default '{}'::jsonb
+)
+returns table (
+  id uuid,
+  document_id uuid,
+  source_type text,
+  source_id text,
+  chunk_index int,
+  content text,
+  title text,
+  url text,
+  symbol text,
+  report_date text,
+  visibility text,
+  user_id text,
+  metadata jsonb,
+  similarity float
+)
+language sql stable
+as $$
+  with clean_keywords as (
+    select trim(kw) as kw
+    from unnest(keywords) as kw
+    where trim(kw) <> ''
+  ),
+  matched as (
+    select distinct on (c.id)
+      c.*,
+      case
+        when c.title ilike '%' || ck.kw || '%' then 1.0
+        when c.content ilike '%' || ck.kw || '%' then 0.95
+        when c.metadata::text ilike '%' || ck.kw || '%' then 0.9
+        else 0.0
+      end as text_score,
+      length(ck.kw) as keyword_length,
+      case
+        when (c.metadata->>'created_at') ~ '^\d{4}-\d{2}-\d{2}'
+          then (c.metadata->>'created_at')::timestamptz
+        else null
+      end as source_created_at
+    from vector_chunks c
+    join clean_keywords ck
+      on c.title ilike '%' || ck.kw || '%'
+      or c.content ilike '%' || ck.kw || '%'
+      or c.metadata::text ilike '%' || ck.kw || '%'
+    where (
+        not (filters ? 'source_types')
+        or c.source_type in (
+          select jsonb_array_elements_text(filters->'source_types')
+        )
+      )
+      and (
+        not (filters ? 'symbol')
+        or c.symbol = filters->>'symbol'
+      )
+      and (
+        not (filters ? 'visibility')
+        or c.visibility = filters->>'visibility'
+      )
+      and (
+        not (filters ? 'user_id')
+        or c.user_id = filters->>'user_id'
+      )
+      and (
+        not (filters ? 'date_from')
+        or c.report_date >= (filters->>'date_from')::date
+      )
+      and (
+        not (filters ? 'date_to')
+        or c.report_date <= (filters->>'date_to')::date
+      )
+      and (
+        not (filters ? 'metadata')
+        or c.metadata @> (filters->'metadata')
+      )
+    order by
+      c.id,
+      case
+        when c.title ilike '%' || ck.kw || '%' then 1.0
+        when c.content ilike '%' || ck.kw || '%' then 0.95
+        when c.metadata::text ilike '%' || ck.kw || '%' then 0.9
+        else 0.0
+      end desc,
+      length(ck.kw) desc
+  )
+  select
+    m.id,
+    m.document_id,
+    m.source_type,
+    m.source_id,
+    m.chunk_index,
+    m.content,
+    m.title,
+    m.url,
+    m.symbol,
+    m.report_date::text,
+    m.visibility,
+    m.user_id,
+    m.metadata,
+    m.text_score::float as similarity
+  from matched m
+  order by
+    m.text_score desc,
+    m.source_created_at desc nulls last,
+    m.report_date desc nulls last,
+    m.created_at desc,
+    m.keyword_length desc
+  limit match_count;
+$$;

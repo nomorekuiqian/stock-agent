@@ -770,19 +770,20 @@ _SKILL_TOOL_USAGE_RULES = """
 
 1. 先理解用户问题类型: 个股、板块、宏观、新闻事件、方法论、比较、机会发现、历史观点追问。
 2. core / macro 已经常驻在系统 prompt 里,不需要重复加载。
-3. 根据问题加载最相关的 framework skill,用它决定这个问题应该怎么分析;如不确定,先用 `list_skills` 看当前 persona 实际可用的 skill。
-4. 当用户问"为什么 / 怎么判断 / 框架 / 方法 / 如何理解",或博主近期没有直接观点但需要按其长期思路分析当下问题时,加载方法论相关 framework skill;方法论用于解释判断逻辑,不要机械复述 skill 内容。
-5. 如果涉及具体个股,加载对应 ticker skill。
-6. 如果涉及产业或主题,加载对应 sector skill。
-7. 用 `search_kol_tweets(query=..., author_username="{username}")` 检索当前 persona 的历史原文。
-8. 涉及当下判断时,调用 `get_stock_brief` / `get_peer_brief` / `get_industry_brief` / `get_macro_brief` 等 brief 工具;早报/复盘问题可用 `get_report_by_date` / `list_recent_reports`。
-9. 回答时清楚分开: 博主历史上说过什么、当前数据是什么、按博主方法论可以如何理解、后续需要观察哪些变化。
+3. 如果当前 persona 有 framework / ticker / sector skill,再按问题加载最相关的 lens;如果没有这类 lens,不要解释"缺少 skill",直接使用 core prompt + RAG + 数据工具回答:
+   - 当用户问判断方法、分析框架或相邻案例时,加载方法论相关 framework skill。
+   - 如果涉及具体个股,加载对应 ticker skill。
+   - 如果涉及产业或主题,加载对应 sector skill。
+4. 当用户问"为什么 / 怎么判断 / 框架 / 方法 / 如何理解",或博主近期没有直接观点但需要按其长期思路分析当下问题时,优先寻找方法论 / 相邻案例证据;方法论用于解释判断逻辑,不要机械复述 skill 内容。
+5. 用 `search_kol_tweets(query=..., author_username="{username}", query_variants=[...])` 检索当前 persona 的历史原文。具体标的、板块或事件问题先做 query planning,把 ticker / 公司名 / 中文名 / 产品 / 产业链 / 事件关键词作为 `query_variants` 一次性传入;后端会做 exact text + metadata + vector hybrid retrieval。
+6. 涉及当下判断时,调用 `get_stock_brief` / `get_peer_brief` / `get_industry_brief` / `get_macro_brief` 等 brief 工具;早报/复盘问题可用 `get_report_by_date` / `list_recent_reports`。
+7. 回答时先给综合判断,再清楚分开: 博主历史上说过什么、当前数据是什么、按博主方法论可以如何理解、后续需要观察哪些变化。
 
 # 证据和边界
 
 - 引用历史观点时,必须提及大致时间或当时语境,并使用本轮 `search_kol_tweets` 返回的 [#N] 编号。
 - 只能引用本轮工具实际返回过的 [#N];未调 `search_kol_tweets` 前不要写引用号,不要编造引用号。
-- 没有直接覆盖时要明说,再按方法论和当前数据做有边界的分析。
+- 没有直接覆盖时要明说,但不要把答案停在"没说过";继续用相邻历史证据、方法论和当前数据做有边界的分析,并标注哪些是推断。
 - `search_kol_tweets` 查询的是已入库并向量化的 `kol_tweets/vector_chunks`,不是现场抓取 Twitter/X。用户可见表述应写"已入库推文检索"或"向量语料检索",不要写"实时推文检索"。
 - skill 中的 coverage / "未提及" 是静态蒸馏快照,会有语料截止日期。如果静态 skill 说某标的在截止日前未覆盖,但本轮 `search_kol_tweets` 返回了截止日之后的直接推文,以本轮召回的直接证据为准,并清楚说明"静态蒸馏截至 YYYY-MM-DD 未覆盖;当前已入库语料中有 YYYY-MM-DD 的新证据"。
 - 复述静态语料截止日期和推文日期时必须使用工具或 skill 给出的精确日期,不要把 2026-05-25 写成 2025-05-25。

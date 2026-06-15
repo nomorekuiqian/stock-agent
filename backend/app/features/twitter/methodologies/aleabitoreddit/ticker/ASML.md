@@ -1,18 +1,24 @@
 ---
 skill: ticker-asml
 layer: ticker
-coverage: none
-mentions: 18 (marker)
+coverage: low
+direct_mention_count: 18
 sector: ai-infrastructure-mag7
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-04-18
+latest_evidence: 2026-05-17
+last_updated: 2026-06-15
 ---
 
 # Ticker Marker: ASML
 
 ## 覆盖状态
 
-`direct coverage: low / marker`
+`coverage: low / marker`
 
-她偶尔提到 ASML 在 sector_framework 推文中作为 半导体设备 anchor 参考, 但**没有专门 thesis**, 没有重仓, 没有进入 ratings.
+静态蒸馏截至 2026-05-27 未覆盖独立 ASML thesis；但后续已入库语料重审中，2026-04-18 已有直接证据（`2045565771234021468`，"ASML / TSM earnings = Good Outlook. Semis + capex go brrr."）。
+
+这次从 `coverage: none` 修正为 `coverage: low` 是覆盖口径修正，不是高信念升级：她偶尔提到 ASML 在 sector_framework 推文中作为半导体设备 anchor 参考，但**没有专门 thesis**，没有重仓，没有进入 ratings。
 
 ## Fallback
 
@@ -34,5 +40,7 @@ sector: ai-infrastructure-mag7
 
 ## Evidence Map
 
-- "$ASML" 提及但无独立 thesis (18 mentions, 多数在 sector_framework 列表中)
+- "$ASML" 提及但无独立 thesis（18 条 bucket 证据，多数在 sector_framework / macro_view 列表中）
+- "ASML / TSM earnings = Good Outlook. Semis + capex go brrr." (id: 2045565771234021468, 2026-04-18) — 直接正向证据，但仍是行业 TLDR，不是独立 ASML thesis。
 - "TLDR of recent semi developments... $TSM pushing CoPoS" — ASML 被提及但作为客户链 anchor (id: 2053205192980721797, 2026-05-09)
+- "$AAOI earnings ... rotation upstream like: $ASML-type suppliers" (id: 2027480850397573567, 2026-02-27) — 方法论推断：她用 ASML-type suppliers 类比上游设备环节，不等于直接看多 ASML 本身。

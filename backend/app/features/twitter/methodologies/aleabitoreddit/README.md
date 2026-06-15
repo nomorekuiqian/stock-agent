@@ -1,8 +1,8 @@
 # Serenity Skill Distillation v1
 
-> Status: v1-promoted · Generated: 2026-05-27
+> Status: v1-promoted · Generated: 2026-05-27 · Refreshed: 2026-06-15
 
-按 **core / macro / framework / sector / ticker** 五层组织的可调用 skill 系统, 源自 Serenity (`@aleabitoreddit`) 的公开推文蒸馏物料。
+按 **core / macro / framework / sector / ticker** 五层组织的可调用 skill 系统, 源自 Serenity (`@aleabitoreddit`) 的公开推文蒸馏物料。本轮 corpus 覆盖 1391 条保留语料（2025-09-02 ~ 2026-06-15）。
 
 正式物料目录: `backend/app/features/twitter/methodologies/aleabitoreddit/`
 
@@ -33,11 +33,11 @@ aleabitoreddit/
 │   ├── power-and-electrical.md          197 条
 │   ├── defense-and-space.md             208 条
 │   └── humanoid-robotics.md             162 条
-├── ticker/                              (35 个 playbook + 1 marker)
+├── ticker/                              (36 个 ticker files, ASML 为 marker-style low lens)
 │   高覆盖 (11): NVDA SIVE LITE AXTI AAOI NBIS MRVL COHR SNDK SOI MU
 │   中覆盖 (14): IREN IQE TSM EWY AVGO AEHR TSEM AMZN META GOOGL INTC MSFT JBL RKLB
-│   低覆盖 (10): AMD CIFR POET HOOD RDDT CRWV WULF ALAB LPK HPS.A
-└── marker  ( 1): ASML
+│   低覆盖 (11): AMD CIFR POET HOOD RDDT CRWV WULF ALAB LPK HPS.A ASML
+└── marker-style: ASML frontmatter 从 none 修正为 low,但仍不作为独立 thesis
 ```
 
 生成过程中的 evidence、slice、compact、eval、audit 物料不属于正式运行目录, 已归档到 gitignored 的本地 distillation artifacts 目录。
@@ -81,7 +81,7 @@ Skill 文件是 Agent 的判断素材库,不是用户可见输出模板。core /
 
 - `high`    博主反复深度讨论(≥80 提及);可直接引用博主观点
 - `medium`  博主提到过并表过态(30-80 提及),但深度有限;引用时带 hedge
-- `low`     博主只零散提过(10-30 提及),主要靠 sector fallback
+- `low`     博主只零散提过(10-30 提及),主要靠 sector fallback 或 marker-style 口径说明
 - `none`    博主从未直接讨论;生成 marker 而非 playbook
 
 ## Serenity v1 主要特征
@@ -93,11 +93,12 @@ Skill 文件是 Agent 的判断素材库,不是用户可见输出模板。core /
 - 决策类型: 几乎全 bull,重点在「何时复核 / 何时轮动」。
 - Framework: 7 个 (ask-news-decoder、ask-for-top-picks 等)。
 - Sector 数: 9 个独立。
-- Ticker 数: 11 high + 14 medium + 10 low + 1 marker。
+- Ticker 数: 11 high + 14 medium + 11 low；ASML 仍按 marker-style 回答,但 coverage 从 `none` 修正为 `low`。
+- 2026-06-15 周更补充：IQE 新增 epiwafer price hike、China InP export easing、IQE/TSEM multi-year InP deal 证据；photonics-and-cpo 新增 800V/CPO 延迟争议、InP 出口缓和、SIVE primary-source laser 证据。
 
 ## Evidence audit
 
-✓ **309 / 309 refs valid** (2026-05-27)
+✓ **本目录 Evidence Map 由 `evidence_audit.py --persona-key serenity-skill-v1` 校验**（最近刷新：2026-06-15）
 
 每条 Evidence Map 的 tweet_id 都曾通过 corpus 校验, quote 是连续原文。审计报告和
 原始 corpus 属于生成过程物料,保存在本地 ignored distillation archive 中,不随正式

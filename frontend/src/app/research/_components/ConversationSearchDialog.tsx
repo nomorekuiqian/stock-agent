@@ -8,6 +8,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { replacePersonaUsernamesForDisplay } from '../_lib/personaDisplay';
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -66,7 +67,7 @@ function SearchMatchLine({
         </span>
       )}
       <span className="line-clamp-2 min-w-0 align-middle">
-        <HighlightedSnippet text={match.snippet} terms={terms} />
+        <HighlightedSnippet text={replacePersonaUsernamesForDisplay(match.snippet)} terms={terms} />
       </span>
     </div>
   );
@@ -221,6 +222,9 @@ export default function ConversationSearchDialog({
               {list.map((conversation) => {
                 const matches = conversation.search_matches ?? [];
                 const messageMatches = matches.filter((match) => match.type !== 'title');
+                const displayTitle = replacePersonaUsernamesForDisplay(
+                  conversation.title || '未命名对话',
+                );
                 return (
                   <button
                     type="button"
@@ -231,7 +235,7 @@ export default function ConversationSearchDialog({
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                        {conversation.title || '未命名对话'}
+                        {displayTitle}
                       </p>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {formatRelativeTime(conversation.updated_at)}

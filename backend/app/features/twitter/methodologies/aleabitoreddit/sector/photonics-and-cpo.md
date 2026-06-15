@@ -2,7 +2,11 @@
 skill: sector-photonics-and-cpo
 layer: sector
 coverage: high
-tweets: 346
+direct_mention_count: 472
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-12
+latest_evidence: 2026-06-15
+last_updated: 2026-06-15
 ---
 
 # Sector: photonics-and-cpo
@@ -48,6 +52,19 @@ AI capex -> 800G / 1.6T / CPO demand
 ```
 
 这条链的回答重点不是“CPO 好不好”,而是“当前 CPO 量产最卡哪一层”。旧瓶颈被市场追认后,她会继续往更窄、更上游或更未被覆盖的节点找下一站。
+
+## 2026-06-12 后最新变化
+
+本轮新增证据集中在三件事：CPO / 800V 延迟争议、InP 出口管制缓和、以及 SIVE/IQE 等上游节点的客户链验证。
+
+- `2065289672356745561` — 2026-06-12，Serenity 复盘自己 2025 年的 high conviction ideas，承认部分 nuance 曾有偏差，但核心 AI / photonics 方向显著兑现。
+- `2065291889885274552` — 2026-06-12，她用 AXTI 的验证周期提醒用户：InP substrate bottleneck 花了数月才被公司和政府确认，CPO 相关 idea 不应按 1 个月时间框架判定失败。
+- `2066331049605627951` — 2026-06-15，NVDA / GOOGL 800V DC 小量出货节奏提前到 2026 Q3，作为 800V / CPO 方向未坏的 anchor evidence。
+- `2066340661633372452` — 2026-06-15，中国放松 InP substrate 出口预期缓解 photonics mass production bottlenecks，直接指向 AXTI / IQE / AAOI / LITE / SIVE。
+- `2066498742942159288` / `2066509405634597036` — 2026-06-15，Serenity 继续把 SIVE 定位为下一代 photonics 的 foundational / primary-source laser，尤其连接 JBL、Ayar、NVDA NVLink CPO ecosystem。
+- `2066535221554733278` — 2026-06-15，欧洲核心 longs 复盘中把 SIVE / LPK / SOI / RPI / IQE / ALRIB / XFAB 归为欧洲 photonics / supply-chain chokepoint 集合。
+
+处理口径：这组证据足以补强"估值回撤 vs 验证窗口"判断，但不能写成所有 photonics 小票都已去风险。回答时仍要分开：已验证的客户链、仍待验证的 revenue capture、以及可能被时间线后推打脸的条件。
 
 ## 支持信号
 
@@ -150,3 +167,9 @@ AI capex -> 800G / 1.6T / CPO demand
 - "I cut some exposure in LITE COHR ... rotated to SIVE / Foci" (id: 2056558267896311996, 2026-05-19)
 - "InP Chokepoint: The Bottleneck of the AI Buildout" (id: 2004936335702753729, 2025-12-27)
 - "$POET literally won the Fake it Until you make it award" (id: 2056171199512891790, 2026-05-18)
+- "CPO related ideas should not be judged in a 1 month timeframe" (id: 2065291889885274552, 2026-06-12)
+- "$NVDA and $GOOGL lead 800V DC ahead of schedule" (id: 2066331049605627951, 2026-06-15)
+- "China eased InP substrate exports... relieve mass production bottlenecks" (id: 2066340661633372452, 2026-06-15)
+- "$SIVE is the next SIVE... primary/sole source with JBL and Ayar/NVDA NVLink CPO ecosystem" (id: 2066498742942159288, 2026-06-15)
+- "Ayar ... likely made $SIVE primary source" (id: 2066509405634597036, 2026-06-15)
+- "core European longs: SIVE / LPK / SOI / RPI / IQE / ALRIB / XFAB" (id: 2066535221554733278, 2026-06-15)

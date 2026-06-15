@@ -9,6 +9,7 @@ import type { KolPersonaChunk } from '@/lib/api';
 import { PRICING } from '@/lib/pricing';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import AssistantAvatar from './AssistantAvatar';
+import { replacePersonaUsernamesForDisplay } from '../_lib/personaDisplay';
 import type { RequiredProduct } from '../_lib/researchReducer';
 
 /**
@@ -213,21 +214,29 @@ function ChatMessage({
   feedbackSentiment,
 }: ChatMessageProps) {
   const { createCheckout, isCheckoutLoading, isMax } = useSubscription();
-  const isMarkdown = useMemo(() => role === 'assistant' && hasMarkdown(content), [role, content]);
+  const displayContent = useMemo(() => replacePersonaUsernamesForDisplay(content), [content]);
+  const displayThinking = useMemo(
+    () => thinking ? replacePersonaUsernamesForDisplay(thinking) : thinking,
+    [thinking],
+  );
+  const isMarkdown = useMemo(
+    () => role === 'assistant' && hasMarkdown(displayContent),
+    [role, displayContent],
+  );
   // Skip per-char animation while streaming (delta-driven) or when content is markdown.
   const shouldAnimate = animate && !isMarkdown && !streaming;
   const [animationDone, setAnimationDone] = useState(!shouldAnimate);
   const requiresMax = !isMax && requiredProduct === 'max';
 
   const annotatedContent = useMemo(
-    () => annotateCitations(content, citations),
-    [content, citations],
+    () => annotateCitations(displayContent, citations),
+    [displayContent, citations],
   );
 
   const chars = useMemo(() => {
     if (!shouldAnimate || role !== 'assistant') return [];
-    return content.split('');
-  }, [content, shouldAnimate, role]);
+    return displayContent.split('');
+  }, [displayContent, shouldAnimate, role]);
 
   useEffect(() => {
     if (!shouldAnimate || role !== 'assistant') return;
@@ -245,7 +254,7 @@ function ChatMessage({
     return (
       <div className="flex justify-end animate-msg-enter py-3">
         <div className="font-reading max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground border border-border/40">
-          {content}
+          {displayContent}
         </div>
       </div>
     );
@@ -270,13 +279,13 @@ function ChatMessage({
               We split accumulated thinking text by paragraph and only show the
               latest paragraph, so the UI feels like a status line replacing
               itself (ChatGPT-style), not a growing log. */}
-          <ThinkingLine thinking={thinking} streaming={streaming} hasContent={!!content} />
+          <ThinkingLine thinking={displayThinking} streaming={streaming} hasContent={!!displayContent} />
 
           {/* Error is the one case that still uses a contained block — error
               boundary needs to read as a discrete state, not flow into the page. */}
           {isError ? (
             <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm leading-relaxed text-red-600 dark:text-red-300">
-              <p>{content}</p>
+              <p>{displayContent}</p>
               {requiresMax && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
@@ -304,8 +313,8 @@ function ChatMessage({
                 </div>
               )}
             </div>
-          ) : !content ? (
-            !thinking?.trim() ? (
+          ) : !displayContent ? (
+            !displayThinking?.trim() ? (
               <div className="py-0.5 text-sm italic text-muted-foreground/70 animate-pulse-subtle">正在思考…</div>
             ) : null
           ) : shouldAnimate && !animationDone ? (
@@ -339,7 +348,7 @@ function ChatMessage({
             </div>
           ) : (
             <div className="research-message-text text-foreground whitespace-pre-wrap">
-              {content}
+              {displayContent}
               {streaming && (
                 <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 chat-caret bg-primary/70 align-baseline" />
               )}
@@ -347,9 +356,9 @@ function ChatMessage({
           )}
 
           {/* Action row — mature agent pattern: copy + lightweight answer feedback. */}
-          {!streaming && !isError && !!content && (
+          {!streaming && !isError && !!displayContent && (
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground opacity-90 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-              <CopyButton text={content} />
+              <CopyButton text={displayContent} />
               {feedbackTargetId && (
                 <>
                   <span aria-hidden className="h-4 w-px bg-border/70" />
@@ -363,7 +372,7 @@ function ChatMessage({
                     messageEventId={feedbackMessageEventId}
                     initialSentiment={feedbackSentiment}
                     snapshot={{
-                      text: content,
+                      text: displayContent,
                       conversation_id: feedbackConversationId ?? null,
                       message_id: feedbackMessageId ?? null,
                       agent_kind: feedbackAgentKind ?? 'research',

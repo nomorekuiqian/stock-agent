@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowUpRight, ChevronDown, Lock } from 'lucide-react';
+import { ArrowUpRight, Lock } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import ChatMessage from './ChatMessage';
 import OptionChips from './OptionChips';
 import ChatInput from './ChatInput';
 import AssistantAvatar from './AssistantAvatar';
 import type { ChatMsg } from '../_lib/researchReducer';
+import { getPersonaDisplayName, replacePersonaUsernamesForDisplay } from '../_lib/personaDisplay';
 import type { KolPersonaChunk } from '@/lib/api';
 
 export type { ChatMsg };
@@ -79,6 +80,7 @@ export default function ChatPanel({
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = React.useState(false);
   const { createCheckout, isCheckoutLoading, isMax } = useSubscription();
+  const personaDisplayName = getPersonaDisplayName(personaUsername);
 
   const handleUnlockMax = React.useCallback(async () => {
     await createCheckout('max', buildMaxReturnPath(personaUsername));
@@ -189,7 +191,9 @@ export default function ChatPanel({
                 {(() => {
                   const visible = toolActivities.filter(a => a.tool !== 'set_model_response');
                   const latest = visible[visible.length - 1];
-                  const label = latest?.description;
+                  const label = latest?.description
+                    ? replacePersonaUsernamesForDisplay(latest.description)
+                    : undefined;
                   return (
                     <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
                       <span key={label || 'thinking'} className="animate-status-label animate-pulse-subtle">
@@ -212,25 +216,6 @@ export default function ChatPanel({
         <div ref={bottomRef} />
       </div>
 
-      {/* Jump to latest — appears when the user has scrolled up. */}
-      {userScrolled && messages.length > 0 && (
-        <button
-          type="button"
-          onClick={() => {
-            scrollRef.current?.scrollTo({
-              top: scrollRef.current.scrollHeight,
-              behavior: 'smooth',
-            });
-            setUserScrolled(false);
-          }}
-          aria-label="跳到最新"
-          className="absolute bottom-24 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-popover/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md backdrop-blur transition-colors hover:text-foreground animate-fade-in"
-        >
-          <ChevronDown className="h-3.5 w-3.5" />
-          跳到最新
-        </button>
-      )}
-
       {/* Input area */}
       <div className="shrink-0 px-3 sm:px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         {personaUsername && !isMax && (
@@ -239,7 +224,7 @@ export default function ChatPanel({
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-medium text-primary">
                   <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  @{personaUsername} 博主 Agent
+                  {personaDisplayName} Agent
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
                   <Lock className="h-3 w-3" aria-hidden />

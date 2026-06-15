@@ -14,6 +14,8 @@ from app.features.vector.models import (
     VectorIndexResponse,
     VectorSearchRequest,
     VectorSearchResponse,
+    VectorTextSearchRequest,
+    VectorTextSearchResponse,
 )
 
 logger = get_logger(__name__)
@@ -121,6 +123,29 @@ async def search(request: VectorSearchRequest) -> VectorSearchResponse:
     return VectorSearchResponse(
         success=True,
         query=request.query,
+        count=len(results),
+        results=results,
+    )
+
+
+async def search_text(request: VectorTextSearchRequest) -> VectorTextSearchResponse:
+    keywords = [kw.strip() for kw in request.keywords if kw.strip()]
+    if not keywords:
+        return VectorTextSearchResponse(
+            success=True,
+            keywords=[],
+            count=0,
+            results=[],
+        )
+
+    results = await db.search_chunks_by_text(
+        keywords=keywords,
+        top_k=request.top_k,
+        filters=request.filters,
+    )
+    return VectorTextSearchResponse(
+        success=True,
+        keywords=keywords,
         count=len(results),
         results=results,
     )

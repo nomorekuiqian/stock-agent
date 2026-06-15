@@ -229,6 +229,37 @@ module.exports = async function(request) {
       });
     }
 
+    if (request.method === "POST" && action === "search_text") {
+      const body = await request.json();
+      const keywords = Array.isArray(body.keywords)
+        ? body.keywords.map((kw) => String(kw || "").trim()).filter(Boolean).slice(0, 20)
+        : [];
+      if (keywords.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: "keywords array required" }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+
+      const { data, error } = await client.database.rpc("search_vector_chunks_text", {
+        keywords,
+        match_count: body.match_count || 8,
+        filters: body.filters || {},
+      });
+
+      if (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+          status: 500,
+          headers: jsonHeaders,
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, data: data || [] }), {
+        status: 200,
+        headers: jsonHeaders,
+      });
+    }
+
     if (request.method === "DELETE" && action === "delete_source") {
       const sourceType = url.searchParams.get("source_type");
       const sourceId = url.searchParams.get("source_id");

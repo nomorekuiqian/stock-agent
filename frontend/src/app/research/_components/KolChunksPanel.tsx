@@ -3,7 +3,13 @@
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
+import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
+import {
+  getPersonaDisplayLabel,
+  getPersonaDisplayName,
+  replacePersonaUsernamesForDisplay,
+} from '../_lib/personaDisplay';
 
 /** Official X (Twitter) logo mark. */
 function XLogo({ className }: { className?: string }) {
@@ -14,15 +20,20 @@ function XLogo({ className }: { className?: string }) {
   );
 }
 
+const ZSXQ_LOGO_SRC = '/kol-avatars/zsxq_logo.png';
+const ZSXQ_PERSONA_CIRCLE_NAMES: Record<string, string> = {
+  pandacircle: '潘大的科技交流圈',
+};
+
 interface KolChunksPanelProps {
   chunks: KolPersonaChunk[];
   /** Layout variant: 'inline' is the legacy collapsed footer; 'panel' is the
-   *  full-width right-column tweet card list. Default is 'panel'. */
+   *  full-width right-column evidence card list. Default is 'panel'. */
   variant?: 'inline' | 'panel';
 }
 
 /**
- * KOL citation panel — Twitter-styled card list of the tweets the agent
+ * KOL citation panel — source-aware card list of the evidence the agent
  * retrieved during the current turn.
  */
 export default function KolChunksPanel({ chunks, variant = 'panel' }: KolChunksPanelProps) {
@@ -35,7 +46,7 @@ export default function KolChunksPanel({ chunks, variant = 'panel' }: KolChunksP
             原文支持
           </p>
           <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
-            提问后，AI 检索到的博主历史推文会显示在这里，点击 [#N] 引用可跳到对应卡片。
+            提问后，AI 检索到的原文证据会显示在这里，点击 [#N] 引用可跳到对应卡片。
           </p>
         </div>
       );
@@ -55,7 +66,10 @@ export default function KolChunksPanel({ chunks, variant = 'panel' }: KolChunksP
 
 export function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return '';
-  const d = new Date(iso);
+  const dateOnly = iso.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})$/);
+  const d = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   const diffMs = Date.now() - d.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
@@ -74,6 +88,113 @@ export function formatRelativeTime(iso: string | null | undefined): string {
 function avatarSrcFor(author: string | null | undefined): string {
   if (!author) return '';
   return `/kol-avatars/${author.toLowerCase()}.png`;
+}
+
+function zsxqAuthorAvatarSrcFor(chunk: KolPersonaChunk): string {
+  return avatarSrcFor(chunk.author_username) || '/kol-avatars/pandacircle.png';
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function parseChunkDateCandidate(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const dateOnly = trimmed.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})$/);
+  const d = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(trimmed);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function chunkDateCandidates(chunk: Pick<KolPersonaChunk, 'created_at' | 'content' | 'metadata'>): string[] {
+  const metadata = chunk.metadata || {};
+  const metadataDate = (chunk.content || '').match(/^日期\s*[:：]\s*([0-9]{4}-[0-9]{1,2}-[0-9]{1,2}(?:[T ][^\n]+)?)/m)?.[1] || '';
+  return [
+    metadataDate,
+    asString(metadata.date),
+    asString(metadata.created_at),
+    asString(metadata.createdAt),
+    chunk.created_at || '',
+  ];
+}
+
+export function isZsxqChunk(chunk: Pick<KolPersonaChunk, 'content' | 'title' | 'url' | 'metadata'>): boolean {
+  const metadata = chunk.metadata || {};
+  const sourceType = [
+    asString(metadata.source_type),
+    asString(metadata.sourceType),
+    asString(metadata.source),
+  ].join(' ');
+  const haystack = [
+    sourceType,
+    chunk.url || '',
+  ].join('\n');
+  return /\bz?zsxq_thread\b/i.test(sourceType)
+    || /Source:\s*zsxq_thread/i.test(chunk.content || '')
+    || /(?:^|[/.])zsxq(?:\.com|[/.?#]|$)/i.test(haystack);
+}
+
+export function getChunkTimeLabel(chunk: Pick<KolPersonaChunk, 'created_at' | 'content' | 'metadata'>): string {
+  for (const candidate of chunkDateCandidates(chunk)) {
+    const label = formatRelativeTime(candidate);
+    if (label) return label;
+  }
+  return '';
+}
+
+export function getChunkTimestamp(chunk: Pick<KolPersonaChunk, 'created_at' | 'content' | 'metadata'>): number | null {
+  for (const candidate of chunkDateCandidates(chunk)) {
+    const d = parseChunkDateCandidate(candidate);
+    if (d) return d.getTime();
+  }
+  return null;
+}
+
+export function getZsxqCircleName(chunk: Pick<KolPersonaChunk, 'author_username' | 'content' | 'metadata'>): string {
+  const metadata = chunk.metadata || {};
+  const rawName = [
+    asString(metadata.circle_name),
+    asString(metadata.circleName),
+    asString(metadata.source_name),
+    asString(metadata.sourceName),
+    asString(metadata.source),
+    (chunk.content || '').match(/^来源\s*[:：]\s*([^\n]+)/m)?.[1] || '',
+  ].find((value) => value.trim());
+
+  const name = (rawName || '')
+    .replace(/[（(]\s*知识星球(?:动态|原文)?\s*[）)]/g, '')
+    .trim();
+
+  if (name) return name;
+
+  const persona = [
+    chunk.author_username || '',
+    asString(metadata.author_username),
+    asString(metadata.persona_username),
+    asString(metadata.personaUsername),
+  ].find((value) => value.trim().toLowerCase() in ZSXQ_PERSONA_CIRCLE_NAMES);
+
+  return persona ? ZSXQ_PERSONA_CIRCLE_NAMES[persona.trim().toLowerCase()] : '知识星球';
+}
+
+export function sortChunksByTimeDesc(chunks: KolPersonaChunk[]): KolPersonaChunk[] {
+  return chunks
+    .map((chunk, index) => ({
+      chunk,
+      index,
+      timestamp: getChunkTimestamp(chunk),
+    }))
+    .sort((a, b) => {
+      if (a.timestamp !== null && b.timestamp !== null && a.timestamp !== b.timestamp) {
+        return b.timestamp - a.timestamp;
+      }
+      if (a.timestamp !== null && b.timestamp === null) return -1;
+      if (a.timestamp === null && b.timestamp !== null) return 1;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.chunk);
 }
 
 /**
@@ -95,7 +216,9 @@ export function linkifyTweetText(text: string): React.ReactNode[] {
   let m: RegExpExecArray | null;
   let key = 0;
   while ((m = regex.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) {
+      out.push(replacePersonaUsernamesForDisplay(text.slice(last, m.index)));
+    }
     const token = m[0];
     if (m[1]) {
       // URL
@@ -113,6 +236,7 @@ export function linkifyTweetText(text: string): React.ReactNode[] {
     } else if (m[2]) {
       // @mention
       const handle = token.slice(1);
+      const displayLabel = getPersonaDisplayLabel(handle, token);
       out.push(
         <a
           key={`l-${key++}`}
@@ -121,7 +245,7 @@ export function linkifyTweetText(text: string): React.ReactNode[] {
           rel="noopener noreferrer"
           className="text-sky-500 hover:underline"
         >
-          {token}
+          {displayLabel}
         </a>,
       );
     } else if (m[3]) {
@@ -134,15 +258,25 @@ export function linkifyTweetText(text: string): React.ReactNode[] {
     }
     last = m.index + token.length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) {
+    out.push(replacePersonaUsernamesForDisplay(text.slice(last)));
+  }
   return out.map((node, i) => <Fragment key={i}>{node}</Fragment>);
 }
 
 // ---------------------------------------------------------------------------
-// Panel variant — Twitter-styled card list
+// Panel variant — source-aware card list
 // ---------------------------------------------------------------------------
 
 function CardList({ chunks }: { chunks: KolPersonaChunk[] }) {
+  const sortedChunks = sortChunksByTimeDesc(chunks);
+  const zsxqCount = chunks.filter(isZsxqChunk).length;
+  const sourceSummary = zsxqCount === chunks.length
+    ? `${chunks.length} 条圈内原文证据`
+    : zsxqCount > 0
+      ? `${chunks.length} 条混合原文证据`
+      : `${chunks.length} 条博主历史推文`;
+
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border/40 px-4 py-3">
@@ -150,12 +284,12 @@ function CardList({ chunks }: { chunks: KolPersonaChunk[] }) {
           原文支持
         </p>
         <p className="mt-1 text-sm text-foreground">
-          {chunks.length} 条博主历史推文
+          {sourceSummary}
         </p>
       </div>
       <ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
-        {chunks.map((chunk) => (
-          <TweetCard key={`${chunk.source_id}-${chunk.citation_index}`} chunk={chunk} />
+        {sortedChunks.map((chunk) => (
+          <EvidenceCard key={`${chunk.source_id}-${chunk.citation_index}`} chunk={chunk} />
         ))}
       </ul>
     </div>
@@ -188,20 +322,155 @@ export function extractTweetBody(raw: string): { original: string; quoted: strin
   };
 }
 
+export function extractZsxqBody(raw: string): string {
+  if (!raw) return '';
+  const lines = raw.split(/\r?\n/);
+  const metadataLine = /^(?:Source|Source ID|Title|Section|来源|作者|日期|类型|标签|标的|标题)\s*[:：]/i;
+  let lastMetadataLine = -1;
+
+  for (let i = 0; i < Math.min(lines.length, 60); i += 1) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    if (metadataLine.test(line)) {
+      lastMetadataLine = i;
+    }
+  }
+
+  const bodyLines = lastMetadataLine >= 0 ? lines.slice(lastMetadataLine + 1) : lines.slice();
+  while (bodyLines.length > 0 && !bodyLines[0].trim()) bodyLines.shift();
+  while (bodyLines.length > 0 && !bodyLines[bodyLines.length - 1].trim()) bodyLines.pop();
+  return bodyLines
+    .join('\n')
+    .trim()
+    .replace(/\*\*([^*\n]+?)\*\*/g, '$1');
+}
+
+function truncateText(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}...` : text;
+}
+
+function EvidenceCard({ chunk }: { chunk: KolPersonaChunk }) {
+  if (isZsxqChunk(chunk)) {
+    return <ZsxqCard chunk={chunk} />;
+  }
+  return <TweetCard chunk={chunk} />;
+}
+
+function ZsxqCard({ chunk }: { chunk: KolPersonaChunk }) {
+  const [expanded, setExpanded] = useState(false);
+  const body = extractZsxqBody(chunk.content || '');
+  const longText = body.length > 520;
+  const shownBody = expanded || !longText ? body : truncateText(body, 520);
+  const timestamp = getChunkTimeLabel(chunk);
+  const circleName = getZsxqCircleName(chunk);
+
+  return (
+    <li
+      id={`kol-citation-${chunk.citation_index}`}
+      className="group relative px-4 py-4 transition hover:bg-muted/25"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="inline-flex min-w-0 items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={zsxqAuthorAvatarSrcFor(chunk)}
+            alt={chunk.author_username || 'pandacircle'}
+            className="h-6 w-6 shrink-0 rounded-full bg-muted object-cover"
+          />
+          <span className="truncate text-sm font-medium text-foreground">
+            {circleName}
+          </span>
+          {timestamp && (
+            <>
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {timestamp}
+              </span>
+            </>
+          )}
+          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+            #{chunk.citation_index}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-md border border-border/60 bg-background px-3 py-3">
+        <div className="prose prose-sm max-w-none text-foreground dark:prose-invert
+          prose-headings:mt-3 prose-headings:mb-2 prose-headings:text-foreground prose-headings:font-semibold
+          prose-p:my-2 prose-p:leading-7 prose-p:text-inherit
+          prose-strong:text-foreground prose-strong:font-semibold
+          prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-li:text-inherit
+          [&_li_p]:my-0"
+        >
+          <MarkdownBody>
+            {shownBody || '暂无可展示正文'}
+          </MarkdownBody>
+        </div>
+      </div>
+
+      {(chunk.url || longText) && (
+        <div className="mt-2 flex items-center gap-4 text-xs">
+          {chunk.url && (
+            <a
+              href={chunk.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="relative z-20 inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={ZSXQ_LOGO_SRC}
+                alt=""
+                aria-hidden
+                className="h-3.5 w-3.5 rounded-sm object-contain"
+              />
+              在星球中查看原文
+            </a>
+          )}
+          {longText && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setExpanded((v) => !v);
+              }}
+              className="relative z-20 inline-flex items-center gap-0.5 text-sky-500 hover:underline"
+            >
+              {expanded ? (
+                <>
+                  <ChevronUp className="h-3 w-3" />
+                  收起
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3" />
+                  展开全文
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
   const [expanded, setExpanded] = useState(false);
 
   const { original, quoted } = extractTweetBody(chunk.content || '');
   const combinedLen = original.length + quoted.length;
   const longText = combinedLen > 280;
-  const truncate = (text: string, max: number) =>
-    text.length > max ? `${text.slice(0, max)}...` : text;
-  const shownOriginal = expanded || !longText ? original : truncate(original, 280);
-  const shownQuoted = expanded || !longText ? quoted : truncate(quoted, 140);
+  const shownOriginal = expanded || !longText ? original : truncateText(original, 280);
+  const shownQuoted = expanded || !longText ? quoted : truncateText(quoted, 140);
 
   const author = chunk.author_username || 'unknown';
+  const displayAuthor = getPersonaDisplayName(author, author);
+  const displayAuthorLabel = getPersonaDisplayLabel(author, author);
   const avatar = avatarSrcFor(chunk.author_username);
-  const timestamp = formatRelativeTime(chunk.created_at);
+  const timestamp = getChunkTimeLabel(chunk);
 
   return (
     <li
@@ -215,7 +484,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={avatar}
-              alt={author}
+              alt={displayAuthor}
               className="h-10 w-10 rounded-full bg-muted object-cover"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
@@ -224,7 +493,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
             />
           ) : null}
           <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-            {author.slice(0, 2).toUpperCase()}
+            {displayAuthor.slice(0, 2).toUpperCase()}
           </div>
         </div>
 
@@ -233,7 +502,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
           {/* Header: display name + @handle + relative time, all on one line */}
           <div className="flex flex-wrap items-baseline gap-x-1 text-sm leading-5">
             <span className="truncate font-bold tracking-tight text-foreground">
-              {author}
+              {displayAuthor}
             </span>
             <a
               href={`https://x.com/${author}`}
@@ -242,7 +511,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
               className="relative z-20 truncate text-sm text-muted-foreground hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
-              @{author}
+              {displayAuthorLabel}
             </a>
             {timestamp && (
               <>
@@ -318,6 +587,7 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
 
 function InlineFooter({ chunks }: { chunks: KolPersonaChunk[] }) {
   const [open, setOpen] = useState(false);
+  const sortedChunks = sortChunksByTimeDesc(chunks);
   return (
     <div className="mt-2 mx-2 rounded-md border border-emerald-100 bg-emerald-50/40">
       <button
@@ -330,30 +600,42 @@ function InlineFooter({ chunks }: { chunks: KolPersonaChunk[] }) {
       </button>
       {open && (
         <ul className="px-3 pb-3 space-y-2">
-          {chunks.map((c) => (
-            <li
-              key={`${c.source_id}-${c.citation_index}`}
-              className="rounded-md border border-emerald-200/70 bg-background/70 px-2 py-1.5 text-xs text-foreground"
-            >
-              <div className="font-medium text-emerald-700">
-                @{c.author_username || 'unknown'}
-                {c.created_at && (
-                  <span className="text-muted-foreground/70"> · {c.created_at.slice(0, 10)}</span>
+          {sortedChunks.map((c) => {
+            const isZsxq = isZsxqChunk(c);
+            const tweetBody = extractTweetBody(c.content || '').original;
+            const body = isZsxq ? extractZsxqBody(c.content || '') : (tweetBody || c.content);
+            const circleName = isZsxq ? getZsxqCircleName(c) : '';
+            const displayAuthor = getPersonaDisplayLabel(
+              c.author_username || 'unknown',
+              c.author_username || 'unknown',
+            );
+            return (
+              <li
+                key={`${c.source_id}-${c.citation_index}`}
+                className="rounded-md border border-emerald-200/70 bg-background/70 px-2 py-1.5 text-xs text-foreground"
+              >
+                <div className="font-medium text-emerald-700">
+                  {isZsxq ? circleName : displayAuthor}
+                  {!isZsxq && c.created_at && (
+                    <span className="text-muted-foreground/70"> · {c.created_at.slice(0, 10)}</span>
+                  )}
+                </div>
+                <div className="mt-0.5 line-clamp-3 whitespace-pre-wrap">
+                  {replacePersonaUsernamesForDisplay(body)}
+                </div>
+                {c.url && (
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-0.5 inline-block text-emerald-600 hover:underline"
+                  >
+                    {isZsxq ? '在星球中查看原文 →' : '查看原推 →'}
+                  </a>
                 )}
-              </div>
-              <div className="mt-0.5 line-clamp-3 whitespace-pre-wrap">{c.content}</div>
-              {c.url && (
-                <a
-                  href={c.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-0.5 inline-block text-emerald-600 hover:underline"
-                >
-                  查看原推 →
-                </a>
-              )}
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

@@ -6,6 +6,7 @@ import { useKolCockpitTickers } from '@/hooks/queries/use-kol-data';
 import type { KolCockpitTickerSummary } from '@/lib/api';
 import ChatInput from './ChatInput';
 import PersonaSelector, { type AgentKind } from './PersonaSelector';
+import { getPersonaDisplayLabel, getPersonaDisplayName } from '../_lib/personaDisplay';
 
 // ---------------------------------------------------------------------------
 // Default capability cards (4-card layout, two interaction patterns)
@@ -302,17 +303,24 @@ const PERSONAS: Record<string, PersonaDescriptor> = {
     tagline: ['光子 / CPO', 'AI 半导体供应链', 'small-cap 瓶颈'],
     description: 'Serenity 的框架偏向 AI 半导体供应链、光子/CPO 和底层瓶颈迁移。适合从 hyperscaler capex 往下拆，寻找少数公司绕不过去的 chokepoint。',
   },
+  pandacircle: {
+    displayName: '潘大的科技交流圈',
+    tagline: ['知识星球', 'AI 硬件', '半导体'],
+    description: '潘大的科技交流圈更适合从圈内原文、研报线索和产业链验证出发，检查一只股票或一个主题是否有足够的原始证据支撑。',
+  },
 };
 
 function getPersonaDescriptor(username: string | null): PersonaDescriptor {
   if (username && PERSONAS[username]) return PERSONAS[username];
+  const displayName = getPersonaDisplayName(username, username);
+  const displayLabel = getPersonaDisplayLabel(username, username);
   // Unknown persona: stay persona-agnostic — never borrow another KOL's
   // tagline/quotes. Show just the handle with no fabricated voice.
   return {
-    displayName: username || '',
+    displayName,
     tagline: [],
     description: username
-      ? `按 @${username} 的公开方法论检视标的、行业和市场，不复刻口吻，只保留分析框架。`
+      ? `按 ${displayLabel} 的公开方法论检视标的、行业和市场，不复刻口吻，只保留分析框架。`
       : '',
   };
 }
@@ -881,7 +889,8 @@ function PersonaIntro({
   personaUsername,
   onPersonaChange,
 }: PersonaIntroProps) {
-  const avatarSrc = `/kol-avatars/${persona.displayName.toLowerCase()}.png`;
+  const avatarSrc = `/kol-avatars/${(personaUsername || persona.displayName).toLowerCase()}.png`;
+  const personaLabel = getPersonaDisplayLabel(personaUsername, persona.displayName);
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-4xl flex-col justify-start px-4 pb-6 pt-[clamp(3.5rem,calc(50dvh-18.5rem),24rem)] text-center sm:px-6 sm:pb-8">
@@ -914,7 +923,7 @@ function PersonaIntro({
           className="font-editorial italic text-2xl leading-snug text-foreground sm:text-3xl animate-fade-in-up"
           style={{ animationDelay: '140ms' }}
         >
-          @{persona.displayName}
+          {personaLabel}
         </h1>
       </div>
 
@@ -927,7 +936,7 @@ function PersonaIntro({
         />
         <ChatInput
           onSubmit={onSelect}
-          placeholder={`想问 @${persona.displayName} 什么？`}
+          placeholder={`想问 ${personaLabel} 什么？`}
           autoFocus={false}
           quota={quota}
         />
