@@ -34,7 +34,7 @@ import app.core.posthog_client as posthog
 from app.core.rate_limit import _get_real_ip
 from app.core.sse import with_heartbeat
 from app.features.quota.service import consume_quota
-from app.features.flags.db import get_user_flags  # pyright: ignore[reportUnusedImport]  # noqa: F401 — kept for kol_research_agent flag rollback (see require_kol_research_flag)
+from app.features.flags.db import get_user_flags
 from app.features.kol_research import cockpit, cockpit_v3, mcp_auth, mcp_data, mcp_materials, skill_cockpit
 from app.features.kol_research.agent import (
     DEFAULT_PERSONA,
@@ -123,16 +123,57 @@ def _kol_quota_error_payload(req: KolResearchRequest) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Persona flag gating
+# ---------------------------------------------------------------------------
+
+# Personas behind a feature flag: hidden from the selector list AND rejected at
+# the chat endpoints unless the caller's flags include the required key. The
+# flag itself (and its allowed accounts) is defined in features/flags/registry.
+_FLAG_GATED_PERSONAS: dict[str, str] = {
+    "pandacircle": "pandacircle_persona",
+}
+
+
+async def _caller_flags(user_info: dict) -> set[str]:
+    """Best-effort flag fetch. On failure return an empty set so gated personas
+    stay hidden (fail closed), matching the flags read-path fallback."""
+    try:
+        return await get_user_flags(user_info["user_id"], email=user_info.get("email"))
+    except Exception:  # noqa: BLE001 - never 500 the persona list / chat on a flag read
+        logger.warning("kol_research: get_user_flags failed; hiding gated personas", exc_info=True)
+        return set()
+
+
+def _persona_required_flag(persona_username: str | None) -> str | None:
+    return _FLAG_GATED_PERSONAS.get((persona_username or DEFAULT_PERSONA).lower())
+
+
+async def _ensure_persona_allowed(req_persona: str | None, user_info: dict) -> None:
+    """Raise 403 if the requested persona is flag-gated and the caller lacks it."""
+    required = _persona_required_flag(req_persona)
+    if required and required not in await _caller_flags(user_info):
+        raise HTTPException(status_code=403, detail="该助手暂未对你的账号开放")
+
+
+# ---------------------------------------------------------------------------
 # Personas listing
 # ---------------------------------------------------------------------------
 
 
 @router.get("/personas")
 async def list_kol_personas(
-    _user: dict = Depends(require_kol_research_flag),
+    user_info: dict = Depends(require_kol_research_flag),
 ):
-    """Return list of personas available to load into the agent."""
-    return {"personas": [p.model_dump() for p in list_personas()]}
+    """Return personas available to this caller. Flag-gated personas (e.g.
+    pandacircle) are only listed when the caller holds the required flag."""
+    flags = await _caller_flags(user_info)
+    personas = []
+    for p in list_personas():
+        required = _FLAG_GATED_PERSONAS.get(p.username)
+        if required and required not in flags:
+            continue
+        personas.append(p)
+    return {"personas": [p.model_dump() for p in personas]}
 
 
 # ---------------------------------------------------------------------------
@@ -1909,6 +1950,7 @@ async def kol_research_chat(
     All personas share the general research quota. Max users are unlimited via
     the `ai_research_engine` entitlement in `features.quota`.
     """
+    await _ensure_persona_allowed(req.persona_username, user_info)
     client_ip = _get_real_ip(request)
     quota = await _consume_kol_chat_access(req, user_info["user_id"], client_ip)
     if not quota["allowed"]:
@@ -1957,6 +1999,7 @@ async def kol_research_chat_stream(
       - final             {data: KolResearchResponse}
       - error             {error}
     """
+    await _ensure_persona_allowed(req.persona_username, user_info)
     client_ip = _get_real_ip(request)
     quota = await _consume_kol_chat_access(req, user_info["user_id"], client_ip)
     if not quota["allowed"]:

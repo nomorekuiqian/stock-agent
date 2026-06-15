@@ -5,7 +5,7 @@ from typing import Set
 from app.core.config import ADMIN_EMAILS
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
-from app.features.flags.registry import admin_default_flags
+from app.features.flags.registry import admin_default_flags, email_allowlisted_flags
 
 logger = get_logger(__name__)
 
@@ -28,6 +28,7 @@ async def get_user_flags(user_id: str, email: str | None = None) -> Set[str]:
         flags = set()
     if email and email.lower() in ADMIN_EMAILS:
         flags |= admin_default_flags()
+    flags |= email_allowlisted_flags(email)
     return flags
 
 

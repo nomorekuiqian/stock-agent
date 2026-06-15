@@ -81,6 +81,11 @@ _SERENITY_PUBLIC_BIO = (
     "重仓小盘 niche (SIVE / AXTI / AAOI / LITE) · 几乎只做多但会轮动"
 )
 
+_PANDACIRCLE_PUBLIC_BIO = (
+    "潘大的科技交流圈 · 美股科技 / AI 算力 / 半导体 / 区块链 · "
+    "球主与研究助理团队的历史研究观点聚合，按已入库的圈内动态做检索式投研"
+)
+
 # Per-persona skill loader config. Each entry declares where the bundle lives
 # and which files act as the always-on core / macro layer.
 _PERSONA_CONFIG: Dict[str, Dict[str, Any]] = {
@@ -97,6 +102,16 @@ _PERSONA_CONFIG: Dict[str, Dict[str, Any]] = {
         "skill_dir": METHODOLOGIES_DIR / "aleabitoreddit",
         "core_file": "bottleneck-operating-system.md",
         "macro_file": "ai-capex-cycle.md",
+    },
+    "pandacircle": {
+        "display_name": "潘大的科技交流圈",
+        "description": _PANDACIRCLE_PUBLIC_BIO,
+        "skill_dir": METHODOLOGIES_DIR / "pandacircle",
+        "core_file": "operating-system.md",
+        # No distilled macro/framework/sector/ticker lenses yet (Phase 1 = thin
+        # core + RAG). The persona's knowledge comes from search_kol_tweets over
+        # the zsxq_thread corpus rather than static distilled skill files.
+        "corpus_source_types": ["zsxq_thread"],
     },
 }
 
@@ -197,10 +212,13 @@ def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
     else:
         logger.warning("core file missing: %s", core_file)
 
-    # macro/<file> -> always-on (cross-cutting slot)
-    macro_file = skill_dir / "macro" / cfg["macro_file"]
-    if macro_file.exists():
-        cross_cutting.append(_skill_md_to_skill_doc(macro_file, "macro"))
+    # macro/<file> -> always-on (cross-cutting slot). Optional: thin personas
+    # (RAG-only, no distilled macro lens) may omit the macro_file key entirely.
+    macro_name = cfg.get("macro_file")
+    if macro_name:
+        macro_file = skill_dir / "macro" / macro_name
+        if macro_file.exists():
+            cross_cutting.append(_skill_md_to_skill_doc(macro_file, "macro"))
 
     # framework/*.md + sector/*.md + ticker/*.md -> trigger-based skills
     # framework files describe HOW to answer a class of question (the answer
@@ -237,6 +255,7 @@ def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
         cross_cutting=cross_cutting,
         lenses=lenses,
         last_indexed_at=None,
+        corpus_source_types=cfg.get("corpus_source_types", ["kol_tweet"]),
     )
 
 

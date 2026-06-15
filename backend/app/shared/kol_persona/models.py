@@ -70,6 +70,15 @@ class Persona(PersonaSummary):
         default_factory=dict,
         description="Triggerable skill docs via ADK SkillToolset.",
     )
+    corpus_source_types: List[str] = Field(
+        default_factory=lambda: ["kol_tweet"],
+        description=(
+            "Which vector `source_type`s this persona's RAG corpus lives in. "
+            "Twitter personas use the default ['kol_tweet']; other corpora "
+            "(e.g. zsxq exports) override this so search_kol_tweets pins "
+            "retrieval to the right source_type."
+        ),
+    )
 
 
 class PersonaChunkResult(BaseModel):

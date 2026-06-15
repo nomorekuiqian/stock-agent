@@ -112,6 +112,28 @@ _active_kol_author: contextvars.ContextVar[Optional[str]] = contextvars.ContextV
 )
 
 
+def _persona_source_types(author_username: str) -> List[str]:
+    """Resolve which vector `source_type`s the active persona's corpus lives in.
+
+    Twitter personas keep the historical default ['kol_tweet']. Personas backed
+    by a different corpus (e.g. zsxq exports indexed as 'zsxq_thread') declare
+    `corpus_source_types` in the registry, so retrieval is pinned to the right
+    source_type instead of silently searching the Twitter corpus. Lookup is
+    lazy + best-effort: any failure falls back to ['kol_tweet'] so a registry
+    issue can never break retrieval.
+    """
+    try:
+        from app.shared.kol_persona.registry import get_persona
+
+        persona = get_persona(author_username)
+        source_types = getattr(persona, "corpus_source_types", None)
+        if source_types:
+            return list(source_types)
+    except Exception as exc:  # noqa: BLE001 - never break retrieval on lookup
+        logger.warning("persona source_type lookup failed for %s: %s", author_username, exc)
+    return ["kol_tweet"]
+
+
 async def search_kol_tweets(
     query: str,
     author_username: str = "qinbafrank",
@@ -135,6 +157,7 @@ async def search_kol_tweets(
     # The active persona (if any) wins over the LLM-supplied author so retrieval
     # stays pinned to the current KOL — never leaks another persona's tweets.
     author = _active_kol_author.get(None) or author_username
+    source_types = _persona_source_types(author)
     try:
         resp = await vector_search(
             VectorSearchRequest(
@@ -142,7 +165,7 @@ async def search_kol_tweets(
                 top_k=k,
                 threshold=_KOL_SEARCH_THRESHOLD,
                 filters=VectorSearchFilters(
-                    source_types=["kol_tweet"],
+                    source_types=source_types,
                     metadata={"author_username": author},
                 ),
             )
