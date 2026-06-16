@@ -76,6 +76,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `backend/app/features/twitter_digest/.context.md` -- Twitter/KOL daily digest
 - `backend/app/features/vector/.context.md` -- Generic vector indexing and retrieval
 - `backend/app/features/webhooks/.context.md` -- Third-party webhook ingestion
+- `backend/app/features/watchlist_monitor/.context.md` -- AI watchlist monitor ticker briefs
 - `backend/app/features/wechat/.context.md` -- WeChat Mini Program auth
 
 **Frontend**:
@@ -183,6 +184,7 @@ GOOGLE_API_KEY=xxx              # Required - Google ADK Agent
 OPENAI_API_KEY=xxx              # OpenAI (backup)
 OPENROUTER_API_KEY=xxx          # OpenRouter / embedding gateway
 DEEPSEEK_API_KEY=xxx            # DeepSeek backup/experiments
+DEEPSEEK_BASE_URL=xxx           # DeepSeek/OpenAI-compatible base URL override
 FMP_API_KEY=xxx                 # Required - Treasury rates, news
 FRED_API_KEY=xxx                # Liquidity indicators
 TWITTER_API_KEY=xxx             # KOL tweet ingestion

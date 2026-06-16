@@ -33,7 +33,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 必须后端 gate 的付费内容：
 - Stock AI 内容（缓存读取 + 生成）：`/api/stocks/{symbol}/analysis/cache`, `/analysis`, `/technical`, `/news`, `/macro`, `/market-analysis`, `/earnings` 必须 `verify_user_token` + `stock_research`。
 - Portfolio 写入和体检：必须 `portfolio_management`。
-- For You Action Bar：必须 `for_you_website`。
+- For You 页面、AI 监控台和 Action Bar：必须 `for_you_website`。
 - 邮件偏好开启付费频道：必须按对应 entitlement 校验。
 
 ## 设计原则
@@ -52,7 +52,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 - `weekly_report_email`
 - `personal_digest_email`
 - `watchlist_extended` (保留, 但 Free 也 25 后不再有差异; 未来可能 repurpose)
-- `today_website` / `for_you_website` / `morning_website`
+- `today_website` / `for_you_website`（含 `/for-you` 和 `/for-you/monitor`） / `morning_website`
 
 **MAX_ONLY_FEATURES** (Pro 之外):
 - `stock_research`
@@ -87,7 +87,7 @@ python scripts/migrate_ultra_to_max.py
 python scripts/migrate_ultra_to_max.py --apply
 ```
 
-脚本会把 active/trialing/grant/lifetime legacy Ultra rows 改为 `plan=max` + `MAX_FEATURES`，把 inactive legacy rows 清成 Free，并标出仍在 Stripe Ultra price 上、需要人工移动到 Max price 的 subscription。当前确认没有真实 `$30/月` Ultra 付费用户，因此不做 refund/credit 逻辑。
+脚本会把 active/trialing Stripe legacy Ultra、lifetime Ultra、未过期 Ultra grant 改为 `plan=max` + `MAX_FEATURES`；把已过期或 inactive legacy rows 清成 Free/expired；并标出仍在 Stripe Ultra price 上、需要人工移动到 Max price 的 subscription。当前确认没有真实 `$30/月` Ultra 付费用户，因此不做 refund/credit 逻辑。
 
 ## 配额规则
 

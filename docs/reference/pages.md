@@ -27,10 +27,11 @@
 | `/kol/[username]/sectors` | KOL 板块观点 | Backend (kolResearch sectors) | 否 |
 | `/kol/[username]/stocks` | KOL 个股观点 | Backend (kolResearch tickers) | 否 |
 | `/kol/serenity` | Serenity persona 入口 | redirect(`/kol/aleabitoreddit`) | 否 |
-| `/kol/serenity/*` | Serenity persona 子路径别名 | redirect(`/kol/aleabitoreddit/*`) | 否 |
+| `/kol/serenity/[...path]` | Serenity persona 子路径别名 | redirect(`/kol/aleabitoreddit/[...path]`) | 否 |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
+| `/for-you/monitor` | AI 关注列表监控台 | Backend (watchlist-monitor API) | 是 + `for_you_website` |
 | `/for-you/[id]` | 摘要详情 | Insforge (getUserDigestById) | 是 |
 | `/for-you/archive` | 摘要存档 | Backend (digests API) | 是 |
 | `/for-you/watchlist` | 自选股管理 | Backend (watchlist API) + StockQuotes | 是 |
@@ -139,7 +140,7 @@
 - 页面明确标注不是 qinbafrank 本人，不构成投资建议；有 RAG 命中才可说原文支持，否则只能说方法论推断
 
 ### `/kol/aleabitoreddit` Serenity 博主研究室
-- `/kol/serenity` 和 `/kol/serenity/*` 是友好别名，服务端重定向到 canonical backend username `/kol/aleabitoreddit`。
+- `/kol/serenity` 和 `/kol/serenity/[...path]` 是友好别名，服务端重定向到 canonical backend username `/kol/aleabitoreddit`。
 - Serenity 页面组使用与 qinbafrank 一致的 SubNav-first 研究室壳，不再渲染通用 `PersonaHero`。根页首屏标题为 `Serenity 研究室`，核心定位是供应链工作台 + AI研究助手。
 - 根页包含返回 `/kol` 的「所有博主研究室」入口、研究室入口、研究室内容、供应链漏斗、适合/不适合和示例问题。
 - Serenity 不设精华库。首页和 SubNav 只暴露供应链地图、个股档案、内容库和研究助手。
@@ -166,6 +167,15 @@
 - 调用 `api.generateDigest()` 生成摘要
 - Watchlist 保存到 Insforge (user_watchlists 表)
 - 摘要保存到 Insforge (personal_digests 表)
+
+### `/for-you/monitor` AI 关注列表监控台
+- Client Component，需要登录和 `for_you_website` entitlement，未登录重定向到 `/login?redirect=/for-you/monitor`，未开通时显示 Pro paywall
+- 调用 `api.getWatchlistMonitor()` -> `GET /api/watchlist-monitor`
+- 只读取 cached `ticker_daily_briefs`，页面读取不触发 LLM
+- 页面结构：顶部全局 summary、左侧 watchlist 选择器、右侧单 ticker 信号面板
+- 右侧面板：ticker summary + `useTechnicalData(symbol, "daily")` 价格图，下方用 3 个 Tab 归类详情：`新闻事件`（新闻总结、英文新闻来源、未来事件、财报）、`技术面`（现状总结、完整 K 线/RSI/MACD 图表、技术判断）、`市场讨论`（Twitter/KOL 中文摘要、主题讨论、原文 evidence）
+- 技术面板读取 `technical_monitor` 展示简短现状总结、关键价位和突破/跌破/假跌破/放量/均线/RSI/MACD/Bollinger 等 deterministic 硬信号；完整图表复用个股页 `TechnicalChart`，在 Tab 激活时通过 `useTechnicalData(symbol, "daily")` 读取 `/stocks/{symbol}/technical-data`
+- 面板提供 `/stock/{symbol}` 深挖入口
 
 ### `/macro` 宏观仪表盘
 - 需要登录，首层由项目自定义 middleware 拦截

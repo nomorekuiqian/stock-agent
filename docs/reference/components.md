@@ -188,7 +188,7 @@ AI 个股分析卡片，支持三种状态。
 - **State**: user, isLoading, isAuthenticated
 - **Methods**: signIn, signUp, signOut, signInWithGoogle, refreshUser
 - **自动行为**:
-  - mount 时通过同源 `/api/auth` 恢复当前会话
+  - mount 时通过同源 `/api/auth/session` 恢复当前会话
   - 首次登录自动订阅日报
   - 订阅同步 (syncUser)
   - LocalStorage 记录订阅状态 (避免重复)

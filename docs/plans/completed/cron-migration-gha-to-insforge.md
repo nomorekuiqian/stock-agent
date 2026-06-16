@@ -28,6 +28,7 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 | `kol-tweets-fetch.yml` | `Cron - KOL Tweets Ingestion` | `694a6eb6-3f20-43e8-83f9-197aefcdbe85` | `0 * * * *` | `kol_tweets_ingestion` | active |
 | `twitter-digest-generate.yml` | `Cron - Twitter Digest Generate` | `58df517a-89e6-4b0f-90a5-1929c1d8fbd9` | `30 20 * * 1-5` | `twitter_digest_generate` | active |
 | `twitter-digest-broadcast.yml` | `Cron - Twitter Digest Broadcast` | `49ee46f5-2300-40f6-8a63-6dd5d1af13be` | `15 22 * * 1-5` | `twitter_digest_broadcast` | active |
+| N/A | `Cron - Payment Reconcile Expired Grants` | `bdd60d1a-0db1-4b28-ac99-9df97fe27e57` | `10 8 * * *` | `payment_reconcile_expired_grants` | active |
 
 ## 额外直连 Schedule
 
@@ -46,6 +47,12 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 `twitter_digest_broadcast` 18:15 ET (`15 22 * * 1-5`), `daily_digest`
 18:30 ET (`30 22 * * 1-5`)。避免 pg_cron 精确触发时同分钟撞 Resend
 限流，同时改善用户连续收到多封晚报的体验。
+
+2026-06-16: 新增 `Cron - Payment Reconcile Expired Grants`
+(`10 8 * * *` UTC)，经 `cron-trigger` 调
+`payment_reconcile_expired_grants`，每日清理已过期的非 Stripe grant
+展示状态和 Resend segment。创建后已手动真实触发一次，返回
+`success=true, expired=0, skipped=289`。
 
 2026-06-06: onboarding drip 邮件已删除。`onboarding_drip` schedule 如果继续触发，
 只会经 `cron-trigger` 调用 legacy backend endpoint 并返回 `disabled=true`，不会发送邮件。
