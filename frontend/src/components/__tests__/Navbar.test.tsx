@@ -101,4 +101,13 @@ describe('Navbar', () => {
       link.getAttribute('href') === '/kol'
     ))).toBe(true);
   });
+
+  it('shows the AI monitor under the my menu', () => {
+    render(<Navbar />);
+
+    expect(screen.getAllByText('AI 监控台').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('menuitem', { name: 'AI 监控台' }).every((link) => (
+      link.getAttribute('href') === '/for-you/monitor'
+    ))).toBe(true);
+  });
 });

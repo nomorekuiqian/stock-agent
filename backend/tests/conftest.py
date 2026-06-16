@@ -124,6 +124,8 @@ DB_WRITE_FUNCTIONS = [
     # Brew (formerly digest)
     ("app.features.brew.db", "save_user_digest"),
     ("app.features.brew.db", "save_user_watchlist"),
+    # Watchlist monitor
+    ("app.features.watchlist_monitor.db", "upsert_ticker_brief"),
     # Brew via email_service (has its own import reference)
     ("app.features.subscription.email_service", "save_user_digest"),
     # Subscription (Resend operations)

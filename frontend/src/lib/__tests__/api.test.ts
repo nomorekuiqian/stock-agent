@@ -811,6 +811,68 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('getWatchlistMonitor', () => {
+    it('fetches the AI monitor with bearer auth', async () => {
+      const payload = {
+        success: true,
+        symbols: ['AAPL'],
+        summary: { needs_attention: 1 },
+        ticker_rows: [],
+      };
+      mockFetchOk(payload);
+
+      const result = await api.getWatchlistMonitor();
+
+      expect(result).toEqual(payload);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/watchlist-monitor');
+      expect(opts.method).toBe('GET');
+      expect(opts.headers.Authorization).toBe('Bearer fake-token');
+    });
+
+    it('throws backend detail when entitlement check fails', async () => {
+      mockFetchError(403, 'AI monitor requires an active For You entitlement');
+
+      await expect(api.getWatchlistMonitor()).rejects.toThrow(
+        'AI monitor requires an active For You entitlement',
+      );
+    });
+  });
+
+  describe('getTwitterTickerDiscussion', () => {
+    it('passes symbol, hours, and limit query params with bearer auth', async () => {
+      const payload = {
+        success: true,
+        symbol: 'AMD',
+        hours: 48,
+        count: 0,
+        overview: { one_line_summary: '暂无讨论' },
+        themes: [],
+        data: [],
+      };
+      mockFetchOk(payload);
+
+      const result = await api.getTwitterTickerDiscussion('AMD', 48, 20);
+
+      expect(result).toEqual(payload);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/twitter/ticker-discussion?');
+      expect(url).toContain('symbol=AMD');
+      expect(url).toContain('hours=48');
+      expect(url).toContain('limit=20');
+      expect(opts.method).toBe('GET');
+      expect(opts.headers.Authorization).toBe('Bearer fake-token');
+    });
+
+    it('throws fallback message when ticker discussion error is not JSON', async () => {
+      mockFetchJsonFails(500);
+
+      await expect(api.getTwitterTickerDiscussion('AMD')).rejects.toThrow(
+        'Failed to fetch ticker discussion',
+      );
+    });
+  });
+
   describe('user onboarding auth handling', () => {
     it('refreshes and retries onboarding status after a stale token 401', async () => {
       vi.mocked(refreshSession).mockResolvedValueOnce('fresh-token');
