@@ -247,6 +247,15 @@ function LockScreen({
     trackPaywallView({ source: 'paywall_guard', tier: checkoutProduct });
   }, [checkoutProduct]);
 
+  const supportText =
+    checkoutProduct === 'pro'
+      ? '升级后即可使用专属日报和 AI 监控台'
+      : '一次解锁所有内容';
+  const includedText =
+    checkoutProduct === 'pro'
+      ? '包含：盘前早报 · 宏观周报 · 专属持仓日报 · AI 监控台'
+      : '包含：推特 KOL 日报 · AI 投研引擎（无限使用）· AI 深度个股分析 · 全部邮件订阅';
+
   return (
     <main className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -272,12 +281,12 @@ function LockScreen({
             label={ctaLabel}
             hideArrow
           />
-          <p className="text-sm text-muted-foreground">一次解锁所有内容</p>
+          <p className="text-sm text-muted-foreground">{supportText}</p>
         </div>
 
         <div className="text-center">
           <p className="text-xs text-muted-foreground/70">
-            包含：推特 KOL 日报 · AI 投研引擎（无限使用）· AI 深度个股分析 · 全部邮件订阅
+            {includedText}
           </p>
         </div>
       </div>

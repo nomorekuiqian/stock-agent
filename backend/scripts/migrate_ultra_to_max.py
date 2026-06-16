@@ -67,6 +67,7 @@ class MigrationRow:
     target_plan: str | None
     target_status: str | None
     target_entitlements: list[str] | None
+    clear_access_expires_at: bool
     billing_action: str
     reason: str
     will_update: bool
@@ -120,28 +121,45 @@ def _stripe_subscription_price(subscription_id: str | None) -> tuple[str | None,
     return price.get("id"), price.get("lookup_key"), None
 
 
-def _target_for_row(row: dict[str, Any], now: datetime) -> tuple[str | None, str | None, list[str] | None, str, str, bool]:
+def _target_for_row(
+    row: dict[str, Any],
+    now: datetime,
+) -> tuple[str | None, str | None, list[str] | None, bool, str, str, bool]:
     plan = row.get("plan")
     status = row.get("status")
     access_expires_at = row.get("access_expires_at")
     entitlements = set(row.get("entitlements") or [])
     is_lifetime = bool(row.get("is_lifetime"))
+    has_stripe_subscription = bool(row.get("stripe_subscription_id"))
     has_legacy_key = KOL_PACK_QINBAFRANK in entitlements
     is_ultra_plan = plan == "ultra"
     has_active_status = status in ACTIVE_STATUSES
     has_active_grant = _access_active(access_expires_at, now)
 
     if not is_ultra_plan and not has_legacy_key:
-        return None, None, None, "none", "no_legacy_ultra_state", False
+        return None, None, None, False, "none", "no_legacy_ultra_state", False
 
     if is_lifetime:
-        return "max", "active", sorted(MAX_FEATURES), "none", "lifetime_cleanup", True
+        return "max", "active", sorted(MAX_FEATURES), bool(access_expires_at), "none", "lifetime_cleanup", True
 
-    if has_active_status or has_active_grant:
+    if has_stripe_subscription and has_active_status:
         target_status = status if status else "active"
-        return "max", target_status, sorted(MAX_FEATURES), "review_stripe_price", "active_or_grant_to_max", True
+        return (
+            "max",
+            target_status,
+            sorted(MAX_FEATURES),
+            bool(access_expires_at),
+            "review_stripe_price",
+            "stripe_active_to_max",
+            True,
+        )
 
-    return "free", status or "canceled", [], "none", "inactive_legacy_cleanup", True
+    if has_active_grant:
+        target_status = status if status else "active"
+        return "max", target_status, sorted(MAX_FEATURES), False, "none", "active_grant_to_max", True
+
+    target_status = "expired" if access_expires_at else (status or "canceled")
+    return "free", target_status, [], False, "none", "inactive_legacy_cleanup", True
 
 
 async def collect(user_id_filter: str | None = None) -> list[MigrationRow]:
@@ -157,7 +175,15 @@ async def collect(user_id_filter: str | None = None) -> list[MigrationRow]:
         price_id, lookup_key, stripe_error = _stripe_subscription_price(
             user.get("stripe_subscription_id")
         )
-        target_plan, target_status, target_entitlements, billing_action, reason, will_update = _target_for_row(user, now)
+        (
+            target_plan,
+            target_status,
+            target_entitlements,
+            clear_access_expires_at,
+            billing_action,
+            reason,
+            will_update,
+        ) = _target_for_row(user, now)
         if price_id == STRIPE_ULTRA_PRICE_ID or lookup_key == LEGACY_ULTRA_LOOKUP_KEY:
             billing_action = "move_stripe_subscription_to_max_price"
 
@@ -176,6 +202,7 @@ async def collect(user_id_filter: str | None = None) -> list[MigrationRow]:
             target_plan=target_plan,
             target_status=target_status,
             target_entitlements=target_entitlements,
+            clear_access_expires_at=clear_access_expires_at,
             billing_action=billing_action,
             reason=reason,
             will_update=will_update,
@@ -210,6 +237,7 @@ async def apply(rows: list[MigrationRow]) -> int:
             plan=row.target_plan,
             status=row.target_status,
             entitlements=row.target_entitlements,
+            clear_access_expires_at=row.clear_access_expires_at,
         )
         if not ok:
             raise RuntimeError("upsert failed for user_id=%s" % row.user_id)
@@ -218,7 +246,7 @@ async def apply(rows: list[MigrationRow]) -> int:
             "plan": row.target_plan,
             "status": row.target_status,
             "is_lifetime": row.is_lifetime,
-            "access_expires_at": row.access_expires_at,
+            "access_expires_at": None if row.clear_access_expires_at else row.access_expires_at,
             "stripe_subscription_id": row.stripe_subscription_id,
             "entitlements": row.target_entitlements or [],
         })
@@ -233,6 +261,7 @@ def _summarize(rows: list[MigrationRow]) -> dict[str, int]:
         "stripe_price_moves": 0,
         "legacy_key_rows": 0,
         "ultra_plan_rows": 0,
+        "clear_access_expires_at": 0,
         "errors": 0,
     }
     for row in rows:
@@ -244,6 +273,8 @@ def _summarize(rows: list[MigrationRow]) -> dict[str, int]:
             summary["legacy_key_rows"] += 1
         if row.current_plan == "ultra":
             summary["ultra_plan_rows"] += 1
+        if row.clear_access_expires_at:
+            summary["clear_access_expires_at"] += 1
         if row.error:
             summary["errors"] += 1
     return summary

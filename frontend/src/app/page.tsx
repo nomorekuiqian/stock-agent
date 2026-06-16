@@ -67,8 +67,8 @@ const PRICING_TIERS = [
     features: [
       "Pro 的所有功能",
       "300+ 美股博主观点聚合",
-      "AI 投研助手无限对话",
-      "AI 深度个股分析无限使用",
+      "AI 投研助手",
+      "AI 深度个股分析",
     ],
   },
 ];
@@ -97,11 +97,7 @@ function SectionLabel({
   );
 }
 
-function PricingCard({
-  tier,
-}: {
-  tier: (typeof PRICING_TIERS)[number];
-}) {
+function PricingCard({ tier }: { tier: (typeof PRICING_TIERS)[number] }) {
   return (
     <div
       data-delight-card
@@ -140,7 +136,10 @@ function PricingCard({
       <div className="mt-6 space-y-3">
         {tier.features.map((feature) => (
           <div key={feature} className="flex gap-2.5">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <Check
+              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+              aria-hidden
+            />
             <span className="text-sm leading-relaxed text-foreground">
               {feature}
             </span>
@@ -222,9 +221,7 @@ export default function Home() {
               {isAuthenticated ? "进入工作台" : "免费开始"}
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
-            <p className="text-xs text-muted-foreground/70">
-              无需信用卡
-            </p>
+            <p className="text-xs text-muted-foreground/70">无需信用卡</p>
           </div>
         </div>
       </section>
@@ -272,7 +269,8 @@ export default function Home() {
               </h2>
             </div>
             <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              免费版覆盖基础复盘；Pro 负责推送和持仓；Max 解锁完整 AI 投研、博主观点和深度个股分析。
+              免费版覆盖基础复盘；Pro 负责推送和持仓；Max 解锁完整 AI
+              投研、博主观点和深度个股分析。
             </p>
           </div>
 
@@ -322,7 +320,8 @@ export default function Home() {
                   我是硅谷大厂的全职程序员，也投资美股十多年。过去我每天被盘面、新闻和社交媒体牵着走，涨跌都知道，真正的原因却经常要花很久才拼出来。
                 </p>
                 <p>
-                  TheMarketBrew 最早只是给自己做的一份 AI 日报。后来它逐渐变成一个完整的投研平台：日报、盘前情报、个股深度分析、宏观仪表盘和投研助手，都服务同一个目标。
+                  TheMarketBrew 最早只是给自己做的一份 AI
+                  日报。后来它逐渐变成一个完整的投研平台：日报、盘前情报、个股深度分析、宏观仪表盘和投研助手，都服务同一个目标。
                 </p>
               </div>
             </div>
