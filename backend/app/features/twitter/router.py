@@ -7,18 +7,22 @@ Endpoints:
   GET  /api/twitter/kol-accounts           (auth, list configured KOL catalog)
   GET  /api/twitter/fetch-runs             (cron, list recent fetch run records)
   GET  /api/twitter/tweets                 (auth, list stored tweets)
+  GET  /api/twitter/ticker-discussion      (auth, list recent cached tweets for one ticker)
   GET  /api/twitter/stats                  (auth, tweet statistics)
 """
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.features.twitter import db
+from app.features.twitter.discussion_summary_agent import (
+    generate_chinese_discussion_summary,
+)
 from app.features.twitter.methodology_extractor import extract_methodology_for_category
 from app.features.twitter.methodology_models import MethodologyCategory
 from app.features.twitter.models import FetchConfiguredKolsRequest
@@ -57,6 +61,46 @@ async def list_tweets(
         limit=limit,
     )
     return {"success": True, "data": tweets}
+
+
+@router.get("/ticker-discussion")
+@limiter.limit("30/minute")
+async def list_ticker_discussion(
+    request: Request,
+    symbol: str = Query(..., min_length=1, max_length=16),
+    hours: int = Query(24, ge=1, le=168),
+    limit: int = Query(200, ge=1, le=500),
+    _user_id: str = Depends(verify_user_token),
+):
+    """List cached KOL/Twitter discussion for a ticker in a recent window."""
+    normalized_symbol = db.normalize_ticker_symbol(symbol)
+    if not db.is_valid_ticker_symbol(normalized_symbol):
+        raise HTTPException(status_code=400, detail="Invalid symbol")
+
+    tweets = await db.list_ticker_discussion(
+        normalized_symbol,
+        hours=hours,
+        limit=limit,
+    )
+    grouped_summary = db.build_ticker_discussion_summary(
+        normalized_symbol,
+        tweets,
+        hours=hours,
+    )
+    summary = await generate_chinese_discussion_summary(
+        symbol=normalized_symbol,
+        hours=hours,
+        summary=grouped_summary,
+        tweets=tweets,
+    )
+    return {
+        "success": True,
+        "symbol": normalized_symbol,
+        "hours": hours,
+        "count": len(tweets),
+        **summary,
+        "data": tweets,
+    }
 
 
 @router.get("/stats")
