@@ -2,6 +2,7 @@ export interface NavChild {
   href: string;
   label: string;
   locked?: boolean;
+  exact?: boolean;
 }
 
 export interface NavSection {
@@ -56,7 +57,8 @@ export function getMainNavSections({
       tourTarget: 'nav-my',
       children: forYouV2
         ? [
-            { href: '/for-you', label: '专属日报' },
+            { href: '/for-you', label: '专属日报', exact: true },
+            { href: '/for-you/monitor', label: 'AI 监控台', exact: true },
             { href: '/for-you/onboarding', label: '投资画像' },
             { href: '/for-you/watchlist', label: '关注列表' },
             {
@@ -71,7 +73,8 @@ export function getMainNavSections({
             },
           ]
         : [
-            { href: '/for-you', label: '专属日报' },
+            { href: '/for-you', label: '专属日报', exact: true },
+            { href: '/for-you/monitor', label: 'AI 监控台', exact: true },
             { href: '/for-you/watchlist', label: '我的自选股' },
           ],
     },
@@ -99,9 +102,13 @@ export function getMainNavSections({
   return sections;
 }
 
-export function isNavHrefActive(pathname: string, href: string): boolean {
+export function isNavHrefActive(pathname: string, href: string, exact = false): boolean {
   if (href === '/') {
     return pathname === '/';
+  }
+
+  if (exact) {
+    return pathname === href;
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

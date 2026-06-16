@@ -28,7 +28,7 @@ function MobileNavItem({
   const isChildActive =
     hasChildren &&
     section.children!.some(
-      (c) => isNavHrefActive(pathname, c.href),
+      (c) => isNavHrefActive(pathname, c.href, c.exact),
     );
   const isSectionActive = isNavHrefActive(pathname, section.href);
 
@@ -89,7 +89,7 @@ function MobileNavItem({
       {expanded && (
         <div className="ml-4 mt-1 space-y-0.5 border-l border-border/40 pl-3">
           {section.children!.map((child) => {
-            const childActive = isNavHrefActive(pathname, child.href);
+            const childActive = isNavHrefActive(pathname, child.href, child.exact);
             return (
               <Link
                 key={child.href}

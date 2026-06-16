@@ -704,6 +704,194 @@ h6 {
   }
 }
 
+/* Watchlist monitor - restrained motion for a data-heavy financial surface. */
+@keyframes monitor-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes monitor-sidebar-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes monitor-tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes monitor-status-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes monitor-dot-confirm {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 30%, transparent);
+    transform: scale(0.82);
+  }
+  55% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 0%, transparent);
+    transform: scale(1.16);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+    transform: scale(1);
+  }
+}
+
+@keyframes monitor-skeleton-sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
+.monitor-reveal {
+  animation: monitor-panel-enter 420ms var(--ease-out-standard) both;
+}
+
+.monitor-sidebar-enter {
+  animation: monitor-sidebar-enter 360ms var(--ease-out-standard) 60ms both;
+}
+
+.monitor-workbench-enter {
+  animation: monitor-panel-enter 340ms var(--ease-out-standard) 90ms both;
+}
+
+.monitor-tab-panel {
+  animation: monitor-tab-enter 220ms var(--ease-out-expo) both;
+}
+
+.monitor-eyebrow-line {
+  animation: line-expand 680ms var(--ease-out-standard) both;
+  transform-origin: left;
+}
+
+.monitor-save-status {
+  animation: monitor-status-enter 220ms var(--ease-out-expo) both;
+}
+
+.monitor-save-status-error {
+  animation-duration: 180ms;
+}
+
+.monitor-list-row {
+  animation: monitor-tab-enter 260ms var(--ease-out-standard) both;
+  animation-delay: calc(var(--monitor-item-index, 0) * 24ms);
+  transition:
+    background-color var(--duration-fast) var(--ease-out-expo),
+    transform var(--duration-fast) var(--ease-out-expo);
+}
+
+.monitor-list-row:hover {
+  transform: translateX(2px);
+}
+
+.monitor-list-row-active .monitor-list-dot {
+  animation: monitor-dot-confirm 620ms var(--ease-out-standard) both;
+}
+
+.monitor-tab-button,
+.monitor-action-button,
+.monitor-input-shell {
+  transition:
+    background-color var(--duration-fast) var(--ease-out-expo),
+    border-color var(--duration-fast) var(--ease-out-expo),
+    color var(--duration-fast) var(--ease-out-expo),
+    box-shadow var(--duration-fast) var(--ease-out-expo),
+    transform var(--duration-fast) var(--ease-out-expo);
+}
+
+.monitor-tab-button:hover,
+.monitor-action-button:hover,
+.monitor-input-shell:focus-within {
+  transform: translateY(-1px);
+}
+
+.monitor-tab-button:active,
+.monitor-action-button:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.monitor-empty-icon {
+  animation: monitor-status-enter 420ms var(--ease-out-standard) both;
+}
+
+.monitor-skeleton-block {
+  position: relative;
+  overflow: hidden;
+}
+
+.monitor-skeleton-block::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--foreground) 7%, transparent),
+    transparent
+  );
+  animation: monitor-skeleton-sheen 1.8s var(--ease-out-expo) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monitor-reveal,
+  .monitor-sidebar-enter,
+  .monitor-workbench-enter,
+  .monitor-tab-panel,
+  .monitor-eyebrow-line,
+  .monitor-save-status,
+  .monitor-list-row,
+  .monitor-list-row-active .monitor-list-dot,
+  .monitor-empty-icon,
+  .monitor-skeleton-block::after {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .monitor-list-row:hover,
+  .monitor-tab-button:hover,
+  .monitor-action-button:hover,
+  .monitor-input-shell:focus-within,
+  .monitor-tab-button:active,
+  .monitor-action-button:active {
+    transform: none;
+  }
+
+  .monitor-skeleton-block::after {
+    display: none;
+  }
+}
+
 /* Navbar active indicator — scales in from center */
 @keyframes indicator-in {
   from {

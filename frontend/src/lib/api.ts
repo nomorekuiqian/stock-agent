@@ -174,6 +174,240 @@ export interface DigestResponse {
   }>;
 }
 
+export type MonitorStatus = 'needs_attention' | 'watch' | 'quiet' | 'stale';
+export type MonitorSignalType =
+  | 'news'
+  | 'social'
+  | 'event'
+  | 'technical'
+  | 'fundamental'
+  | 'macro_sector';
+
+export interface MonitorSignal {
+  type: MonitorSignalType;
+  severity: 'low' | 'medium' | 'high';
+  title: string;
+  summary: string;
+  why_it_matters: string;
+  source_ref_ids: string[];
+  observed_at?: string;
+}
+
+export interface MonitorSourceRef {
+  id: string;
+  type: string;
+  title: string;
+  title_zh?: string;
+  url?: string;
+  published_at?: string;
+}
+
+export interface MonitorWatchpoint {
+  type: 'dated_event' | 'open_watchpoint';
+  date?: string | null;
+  title: string;
+  what_to_watch: string;
+  why_it_matters?: string;
+  confidence: 'low' | 'medium' | 'high';
+  source_ref_ids: string[];
+}
+
+export type MonitorEventType =
+  | 'earnings'
+  | 'macro'
+  | 'corporate_action'
+  | 'filing'
+  | 'investor_event'
+  | 'product_business'
+  | 'regulatory_legal'
+  | 'conference'
+  | 'industry_event'
+  | 'media_report'
+  | 'social_watchpoint'
+  | 'technical_trigger'
+  | 'other_company_event';
+
+export interface MonitorEventCandidate {
+  id?: string;
+  symbol?: string;
+  event_type: MonitorEventType;
+  event_date?: string | null;
+  date_precision: 'exact' | 'week' | 'month' | 'unknown';
+  title: string;
+  summary?: string;
+  why_it_matters?: string;
+  status: 'scheduled' | 'tentative' | 'rumored' | 'completed';
+  confidence: 'low' | 'medium' | 'high';
+  source_ref_ids: string[];
+  source_type?: string;
+  dedupe_key?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type MonitorTechnicalSignalCategory =
+  | 'price'
+  | 'moving_average'
+  | 'volume'
+  | 'momentum'
+  | 'volatility'
+  | 'structure';
+
+export interface MonitorTechnicalSignal {
+  id: string;
+  category: MonitorTechnicalSignalCategory;
+  title: string;
+  detail: string;
+  price?: number | null;
+  reference?: number | null;
+}
+
+export type MonitorTechnicalRegime =
+  | 'breakout_confirmation'
+  | 'uptrend'
+  | 'range_bound'
+  | 'pullback'
+  | 'downtrend'
+  | 'breakdown'
+  | 'overextended'
+  | 'insufficient_data';
+
+export interface MonitorTechnicalViewDimension {
+  label?: string;
+  state?: string;
+  explanation?: string;
+}
+
+export interface MonitorTechnicalView {
+  regime: MonitorTechnicalRegime;
+  verdict?: string;
+  trend?: MonitorTechnicalViewDimension;
+  momentum?: MonitorTechnicalViewDimension;
+  location?: MonitorTechnicalViewDimension;
+  volatility?: MonitorTechnicalViewDimension;
+}
+
+export interface MonitorTechnicalMonitor {
+  summary?: string;
+  technical_view?: MonitorTechnicalView;
+  signals: MonitorTechnicalSignal[];
+  key_levels: Record<string, number | null>;
+  updated_at?: string;
+}
+
+export interface MonitorTickerRow {
+  symbol: string;
+  status: MonitorStatus;
+  priority_score: number;
+  headline: string;
+  ai_take: string;
+  news_summary?: string;
+  technical_monitor?: MonitorTechnicalMonitor;
+  signal_types: MonitorSignalType[];
+  signals: MonitorSignal[];
+  watchpoints: MonitorWatchpoint[];
+  event_candidates: MonitorEventCandidate[];
+  source_refs: MonitorSourceRef[];
+  top_signal?: MonitorSignal | null;
+  next_watchpoint?: MonitorWatchpoint | null;
+  generated_at?: string | null;
+  is_stale: boolean;
+}
+
+export interface MonitorPriorityItem {
+  symbol: string;
+  status: MonitorStatus;
+  priority_score: number;
+  headline: string;
+  reason: string;
+  next_watchpoint?: string;
+  generated_at?: string | null;
+}
+
+export interface WatchlistMonitorResponse {
+  success: boolean;
+  as_of: string;
+  symbols: string[];
+  summary: {
+    needs_attention: number;
+    new_signals: number;
+    next_7d_watchpoints: number;
+    quiet_tickers: number;
+    stale_tickers: number;
+  };
+  priority_items: MonitorPriorityItem[];
+  ticker_rows: MonitorTickerRow[];
+  future_watchpoints: MonitorWatchpoint[];
+  future_event_candidates: MonitorEventCandidate[];
+  freshness: {
+    ai_generated_at?: string | null;
+    quotes_updated_at?: string | null;
+    social_updated_at?: string | null;
+    events_updated_at?: string | null;
+  };
+  missing_symbols: string[];
+}
+
+export type TwitterTickerDiscussionStance = 'bull' | 'bear' | 'neutral';
+
+export interface TwitterTickerDiscussionTweet {
+  id: string;
+  author_username: string;
+  text: string;
+  tweet_type?: string | null;
+  conversation_id?: string | null;
+  quoted_tweet_text?: string | null;
+  in_reply_to_username?: string | null;
+  created_at?: string | null;
+  url?: string | null;
+  like_count: number;
+  retweet_count: number;
+  reply_count: number;
+  view_count: number;
+  category?: string | null;
+  quality?: string | null;
+  content_type?: string | null;
+  key_claim?: string | null;
+  sectors: string[];
+  tickers: string[];
+  stance?: TwitterTickerDiscussionStance | null;
+}
+
+export type TwitterTickerDiscussionSummaryStance =
+  | TwitterTickerDiscussionStance
+  | 'mixed';
+
+export interface TwitterTickerDiscussionOverview {
+  tweet_count: number;
+  author_count: number;
+  bull_count: number;
+  bear_count: number;
+  neutral_count: number;
+  dominant_stance: TwitterTickerDiscussionSummaryStance;
+  latest_at?: string | null;
+  one_line_summary: string;
+}
+
+export interface TwitterTickerDiscussionTheme {
+  key: string;
+  title: string;
+  stance: TwitterTickerDiscussionSummaryStance;
+  summary: string;
+  tweet_count: number;
+  author_count: number;
+  representative_claims: string[];
+  evidence_tweet_ids: string[];
+}
+
+export interface TwitterTickerDiscussionResponse {
+  success: boolean;
+  symbol: string;
+  hours: number;
+  count: number;
+  overview: TwitterTickerDiscussionOverview;
+  themes: TwitterTickerDiscussionTheme[];
+  data: TwitterTickerDiscussionTweet[];
+}
+
 export interface SubscribeResponse {
   success: boolean;
   message: string;
@@ -1860,6 +2094,39 @@ export const api = {
     }, 'Failed to generate digest');
     if (!response.ok) {
       await throwProtectedApiError(response, 'Failed to generate digest');
+    }
+    return response.json();
+  },
+
+  getWatchlistMonitor: async (): Promise<WatchlistMonitorResponse> => {
+    const response = await fetchProtected(
+      `${API_BASE_URL}/watchlist-monitor`,
+      { method: 'GET' },
+      'Failed to fetch watchlist monitor',
+    );
+    if (!response.ok) {
+      await throwProtectedApiError(response, 'Failed to fetch watchlist monitor');
+    }
+    return response.json();
+  },
+
+  getTwitterTickerDiscussion: async (
+    symbol: string,
+    hours = 24,
+    limit = 200,
+  ): Promise<TwitterTickerDiscussionResponse> => {
+    const params = new URLSearchParams({
+      symbol,
+      hours: String(hours),
+      limit: String(limit),
+    });
+    const response = await fetchProtected(
+      `${API_BASE_URL}/twitter/ticker-discussion?${params.toString()}`,
+      { method: 'GET' },
+      'Failed to fetch ticker discussion',
+    );
+    if (!response.ok) {
+      await throwProtectedApiError(response, 'Failed to fetch ticker discussion');
     }
     return response.json();
   },

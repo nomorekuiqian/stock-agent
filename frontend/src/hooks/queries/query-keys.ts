@@ -50,6 +50,15 @@ export const queryKeys = {
     all: ['watchlist'] as const,
     byUser: (userId: string) => ['watchlist', userId] as const,
   },
+  watchlistMonitor: {
+    all: ['watchlist-monitor'] as const,
+    current: (userId: string) => ['watchlist-monitor', userId] as const,
+  },
+  twitter: {
+    all: ['twitter'] as const,
+    tickerDiscussion: (symbol: string, hours: number, limit: number) =>
+      ['twitter', 'ticker-discussion', symbol, hours, limit] as const,
+  },
   portfolio: {
     all: ['portfolio'] as const,
     byUser: (userId: string) => ['portfolio', userId] as const,

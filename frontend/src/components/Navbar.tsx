@@ -298,7 +298,7 @@ function NavDropdown({
         }`}
       >
         {items.map((item) => {
-          const itemActive = isNavHrefActive(pathname, item.href);
+          const itemActive = isNavHrefActive(pathname, item.href, item.exact);
           return (
             <Link
               key={item.href}
