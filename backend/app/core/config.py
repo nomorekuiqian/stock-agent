@@ -56,6 +56,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 INSFORGE_BASE_URL = os.getenv(
     "INSFORGE_BASE_URL", "https://9wmhxyi4.us-east.insforge.app"
 )
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 # CORS
 ALLOWED_ORIGINS = [
@@ -124,7 +125,6 @@ VECTOR_EMBEDDING_MODEL = os.getenv(
     os.getenv("RAG_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
 )
 
-
 def _int_env(name: str, default: int) -> int:
     raw = os.getenv(name)
     if not raw:
@@ -143,6 +143,24 @@ def _float_env(name: str, default: float) -> float:
         return float(raw)
     except ValueError:
         return default
+
+
+# Watchlist monitor offline generation settings.
+WATCHLIST_MONITOR_LLM_MODEL = os.getenv(
+    "WATCHLIST_MONITOR_LLM_MODEL",
+    "deepseek-v4-pro",
+)
+WATCHLIST_MONITOR_LLM_MAX_TOKENS = _int_env(
+    "WATCHLIST_MONITOR_LLM_MAX_TOKENS", 2400
+)
+WATCHLIST_MONITOR_LLM_RETRIES = _int_env("WATCHLIST_MONITOR_LLM_RETRIES", 2)
+WATCHLIST_MONITOR_LLM_TEMPERATURE = _float_env(
+    "WATCHLIST_MONITOR_LLM_TEMPERATURE", 0.2
+)
+WATCHLIST_MONITOR_MODEL_VERSION = os.getenv(
+    "WATCHLIST_MONITOR_MODEL_VERSION",
+    "watchlist-monitor-v1-%s" % WATCHLIST_MONITOR_LLM_MODEL.replace("/", "-"),
+)
 
 
 # Agent runtime tunables
