@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Check, Pencil, RefreshCw, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Pencil, Pin, RefreshCw, Search, X } from 'lucide-react';
 import type { ConversationSummary } from '@/lib/api';
 import { replacePersonaUsernamesForDisplay } from '../_lib/personaDisplay';
 
@@ -23,6 +23,22 @@ function formatRelativeTime(dateStr: string): string {
   return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
+function conversationTimeValue(value: string | null | undefined): number {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function compareConversationSummaries(a: ConversationSummary, b: ConversationSummary): number {
+  const pinnedDelta = Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+  if (pinnedDelta !== 0) return pinnedDelta;
+  if (a.is_pinned || b.is_pinned) {
+    const pinnedAtDelta = conversationTimeValue(b.pinned_at) - conversationTimeValue(a.pinned_at);
+    if (pinnedAtDelta !== 0) return pinnedAtDelta;
+  }
+  return conversationTimeValue(b.updated_at) - conversationTimeValue(a.updated_at);
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -35,6 +51,7 @@ interface ConversationSidebarProps {
   onLoad: (id: string) => void;
   onDelete: (id: string) => void;
   onRename?: (id: string, title: string) => Promise<void> | void;
+  onTogglePin?: (id: string, nextPinned: boolean) => Promise<void> | void;
   onNewChat: () => void;
   requestInFlight?: boolean;
   onToggle?: () => void;
@@ -52,6 +69,11 @@ interface ConversationSidebarProps {
   onRetry?: () => void;
 }
 
+type PinOverride = {
+  is_pinned: boolean;
+  pinned_at: string | null;
+};
+
 export default function ConversationSidebar({
   conversations,
   loading = false,
@@ -60,6 +82,7 @@ export default function ConversationSidebar({
   onLoad,
   onDelete,
   onRename,
+  onTogglePin,
   onNewChat,
   requestInFlight = false,
   onToggle,
@@ -75,6 +98,39 @@ export default function ConversationSidebar({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [savingRenameId, setSavingRenameId] = useState<string | null>(null);
+  const [pinningId, setPinningId] = useState<string | null>(null);
+  const [pinOverrides, setPinOverrides] = useState<Record<string, PinOverride>>({});
+
+  useEffect(() => {
+    setPinOverrides((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const [id, override] of Object.entries(current)) {
+        const conversation = conversations.find((item) => item.id === id);
+        if (!conversation || Boolean(conversation.is_pinned) === override.is_pinned) {
+          delete next[id];
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [conversations]);
+
+  const displayedConversations = useMemo(() => (
+    conversations
+      .map((conversation) => {
+        const override = pinOverrides[conversation.id];
+        if (!override) return conversation;
+        return {
+          ...conversation,
+          is_pinned: override.is_pinned,
+          pinned_at: override.pinned_at,
+        };
+      })
+      .sort(compareConversationSummaries)
+  ), [conversations, pinOverrides]);
 
   const startRename = (conversation: ConversationSummary) => {
     if (!onRename || requestInFlight) return;
@@ -104,6 +160,31 @@ export default function ConversationSidebar({
     }
   };
 
+  const togglePin = async (conversation: ConversationSummary) => {
+    if (!onTogglePin || requestInFlight || pinningId) return;
+    const nextPinned = !conversation.is_pinned;
+    const nextPinnedAt = nextPinned ? new Date().toISOString() : null;
+    setPinningId(conversation.id);
+    setPinOverrides((current) => ({
+      ...current,
+      [conversation.id]: {
+        is_pinned: nextPinned,
+        pinned_at: nextPinnedAt,
+      },
+    }));
+    try {
+      await onTogglePin(conversation.id, nextPinned);
+    } catch {
+      setPinOverrides((current) => {
+        const { [conversation.id]: _removed, ...rest } = current;
+        void _removed;
+        return rest;
+      });
+    } finally {
+      setPinningId(null);
+    }
+  };
+
   // Auto-load the next page when the sentinel at the list bottom scrolls into
   // view. rootMargin=120px primes the next page slightly before it's visible
   // so the user doesn't see a stutter. Button below still works as a manual
@@ -126,7 +207,7 @@ export default function ConversationSidebar({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, onLoadMore, conversations.length]);
+  }, [hasMore, loadingMore, onLoadMore, displayedConversations.length]);
 
   return (
     <div data-testid="research-conversation-sidebar" className="h-full min-h-0 w-full flex flex-col">
@@ -216,13 +297,13 @@ export default function ConversationSidebar({
               </button>
             )}
           </div>
-        ) : conversations.length === 0 ? (
+        ) : displayedConversations.length === 0 ? (
           <div className="px-3 py-6 text-center">
             <p className="text-sm text-muted-foreground">开始对话后会保存在这里</p>
           </div>
         ) : (
           <>
-            {conversations.map((conv) => {
+            {displayedConversations.map((conv) => {
               const displayTitle = replacePersonaUsernamesForDisplay(conv.title || '未命名对话');
               return (
                 <div
@@ -281,16 +362,37 @@ export default function ConversationSidebar({
                     <button
                       onClick={() => !requestInFlight && onLoad(conv.id)}
                       disabled={requestInFlight}
-                      className={`w-full text-left px-2.5 py-2 pr-12 ${requestInFlight ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                      className={`w-full text-left px-2.5 py-2 pr-16 ${requestInFlight ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                     >
-                      <p className="text-xs leading-snug line-clamp-2 text-foreground">
-                        {displayTitle}
-                      </p>
+                      <span className="flex min-w-0 items-start gap-1.5">
+                        {conv.is_pinned && (
+                          <Pin className="mt-0.5 h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                        )}
+                        <span className="min-w-0 flex-1 text-xs leading-snug line-clamp-2 text-foreground">
+                          {displayTitle}
+                        </span>
+                      </span>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {formatRelativeTime(conv.updated_at)}
                       </p>
                     </button>
-                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
+                      {onTogglePin && (
+                        <button
+                          type="button"
+                          onClick={() => void togglePin(conv)}
+                          disabled={requestInFlight || pinningId === conv.id}
+                          aria-label={`${conv.is_pinned ? '取消置顶' : '置顶'}对话: ${displayTitle}`}
+                          title={conv.is_pinned ? '取消置顶' : '置顶'}
+                          className={`p-0.5 rounded transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+                            conv.is_pinned
+                              ? 'text-primary hover:bg-primary/10'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-muted/70'
+                          }`}
+                        >
+                          <Pin className="w-3 h-3" aria-hidden="true" />
+                        </button>
+                      )}
                       {onRename && (
                         <button
                           type="button"

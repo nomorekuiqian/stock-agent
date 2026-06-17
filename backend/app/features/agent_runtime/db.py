@@ -100,6 +100,57 @@ async def list_user_sessions(*, user_id: str) -> dict[str, Any]:
     return {"conversations": [], "total": 0}
 
 
+async def pin_session(
+    *,
+    user_id: str,
+    agent_id: str,
+    session_id: str,
+    is_pinned: bool,
+    create_if_missing: bool = False,
+    title: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    created_at: str | None = None,
+    updated_at: str | None = None,
+) -> dict[str, Any] | None:
+    """Pin/unpin a durable runtime session without advancing updated_at."""
+    body: dict[str, Any] = {
+        "user_id": user_id,
+        "agent_id": agent_id,
+        "session_id": session_id,
+        "is_pinned": is_pinned,
+    }
+    if create_if_missing:
+        body["create_if_missing"] = True
+    if title is not None:
+        body["title"] = title
+    if metadata:
+        body["metadata"] = metadata
+    if created_at:
+        body["created_at"] = created_at
+    if updated_at:
+        body["updated_at"] = updated_at
+
+    service = get_insforge_service()
+    result = await service.call_function(
+        _FUNCTION_NAME,
+        method="POST",
+        params={"action": "pin_session"},
+        json_body=body,
+        timeout=10.0,
+        extra_headers=_headers(),
+    )
+    data = result.get("data", {})
+    if data.get("success"):
+        return data.get("data") or {}
+    if result.get("status_code") not in (404,):
+        logger.warning(
+            "agent runtime pin_session failed: status=%s error=%s",
+            result.get("status_code"),
+            data.get("error") or result.get("text"),
+        )
+    return None
+
+
 async def get_user_conversation_stats() -> list[dict[str, Any]]:
     """Return per-user runtime conversation stats for admin dashboards."""
     service = get_insforge_service()

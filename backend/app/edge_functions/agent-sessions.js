@@ -6,6 +6,7 @@
 //   GET  ?action=get&user_id=...&agent_id=...&session_id=...
 //   POST ?action=append_entries body={user_id, agent_id, session_id, metadata?, entries:[{role, content, metadata?}]}
 //   POST ?action=append_events  body={user_id, agent_id, session_id, metadata?, events:[{event_type, role?, content?, payload?}]}
+//   POST ?action=pin_session body={user_id, agent_id, session_id, is_pinned}
 //   POST ?action=update_feedback body={user_id, agent_id, session_id, turn_id|client_event_id|message_event_id, sentiment(1|-1|0), reason?, feedback_payload?}
 //
 // The backend authenticates users before calling this function. If
@@ -84,6 +85,8 @@ module.exports = async function(request) {
       agent_kind: metadata.agent_kind || null,
       persona_username: metadata.persona_username || null,
       restore_version: metadata.restore_version || null,
+      is_pinned: Boolean(metadata.is_pinned || metadata.pinned_at),
+      pinned_at: metadata.pinned_at || null,
     };
   }
 
@@ -103,6 +106,16 @@ module.exports = async function(request) {
     const bv = b || "";
     if (av === bv) return 0;
     return av < bv ? 1 : -1;
+  }
+
+  function compareConversations(a, b) {
+    const pinnedDelta = Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+    if (pinnedDelta !== 0) return pinnedDelta;
+    if (a.is_pinned || b.is_pinned) {
+      const pinnedAtDelta = compareIsoDesc(a.pinned_at, b.pinned_at);
+      if (pinnedAtDelta !== 0) return pinnedAtDelta;
+    }
+    return compareIsoDesc(a.updated_at, b.updated_at);
   }
 
   try {
@@ -294,6 +307,26 @@ module.exports = async function(request) {
         }
       }
 
+      for (const session of sessionsRes.data || []) {
+        const key = sessionKey(session.agent_id, session.session_id);
+        const metadata = session && typeof session.metadata === "object" && session.metadata
+          ? session.metadata
+          : {};
+        const publicMetadata = publicSessionMetadata(session);
+        if (grouped[key] || !publicMetadata.is_pinned) continue;
+        grouped[key] = {
+          user_id: session.user_id,
+          agent_id: session.agent_id,
+          session_id: session.session_id,
+          message_count: Number(metadata.message_count || 0),
+          user_message_count: 0,
+          assistant_message_count: 0,
+          first_user_message: null,
+          created_at: session.created_at || session.updated_at || null,
+          updated_at: session.updated_at || session.created_at || null,
+        };
+      }
+
       const conversations = Object.values(grouped).map(item => {
         const session = sessionMap[sessionKey(item.agent_id, item.session_id)] || {};
         const metadata = publicSessionMetadata(session);
@@ -313,10 +346,91 @@ module.exports = async function(request) {
           updated_at: updatedAt,
           last_message_at: item.updated_at || null,
           status: session.status || "active",
+          is_pinned: Boolean(metadata.is_pinned),
+          pinned_at: metadata.pinned_at || null,
         };
-      }).sort((a, b) => compareIsoDesc(a.updated_at, b.updated_at));
+      }).sort(compareConversations);
 
       return ok({ conversations, total: conversations.length });
+    }
+
+    if (request.method === "POST" && action === "pin_session") {
+      const body = await request.json();
+      const user_id = body.user_id;
+      const agent_id = body.agent_id;
+      const session_id = body.session_id;
+      const missing = requireIdentity(user_id, agent_id, session_id);
+      if (missing) return fail(400, missing);
+      if (typeof body.is_pinned !== "boolean") {
+        return fail(400, "is_pinned boolean required");
+      }
+
+      const { data: existingSession, error: existingError } = await client.database
+        .from(SESSIONS)
+        .select("metadata, updated_at")
+        .eq("user_id", user_id)
+        .eq("agent_id", agent_id)
+        .eq("session_id", session_id)
+        .maybeSingle();
+
+      if (existingError) return fail(500, existingError.message);
+      if (!existingSession && !body.create_if_missing) return fail(404, "session not found");
+
+      const previousMetadata = existingSession && existingSession.metadata && typeof existingSession.metadata === "object"
+        ? existingSession.metadata
+        : ((body.metadata && typeof body.metadata === "object") ? body.metadata : {});
+      const nextMetadata = {
+        ...previousMetadata,
+        is_pinned: body.is_pinned,
+        pinned_at: body.is_pinned ? new Date().toISOString() : null,
+      };
+
+      if (!existingSession) {
+        const sessionRow = {
+          user_id,
+          agent_id,
+          session_id,
+          status: body.status || "active",
+          title: body.title || nextMetadata.title || null,
+          metadata: nextMetadata,
+          created_at: body.created_at || body.updated_at || new Date().toISOString(),
+          updated_at: body.updated_at || body.created_at || new Date().toISOString(),
+        };
+        const { data, error } = await client.database
+          .from(SESSIONS)
+          .insert([sessionRow])
+          .select("session_id, agent_id, metadata, updated_at")
+          .maybeSingle();
+
+        if (error) return fail(500, error.message);
+        if (!data) return fail(404, "session not found");
+        return ok({
+          session_id: data.session_id,
+          agent_id: data.agent_id,
+          is_pinned: Boolean(data.metadata && data.metadata.is_pinned),
+          pinned_at: data.metadata ? data.metadata.pinned_at || null : null,
+          updated_at: data.updated_at || sessionRow.updated_at || null,
+        });
+      }
+
+      const { data, error } = await client.database
+        .from(SESSIONS)
+        .update({ metadata: nextMetadata })
+        .eq("user_id", user_id)
+        .eq("agent_id", agent_id)
+        .eq("session_id", session_id)
+        .select("session_id, agent_id, metadata, updated_at")
+        .maybeSingle();
+
+      if (error) return fail(500, error.message);
+      if (!data) return fail(404, "session not found");
+      return ok({
+        session_id: data.session_id,
+        agent_id: data.agent_id,
+        is_pinned: Boolean(data.metadata && data.metadata.is_pinned),
+        pinned_at: data.metadata ? data.metadata.pinned_at || null : null,
+        updated_at: data.updated_at || existingSession.updated_at || null,
+      });
     }
 
     if (request.method === "GET" && action === "stats_by_user") {

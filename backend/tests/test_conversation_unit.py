@@ -88,6 +88,8 @@ class TestListConversations:
                     "title": sample_conversation["title"],
                     "message_count": 2,
                     "updated_at": "2026-03-05T10:00:00Z",
+                    "is_pinned": True,
+                    "pinned_at": "2026-03-05T11:00:00Z",
                 }
             ],
             "has_more": False,
@@ -97,6 +99,8 @@ class TestListConversations:
         body = resp.json()
         assert len(body["conversations"]) == 1
         assert body["conversations"][0]["title"] == "高股息蓝筹"
+        assert body["conversations"][0]["is_pinned"] is True
+        assert body["conversations"][0]["pinned_at"] == "2026-03-05T11:00:00Z"
         assert body["has_more"] is False
         mock_list.assert_called_once_with(MOCK_USER_ID, limit=20, offset=0, search=None)
 
@@ -117,6 +121,44 @@ class TestListConversations:
         assert resp.status_code == 200
         assert resp.json()["conversations"] == []
         assert resp.json()["has_more"] is False
+
+    @pytest.mark.asyncio
+    async def test_db_blank_search_uses_runtime_list(self, monkeypatch):
+        from app.features.screener import conversation_db
+
+        async def fake_search(*args, **kwargs):
+            raise AssertionError("blank search should not use search path")
+
+        async def fake_runtime(user_id):
+            assert user_id == MOCK_USER_ID
+            return [
+                {
+                    "id": MOCK_CONV_ID,
+                    "title": "runtime conversation",
+                    "message_count": 2,
+                    "updated_at": "2026-03-05T10:00:00Z",
+                    "is_pinned": False,
+                }
+            ]
+
+        async def fake_picker(user_id, limit, offset, search=None):
+            assert user_id == MOCK_USER_ID
+            assert search is None
+            return {"items": [], "has_more": False}
+
+        monkeypatch.setattr(conversation_db, "_search_conversations", fake_search)
+        monkeypatch.setattr(conversation_db, "_runtime_conversation_summaries", fake_runtime)
+        monkeypatch.setattr(conversation_db, "_list_conversations_via_edge", fake_picker)
+
+        result = await conversation_db.list_conversations(
+            MOCK_USER_ID,
+            limit=20,
+            offset=0,
+            search="   ",
+        )
+
+        assert result["items"][0]["id"] == MOCK_CONV_ID
+        assert result["has_more"] is False
 
     @pytest.mark.asyncio
     async def test_db_search_hydrates_conversations_and_returns_message_snippets(self, monkeypatch):
@@ -351,6 +393,134 @@ class TestUpdateConversation:
             json=save_request,
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Pin conversation
+# ---------------------------------------------------------------------------
+
+
+class TestPinConversation:
+    @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
+    def test_pins_successfully(self, mock_pin, client):
+        mock_pin.return_value = {
+            "id": MOCK_CONV_ID,
+            "agent_id": "research_agent",
+            "is_pinned": True,
+            "pinned_at": "2026-03-05T11:00:00Z",
+            "updated_at": "2026-03-05T10:00:00Z",
+        }
+        resp = client.patch(
+            f"/api/screener/conversations/{MOCK_CONV_ID}/pin",
+            json={"is_pinned": True},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is True
+        assert body["is_pinned"] is True
+        assert body["pinned_at"] == "2026-03-05T11:00:00Z"
+        assert body["updated_at"] == "2026-03-05T10:00:00Z"
+        mock_pin.assert_called_once_with(
+            user_id=MOCK_USER_ID,
+            agent_id="research_agent",
+            session_id=MOCK_CONV_ID,
+            is_pinned=True,
+        )
+
+    @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
+    def test_pins_specific_runtime_agent(self, mock_pin, client):
+        mock_pin.return_value = {
+            "id": MOCK_CONV_ID,
+            "agent_id": "kol_research_agent",
+            "is_pinned": True,
+            "pinned_at": "2026-03-05T11:00:00Z",
+            "updated_at": "2026-03-05T10:00:00Z",
+        }
+        resp = client.patch(
+            f"/api/screener/conversations/{MOCK_CONV_ID}/pin",
+            json={"is_pinned": True, "agent_id": "kol_research_agent"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["agent_id"] == "kol_research_agent"
+        mock_pin.assert_called_once_with(
+            user_id=MOCK_USER_ID,
+            agent_id="kol_research_agent",
+            session_id=MOCK_CONV_ID,
+            is_pinned=True,
+        )
+
+    @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
+    def test_not_found_returns_404(self, mock_pin, client):
+        mock_pin.return_value = None
+        resp = client.patch(
+            f"/api/screener/conversations/{MOCK_CONV_ID}/pin",
+            json={"is_pinned": False},
+        )
+        assert resp.status_code == 404
+        assert mock_pin.call_count == 2
+
+    @patch(f"{CONV_DB}.get_conversation", new_callable=AsyncMock)
+    @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
+    def test_pins_legacy_conversation_by_creating_runtime_session(
+        self,
+        mock_pin,
+        mock_get_conversation,
+        client,
+        sample_conversation,
+    ):
+        mock_pin.side_effect = [
+            None,
+            None,
+            {
+                "id": MOCK_CONV_ID,
+                "agent_id": "research_agent",
+                "is_pinned": True,
+                "pinned_at": "2026-03-05T11:00:00Z",
+                "updated_at": "2026-03-05T10:00:00Z",
+            },
+        ]
+        mock_get_conversation.return_value = sample_conversation
+
+        resp = client.patch(
+            f"/api/screener/conversations/{MOCK_CONV_ID}/pin",
+            json={"is_pinned": True},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["is_pinned"] is True
+        mock_get_conversation.assert_called_once_with(MOCK_CONV_ID, MOCK_USER_ID)
+        assert mock_pin.call_count == 3
+        fallback_kwargs = mock_pin.call_args_list[2].kwargs
+        assert fallback_kwargs["user_id"] == MOCK_USER_ID
+        assert fallback_kwargs["agent_id"] == "research_agent"
+        assert fallback_kwargs["session_id"] == MOCK_CONV_ID
+        assert fallback_kwargs["is_pinned"] is True
+        assert fallback_kwargs["create_if_missing"] is True
+        assert fallback_kwargs["title"] == sample_conversation["title"]
+        assert fallback_kwargs["created_at"] == sample_conversation["created_at"]
+        assert fallback_kwargs["updated_at"] == sample_conversation["updated_at"]
+        assert fallback_kwargs["metadata"]["legacy_picker_conversation_id"] == MOCK_CONV_ID
+        assert fallback_kwargs["metadata"]["message_count"] == sample_conversation["message_count"]
+
+    @patch(f"{CONV_DB}.get_conversation", new_callable=AsyncMock)
+    @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
+    def test_pin_not_found_returns_404_when_legacy_conversation_missing(
+        self,
+        mock_pin,
+        mock_get_conversation,
+        client,
+    ):
+        mock_pin.return_value = None
+        mock_get_conversation.return_value = None
+
+        resp = client.patch(
+            f"/api/screener/conversations/{MOCK_CONV_ID}/pin",
+            json={"is_pinned": True},
+        )
+
+        assert resp.status_code == 404
+        assert mock_pin.call_count == 2
+        mock_get_conversation.assert_called_once_with(MOCK_CONV_ID, MOCK_USER_ID)
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ _SEARCH_SCAN_LIMIT = 1000
 _SEARCH_PAGE_SIZE = 16
 _SEARCH_DETAIL_CONCURRENCY = 12
 _ASCII_WORD_RE = re.compile(r"^[a-z0-9_]+$")
+_RUNTIME_AGENT_IDS = {"research_agent", "kol_research_agent"}
 
 
 def _normalize_text(value: Any) -> str:
@@ -106,6 +107,81 @@ def _to_conversation_summary(
     return summary
 
 
+def _runtime_conversation_summary(row: dict[str, Any]) -> dict[str, Any] | None:
+    session_id = row.get("session_id")
+    agent_id = row.get("agent_id")
+    if not session_id or agent_id not in _RUNTIME_AGENT_IDS:
+        return None
+    return {
+        "id": session_id,
+        "user_id": row.get("user_id"),
+        "title": row.get("title") or "历史对话",
+        "message_count": row.get("message_count") or 0,
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at") or row.get("last_message_at") or row.get("created_at"),
+        "is_pinned": bool(row.get("is_pinned") or row.get("pinned_at")),
+        "pinned_at": row.get("pinned_at"),
+        "agent_id": agent_id,
+        "agent_kind": row.get("agent_kind"),
+        "persona_username": row.get("persona_username"),
+    }
+
+
+def _conversation_sort_key(row: dict[str, Any]) -> tuple[int, str, str]:
+    return (
+        1 if row.get("is_pinned") else 0,
+        str(row.get("pinned_at") or ""),
+        str(row.get("updated_at") or ""),
+    )
+
+
+async def _runtime_conversation_summaries(user_id: str) -> list[dict[str, Any]]:
+    try:
+        from app.features.agent_runtime import db as agent_runtime_db
+
+        result = await agent_runtime_db.list_user_sessions(user_id=user_id)
+    except Exception:
+        logger.exception("runtime conversation list failed user_id=%s", user_id)
+        return []
+
+    summaries: list[dict[str, Any]] = []
+    for row in result.get("conversations", []):
+        if not isinstance(row, dict):
+            continue
+        summary = _runtime_conversation_summary(row)
+        if summary:
+            summaries.append(summary)
+    return summaries
+
+
+async def _merge_runtime_pin_metadata(
+    user_id: str,
+    items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if not items:
+        return items
+    runtime_by_id = {
+        str(item["id"]): item
+        for item in await _runtime_conversation_summaries(user_id)
+        if item.get("id")
+    }
+    merged: list[dict[str, Any]] = []
+    for item in items:
+        runtime = runtime_by_id.get(str(item.get("id")))
+        if runtime:
+            merged.append({
+                **item,
+                "is_pinned": runtime.get("is_pinned", False),
+                "pinned_at": runtime.get("pinned_at"),
+                "agent_id": runtime.get("agent_id"),
+                "agent_kind": runtime.get("agent_kind"),
+                "persona_username": runtime.get("persona_username"),
+            })
+        else:
+            merged.append(item)
+    return merged
+
+
 def _function_url() -> str:
     service = get_insforge_service()
     return service.function_url(_FUNCTION_NAME)
@@ -180,12 +256,14 @@ async def _search_conversations(user_id: str, limit: int, offset: int, search: s
     terms = _search_terms(search)
     if not terms:
         items, has_more = await _list_conversation_page(user_id, limit, offset)
+        items = await _merge_runtime_pin_metadata(user_id, items)
         return {"items": items, "has_more": has_more}
 
     edge_result = await _list_conversations_via_edge(user_id, limit, offset, search=search)
     if edge_result is not None:
         edge_items = edge_result["items"]
         if not edge_items or any("search_matches" in item for item in edge_items):
+            edge_result["items"] = await _merge_runtime_pin_metadata(user_id, edge_items)
             return edge_result
 
     target_count = offset + limit
@@ -219,6 +297,7 @@ async def _search_conversations(user_id: str, limit: int, offset: int, search: s
             break
 
     page = matches[offset:offset + limit]
+    page = await _merge_runtime_pin_metadata(user_id, page)
     return {
         "items": page,
         "has_more": len(matches) > offset + len(page) or may_have_more,
@@ -239,11 +318,32 @@ async def list_conversations(
     """
     limit = min(100, max(1, limit))
     offset = max(0, offset)
-    if search:
-        return await _search_conversations(user_id, limit, offset, search)
+    normalized_search = search.strip() if search else None
+    if normalized_search:
+        return await _search_conversations(user_id, limit, offset, normalized_search)
 
-    result = await _list_conversations_via_edge(user_id, limit, offset)
-    return result if result is not None else {"items": [], "has_more": False}
+    runtime_items = await _runtime_conversation_summaries(user_id)
+    picker_result = await _list_conversations_via_edge(
+        user_id,
+        min(_SEARCH_SCAN_LIMIT, 1000),
+        0,
+    )
+    picker_items = picker_result["items"] if picker_result is not None else []
+    runtime_ids = {str(item.get("id")) for item in runtime_items}
+    legacy_items = [
+        item for item in picker_items
+        if item.get("id") and str(item.get("id")) not in runtime_ids
+    ]
+    all_items = sorted(
+        [*runtime_items, *legacy_items],
+        key=_conversation_sort_key,
+        reverse=True,
+    )
+    page = all_items[offset:offset + limit]
+    return {
+        "items": page,
+        "has_more": len(all_items) > offset + len(page),
+    }
 
 
 async def get_conversation(conversation_id: str, user_id: str) -> Optional[dict]:

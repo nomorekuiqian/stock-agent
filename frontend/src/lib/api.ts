@@ -1392,6 +1392,11 @@ export interface ConversationSummary {
   title: string;
   message_count: number;
   updated_at: string;
+  is_pinned?: boolean;
+  pinned_at?: string | null;
+  agent_id?: 'research_agent' | 'kol_research_agent';
+  agent_kind?: string | null;
+  persona_username?: string | null;
   search_matches?: ConversationSearchMatch[];
 }
 
@@ -3152,6 +3157,26 @@ export const api = {
         });
         if (!response.ok) {
           await throwProtectedApiError(response, 'Failed to update conversation');
+        }
+        return response.json();
+      },
+
+      pin: async (
+        id: string,
+        isPinned: boolean,
+        agentId?: 'research_agent' | 'kol_research_agent',
+      ): Promise<{ success: boolean; id: string; agent_id?: string; is_pinned: boolean; pinned_at: string | null; updated_at?: string }> => {
+        const headers = await _authHeaders({ 'Content-Type': 'application/json' }, { required: true });
+        const response = await fetch(`${API_BASE_URL}/research/conversations/${id}/pin`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({
+            is_pinned: isPinned,
+            ...(agentId ? { agent_id: agentId } : {}),
+          }),
+        });
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to pin conversation');
         }
         return response.json();
       },

@@ -1267,6 +1267,52 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('research.conversations.pin', () => {
+    it('PATCHes /research/conversations/{id}/pin with pinned state', async () => {
+      const payload = {
+        success: true,
+        id: 'c1',
+        is_pinned: true,
+        pinned_at: '2026-06-10T20:00:00Z',
+      };
+      mockFetchOk(payload);
+
+      const result = await api.research.conversations.pin('c1', true);
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/research/conversations/c1/pin');
+      expect(opts.method).toBe('PATCH');
+      expect(JSON.parse(opts.body)).toEqual({ is_pinned: true });
+      expect(result).toEqual(payload);
+    });
+
+    it('includes runtime agent_id when provided', async () => {
+      mockFetchOk({
+        success: true,
+        id: 'c1',
+        agent_id: 'kol_research_agent',
+        is_pinned: true,
+        pinned_at: '2026-06-10T20:00:00Z',
+      });
+
+      await api.research.conversations.pin('c1', true, 'kol_research_agent');
+
+      const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(JSON.parse(opts.body)).toEqual({
+        is_pinned: true,
+        agent_id: 'kol_research_agent',
+      });
+    });
+
+    it('throws on error', async () => {
+      mockFetchError(404, 'Conversation not found or not owned');
+
+      await expect(api.research.conversations.pin('bad-id', false)).rejects.toThrow(
+        'Conversation not found or not owned'
+      );
+    });
+  });
+
   describe('research.conversations.delete', () => {
     it('DELETEs /research/conversations/{id}', async () => {
       const payload = { success: true };

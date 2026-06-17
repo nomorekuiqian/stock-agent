@@ -112,6 +112,8 @@ class ConversationSummary(BaseModel):
     title: str
     message_count: int
     updated_at: str
+    is_pinned: bool = False
+    pinned_at: str | None = None
 
 
 class ConversationDetail(BaseModel):
@@ -122,6 +124,8 @@ class ConversationDetail(BaseModel):
     message_count: int
     created_at: str
     updated_at: str
+    is_pinned: bool = False
+    pinned_at: str | None = None
 
 
 class ConversationSaveRequest(BaseModel):
@@ -137,6 +141,17 @@ class ConversationSaveRequest(BaseModel):
             "When false, persist state without advancing updated_at. Used for "
             "UI-only panel state saves so history sorting stays tied to chat turns."
         ),
+    )
+
+
+class ConversationPinRequest(BaseModel):
+    is_pinned: bool = Field(
+        description="Whether this conversation should be pinned in history.",
+    )
+    agent_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Optional runtime agent id for disambiguating the session.",
     )
 
 

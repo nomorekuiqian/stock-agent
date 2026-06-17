@@ -10,6 +10,7 @@ Endpoints:
   GET  /api/screener/conversations/{id}      (get, auth required)
   POST /api/screener/conversations           (create, auth required)
   PUT  /api/screener/conversations/{id}      (update, auth required)
+  PATCH /api/screener/conversations/{id}/pin (pin/unpin, auth required)
   DELETE /api/screener/conversations/{id}    (delete, auth required)
 
   POST /api/research/chat                    (guided stock research, auth required)
@@ -17,6 +18,7 @@ Endpoints:
   GET  /api/research/conversations/{id}      (get, auth required)
   POST /api/research/conversations           (create, auth required)
   PUT  /api/research/conversations/{id}      (update, auth required)
+  PATCH /api/research/conversations/{id}/pin (pin/unpin, auth required)
   DELETE /api/research/conversations/{id}    (delete, auth required)
 """
 
@@ -40,6 +42,7 @@ from app.features.screener.db import (
     is_cache_valid,
 )
 from app.features.screener.models import (
+    ConversationPinRequest,
     ConversationSaveRequest,
     FilterRequest,
     FilterResult,
@@ -67,6 +70,8 @@ _universe_cache: Dict[str, Any] = {
 }
 _CACHE_TTL = 300  # 5 minutes
 RESEARCH_AGENT_ID = "research_agent"
+KOL_RESEARCH_AGENT_ID = "kol_research_agent"
+_PINNABLE_RUNTIME_AGENT_IDS = (RESEARCH_AGENT_ID, KOL_RESEARCH_AGENT_ID)
 
 
 def _runtime_session_id(req: ResearchRequest) -> str | None:
@@ -77,6 +82,32 @@ def _request_history_for_runtime(req: ResearchRequest) -> list[dict]:
     if AGENT_RUNTIME_REQUEST_HISTORY == "disabled":
         return []
     return req.history if req.history else []
+
+
+def _legacy_conversation_agent_id(conversation: dict[str, Any]) -> str:
+    data = conversation.get("data") if isinstance(conversation.get("data"), dict) else {}
+    if data.get("agent_kind") == "kol_research" or data.get("persona_username"):
+        return KOL_RESEARCH_AGENT_ID
+    return RESEARCH_AGENT_ID
+
+
+def _legacy_conversation_metadata(conversation: dict[str, Any]) -> dict[str, Any]:
+    data = conversation.get("data") if isinstance(conversation.get("data"), dict) else {}
+    agent_kind = (
+        "kol_research"
+        if _legacy_conversation_agent_id(conversation) == KOL_RESEARCH_AGENT_ID
+        else "research"
+    )
+    metadata: dict[str, Any] = {
+        "agent_kind": agent_kind,
+        "legacy_picker_conversation_id": conversation.get("id"),
+        "title": conversation.get("title") or "历史对话",
+        "message_count": conversation.get("message_count") or 0,
+    }
+    persona_username = data.get("persona_username")
+    if persona_username:
+        metadata["persona_username"] = persona_username
+    return metadata
 
 
 async def _prepare_research_runtime_turn(
@@ -832,6 +863,65 @@ async def update_conversation(
     return {"success": True}
 
 
+@router.patch("/conversations/{conversation_id}/pin")
+async def pin_conversation(
+    conversation_id: str,
+    req: ConversationPinRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Pin or unpin the durable runtime session without touching updated_at."""
+    from fastapi import HTTPException
+    from app.features.agent_runtime import db as agent_runtime_db
+    from app.features.screener.conversation_db import (
+        get_conversation as db_get_conversation,
+    )
+
+    result = None
+    if req.agent_id:
+        if req.agent_id not in _PINNABLE_RUNTIME_AGENT_IDS:
+            raise HTTPException(status_code=400, detail="Unsupported agent_id")
+        agent_ids = (req.agent_id,)
+    else:
+        agent_ids = _PINNABLE_RUNTIME_AGENT_IDS
+
+    for agent_id in agent_ids:
+        result = await agent_runtime_db.pin_session(
+            user_id=user_id,
+            agent_id=agent_id,
+            session_id=conversation_id,
+            is_pinned=req.is_pinned,
+        )
+        if result:
+            break
+
+    if not result and req.is_pinned:
+        legacy_conversation = await db_get_conversation(conversation_id, user_id)
+        if legacy_conversation:
+            fallback_agent_id = req.agent_id or _legacy_conversation_agent_id(legacy_conversation)
+            result = await agent_runtime_db.pin_session(
+                user_id=user_id,
+                agent_id=fallback_agent_id,
+                session_id=conversation_id,
+                is_pinned=req.is_pinned,
+                create_if_missing=True,
+                title=legacy_conversation.get("title") or "历史对话",
+                metadata=_legacy_conversation_metadata(legacy_conversation),
+                created_at=legacy_conversation.get("created_at"),
+                updated_at=legacy_conversation.get("updated_at"),
+            )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Runtime session not found")
+    return {
+        "success": True,
+        "id": conversation_id,
+        "agent_id": result.get("agent_id"),
+        "is_pinned": bool(result.get("is_pinned")),
+        "pinned_at": result.get("pinned_at"),
+        "updated_at": result.get("updated_at"),
+    }
+
+
 @router.delete("/conversations/{conversation_id}")
 async def delete_conversation(
     conversation_id: str,
@@ -936,6 +1026,16 @@ async def research_update_conversation(
 ):
     """Update a research conversation for the authenticated user."""
     return await update_conversation(conversation_id, req, user_id)
+
+
+@research_router.patch("/conversations/{conversation_id}/pin")
+async def research_pin_conversation(
+    conversation_id: str,
+    req: ConversationPinRequest,
+    user_id: str = Depends(verify_user_token),
+):
+    """Pin or unpin a conversation for the authenticated user."""
+    return await pin_conversation(conversation_id, req, user_id)
 
 
 @research_router.delete("/conversations/{conversation_id}")

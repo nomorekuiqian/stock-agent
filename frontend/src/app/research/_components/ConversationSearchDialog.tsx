@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, MessageSquare, RefreshCw, Search, X } from 'lucide-react';
+import { Loader2, MessageSquare, Pin, RefreshCw, Search, X } from 'lucide-react';
 import type { ConversationSearchMatch, ConversationSummary } from '@/lib/api';
 import {
   Dialog,
@@ -234,6 +234,9 @@ export default function ConversationSearchDialog({
                     className="group w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/70 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <div className="flex min-w-0 items-center gap-2">
+                      {conversation.is_pinned && (
+                        <Pin className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                      )}
                       <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                         {displayTitle}
                       </p>

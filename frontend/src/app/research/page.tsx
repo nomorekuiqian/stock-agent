@@ -129,7 +129,38 @@ function dedupeConversations(pages: ConversationListPage[]): ConversationSummary
       result.push(conversation);
     }
   }
-  return result;
+  return result.sort(compareConversationSummaries);
+}
+
+function compareConversationSummaries(
+  a: ConversationSummary,
+  b: ConversationSummary,
+): number {
+  const pinnedDelta = Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+  if (pinnedDelta !== 0) return pinnedDelta;
+  if (a.is_pinned || b.is_pinned) {
+    const pinnedAtDelta = conversationTimeValue(b.pinned_at) - conversationTimeValue(a.pinned_at);
+    if (pinnedAtDelta !== 0) return pinnedAtDelta;
+  }
+  return conversationTimeValue(b.updated_at) - conversationTimeValue(a.updated_at);
+}
+
+function conversationTimeValue(value: string | null | undefined): number {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function mergeConversationSummary(
+  existing: ConversationSummary,
+  summary: ConversationSummary,
+): ConversationSummary {
+  return {
+    ...existing,
+    ...summary,
+    is_pinned: summary.is_pinned !== undefined ? summary.is_pinned : existing.is_pinned,
+    pinned_at: summary.pinned_at !== undefined ? summary.pinned_at ?? null : existing.pinned_at ?? null,
+  };
 }
 
 function normalizeConversationSearch(value: string): string {
@@ -958,12 +989,10 @@ function ScreenerContent() {
           conversations: (page.conversations ?? []).map((conv) => {
             if (conv.id !== summary.id) return conv;
             found = true;
-            return {
-              ...conv,
-              title: summary.title,
-              message_count: summary.message_count,
+            return mergeConversationSummary(conv, {
+              ...summary,
               updated_at: conv.updated_at || summary.updated_at,
-            };
+            });
           }),
         }));
         return found ? { ...old, pages } : old;
@@ -976,14 +1005,18 @@ function ScreenerContent() {
         };
       }
 
+      const existing = old.pages
+        .flatMap((page) => page.conversations ?? [])
+        .find((conv) => conv.id === summary.id);
+      const nextSummary = existing ? mergeConversationSummary(existing, summary) : summary;
       const firstPage = old.pages[0] ?? { conversations: [], has_more: false };
       const restPages = old.pages.slice(1);
       const nextFirstPage: ConversationListPage = {
         ...firstPage,
         conversations: [
-          summary,
+          nextSummary,
           ...(firstPage?.conversations ?? []).filter((conv) => conv.id !== summary.id),
-        ],
+        ].sort(compareConversationSummaries),
       };
       const nextRestPages = restPages.map((page) => ({
         ...page,
@@ -996,6 +1029,25 @@ function ScreenerContent() {
       };
     });
   }, [conversationListQueryKey, queryClient]);
+
+  const updateConversationSummaryInLoadedCaches = useCallback((summary: ConversationSummary) => {
+    queryClient.setQueriesData<ConversationListInfiniteData>(
+      { queryKey: ['research', 'conversations', conversationUserId], exact: false },
+      (old) => {
+        if (!old) return old;
+        let found = false;
+        const pages = old.pages.map((page) => ({
+          ...page,
+          conversations: (page.conversations ?? []).map((conversation) => {
+            if (conversation.id !== summary.id) return conversation;
+            found = true;
+            return mergeConversationSummary(conversation, summary);
+          }),
+        }));
+        return found ? { ...old, pages } : old;
+      },
+    );
+  }, [conversationUserId, queryClient]);
 
   const removeConversationSummary = useCallback((conversationId: string) => {
     queryClient.setQueryData<ConversationListInfiniteData>(conversationListQueryKey, (old) => {
@@ -2084,7 +2136,17 @@ function ScreenerContent() {
         title: nextTitle,
         message_count: messageCount,
         updated_at: summary?.updated_at || new Date().toISOString(),
+        is_pinned: summary?.is_pinned,
+        pinned_at: summary?.pinned_at ?? null,
       }, { promote: false });
+      updateConversationSummaryInLoadedCaches({
+        id: conversationId,
+        title: nextTitle,
+        message_count: messageCount,
+        updated_at: summary?.updated_at || new Date().toISOString(),
+        is_pinned: summary?.is_pinned,
+        pinned_at: summary?.pinned_at ?? null,
+      });
       void queryClient.invalidateQueries({
         queryKey: ['research', 'conversations', conversationUserId],
         exact: false,
@@ -2100,8 +2162,44 @@ function ScreenerContent() {
     conversationUserId,
     conversations,
     queryClient,
+    updateConversationSummaryInLoadedCaches,
     upsertConversationSummary,
   ]);
+
+  const handleTogglePinConversation = useCallback(async (conversationId: string, nextPinned: boolean) => {
+    const summary = conversations.find((conv) => conv.id === conversationId);
+    if (!summary) return;
+
+    const result = await api.research.conversations.pin(
+      conversationId,
+      nextPinned,
+      summary.agent_id,
+    );
+    const pinnedAt = result.pinned_at ?? null;
+    const updatedSummary: ConversationSummary = {
+      ...summary,
+      agent_id: result.agent_id === 'research_agent' || result.agent_id === 'kol_research_agent'
+        ? result.agent_id
+        : summary.agent_id,
+      is_pinned: result.is_pinned,
+      pinned_at: pinnedAt,
+      updated_at: result.updated_at || summary.updated_at,
+    };
+
+    const cached = convCache.current.get(conversationId);
+    if (cached) {
+      convCache.current.set(conversationId, {
+        ...cached,
+        is_pinned: updatedSummary.is_pinned,
+        pinned_at: updatedSummary.pinned_at,
+      });
+    }
+    updateConversationSummaryInLoadedCaches(updatedSummary);
+    void queryClient.invalidateQueries({
+      queryKey: ['research', 'conversations', conversationUserId],
+      exact: false,
+    });
+  }, [conversationUserId, conversations, queryClient, updateConversationSummaryInLoadedCaches]);
 
   // Delete a conversation
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
@@ -2246,6 +2344,7 @@ function ScreenerContent() {
           onLoad={handleSidebarLoadConversation}
           onDelete={handleDeleteConversation}
           onRename={handleRenameConversation}
+          onTogglePin={handleTogglePinConversation}
           onNewChat={handleSidebarNewChat}
           requestInFlight={state.isLoading}
           onToggle={() => setHistoryOpen(false)}
@@ -2312,6 +2411,7 @@ function ScreenerContent() {
             onLoad={handleSidebarLoadConversation}
             onDelete={handleDeleteConversation}
             onRename={handleRenameConversation}
+            onTogglePin={handleTogglePinConversation}
             onNewChat={handleSidebarNewChat}
             requestInFlight={false}
             onToggle={() => setHistoryOpen(false)}
@@ -2423,6 +2523,7 @@ function ScreenerContent() {
               onLoad={handleSidebarLoadConversation}
               onDelete={handleDeleteConversation}
               onRename={handleRenameConversation}
+              onTogglePin={handleTogglePinConversation}
               onNewChat={handleSidebarNewChat}
               requestInFlight={state.isLoading}
               onToggle={() => setHistoryOpen(false)}

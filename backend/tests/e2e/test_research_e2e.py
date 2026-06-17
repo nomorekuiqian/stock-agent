@@ -210,6 +210,16 @@ class TestResearchConversationsEndpoint:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
+    async def test_pin_requires_auth(self, client):
+        """PATCH /api/research/conversations/{id}/pin returns 401 without auth."""
+        resp = await client.patch(
+            "/api/research/conversations/some-id/pin",
+            json={"is_pinned": True},
+            timeout=10,
+        )
+        assert resp.status_code == 401
+
+    @pytest.mark.asyncio
     async def test_delete_requires_auth(self, client):
         """DELETE /api/research/conversations/{id} returns 401 without auth."""
         resp = await client.delete(
