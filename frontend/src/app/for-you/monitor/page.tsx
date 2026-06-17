@@ -20,6 +20,8 @@ import {
   ArrowUpRight,
   Bell,
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   CheckCircle2,
   Clock,
   Eye,
@@ -908,6 +910,30 @@ function sourceDisplayTitle(source: MonitorSourceRef) {
   return source.title_zh || source.title || source.type;
 }
 
+function sourceSiteLabel(source: MonitorSourceRef) {
+  if (!source.url) return "";
+  try {
+    const hostname = new URL(source.url).hostname.replace(/^www\./, "");
+    const labels: Record<string, string> = {
+      "barchart.com": "Barchart",
+      "benzinga.com": "Benzinga",
+      "finance.yahoo.com": "Yahoo Finance",
+      "fxempire.com": "FXEmpire",
+      "investing.com": "Investing.com",
+      "marketbeat.com": "MarketBeat",
+      "seekingalpha.com": "Seeking Alpha",
+      "simplywall.st": "Simply Wall St",
+      "stockstotrade.com": "StocksToTrade",
+      "stocktitan.net": "StockTitan",
+      "tipranks.com": "TipRanks",
+      "tradersunion.com": "Traders Union",
+    };
+    return labels[hostname] ?? hostname;
+  } catch {
+    return "";
+  }
+}
+
 function statusDotClass(status: MonitorTickerRow["status"]) {
   if (status === "needs_attention")
     return "bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.16)]";
@@ -1490,7 +1516,10 @@ function TickerListItem({
 
 function TickerWorkbench({ row }: { row: MonitorTickerRow }) {
   const [activeTab, setActiveTab] = useState<TickerDetailTab>("news_events");
-  const twitterDiscussionQuery = useTwitterTickerDiscussion(row.symbol);
+  const twitterDiscussionQuery = useTwitterTickerDiscussion(
+    row.symbol,
+    activeTab === "market_discussion",
+  );
   const signals = getSignals(row);
   const nonNewsSignals = signals.filter((signal) => signal.type !== "news");
   const watchpoints = getWatchpoints(row);
@@ -1918,10 +1947,20 @@ function TwitterDiscussionRow({
 }: {
   tweet: TwitterTickerDiscussionTweet;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const author = tweet.author_username || "unknown";
   const url = tweetUrl(tweet);
   const contentTag =
     formatDiscussionTag(tweet.content_type) || formatDiscussionTag(tweet.category);
+  const bodyText = tweet.text || "暂无正文";
+  const quotedText = tweet.quoted_tweet_text || "";
+  const shouldCollapse =
+    bodyText.length > 260 ||
+    quotedText.length > 180 ||
+    bodyText.split("\n").length > 4 ||
+    quotedText.split("\n").length > 3;
+  const bodyClassName = isExpanded || !shouldCollapse ? "" : "line-clamp-5";
+  const quoteClassName = isExpanded || !shouldCollapse ? "" : "line-clamp-3";
 
   return (
     <article className="px-4 py-4 transition-colors duration-200 hover:bg-muted/20 motion-reduce:transition-none">
@@ -1964,20 +2003,44 @@ function TwitterDiscussionRow({
             </p>
           )}
 
-          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
-            {tweet.text || "暂无正文"}
+          <p
+            className={`mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground ${bodyClassName}`}
+          >
+            {bodyText}
           </p>
 
-          {tweet.quoted_tweet_text && (
+          {quotedText && (
             <div className="mt-3 flex gap-2 rounded-md border border-border/60 bg-background/35 px-3 py-3 text-sm leading-relaxed text-muted-foreground">
               <Quote className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              <p className="min-w-0 whitespace-pre-wrap break-words">
-                {tweet.quoted_tweet_text}
+              <p
+                className={`min-w-0 whitespace-pre-wrap break-words ${quoteClassName}`}
+              >
+                {quotedText}
               </p>
             </div>
           )}
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            {shouldCollapse && (
+              <button
+                type="button"
+                onClick={() => setIsExpanded((value) => !value)}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? (
+                  <>
+                    收起原文
+                    <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                  </>
+                ) : (
+                  <>
+                    展开原文
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                  </>
+                )}
+              </button>
+            )}
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <TweetMetric icon={Heart} label="赞" value={tweet.like_count} />
               <TweetMetric icon={Repeat2} label="转" value={tweet.retweet_count} />
@@ -2050,7 +2113,7 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
                 </div>
                 {row.is_stale && (
                   <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
-                    等待今日生成
+                    {row.generated_at ? "显示上次监控" : "等待今日生成"}
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -2765,8 +2828,11 @@ function EarningsPanel({
 
 function SourceChip({ source }: { source: MonitorSourceRef }) {
   const title = sourceDisplayTitle(source);
+  const site = sourceSiteLabel(source);
   const content = (
     <>
+      {site && <span className="shrink-0 text-foreground/70">{site}</span>}
+      {site && <span className="shrink-0 text-muted-foreground/60">/</span>}
       <span className="truncate">{title}</span>
       {source.url && <ExternalLink className="h-3 w-3" aria-hidden />}
     </>
@@ -2800,6 +2866,7 @@ function SourceRow({
   compact?: boolean;
 }) {
   const title = sourceDisplayTitle(source) || "Untitled source";
+  const site = sourceSiteLabel(source);
   const body = (
     <div className="flex min-w-0 items-start justify-between gap-3">
       <div className="min-w-0">
@@ -2807,6 +2874,11 @@ function SourceRow({
           <span className="rounded-md border border-border/60 px-2 py-0.5 text-xs text-muted-foreground">
             {sourceTypeLabel(source.type)}
           </span>
+          {site && (
+            <span className="rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary">
+              {site}
+            </span>
+          )}
           {source.published_at && (
             <span className="text-xs text-muted-foreground">
               {formatDate(source.published_at)}

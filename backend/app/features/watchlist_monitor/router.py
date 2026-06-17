@@ -8,11 +8,14 @@ from app.features.payment.entitlements import has_entitlement
 from app.features.watchlist_monitor.models import (
     GenerateRequest,
     GenerateResponse,
+    GenerateTestUniverseRequest,
+    GenerateTestUniverseResponse,
     WatchlistMonitorResponse,
 )
 from app.features.watchlist_monitor.service import (
     compose_monitor_for_user,
     generate_for_symbols,
+    generate_test_user_universe,
     resolve_symbols_for_generation,
 )
 
@@ -71,4 +74,21 @@ async def generate_active_tickers(body: GenerateRequest):
         requested_symbols=symbols,
         generated=generated,
         failed=failed,
+    )
+
+
+@router.post(
+    "/admin/watchlist-monitor/generate-test-universe",
+    response_model=GenerateTestUniverseResponse,
+    dependencies=[Depends(verify_cron_secret)],
+)
+async def generate_test_universe(body: GenerateTestUniverseRequest | None = None):
+    """Generate ticker briefs for the limited Voya + owner dry-run universe."""
+    request = body or GenerateTestUniverseRequest()
+    return await generate_test_user_universe(
+        user_ids=request.user_ids,
+        limit_per_user=request.limit_per_user,
+        max_symbols=request.max_symbols,
+        force=request.force,
+        dry_run=request.dry_run,
     )

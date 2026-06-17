@@ -324,6 +324,32 @@ class GenerateRequest(BaseModel):
         return out
 
 
+class TestUniverseUser(BaseModel):
+    user_id: str
+    symbols: list[str] = Field(default_factory=list)
+
+
+class GenerateTestUniverseRequest(BaseModel):
+    user_ids: list[str] = Field(default_factory=list, max_length=10)
+    limit_per_user: int = Field(default=25, ge=1, le=50)
+    max_symbols: int = Field(default=50, ge=1, le=50)
+    force: bool = False
+    dry_run: bool = False
+
+    @field_validator("user_ids")
+    @classmethod
+    def normalize_user_ids(cls, value: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for raw in value:
+            user_id = (raw or "").strip()
+            if not user_id or user_id in seen:
+                continue
+            seen.add(user_id)
+            out.append(user_id)
+        return out
+
+
 class GenerateTickerResult(BaseModel):
     symbol: str
     success: bool
@@ -338,3 +364,20 @@ class GenerateResponse(BaseModel):
     requested_symbols: list[str]
     generated: list[GenerateTickerResult]
     failed: list[GenerateTickerResult]
+
+
+class GenerateTestUniverseResponse(BaseModel):
+    success: bool
+    dry_run: bool = False
+    user_ids: list[str] = Field(default_factory=list)
+    user_watchlists: list[TestUniverseUser] = Field(default_factory=list)
+    failed_user_ids: list[str] = Field(default_factory=list)
+    skipped_user_ids: list[str] = Field(default_factory=list)
+    requested_symbols: list[str] = Field(default_factory=list)
+    symbol_count: int = 0
+    generated_count: int = 0
+    failed_count: int = 0
+    failed_user_count: int = 0
+    skipped_user_count: int = 0
+    generated: list[GenerateTickerResult] = Field(default_factory=list)
+    failed: list[GenerateTickerResult] = Field(default_factory=list)

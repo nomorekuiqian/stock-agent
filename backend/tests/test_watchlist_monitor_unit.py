@@ -21,10 +21,15 @@ from app.features.watchlist_monitor.models import (
 )
 
 
-def _brief(symbol: str, status="watch", priority=50) -> TickerDailyBrief:
+def _brief(
+    symbol: str,
+    status="watch",
+    priority=50,
+    brief_date="2026-06-15",
+) -> TickerDailyBrief:
     return TickerDailyBrief(
         symbol=symbol,
-        brief_date="2026-06-15",
+        brief_date=brief_date,
         model_version="watchlist-monitor-v0",
         status=status,
         headline=f"{symbol} headline",
@@ -147,6 +152,71 @@ def test_quality_gate_rejects_unknown_source_ref():
     assert service._validate_quality("AAPL", output, []) is not None
 
 
+def test_quality_gate_rejects_missing_news_summary_when_news_exists():
+    output = TickerBriefAgentOutput(
+        status="watch",
+        headline="Watch",
+        ai_take=(
+            "今日信号是公司新闻流出现新的产品更新；影响在于市场会重新评估短期收入动能；"
+            "接下来重点看管理层是否给出更多采用率数据。"
+        ),
+        news_summary="",
+        signals=[],
+        watchpoints=[
+            Watchpoint(
+                type="open_watchpoint",
+                title="产品数据验证",
+                what_to_watch="观察后续是否披露采用率和客户反馈。",
+                source_ref_ids=["news_1"],
+            )
+        ],
+    )
+
+    assert (
+        service._validate_quality(
+            "AAPL",
+            output,
+            [SourceRef(id="news_1", type="news", title="Product update")],
+        )
+        == "news_summary is empty despite news sources"
+    )
+
+
+def test_quality_gate_rejects_action_advice_copy():
+    output = TickerBriefAgentOutput(
+        status="watch",
+        headline="Watch",
+        ai_take=(
+            "今日信号是股价接近关键阻力；影响在于短线资金可能继续博弈方向；"
+            "接下来重点看量能确认，但不宜盲目追高。"
+        ),
+        news_summary="新闻流显示市场正在讨论该阻力位。",
+    )
+
+    assert service._validate_quality("AAPL", output, []) == (
+        "ai_take contains action-advice phrase: 追高"
+    )
+
+
+def test_quality_gate_rejects_incomplete_technical_monitor():
+    output = TickerBriefAgentOutput(
+        status="watch",
+        headline="Watch",
+        ai_take=(
+            "今日信号是价格仍在关键均线下方；影响在于反弹确认度不足；"
+            "接下来重点看能否重新站回短期均线。"
+        ),
+        news_summary="",
+    )
+
+    assert service._validate_quality(
+        "AAPL",
+        output,
+        [SourceRef(id="technical_1", type="technical", title="Technical snapshot")],
+        {"summary": "", "technical_view": {"verdict": ""}},
+    ) == "technical_monitor.summary is empty"
+
+
 def test_ticker_brief_output_coerces_null_defaults():
     output = TickerBriefAgentOutput.model_validate(
         {
@@ -210,6 +280,11 @@ def test_compact_news_uses_7d_window_and_filters_team_keyword(monkeypatch):
         }
 
     monkeypatch.setattr(signal_builder, "get_fmp_news", fake_get_fmp_news)
+    monkeypatch.setattr(
+        signal_builder,
+        "get_tavily_ticker_news",
+        lambda symbol, profile=None: {"status": "success", "news": []},
+    )
     source_refs = []
     news = signal_builder._compact_news(
         "TEAM",
@@ -225,6 +300,104 @@ def test_compact_news_uses_7d_window_and_filters_team_keyword(monkeypatch):
     ]
     assert [item["id"] for item in news] == ["news_1", "news_2", "news_3"]
     assert len(source_refs) == 3
+
+
+def test_compact_news_always_merges_tavily_and_filters_wrong_circle(monkeypatch):
+    def fake_get_fmp_news(days: int, symbols: list[str]):
+        assert days == 7
+        assert symbols == ["CRCL"]
+        return {
+            "status": "success",
+            "news": [
+                {
+                    "title": "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally %d" % index,
+                    "text": "CRCL traded higher alongside crypto-linked equities.",
+                    "source": "FXEmpire",
+                    "publishedDate": "2026-06-15 10:10:17",
+                    "url": "https://example.com/fmp-crcl-%d" % index,
+                }
+                for index in range(6)
+            ],
+        }
+
+    def fake_get_tavily_ticker_news(symbol: str, profile=None):
+        assert symbol == "CRCL"
+        return {
+            "status": "success",
+            "news": [
+                {
+                    "title": "315,600 Shares in Circle Internet Group, Inc. $CRCL Bought by Alberta Investment Management Corp",
+                    "text": "The filing article references Circle Internet Group and CRCL.",
+                    "source": "marketbeat.com",
+                    "publishedDate": "2026-06-16 10:41:00",
+                    "url": "https://marketbeat.com/crcl-filing",
+                    "_source": "tavily",
+                },
+                {
+                    "title": "Circle Group Wins New Contracts to Upgrade MILOS Platform for Intermodal Logistics",
+                    "text": "Circle Group won new contracts for an intermodal logistics platform.",
+                    "source": "tipranks.com",
+                    "publishedDate": "2026-06-16 11:00:00",
+                    "url": "https://tipranks.com/circle-group-milos",
+                    "_source": "tavily",
+                },
+                {
+                    "title": "Circle Internet Group (CRCL) Stock Price, Quote, News & History",
+                    "text": "A quote page for CRCL.",
+                    "source": "benzinga.com",
+                    "publishedDate": "",
+                    "url": "https://www.benzinga.com/quote/CRCL",
+                    "_source": "tavily",
+                },
+            ],
+        }
+
+    monkeypatch.setattr(signal_builder, "get_fmp_news", fake_get_fmp_news)
+    monkeypatch.setattr(signal_builder, "get_tavily_ticker_news", fake_get_tavily_ticker_news)
+    source_refs = []
+
+    news = signal_builder._compact_news(
+        "CRCL",
+        source_refs,
+        {"company_name": "Circle Internet Group, Inc."},
+    )
+
+    assert [item["title"] for item in news] == [
+        "315,600 Shares in Circle Internet Group, Inc. $CRCL Bought by Alberta Investment Management Corp",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 0",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 1",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 2",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 3",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 4",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 5",
+    ]
+    assert [item["source"] for item in news] == [
+        "marketbeat.com",
+        "FXEmpire",
+        "FXEmpire",
+        "FXEmpire",
+        "FXEmpire",
+        "FXEmpire",
+        "FXEmpire",
+    ]
+    assert [item["id"] for item in news] == [
+        "news_1",
+        "news_2",
+        "news_3",
+        "news_4",
+        "news_5",
+        "news_6",
+        "news_7",
+    ]
+    assert [ref.title for ref in source_refs] == [
+        "315,600 Shares in Circle Internet Group, Inc. $CRCL Bought by Alberta Investment Management Corp",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 0",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 1",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 2",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 3",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 4",
+        "MSTR, COIN and CRCL Forecasts - Crypto Stocks Looking to Rally 5",
+    ]
 
 
 def test_compact_technical_includes_recent_price_path_for_rebound_giveback():
@@ -443,6 +616,8 @@ def test_apply_translated_news_titles_updates_only_news_sources():
 
 @pytest.mark.asyncio
 async def test_compose_monitor_uses_cached_briefs(monkeypatch):
+    monkeypatch.setattr(service, "market_today_str", lambda: "2026-06-15")
+
     async def fake_watchlist(user_id: str):
         assert user_id == "user-1"
         return {"user_id": user_id, "symbols": ["AAPL", "MSFT", "NVDA"]}
@@ -474,6 +649,152 @@ async def test_compose_monitor_uses_cached_briefs(monkeypatch):
     assert monitor.future_event_candidates[0].title == "Investor webcast"
     assert monitor.summary.next_7d_watchpoints == 2
     assert monitor.ticker_rows[0].source_refs[0].id == "news_1"
+
+
+@pytest.mark.asyncio
+async def test_compose_monitor_marks_previous_market_date_briefs_stale(monkeypatch):
+    monkeypatch.setattr(service, "market_today_str", lambda: "2026-06-16")
+
+    async def fake_watchlist(user_id: str):
+        assert user_id == "user-1"
+        return {"user_id": user_id, "symbols": ["AAPL", "MSFT"]}
+
+    async def fake_latest_briefs(symbols: list[str]):
+        assert symbols == ["AAPL", "MSFT"]
+        return {
+            "AAPL": _brief(
+                "AAPL",
+                status="needs_attention",
+                priority=100,
+                brief_date="2026-06-15",
+            ),
+            "MSFT": _brief(
+                "MSFT",
+                status="watch",
+                priority=80,
+                brief_date="2026-06-16",
+            ),
+        }
+
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service.monitor_db, "get_latest_briefs", fake_latest_briefs)
+
+    monitor = await service.compose_monitor_for_user("user-1")
+
+    assert monitor.summary.needs_attention == 0
+    assert monitor.summary.stale_tickers == 1
+    fresh = next(row for row in monitor.ticker_rows if row.symbol == "MSFT")
+    assert monitor.summary.new_signals == len(fresh.signals) + len(fresh.technical_monitor.signals)
+    assert monitor.priority_items[0].symbol == "MSFT"
+    stale = next(row for row in monitor.ticker_rows if row.symbol == "AAPL")
+    assert stale.status == "stale"
+    assert stale.is_stale is True
+    assert stale.priority_score == 0
+    assert stale.headline == "AAPL headline"
+    assert stale.ai_take == "AAPL has a cached monitor brief with enough detail for the UI."
+    assert stale.news_summary == "Recent English news focused on one product update and market reaction."
+    assert stale.signals[0].title == "News signal"
+    assert stale.technical_monitor.signals[0].id == "price_breakout_20d"
+    assert stale.watchpoints[0].title == "Watch follow-through"
+    assert stale.event_candidates[0].title == "Investor webcast"
+    assert stale.source_refs[0].id == "news_1"
+    assert stale.generated_at == "2026-06-15T20:00:00Z"
+    assert all(item.symbol != "AAPL" for item in monitor.future_event_candidates)
+
+
+@pytest.mark.asyncio
+async def test_generate_test_user_universe_dedupes_symbols(monkeypatch):
+    async def fake_watchlist(user_id: str):
+        data = {
+            "user-1": {"symbols": ["AAPL", "MSFT", "AAPL"]},
+            "user-2": {"symbols": ["MSFT", "NVDA"]},
+        }
+        return data[user_id]
+
+    async def fake_assignments(flag: str | None = None):
+        assert flag == "watchlist_monitor_test_universe"
+        return [
+            {"user_id": "user-1", "flag": flag, "enabled": True},
+            {"user_id": "user-2", "flag": flag, "enabled": True},
+        ]
+
+    captured: dict[str, object] = {}
+
+    async def fake_generate_for_symbols(symbols: list[str], *, force: bool = False):
+        captured["symbols"] = symbols
+        captured["force"] = force
+        return [
+            service.GenerateTickerResult(symbol=symbol, success=True)
+            for symbol in symbols
+        ], []
+
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service.flags_db, "list_all_assignments", fake_assignments)
+    monkeypatch.setattr(service, "generate_for_symbols", fake_generate_for_symbols)
+
+    result = await service.generate_test_user_universe(
+        user_ids=["user-1", "user-2"],
+        force=True,
+    )
+
+    assert result.success is True
+    assert result.requested_symbols == ["AAPL", "MSFT", "NVDA"]
+    assert captured == {"symbols": ["AAPL", "MSFT", "NVDA"], "force": True}
+    assert result.skipped_user_ids == []
+    assert [item.user_id for item in result.user_watchlists] == ["user-1", "user-2"]
+    assert result.generated_count == 3
+    assert result.failed_count == 0
+
+
+@pytest.mark.asyncio
+async def test_generate_test_user_universe_dry_run_skips_generation(monkeypatch):
+    async def fake_watchlist(user_id: str):
+        return {"symbols": ["AAPL", "MSFT"]}
+
+    async def fake_assignments(flag: str | None = None):
+        assert flag == "watchlist_monitor_test_universe"
+        return [{"user_id": "user-1", "flag": flag, "enabled": True}]
+
+    async def fail_generate_for_symbols(symbols: list[str], *, force: bool = False):
+        raise AssertionError("dry run must not generate")
+
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service.flags_db, "list_all_assignments", fake_assignments)
+    monkeypatch.setattr(service, "generate_for_symbols", fail_generate_for_symbols)
+
+    result = await service.generate_test_user_universe(
+        user_ids=["user-1"],
+        dry_run=True,
+    )
+
+    assert result.success is True
+    assert result.dry_run is True
+    assert result.requested_symbols == ["AAPL", "MSFT"]
+    assert result.generated_count == 0
+
+
+@pytest.mark.asyncio
+async def test_generate_test_user_universe_skips_users_without_flag(monkeypatch):
+    async def fail_watchlist(user_id: str):
+        raise AssertionError("unflagged users must not load watchlists")
+
+    async def fake_assignments(flag: str | None = None):
+        assert flag == "watchlist_monitor_test_universe"
+        return []
+
+    async def fail_generate_for_symbols(symbols: list[str], *, force: bool = False):
+        raise AssertionError("empty flagged universe must not generate")
+
+    monkeypatch.setattr(service, "get_user_watchlist", fail_watchlist)
+    monkeypatch.setattr(service.flags_db, "list_all_assignments", fake_assignments)
+    monkeypatch.setattr(service, "generate_for_symbols", fail_generate_for_symbols)
+
+    result = await service.generate_test_user_universe(user_ids=["user-1"])
+
+    assert result.success is False
+    assert result.skipped_user_ids == ["user-1"]
+    assert result.skipped_user_count == 1
+    assert result.requested_symbols == []
 
 
 def test_merge_event_candidates_filters_window_and_dedupes():

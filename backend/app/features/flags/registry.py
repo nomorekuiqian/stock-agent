@@ -39,6 +39,10 @@ KNOWN_FLAGS: list[FlagDef] = [
         "潘大的科技交流圈 KOL persona（/research RAG）— 仅指定测试账号灰度",
         emails=("kedengpan@gmail.com", "voya.technologies@gmail.com"),
     ),
+    FlagDef(
+        "watchlist_monitor_test_universe",
+        "AI Watchlist Monitor test-universe cron（仅 Voya + owner dry-run 账号）",
+    ),
 ]
 
 

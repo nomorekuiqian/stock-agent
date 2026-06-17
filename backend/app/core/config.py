@@ -22,6 +22,7 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 RESEND_WEBHOOK_SECRET = os.getenv("RESEND_WEBHOOK_SECRET", "")
 TWITTER_API_KEY = os.getenv("TWITTER_API_KEY", "")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "")
@@ -145,6 +146,13 @@ def _float_env(name: str, default: float) -> float:
         return default
 
 
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    return raw.lower() in {"1", "true", "yes", "on"}
+
+
 # Watchlist monitor offline generation settings.
 WATCHLIST_MONITOR_LLM_MODEL = os.getenv(
     "WATCHLIST_MONITOR_LLM_MODEL",
@@ -160,6 +168,39 @@ WATCHLIST_MONITOR_LLM_TEMPERATURE = _float_env(
 WATCHLIST_MONITOR_MODEL_VERSION = os.getenv(
     "WATCHLIST_MONITOR_MODEL_VERSION",
     "watchlist-monitor-v1-%s" % WATCHLIST_MONITOR_LLM_MODEL.replace("/", "-"),
+)
+WATCHLIST_MONITOR_TAVILY_ENABLED = _bool_env(
+    "WATCHLIST_MONITOR_TAVILY_ENABLED", True
+)
+WATCHLIST_MONITOR_TAVILY_QUERIES_PER_TICKER = _int_env(
+    "WATCHLIST_MONITOR_TAVILY_QUERIES_PER_TICKER", 2
+)
+WATCHLIST_MONITOR_TAVILY_RESULTS_PER_QUERY = _int_env(
+    "WATCHLIST_MONITOR_TAVILY_RESULTS_PER_QUERY", 8
+)
+WATCHLIST_MONITOR_TAVILY_TIMEOUT_S = _float_env(
+    "WATCHLIST_MONITOR_TAVILY_TIMEOUT_S", 8.0
+)
+WATCHLIST_MONITOR_TAVILY_TOPIC = os.getenv(
+    "WATCHLIST_MONITOR_TAVILY_TOPIC", "general"
+)
+WATCHLIST_MONITOR_TAVILY_INCLUDE_DOMAINS = os.getenv(
+    "WATCHLIST_MONITOR_TAVILY_INCLUDE_DOMAINS",
+    ",".join(
+        [
+            "marketbeat.com",
+            "tipranks.com",
+            "tradersunion.com",
+            "stockstotrade.com",
+            "simplywall.st",
+            "stocktitan.net",
+            "seekingalpha.com",
+            "investing.com",
+            "finance.yahoo.com",
+            "barchart.com",
+            "benzinga.com",
+        ]
+    ),
 )
 
 

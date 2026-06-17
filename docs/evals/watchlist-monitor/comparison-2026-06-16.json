@@ -1,0 +1,232 @@
+{
+  "baseline_file": "docs/evals/watchlist-monitor/baseline-2026-06-16.json",
+  "after_file": "docs/evals/watchlist-monitor/after-2026-06-16.json",
+  "summary": {
+    "baseline": {
+      "needs_attention": 2,
+      "new_signals": 21,
+      "next_7d_watchpoints": 3,
+      "quiet_tickers": 0,
+      "stale_tickers": 0
+    },
+    "after": {
+      "needs_attention": 1,
+      "new_signals": 20,
+      "next_7d_watchpoints": 7,
+      "quiet_tickers": 0,
+      "stale_tickers": 0
+    }
+  },
+  "by_symbol": {
+    "AAPL": {
+      "baseline": {
+        "status": "watch",
+        "priority_score": 81,
+        "is_stale": false,
+        "generated_at": "2026-06-16T03:29:24+00:00",
+        "headline": "科技股反弹背景下收涨1.82%，技术面布林带收窄等待方向选择",
+        "ai_take_triplet": false,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 2,
+        "watchpoint_count": 2,
+        "event_candidate_count": 2
+      },
+      "after": {
+        "status": "watch",
+        "priority_score": 88,
+        "is_stale": false,
+        "generated_at": "2026-06-16T23:26:55+00:00",
+        "headline": "科技股承压中逆势上涨，AI新品与监管调查并存",
+        "ai_take_triplet": true,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 1,
+        "watchpoint_count": 2,
+        "event_candidate_count": 4
+      }
+    },
+    "AMZN": {
+      "baseline": {
+        "status": "watch",
+        "priority_score": 98,
+        "is_stale": false,
+        "generated_at": "2026-06-15T20:53:38+00:00",
+        "headline": "股价反弹3%但仍受制于短期均线，关注Anthropic监管风险及周三联储决议",
+        "ai_take_triplet": false,
+        "news_summary_present": false,
+        "technical_summary_present": false,
+        "technical_verdict_present": false,
+        "signal_count": 3,
+        "watchpoint_count": 2,
+        "event_candidate_count": 0
+      },
+      "after": {
+        "status": "watch",
+        "priority_score": 98,
+        "is_stale": false,
+        "generated_at": "2026-06-16T23:23:27+00:00",
+        "headline": "亚马逊股价持平但跑赢科技大盘，FTC广告诉讼风险与AWS Summit等催化剂交织",
+        "ai_take_triplet": true,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 2,
+        "watchpoint_count": 1,
+        "event_candidate_count": 4
+      }
+    },
+    "GOOGL": {
+      "baseline": {
+        "status": "watch",
+        "priority_score": 92,
+        "is_stale": false,
+        "generated_at": "2026-06-15T20:53:04+00:00",
+        "headline": "谷歌收涨2.69%，15亿美元数据中心扩建及AI诉讼引发关注",
+        "ai_take_triplet": false,
+        "news_summary_present": false,
+        "technical_summary_present": false,
+        "technical_verdict_present": false,
+        "signal_count": 3,
+        "watchpoint_count": 1,
+        "event_candidate_count": 0
+      },
+      "after": {
+        "status": "watch",
+        "priority_score": 84,
+        "is_stale": false,
+        "generated_at": "2026-06-16T23:23:00+00:00",
+        "headline": "AI生态扩张支撑逆势上涨，但FOMC前估值敏感度与区间阻力并存",
+        "ai_take_triplet": true,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 1,
+        "watchpoint_count": 2,
+        "event_candidate_count": 2
+      }
+    },
+    "META": {
+      "baseline": {
+        "status": "watch",
+        "priority_score": 100,
+        "is_stale": false,
+        "generated_at": "2026-06-16T19:41:12+00:00",
+        "headline": "META逆势上涨但技术面偏弱，关注FOMC决议及AI变现进展",
+        "ai_take_triplet": false,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 2,
+        "watchpoint_count": 2,
+        "event_candidate_count": 1
+      },
+      "after": {
+        "status": "watch",
+        "priority_score": 100,
+        "is_stale": false,
+        "generated_at": "2026-06-16T23:25:36+00:00",
+        "headline": "逆市反弹但技术面承压，FOMC前关注600美元支撑",
+        "ai_take_triplet": true,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 2,
+        "watchpoint_count": 2,
+        "event_candidate_count": 3
+      }
+    },
+    "MSFT": {
+      "baseline": {
+        "status": "watch",
+        "priority_score": 84,
+        "is_stale": false,
+        "generated_at": "2026-06-15T20:52:47+00:00",
+        "headline": "股价企稳于关键支撑位上方，面临律所集体诉讼与美联储宏观决议考验",
+        "ai_take_triplet": false,
+        "news_summary_present": false,
+        "technical_summary_present": false,
+        "technical_verdict_present": false,
+        "signal_count": 2,
+        "watchpoint_count": 2,
+        "event_candidate_count": 0
+      },
+      "after": {
+        "status": "needs_attention",
+        "priority_score": 100,
+        "is_stale": false,
+        "generated_at": "2026-06-16T23:22:32+00:00",
+        "headline": "微软面临多重压力：AI定价模式变革、云合作破裂与法律风险叠加，股价逼近关键支撑",
+        "ai_take_triplet": true,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 2,
+        "watchpoint_count": 2,
+        "event_candidate_count": 3
+      }
+    },
+    "NVDA": {
+      "baseline": {
+        "status": "needs_attention",
+        "priority_score": 100,
+        "is_stale": false,
+        "generated_at": "2026-06-15T20:54:10+00:00",
+        "headline": "英伟达计划发债200亿美元引多空辩论，大盘回暖收涨3.54%",
+        "ai_take_triplet": false,
+        "news_summary_present": false,
+        "technical_summary_present": false,
+        "technical_verdict_present": false,
+        "signal_count": 3,
+        "watchpoint_count": 2,
+        "event_candidate_count": 0
+      },
+      "after": {
+        "status": "watch",
+        "priority_score": 96,
+        "is_stale": false,
+        "generated_at": "2026-06-16T23:24:20+00:00",
+        "headline": "NVDA 跌破50日均线，FOMC前夕承压，关注债务风险与制造业叙事",
+        "ai_take_triplet": true,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 1,
+        "watchpoint_count": 2,
+        "event_candidate_count": 2
+      }
+    },
+    "TSLA": {
+      "baseline": {
+        "status": "needs_attention",
+        "priority_score": 100,
+        "is_stale": false,
+        "generated_at": "2026-06-15T20:54:33+00:00",
+        "headline": "市场热议 SpaceX 与特斯拉合并传闻；技术面呈现区间震荡",
+        "ai_take_triplet": false,
+        "news_summary_present": false,
+        "technical_summary_present": false,
+        "technical_verdict_present": false,
+        "signal_count": 2,
+        "watchpoint_count": 2,
+        "event_candidate_count": 0
+      },
+      "after": {
+        "status": "watch",
+        "priority_score": 100,
+        "is_stale": false,
+        "generated_at": "2026-06-16T23:24:48+00:00",
+        "headline": "FSD监管风险与AI5进展交织，FOMC前夕反弹遇阻",
+        "ai_take_triplet": true,
+        "news_summary_present": true,
+        "technical_summary_present": true,
+        "technical_verdict_present": true,
+        "signal_count": 2,
+        "watchpoint_count": 2,
+        "event_candidate_count": 4
+      }
+    }
+  }
+}

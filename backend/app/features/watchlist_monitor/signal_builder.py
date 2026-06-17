@@ -8,6 +8,7 @@ from typing import Any
 
 from app.core.logging import get_logger
 from app.features.twitter_digest.models import DailyDigest
+from app.features.watchlist_monitor.news_enrichment import get_tavily_ticker_news
 from app.features.watchlist_monitor.models import (
     EventCandidate,
     SourceRef,
@@ -46,6 +47,42 @@ MARKET_CONTEXT_SYMBOLS = [
     "TLT",
     "USO",
 ]
+
+_AMBIGUOUS_SYMBOL_WORDS = {
+    "A",
+    "AI",
+    "ARE",
+    "CAN",
+    "FOR",
+    "IT",
+    "NOW",
+    "ON",
+    "REAL",
+    "TEAM",
+    "U",
+}
+
+_GENERIC_WEB_COMPANY_TOKENS = {
+    "class",
+    "common",
+    "global",
+    "group",
+    "holding",
+    "holdings",
+    "market",
+    "markets",
+    "share",
+    "shares",
+    "stock",
+}
+
+_LOW_VALUE_TAVILY_PHRASES = {
+    "analyst predictions",
+    "options chain",
+    "price history",
+    "stock forecast",
+    "quote news history",
+}
 
 _MARKET_LABELS = {
     "SPY": "S&P 500 proxy",
@@ -1146,11 +1183,20 @@ def _company_keywords(profile: dict[str, Any] | None) -> list[str]:
     return list(dict.fromkeys(tokens[:4]))
 
 
-def _is_relevant_ticker_news(symbol: str, item: dict[str, Any], profile: dict[str, Any] | None) -> bool:
-    text = " ".join(
+def _normalize_news_words(value: str) -> str:
+    return " ".join(
+        "".join(ch.lower() if ch.isalnum() else " " for ch in value).split()
+    )
+
+
+def _news_search_text(item: dict[str, Any]) -> str:
+    return " ".join(
         str(item.get(key) or "")
         for key in ("title", "text", "url", "symbol")
     ).lower()
+
+
+def _has_symbol_reference(symbol: str, text: str) -> bool:
     lower_symbol = symbol.lower()
     exact_symbol_markers = (
         "$%s" % lower_symbol,
@@ -1162,6 +1208,49 @@ def _is_relevant_ticker_news(symbol: str, item: dict[str, Any], profile: dict[st
     )
     if any(marker in text for marker in exact_symbol_markers):
         return True
+    if symbol.upper() in _AMBIGUOUS_SYMBOL_WORDS:
+        return False
+    return lower_symbol in _normalize_news_words(text).split()
+
+
+def _has_strong_company_match(profile: dict[str, Any] | None, text: str) -> bool:
+    compact = _compact_company_profile(profile)
+    company_name = _normalize_news_words(str(compact.get("company_name") or ""))
+    normalized_text = _normalize_news_words(text)
+    if company_name and company_name in normalized_text:
+        return True
+
+    keywords = [
+        keyword
+        for keyword in _company_keywords(profile)
+        if keyword not in _GENERIC_WEB_COMPANY_TOKENS
+    ]
+    if not keywords:
+        return False
+    matched = [keyword for keyword in keywords if keyword in normalized_text.split()]
+    if len(keywords) == 1:
+        return bool(matched)
+    return len(matched) >= 2
+
+
+def _is_low_value_tavily_page(item: dict[str, Any]) -> bool:
+    title = _normalize_news_words(str(item.get("title") or ""))
+    url = str(item.get("url") or "").lower()
+    if any(phrase in title for phrase in _LOW_VALUE_TAVILY_PHRASES):
+        return True
+    if "/quote/" in url or "/stocks/quotes/" in url or "/options" in url:
+        return True
+    return False
+
+
+def _is_relevant_ticker_news(symbol: str, item: dict[str, Any], profile: dict[str, Any] | None) -> bool:
+    text = _news_search_text(item)
+    if item.get("_source") == "tavily" and _is_low_value_tavily_page(item):
+        return False
+    if _has_symbol_reference(symbol, text):
+        return True
+    if item.get("_source") == "tavily":
+        return _has_strong_company_match(profile, text)
     if any(keyword in text for keyword in _company_keywords(profile)):
         return True
 
@@ -1186,13 +1275,48 @@ def _news_sort_key(item: dict[str, Any]) -> str:
     return str(item.get("publishedDate") or "")
 
 
+def _news_identity_key(item: dict[str, Any]) -> str:
+    url = str(item.get("url") or "").lower().strip()
+    if url:
+        return "url:" + url.split("?", 1)[0].rstrip("/")
+    title = str(item.get("title") or "").lower().strip()
+    title_key = "".join(ch for ch in title[:90] if ch.isalnum() or ch.isspace())
+    return "title:" + " ".join(title_key.split())
+
+
+def _dedupe_news_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    unique: list[dict[str, Any]] = []
+    for item in items:
+        key = _news_identity_key(item)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
+
+
 def _compact_news(symbol: str, source_refs: list[SourceRef], profile: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     result = get_fmp_news(days=NEWS_LOOKBACK_DAYS, symbols=[symbol])
+    raw_news: list[dict[str, Any]] = []
     if result.get("status") == "error":
         logger.warning("news fetch failed for %s: %s", symbol, result.get("error"))
-        return []
+    else:
+        raw_news = _relevant_news_items(symbol, result, profile)
 
-    raw_news = _relevant_news_items(symbol, result, profile)
+    tavily_result = get_tavily_ticker_news(symbol, profile)
+    if tavily_result.get("status") == "error":
+        logger.warning("Tavily news enrichment failed for %s", symbol)
+    else:
+        tavily_news = _relevant_news_items(symbol, tavily_result, profile)
+        if tavily_news:
+            logger.info(
+                "Tavily added %d relevant news items for %s",
+                len(tavily_news),
+                symbol,
+            )
+        raw_news = _dedupe_news_items([*raw_news, *tavily_news])
+
     raw_news = sorted(raw_news, key=_news_sort_key, reverse=True)
 
     compact: list[dict[str, Any]] = []
@@ -1211,7 +1335,7 @@ def _compact_news(symbol: str, source_refs: list[SourceRef], profile: dict[str, 
             "id": ref_id,
             "title": item.get("title", ""),
             "summary": (item.get("text") or "")[:260],
-            "source": item.get("source", ""),
+            "source": item.get("source") or item.get("_source", ""),
             "published_at": item.get("publishedDate", ""),
         })
     return compact

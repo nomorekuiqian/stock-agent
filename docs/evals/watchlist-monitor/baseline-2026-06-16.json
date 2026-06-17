@@ -1,0 +1,2082 @@
+{
+  "success": true,
+  "as_of": "2026-06-16T23:11:07Z",
+  "symbols": [
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "NVDA",
+    "TSLA"
+  ],
+  "summary": {
+    "needs_attention": 2,
+    "new_signals": 21,
+    "next_7d_watchpoints": 3,
+    "quiet_tickers": 0,
+    "stale_tickers": 0
+  },
+  "priority_items": [
+    {
+      "symbol": "META",
+      "status": "watch",
+      "priority_score": 100,
+      "headline": "META逆势上涨但技术面偏弱，关注FOMC决议及AI变现进展",
+      "reason": "均线空头排列",
+      "next_watchpoint": "AI搜索变现进展跟踪",
+      "generated_at": "2026-06-16T19:41:12+00:00"
+    },
+    {
+      "symbol": "NVDA",
+      "status": "needs_attention",
+      "priority_score": 100,
+      "headline": "英伟达计划发债200亿美元引多空辩论，大盘回暖收涨3.54%",
+      "reason": "自2021年以来首次，英伟达计划发行200亿美元债券",
+      "next_watchpoint": "美联储利率决议及经济展望发布",
+      "generated_at": "2026-06-15T20:54:10+00:00"
+    },
+    {
+      "symbol": "TSLA",
+      "status": "needs_attention",
+      "priority_score": 100,
+      "headline": "市场热议 SpaceX 与特斯拉合并传闻；技术面呈现区间震荡",
+      "reason": "SpaceX 上市及合并传闻持续发酵",
+      "next_watchpoint": "美联储利率决议及政策声明",
+      "generated_at": "2026-06-15T20:54:33+00:00"
+    },
+    {
+      "symbol": "AMZN",
+      "status": "watch",
+      "priority_score": 98,
+      "headline": "股价反弹3%但仍受制于短期均线，关注Anthropic监管风险及周三联储决议",
+      "reason": "首席执行官曾对Anthropic模型表达安全担忧",
+      "next_watchpoint": "美联储公布利率决议与经济预测",
+      "generated_at": "2026-06-15T20:53:38+00:00"
+    },
+    {
+      "symbol": "GOOGL",
+      "status": "watch",
+      "priority_score": 92,
+      "headline": "谷歌收涨2.69%，15亿美元数据中心扩建及AI诉讼引发关注",
+      "reason": "15亿美元阿拉巴马州数据中心扩建计划",
+      "next_watchpoint": "美联储利率决议及政策声明",
+      "generated_at": "2026-06-15T20:53:04+00:00"
+    }
+  ],
+  "ticker_rows": [
+    {
+      "symbol": "META",
+      "status": "watch",
+      "priority_score": 100,
+      "headline": "META逆势上涨但技术面偏弱，关注FOMC决议及AI变现进展",
+      "ai_take": "在科技股普遍承压的交易日中，META逆势上涨0.77%，跑赢大盘和通信服务板块。消息面上，公司推出AI搜索和创意工具，美银指出新兴变现机会；Threads月活用户突破5亿，显示社交生态扩张。但技术面仍呈空头排列，缩量反弹需警惕。机构观点分歧明显：Oppenheimer将META列入卖出名单，而Bill Ackman则大举买入。明日FOMC利率决议将直接影响高估值成长股的风险偏好，可能加剧波动。未来两周需关注AI工具用户反馈、Threads增长持续性及机构持仓变化。",
+      "news_summary": "在科技股主导的风险规避交易日中，META逆势上涨0.77%，跑赢大盘和通信服务板块。当日新闻围绕AI战略、广告竞争和Threads里程碑展开：Seeking Alpha深度分析看好META的AI驱动广告平台战略；Oppenheimer将META列入卖出名单而青睐Alphabet；Zacks对比RDDT与META，认为Reddit广告增长潜力更大；Meta推出AI搜索和创意工具，美银指出变现机会；Threads月活用户突破5亿，推出新功能；Bill Ackman称META和MSFT为“老式”股票并大举买入；Howard Marks警告AI股票投资更接近投机。市场关注FOMC决议对高估值成长股的影响。",
+      "technical_monitor": {
+        "summary": "技术面整体偏弱：价格与 20/50/200 日均线呈空头排列；动能上，RSI 14 为 48.3，处于中性区间，MACD 柱体收敛，短线动能有所降温；价位上，当前价 $598.85，最近支撑 $594.81，最近阻力 $624.98；成交量约为 20 日均量的 0.4 倍；今日硬信号包括 均线空头排列、缩量上涨、接近支撑位。",
+        "technical_view": {
+          "regime": "downtrend",
+          "verdict": "当前技术面仍处在下降趋势承压阶段，反弹需要先收复短期均线。趋势上，当前为偏弱，价格位于主要均线下方，短中长期趋势同时承压，反弹需要先收复短期均线。关键均线：当前价 $598.85 / MA20 $602.55 / MA50 $622.72 / MA200 $656.55。动能上，当前为中性，动能没有进入明显过热或过冷区间，方向更多取决于价格能否突破或跌破关键位。指标读数：RSI 14 为 48.3；MACD 柱体收敛，短线动能有所降温。位置上，当前为接近支撑，价格距离最近支撑位 $594.81 不到 2%，后续看能否守住。波动上，当前为缩量，成交量只有 20 日均量的 0.4 倍，价格变化的确认度需要打折。成交量只有 20 日均量的 0.4 倍，价格变化确认度需要打折。",
+          "trend": {
+            "label": "趋势",
+            "state": "偏弱",
+            "explanation": "价格位于主要均线下方，短中长期趋势同时承压，反弹需要先收复短期均线。关键均线：当前价 $598.85 / MA20 $602.55 / MA50 $622.72 / MA200 $656.55。"
+          },
+          "momentum": {
+            "label": "动能",
+            "state": "中性",
+            "explanation": "动能没有进入明显过热或过冷区间，方向更多取决于价格能否突破或跌破关键位。指标读数：RSI 14 为 48.3；MACD 柱体收敛，短线动能有所降温。"
+          },
+          "location": {
+            "label": "位置",
+            "state": "接近支撑",
+            "explanation": "价格距离最近支撑位 $594.81 不到 2%，后续看能否守住。"
+          },
+          "volatility": {
+            "label": "波动",
+            "state": "缩量",
+            "explanation": "成交量只有 20 日均量的 0.4 倍，价格变化的确认度需要打折。成交量只有 20 日均量的 0.4 倍，价格变化确认度需要打折。"
+          }
+        },
+        "signals": [
+          {
+            "id": "ma_alignment_bearish",
+            "category": "moving_average",
+            "title": "均线空头排列",
+            "detail": "价格、20 日、50 日、200 日均线呈空头排列，趋势结构仍偏弱。",
+            "price": 598.85,
+            "reference": 602.55
+          },
+          {
+            "id": "low_volume_up",
+            "category": "volume",
+            "title": "缩量上涨",
+            "detail": "成交量只有 20 日均量的 0.4 倍，反弹确认度需要继续观察。",
+            "price": 598.85,
+            "reference": 593.48
+          },
+          {
+            "id": "near_support_1",
+            "category": "price",
+            "title": "接近支撑位",
+            "detail": "价格距离最近支撑位 $594.81 不到 2%，需要观察是否守住。",
+            "price": 598.85,
+            "reference": 594.81
+          }
+        ],
+        "key_levels": {
+          "sma_20": 602.55,
+          "sma_50": 622.72,
+          "sma_200": 656.55,
+          "bb_lower": 561.26,
+          "bb_upper": 643.85,
+          "support_1": 594.81,
+          "support_2": 592.6,
+          "resistance_1": 624.98,
+          "resistance_2": 643.0,
+          "current_price": 598.85
+        },
+        "updated_at": "2026-06-16"
+      },
+      "signal_types": [
+        "technical"
+      ],
+      "signals": [
+        {
+          "type": "technical",
+          "severity": "high",
+          "title": "均线空头排列",
+          "summary": "价格、20日、50日、200日均线呈空头排列，趋势结构仍偏弱。",
+          "why_it_matters": "空头排列表明卖压主导，反弹需先收复短期均线，否则下行风险持续。",
+          "source_ref_ids": [
+            "technical_1"
+          ],
+          "observed_at": ""
+        },
+        {
+          "type": "technical",
+          "severity": "medium",
+          "title": "缩量上涨",
+          "summary": "成交量只有20日均量的0.4倍，反弹确认度需要继续观察。",
+          "why_it_matters": "低量反弹缺乏资金支持，价格变动可靠性打折，需警惕假突破。",
+          "source_ref_ids": [
+            "technical_1"
+          ],
+          "observed_at": ""
+        }
+      ],
+      "watchpoints": [
+        {
+          "type": "open_watchpoint",
+          "date": null,
+          "title": "AI搜索变现进展跟踪",
+          "what_to_watch": "关注Meta AI搜索功能的用户采用率、广告主反馈及管理层对变现时间表的评论。",
+          "why_it_matters": "美银指出新兴变现机会，若成功可能成为新的收入增长引擎，但具体路径尚不明确。",
+          "confidence": "medium",
+          "source_ref_ids": [
+            "news_4",
+            "news_8"
+          ]
+        },
+        {
+          "type": "open_watchpoint",
+          "date": null,
+          "title": "机构多空分歧演变",
+          "what_to_watch": "观察Oppenheimer卖出建议后是否有其他机构跟进下调评级，以及Ackman等买方后续操作。",
+          "why_it_matters": "当前多空观点并存，机构动向可能影响短期股价波动和投资者情绪。",
+          "confidence": "medium",
+          "source_ref_ids": [
+            "news_2",
+            "news_11"
+          ]
+        }
+      ],
+      "event_candidates": [
+        {
+          "id": "meta_39ba90988d",
+          "symbol": "META",
+          "event_type": "macro",
+          "event_date": "2026-06-17",
+          "date_precision": "exact",
+          "title": "FOMC 利率决议与经济预测",
+          "summary": "美联储同日公布利率决议、经济预测并召开新闻发布会，需要合并视为一个宏观事件包。",
+          "why_it_matters": "它不是公司自身事件，但会直接影响高估值成长股的折现率、风险偏好和半导体板块估值环境。",
+          "status": "scheduled",
+          "confidence": "high",
+          "source_ref_ids": [
+            "macro_3",
+            "macro_4",
+            "macro_5"
+          ],
+          "source_type": "macro_calendar",
+          "dedupe_key": "META:macro:2026-06-17:fomc-meeting",
+          "metadata": {
+            "events": [
+              "Fed Interest Rate Decision",
+              "FOMC Economic Projections",
+              "Fed Press Conference"
+            ]
+          }
+        }
+      ],
+      "source_refs": [
+        {
+          "id": "quote_1",
+          "type": "quote",
+          "title": "META quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "technical_1",
+          "type": "technical",
+          "title": "META technical snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "market_1",
+          "type": "market",
+          "title": "Market benchmark quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "news_1",
+          "type": "news",
+          "title": "Meta: A Deep Dive Into Its Strategy To Become The Leading Digital Advertising Platform",
+          "title_zh": "Meta：深度解析其成为领先数字广告平台的战略",
+          "url": "https://seekingalpha.com/article/4915423-meta-a-deep-dive-into-its-strategy-to-become-the-leading-digital-advertising-platform",
+          "published_at": "2026-06-16 14:16:51"
+        },
+        {
+          "id": "news_2",
+          "type": "news",
+          "title": "Oppenheimer Picks Alphabet, Dumps Meta in Highest-Conviction Stock Picks",
+          "title_zh": "Oppenheimer最高信念选股：买入Alphabet，卖出Meta",
+          "url": "https://www.gurufocus.com/news/8918384/oppenheimer-picks-alphabet-dumps-meta-in-highestconviction-stock-picks",
+          "published_at": "2026-06-16 13:52:00"
+        },
+        {
+          "id": "news_3",
+          "type": "news",
+          "title": "RDDT vs. META: Which Digital Advertising Stock Has an Edge Right Now?",
+          "title_zh": "RDDT vs. META：哪只数字广告股目前更具优势？",
+          "url": "https://www.zacks.com/stock/news/2938157/rddt-vs-meta-which-digital-advertising-stock-has-an-edge-right-now?cid=CS-STOCKNEWSAPI-FT-analyst_blog|most_popular_stocks-2938157",
+          "published_at": "2026-06-16 13:02:47"
+        },
+        {
+          "id": "news_4",
+          "type": "news",
+          "title": "Meta introduces AI search and creative tools, Bank of America flags emerging monetization opportunity",
+          "title_zh": "Meta推出AI搜索和创意工具，美银指出新兴变现机会",
+          "url": "https://www.proactiveinvestors.com/companies/news/1093988",
+          "published_at": "2026-06-16 12:58:10"
+        },
+        {
+          "id": "news_5",
+          "type": "news",
+          "title": "Threads, Meta's X Competitor, Hits 500 Million Monthly Users",
+          "title_zh": "Meta的X竞争对手Threads月活用户突破5亿",
+          "url": "https://www.forbes.com/sites/conormurray/2026/06/16/threads-metas-x-competitor-hits-500-million-monthly-users/",
+          "published_at": "2026-06-16 12:00:09"
+        },
+        {
+          "id": "news_6",
+          "type": "news",
+          "title": "Why I Can't Stop Buying This Cash-Rich Stock After a Massive $145 Billion AI Shift",
+          "title_zh": "为何我在这只现金充裕的股票投入1450亿美元AI转型后仍不断买入",
+          "url": "https://247wallst.com/investing/2026/06/16/why-i-cant-stop-buying-this-cash-rich-stock-after-a-massive-145-billion-ai-shift/",
+          "published_at": "2026-06-16 10:55:00"
+        },
+        {
+          "id": "news_7",
+          "type": "news",
+          "title": "The AI Bubble Burst Calls are Getting Louder. But Hype-Defying Fortresses Prove There's Deep Value Hiding in Plain Sight.",
+          "title_zh": "AI泡沫破裂呼声渐高，但抗炒作堡垒证明深层价值隐现",
+          "url": "https://247wallst.com/investing/2026/06/16/the-ai-bubble-burst-calls-are-getting-louder-but-hype-defying-fortresses-prove-theres-deep-value-hiding-in-plain-sight/",
+          "published_at": "2026-06-16 10:18:40"
+        },
+        {
+          "id": "news_8",
+          "type": "news",
+          "title": "Meta introduces AI search and creative tools, Bank of America flags emerging monetization opportunity",
+          "title_zh": "Meta推出AI搜索和创意工具，美银指出新兴变现机会",
+          "url": "https://www.proactiveinvestors.com/companies/news/1093988/meta-introduces-ai-search-and-creative-tools-bank-of-america-flags-emerging-monetization-opportunity-1093988.html",
+          "published_at": "2026-06-16 08:56:00"
+        },
+        {
+          "id": "news_9",
+          "type": "news",
+          "title": "SpaceX Capable of Building Orbital Data Centers, Says Former Meta CTO",
+          "title_zh": "前Meta CTO：SpaceX有能力建造轨道数据中心",
+          "url": "https://www.youtube.com/watch?v=0u17EtKa0c4",
+          "published_at": "2026-06-16 08:25:32"
+        },
+        {
+          "id": "news_10",
+          "type": "news",
+          "title": "Meta's Threads reaches 500 million monthly users, rolls out new features",
+          "title_zh": "Meta旗下Threads月活用户达5亿，推出新功能",
+          "url": "https://www.reuters.com/business/media-telecom/metas-threads-reaches-500-million-monthly-users-rolls-out-new-features-2026-06-16/",
+          "published_at": "2026-06-16 08:21:25"
+        },
+        {
+          "id": "news_11",
+          "type": "news",
+          "title": "Bill Ackman Calls Meta And Microsoft 'Old-Fashioned'— And He's Snapped Up The Mega-Cap Stocks At 'Double Discount' Amid PSUS Buying Spree",
+          "title_zh": "Bill Ackman称Meta和微软“老派”，在PSUS买入潮中“双重折扣”加仓",
+          "url": "https://www.benzinga.com/markets/equities/26/06/53218352/bill-ackman-calls-meta-and-microsoft-old-fashioned-and-hes-snapped-up-the-mega-cap-stocks-at-double-discount-amid-psus-buying-spree",
+          "published_at": "2026-06-16 07:29:23"
+        },
+        {
+          "id": "news_12",
+          "type": "news",
+          "title": "Howard Marks: Investing in AI Stocks Is ‘Closer to Speculating' Than Analysis",
+          "title_zh": "Howard Marks：投资AI股票更接近投机而非分析",
+          "url": "https://247wallst.com/investing/2026/06/16/howard-marks-investing-in-ai-stocks-is-closer-to-speculating-than-analysis/",
+          "published_at": "2026-06-16 07:04:00"
+        },
+        {
+          "id": "news_13",
+          "type": "news",
+          "title": "SpaceX Surpassed Broadcom, Meta Platforms, and Tesla in Market Cap on Its IPO Day. Can It Take on Amazon's Market Cap Next?",
+          "title_zh": "SpaceX IPO日市值超越Broadcom、Meta和特斯拉，能否挑战亚马逊？",
+          "url": "https://www.fool.com/investing/2026/06/15/spacex-surpassed-broadcom-meta-platforms-and-tesla/",
+          "published_at": "2026-06-15 16:31:24"
+        },
+        {
+          "id": "news_14",
+          "type": "news",
+          "title": "The Magnificent 7 Just Got Too Small For The AI Boom — Meet The FAB 10",
+          "title_zh": "“七巨头”已不够用，AI时代迎来“FAB 10”新框架",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53210159/the-magnificent-7-just-got-too-small-for-the-ai-boom-meet-the-fab-10",
+          "published_at": "2026-06-15 16:01:04"
+        },
+        {
+          "id": "news_15",
+          "type": "news",
+          "title": "Facebook Launches Search Engine AI Tool That Could Make Meta $10 Billion A Year, Analyst Says",
+          "title_zh": "Facebook推出搜索引擎AI工具，分析师称年收入可达100亿美元",
+          "url": "https://www.forbes.com/sites/maryroeloffs/2026/06/15/facebook-launches-search-engine-ai-tool-that-could-make-meta-10-billion-a-year-analyst-says/",
+          "published_at": "2026-06-15 15:20:19"
+        },
+        {
+          "id": "macro_1",
+          "type": "macro_event",
+          "title": "Housing Starts (May)",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-16 12:30:00"
+        },
+        {
+          "id": "macro_2",
+          "type": "macro_event",
+          "title": "Retail Sales MoM (May)",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 12:30:00"
+        },
+        {
+          "id": "macro_3",
+          "type": "macro_event",
+          "title": "Fed Interest Rate Decision",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_4",
+          "type": "macro_event",
+          "title": "FOMC Economic Projections",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_5",
+          "type": "macro_event",
+          "title": "Fed Press Conference",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:30:00"
+        }
+      ],
+      "top_signal": {
+        "type": "technical",
+        "severity": "high",
+        "title": "均线空头排列",
+        "summary": "价格、20日、50日、200日均线呈空头排列，趋势结构仍偏弱。",
+        "why_it_matters": "空头排列表明卖压主导，反弹需先收复短期均线，否则下行风险持续。",
+        "source_ref_ids": [
+          "technical_1"
+        ],
+        "observed_at": ""
+      },
+      "next_watchpoint": {
+        "type": "open_watchpoint",
+        "date": null,
+        "title": "AI搜索变现进展跟踪",
+        "what_to_watch": "关注Meta AI搜索功能的用户采用率、广告主反馈及管理层对变现时间表的评论。",
+        "why_it_matters": "美银指出新兴变现机会，若成功可能成为新的收入增长引擎，但具体路径尚不明确。",
+        "confidence": "medium",
+        "source_ref_ids": [
+          "news_4",
+          "news_8"
+        ]
+      },
+      "generated_at": "2026-06-16T19:41:12+00:00",
+      "is_stale": false
+    },
+    {
+      "symbol": "NVDA",
+      "status": "needs_attention",
+      "priority_score": 100,
+      "headline": "英伟达计划发债200亿美元引多空辩论，大盘回暖收涨3.54%",
+      "ai_take": "英伟达今日随大盘反弹收涨3.54%，重回5.1万亿美元市值大关。市场焦点集中在其计划发行高达200亿美元的投资级债券，这是公司自2021年以来的首次发债，旨在为下一阶段AI扩张筹资。此举在社交媒体上引发多空双方激烈讨论：空头质疑其资金回笼能力，而多头则视其为常规低成本融资。技术面上，英伟达目前处于横盘整理阶段，RSI指标中性。未来几天需重点关注美联储利率决议及发债计划的具体定价和条款进展。",
+      "news_summary": "",
+      "technical_monitor": {
+        "summary": "",
+        "technical_view": {
+          "regime": "insufficient_data",
+          "verdict": "",
+          "trend": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "momentum": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "location": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "volatility": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          }
+        },
+        "signals": [],
+        "key_levels": {},
+        "updated_at": ""
+      },
+      "signal_types": [
+        "news",
+        "social",
+        "macro_sector"
+      ],
+      "signals": [
+        {
+          "type": "news",
+          "severity": "high",
+          "title": "自2021年以来首次，英伟达计划发行200亿美元债券",
+          "summary": "SEC文件显示，英伟达计划发行高达200亿美元的投资级公司债券，这是其自2021年以来的首次债权融资，资金预计用于资助下一阶段的AI扩张。",
+          "why_it_matters": "在拥有高额自由现金流的情况下，此举反映了公司在面对激烈的AI基建竞争时，选择利用债务市场进行低成本财务扩张，也引发了关于AI融资可持续性的讨论。",
+          "source_ref_ids": [
+            "news_2",
+            "news_6"
+          ],
+          "observed_at": ""
+        },
+        {
+          "type": "social",
+          "severity": "medium",
+          "title": "200亿发债计划引爆社交媒体多空论战",
+          "summary": "社交媒体上关于发债讨论热度骤增。空头认为发债暴露了公司面临现金流循环瓶颈；多头则强调公司财务健康，发债是极低成本的常规财务操作。此外，关于Vera Rubin平台将提前导入800V HVDC的传闻也受到多头追捧。",
+          "why_it_matters": "市场多空情绪在发债消息后产生分歧，该发债案的最终定价和认购热度将直接反映机构投资者对英伟达未来资本开支和扩张的态度。",
+          "source_ref_ids": [
+            "social_1"
+          ],
+          "observed_at": ""
+        },
+        {
+          "type": "macro_sector",
+          "severity": "low",
+          "title": "美伊达成停火协议刺激科技股全面反弹",
+          "summary": "美伊达成停火和平协议的利好刺激美股大盘全线上涨，纳斯达克指数大幅走高，英伟达等AI及量子计算概念股借势集体反弹。",
+          "why_it_matters": "地缘政治紧张局势的缓解改善了整体市场的风险偏好，短期内推动成长股与科技板块的估值修复。",
+          "source_ref_ids": [
+            "news_4",
+            "news_5"
+          ],
+          "observed_at": ""
+        }
+      ],
+      "watchpoints": [
+        {
+          "type": "dated_event",
+          "date": "2026-06-17",
+          "title": "美联储利率决议及经济展望发布",
+          "what_to_watch": "美联储将公布利率决议、经济预测图（点阵图）并召开新闻发布会。重点关注未来利率路径变动及其对高估值科技板块的宏观流动性影响。",
+          "why_it_matters": "利率走势将直接影响科技巨头债务融资的成本预期及成长股的估值水平。",
+          "confidence": "high",
+          "source_ref_ids": [
+            "macro_2",
+            "macro_3",
+            "macro_4"
+          ]
+        },
+        {
+          "type": "open_watchpoint",
+          "date": null,
+          "title": "发债定价与认购热度进展",
+          "what_to_watch": "关注英伟达发债的具体到期期限、票面利率以及机构认购的超额倍数。",
+          "why_it_matters": "高评级公司债的认购活跃度可反映主流债市资金对英伟达中长期资信与AI商业前景的信心储备。",
+          "confidence": "medium",
+          "source_ref_ids": [
+            "news_2",
+            "news_6"
+          ]
+        }
+      ],
+      "event_candidates": [],
+      "source_refs": [
+        {
+          "id": "quote_1",
+          "type": "quote",
+          "title": "NVDA quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "technical_1",
+          "type": "technical",
+          "title": "NVDA technical snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "news_1",
+          "type": "news",
+          "title": "The Magnificent 7 Just Got Too Small For The AI Boom — Meet The FAB 10",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53210159/the-magnificent-7-just-got-too-small-for-the-ai-boom-meet-the-fab-10",
+          "published_at": "2026-06-15 16:01:04"
+        },
+        {
+          "id": "news_2",
+          "type": "news",
+          "title": "Nvidia plans to raise about $20 billion in first debt sale since start of AI boom",
+          "title_zh": "",
+          "url": "https://www.cnbc.com/2026/06/15/nvidia-plans-to-raise-about-20-billion-first-debt-sale-in-ai-boom.html",
+          "published_at": "2026-06-15 15:43:39"
+        },
+        {
+          "id": "news_3",
+          "type": "news",
+          "title": "These 5 Companies Just Made a Massive Bet on Themselves",
+          "title_zh": "",
+          "url": "https://www.marketbeat.com/articles/these-5-companies-just-made-a-massive-bet-on-themselves/",
+          "published_at": "2026-06-15 14:30:26"
+        },
+        {
+          "id": "news_4",
+          "type": "news",
+          "title": "Dow Jones Hits Record, Nasdaq Jumps 3% as Iran Deal Lifts Markets",
+          "title_zh": "",
+          "url": "https://www.fool.com/investing/2026/06/15/headline-ideas-related-to-market-indexes-either-as/",
+          "published_at": "2026-06-15 13:38:23"
+        },
+        {
+          "id": "news_5",
+          "type": "news",
+          "title": "Quantum Stocks Jump as Growth Trade Revives",
+          "title_zh": "",
+          "url": "https://www.gurufocus.com/news/8916619/quantum-stocks-jump-as-growth-trade-revives",
+          "published_at": "2026-06-15 13:00:00"
+        },
+        {
+          "id": "news_6",
+          "type": "news",
+          "title": "Nvidia Plans $20 Billion Bond Sale to Fund Next Phase of AI Expansion",
+          "title_zh": "",
+          "url": "https://www.gurufocus.com/news/8916613/nvidia-plans-20-billion-bond-sale-to-fund-next-phase-of-ai-expansion",
+          "published_at": "2026-06-15 12:57:00"
+        },
+        {
+          "id": "macro_1",
+          "type": "macro_event",
+          "title": "Housing Starts (May)",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-16 12:30:00"
+        },
+        {
+          "id": "macro_2",
+          "type": "macro_event",
+          "title": "Fed Interest Rate Decision",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_3",
+          "type": "macro_event",
+          "title": "FOMC Economic Projections",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_4",
+          "type": "macro_event",
+          "title": "Fed Press Conference",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:30:00"
+        },
+        {
+          "id": "social_1",
+          "type": "social",
+          "title": "Twitter/KOL digest 2026-06-15",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-15T20:30:00.463176+00:00"
+        }
+      ],
+      "top_signal": {
+        "type": "news",
+        "severity": "high",
+        "title": "自2021年以来首次，英伟达计划发行200亿美元债券",
+        "summary": "SEC文件显示，英伟达计划发行高达200亿美元的投资级公司债券，这是其自2021年以来的首次债权融资，资金预计用于资助下一阶段的AI扩张。",
+        "why_it_matters": "在拥有高额自由现金流的情况下，此举反映了公司在面对激烈的AI基建竞争时，选择利用债务市场进行低成本财务扩张，也引发了关于AI融资可持续性的讨论。",
+        "source_ref_ids": [
+          "news_2",
+          "news_6"
+        ],
+        "observed_at": ""
+      },
+      "next_watchpoint": {
+        "type": "dated_event",
+        "date": "2026-06-17",
+        "title": "美联储利率决议及经济展望发布",
+        "what_to_watch": "美联储将公布利率决议、经济预测图（点阵图）并召开新闻发布会。重点关注未来利率路径变动及其对高估值科技板块的宏观流动性影响。",
+        "why_it_matters": "利率走势将直接影响科技巨头债务融资的成本预期及成长股的估值水平。",
+        "confidence": "high",
+        "source_ref_ids": [
+          "macro_2",
+          "macro_3",
+          "macro_4"
+        ]
+      },
+      "generated_at": "2026-06-15T20:54:10+00:00",
+      "is_stale": false
+    },
+    {
+      "symbol": "TSLA",
+      "status": "needs_attention",
+      "priority_score": 100,
+      "headline": "市场热议 SpaceX 与特斯拉合并传闻；技术面呈现区间震荡",
+      "ai_take": "特斯拉（TSLA）今日收涨1.17%，报411.17美元。上周五 SpaceX 挂牌上市引发散户极高关注，其单日交易量甚至超过苹果、微软和特斯拉等巨头之和。受此影响，市场近期热议特斯拉与 SpaceX 合并的可能性，预测交易员认为一年内合并的概率达49%。部分分析师警告该合并可能不对特斯拉构成直接利好。技术面上，特斯拉目前处于横盘整理阶段，RSI（50.6）呈中性。本周投资者需密切关注宏观层面的美联储利率决议及合并传闻的后续发展。",
+      "news_summary": "",
+      "technical_monitor": {
+        "summary": "",
+        "technical_view": {
+          "regime": "insufficient_data",
+          "verdict": "",
+          "trend": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "momentum": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "location": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "volatility": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          }
+        },
+        "signals": [],
+        "key_levels": {},
+        "updated_at": ""
+      },
+      "signal_types": [
+        "news",
+        "technical"
+      ],
+      "signals": [
+        {
+          "type": "news",
+          "severity": "medium",
+          "title": "SpaceX 上市及合并传闻持续发酵",
+          "summary": "著名投资人公开建议马斯克合并特斯拉与 SpaceX，预测平台交易员显示一年内合并概率达49%。此前 SpaceX 挂牌上市，其单日交易量创下纪录，甚至超过了苹果、微软及特斯拉等多家巨头的总和。",
+          "why_it_matters": "合并传闻引发了市场对“科幻级”AI与航天帝国的想象，但分析师警告称此举不一定对特斯拉股东有利，短期内市场投机和传闻会加剧股价波动。",
+          "source_ref_ids": [
+            "news_2",
+            "news_3",
+            "news_4",
+            "news_6"
+          ],
+          "observed_at": ""
+        },
+        {
+          "type": "technical",
+          "severity": "low",
+          "title": "技术指标显现中性横盘震荡",
+          "summary": "目前均线排列不一（SMA 200 为 416.0，SMA 20 为 415.19，SMA 50 为 399.31），RSI 为 50.6 处于中性区间，近期呈现窄幅横盘震荡走势。",
+          "why_it_matters": "当前上方阻力位在 416.38 美元，下方支撑位在 394.04 美元。在缺乏明确基本面催化剂前，股价可能继续在技术区间内整理。",
+          "source_ref_ids": [
+            "technical_1",
+            "quote_1"
+          ],
+          "observed_at": ""
+        }
+      ],
+      "watchpoints": [
+        {
+          "type": "dated_event",
+          "date": "2026-06-17",
+          "title": "美联储利率决议及政策声明",
+          "what_to_watch": "美联储将公布利率决议、FOMC经济预测并举行新闻发布会。",
+          "why_it_matters": "作为高估值的成长型科技股，特斯拉对宏观利率环境及流动性预期极为敏感。",
+          "confidence": "high",
+          "source_ref_ids": [
+            "macro_2",
+            "macro_3",
+            "macro_4"
+          ]
+        },
+        {
+          "type": "open_watchpoint",
+          "date": null,
+          "title": "SpaceX 与特斯拉合并传闻的官方态度",
+          "what_to_watch": "关注特斯拉官方或马斯克本人是否会对近期热议的两家公司合并传闻进行公开澄清或表态。",
+          "why_it_matters": "当前合并预期主要由投机和外部建议驱动，官方的明确表态将直接决定该预期对股价的后续扰动。",
+          "confidence": "medium",
+          "source_ref_ids": [
+            "news_2",
+            "news_3",
+            "news_6"
+          ]
+        }
+      ],
+      "event_candidates": [],
+      "source_refs": [
+        {
+          "id": "quote_1",
+          "type": "quote",
+          "title": "TSLA quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "technical_1",
+          "type": "technical",
+          "title": "TSLA technical snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "news_1",
+          "type": "news",
+          "title": "The Magnificent 7 Just Got Too Small For The AI Boom — Meet The FAB 10",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53210159/the-magnificent-7-just-got-too-small-for-the-ai-boom-meet-the-fab-10",
+          "published_at": "2026-06-15 16:01:04"
+        },
+        {
+          "id": "news_2",
+          "type": "news",
+          "title": "Why Tesla Might Need to Merge With SpaceX Sooner Rather Than Later",
+          "title_zh": "",
+          "url": "https://www.fool.com/investing/2026/06/15/why-tesla-might-need-to-merge-with-spacex-sooner-r/",
+          "published_at": "2026-06-15 16:00:00"
+        },
+        {
+          "id": "news_3",
+          "type": "news",
+          "title": "Why a SpaceX merger may not prove bullish for Tesla stock",
+          "title_zh": "",
+          "url": "https://invezz.com/news/2026/06/15/why-a-spacex-merger-may-not-prove-bullish-for-tesla-stock/",
+          "published_at": "2026-06-15 15:30:57"
+        },
+        {
+          "id": "news_4",
+          "type": "news",
+          "title": "SpaceX Traded More Than Apple, Microsoft, Tesla, Meta And Google Stocks Combined",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53208741/spacex-stock-ipo-traded-more-than-apple-microsoft-tesla-meta-google-combined",
+          "published_at": "2026-06-15 15:16:59"
+        },
+        {
+          "id": "news_5",
+          "type": "news",
+          "title": "The ‘Other' Elon Musk Stock Is Still Worth a Look",
+          "title_zh": "",
+          "url": "https://www.etftrends.com/leveraged-inverse-content-hub/the-other-elon-musk-stock-still-worth-look/",
+          "published_at": "2026-06-15 14:24:03"
+        },
+        {
+          "id": "news_6",
+          "type": "news",
+          "title": "Kalshi Traders See 49% Chance SpaceX and Tesla Will Merge Within a Year",
+          "title_zh": "",
+          "url": "https://www.fool.com/investing/2026/06/15/kalshi-traders-see-49-chance-spacex-and-tesla-will-merge-within-a-year/",
+          "published_at": "2026-06-15 11:43:54"
+        },
+        {
+          "id": "macro_1",
+          "type": "macro_event",
+          "title": "Housing Starts (May)",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-16 12:30:00"
+        },
+        {
+          "id": "macro_2",
+          "type": "macro_event",
+          "title": "Fed Interest Rate Decision",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_3",
+          "type": "macro_event",
+          "title": "FOMC Economic Projections",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_4",
+          "type": "macro_event",
+          "title": "Fed Press Conference",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:30:00"
+        }
+      ],
+      "top_signal": {
+        "type": "news",
+        "severity": "medium",
+        "title": "SpaceX 上市及合并传闻持续发酵",
+        "summary": "著名投资人公开建议马斯克合并特斯拉与 SpaceX，预测平台交易员显示一年内合并概率达49%。此前 SpaceX 挂牌上市，其单日交易量创下纪录，甚至超过了苹果、微软及特斯拉等多家巨头的总和。",
+        "why_it_matters": "合并传闻引发了市场对“科幻级”AI与航天帝国的想象，但分析师警告称此举不一定对特斯拉股东有利，短期内市场投机和传闻会加剧股价波动。",
+        "source_ref_ids": [
+          "news_2",
+          "news_3",
+          "news_4",
+          "news_6"
+        ],
+        "observed_at": ""
+      },
+      "next_watchpoint": {
+        "type": "dated_event",
+        "date": "2026-06-17",
+        "title": "美联储利率决议及政策声明",
+        "what_to_watch": "美联储将公布利率决议、FOMC经济预测并举行新闻发布会。",
+        "why_it_matters": "作为高估值的成长型科技股，特斯拉对宏观利率环境及流动性预期极为敏感。",
+        "confidence": "high",
+        "source_ref_ids": [
+          "macro_2",
+          "macro_3",
+          "macro_4"
+        ]
+      },
+      "generated_at": "2026-06-15T20:54:33+00:00",
+      "is_stale": false
+    },
+    {
+      "symbol": "AMZN",
+      "status": "watch",
+      "priority_score": 98,
+      "headline": "股价反弹3%但仍受制于短期均线，关注Anthropic监管风险及周三联储决议",
+      "ai_take": "亚马逊（AMZN）今日收涨3.16%至246.10美元，但近20日仍累计下跌7.1%，目前股价处于20日与50日均线下方，短期趋势偏弱，第一阻力位在247.78美元。基本面上，CEO贾西据报在Anthropic模型被勒令下线前向官员表达了安全担忧，这对其数百亿的AI投资投下阴影。此外，公司正加速推进350亿美元的印度基础设施建设以支持AWS增长。建议投资者关注本周美联储议息会议对科技股的宏观影响，并观察股价能否有效突破阻力位。",
+      "news_summary": "",
+      "technical_monitor": {
+        "summary": "",
+        "technical_view": {
+          "regime": "insufficient_data",
+          "verdict": "",
+          "trend": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "momentum": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "location": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "volatility": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          }
+        },
+        "signals": [],
+        "key_levels": {},
+        "updated_at": ""
+      },
+      "signal_types": [
+        "news",
+        "technical"
+      ],
+      "signals": [
+        {
+          "type": "news",
+          "severity": "medium",
+          "title": "首席执行官曾对Anthropic模型表达安全担忧",
+          "summary": "报道称在美政府强制Anthropic的新AI模型下线前，亚马逊CEO贾西曾向官员指出其安全风险。亚马逊已向该AI实验室投资数十亿美元，此举引发市场对双方合作关系的关注。",
+          "why_it_matters": "关系到亚马逊在AI赛道的核心技术押注，监管干预和模型下线可能影响AWS后续的AI功能部署和投资回报。",
+          "source_ref_ids": [
+            "news_3"
+          ],
+          "observed_at": "2026-06-15 13:11:53"
+        },
+        {
+          "type": "news",
+          "severity": "low",
+          "title": "加速推进350亿美元印度基础设施建设",
+          "summary": "亚马逊正在加大对印度的基础设施投资，总额达350亿美元，以配合AWS的强劲增长，但也带来了高额资本开支（Capex）的担忧。",
+          "why_it_matters": "长期有利于AWS拓展国际市场份额，但短期高额Capex可能对利润率和估值释放造成压力。",
+          "source_ref_ids": [
+            "news_6"
+          ],
+          "observed_at": "2026-06-15 11:36:12"
+        },
+        {
+          "type": "technical",
+          "severity": "low",
+          "title": "股价反弹至首个阻力位附近，中短期均线压制明显",
+          "summary": "今日股价反弹3.16%至246.10美元，逼近第一阻力位247.78美元。然而目前仍低于20日和50日均线，且20日内录得7.1%的跌幅，整体趋势偏向下行。",
+          "why_it_matters": "RSI处于43.3的偏中性偏弱区间。若无法突破247.78美元阻力，股价可能会继续向下测试226.88美元的第一支撑位。",
+          "source_ref_ids": [
+            "technical_1",
+            "quote_1"
+          ],
+          "observed_at": ""
+        }
+      ],
+      "watchpoints": [
+        {
+          "type": "dated_event",
+          "date": "2026-06-17",
+          "title": "美联储公布利率决议与经济预测",
+          "what_to_watch": "关注美联储是否维持利率在3.75%的预期，以及鲍威尔在发布会上对通胀和降息路径的表态。",
+          "why_it_matters": "作为高成长、高资本支出的科技巨头，亚马逊对利率敏感，宏观政策走向将直接影响科技板块估值。",
+          "confidence": "high",
+          "source_ref_ids": [
+            "macro_2",
+            "macro_3",
+            "macro_4"
+          ]
+        },
+        {
+          "type": "open_watchpoint",
+          "date": null,
+          "title": "Anthropic模型下线事件的后续进展",
+          "what_to_watch": "观察美政府下线Anthropic相关模型的政策执行细节，以及亚马逊如何调整其底层AI大模型的合作或自研策略。",
+          "why_it_matters": "AI是当前AWS增长的主要驱动力，监管不确定性可能拖累亚马逊的AI商业化进程。",
+          "confidence": "medium",
+          "source_ref_ids": [
+            "news_3"
+          ]
+        }
+      ],
+      "event_candidates": [],
+      "source_refs": [
+        {
+          "id": "quote_1",
+          "type": "quote",
+          "title": "AMZN quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "technical_1",
+          "type": "technical",
+          "title": "AMZN technical snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "news_1",
+          "type": "news",
+          "title": "The Magnificent 7 Just Got Too Small For The AI Boom — Meet The FAB 10",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53210159/the-magnificent-7-just-got-too-small-for-the-ai-boom-meet-the-fab-10",
+          "published_at": "2026-06-15 16:01:04"
+        },
+        {
+          "id": "news_2",
+          "type": "news",
+          "title": "Can Amazon Reach $300 Per Share Before Year-End 2026?",
+          "title_zh": "",
+          "url": "https://247wallst.com/investing/2026/06/15/can-amazon-reach-300-per-share-before-year-end-2026/",
+          "published_at": "2026-06-15 14:38:09"
+        },
+        {
+          "id": "news_3",
+          "type": "news",
+          "title": "Amazon CEO reportedly raised Anthropic Fable concerns prior to U.S. order forcing models offline",
+          "title_zh": "",
+          "url": "https://www.geekwire.com/2026/amazon-ceo-reportedly-raised-anthropic-fable-concerns-prior-to-u-s-order-forcing-models-offline/",
+          "published_at": "2026-06-15 13:11:53"
+        },
+        {
+          "id": "news_4",
+          "type": "news",
+          "title": "If You Put $500 a Month into This Tech ETF Since 2016, You Could Retire Tomorrow",
+          "title_zh": "",
+          "url": "https://247wallst.com/investing/2026/06/15/if-you-put-500-a-month-into-this-tech-etf-since-2016-you-could-retire-tomorrow/",
+          "published_at": "2026-06-15 12:23:13"
+        },
+        {
+          "id": "news_5",
+          "type": "news",
+          "title": "Summer Is Coming–But There's No End in Sight for This Crypto Winter",
+          "title_zh": "",
+          "url": "https://www.marketbeat.com/originals/summer-is-coming-but-theres-no-end-in-sight-for-this-crypto-winter/",
+          "published_at": "2026-06-15 11:40:32"
+        },
+        {
+          "id": "news_6",
+          "type": "news",
+          "title": "Amazon Accelerates India Infrastructure Push: How to Play the Stock",
+          "title_zh": "",
+          "url": "https://www.zacks.com/stock/news/2937358/amazon-accelerates-india-infrastructure-push-how-to-play-the-stock?cid=CS-STOCKNEWSAPI-FT-analyst_blog|most_popular_stocks-2937358",
+          "published_at": "2026-06-15 11:36:12"
+        },
+        {
+          "id": "macro_1",
+          "type": "macro_event",
+          "title": "Housing Starts (May)",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-16 12:30:00"
+        },
+        {
+          "id": "macro_2",
+          "type": "macro_event",
+          "title": "Fed Interest Rate Decision",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_3",
+          "type": "macro_event",
+          "title": "FOMC Economic Projections",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_4",
+          "type": "macro_event",
+          "title": "Fed Press Conference",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:30:00"
+        }
+      ],
+      "top_signal": {
+        "type": "news",
+        "severity": "medium",
+        "title": "首席执行官曾对Anthropic模型表达安全担忧",
+        "summary": "报道称在美政府强制Anthropic的新AI模型下线前，亚马逊CEO贾西曾向官员指出其安全风险。亚马逊已向该AI实验室投资数十亿美元，此举引发市场对双方合作关系的关注。",
+        "why_it_matters": "关系到亚马逊在AI赛道的核心技术押注，监管干预和模型下线可能影响AWS后续的AI功能部署和投资回报。",
+        "source_ref_ids": [
+          "news_3"
+        ],
+        "observed_at": "2026-06-15 13:11:53"
+      },
+      "next_watchpoint": {
+        "type": "dated_event",
+        "date": "2026-06-17",
+        "title": "美联储公布利率决议与经济预测",
+        "what_to_watch": "关注美联储是否维持利率在3.75%的预期，以及鲍威尔在发布会上对通胀和降息路径的表态。",
+        "why_it_matters": "作为高成长、高资本支出的科技巨头，亚马逊对利率敏感，宏观政策走向将直接影响科技板块估值。",
+        "confidence": "high",
+        "source_ref_ids": [
+          "macro_2",
+          "macro_3",
+          "macro_4"
+        ]
+      },
+      "generated_at": "2026-06-15T20:53:38+00:00",
+      "is_stale": false
+    },
+    {
+      "symbol": "GOOGL",
+      "status": "watch",
+      "priority_score": 92,
+      "headline": "谷歌收涨2.69%，15亿美元数据中心扩建及AI诉讼引发关注",
+      "ai_take": "Alphabet（GOOGL）今日收涨2.69%，报369.35美元。市场主要受到科技股整体反弹、15亿美元阿拉巴马州数据中心扩建计划以及公司针对AI诈骗网络提起诉讼等消息的推动。技术面上，目前股价呈现区间震荡，RSI为49.8，处于中性区域。股价目前处于20日均线下方但高于50日均线，趋势方向偏向侧向。分析指出其在AI资金投入上采取了稳健谨慎的“龟兔赛跑”策略。未来几天，除关注其基础设施落地进展外，还需密切留意6月17日美联储利率决议及宏观政策对科技巨头流动性的影响。",
+      "news_summary": "",
+      "technical_monitor": {
+        "summary": "",
+        "technical_view": {
+          "regime": "insufficient_data",
+          "verdict": "",
+          "trend": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "momentum": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "location": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "volatility": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          }
+        },
+        "signals": [],
+        "key_levels": {},
+        "updated_at": ""
+      },
+      "signal_types": [
+        "news",
+        "technical"
+      ],
+      "signals": [
+        {
+          "type": "news",
+          "severity": "medium",
+          "title": "15亿美元阿拉巴马州数据中心扩建计划",
+          "summary": "谷歌宣布投资15亿美元扩建其位于阿拉巴马州的数据中心，以进一步增强其基础设施实力。",
+          "why_it_matters": "大规模基础设施投资表明谷歌在应对AI时代算力需求方面正在稳步布局，有利于支撑其长期AI和云业务竞争力。",
+          "source_ref_ids": [
+            "news_6"
+          ],
+          "observed_at": "2026-06-15 14:37:29"
+        },
+        {
+          "type": "technical",
+          "severity": "low",
+          "title": "技术面呈区间震荡，均线趋向平缓",
+          "summary": "GOOGL目前收于369.35美元，RSI为49.8处于中性。20日均线为375.05美元，50日均线为363.73美元，整体走势偏向侧向调整。",
+          "why_it_matters": "虽然今日出现反弹，但股价尚未有效突破20日均线压力，短期内需关注50日均线附近的支撑力度。",
+          "source_ref_ids": [
+            "technical_1",
+            "quote_1"
+          ],
+          "observed_at": ""
+        },
+        {
+          "type": "news",
+          "severity": "low",
+          "title": "谷歌起诉利用AI构建钓鱼网站的诈骗网络",
+          "summary": "谷歌已向法院提起诉讼，指控一犯罪网络利用人工智能技术，以人类团队无法企及的速度和规模构建钓鱼诈骗网站以窃取密码等敏感信息。",
+          "why_it_matters": "这展现了AI技术被滥用所带来的合规和网络安全风险，也体现了谷歌在维护自身生态安全方面的法律行动。",
+          "source_ref_ids": [
+            "news_1"
+          ],
+          "observed_at": "2026-06-15 16:07:33"
+        }
+      ],
+      "watchpoints": [
+        {
+          "type": "dated_event",
+          "date": "2026-06-17",
+          "title": "美联储利率决议及政策声明",
+          "what_to_watch": "关注美联储将于6月17日公布的利率决议、FOMC经济预测（点阵图）以及随后的新闻发布会。",
+          "why_it_matters": "宏观利率走势和美联储对通胀与经济前景的表态将对包括谷歌在内的科技巨头估值产生深远影响。",
+          "confidence": "high",
+          "source_ref_ids": [
+            "macro_2",
+            "macro_3",
+            "macro_4"
+          ]
+        }
+      ],
+      "event_candidates": [],
+      "source_refs": [
+        {
+          "id": "quote_1",
+          "type": "quote",
+          "title": "GOOGL quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "technical_1",
+          "type": "technical",
+          "title": "GOOGL technical snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "news_1",
+          "type": "news",
+          "title": "AI Scam Surge Prompts Google to File Lawsuit",
+          "title_zh": "",
+          "url": "https://www.pymnts.com/cybersecurity/fraud-attack/2026/ai-scam-surge-prompts-google-to-file-lawsuit/",
+          "published_at": "2026-06-15 16:07:33"
+        },
+        {
+          "id": "news_2",
+          "type": "news",
+          "title": "The Magnificent 7 Just Got Too Small For The AI Boom — Meet The FAB 10",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53210159/the-magnificent-7-just-got-too-small-for-the-ai-boom-meet-the-fab-10",
+          "published_at": "2026-06-15 16:01:04"
+        },
+        {
+          "id": "news_3",
+          "type": "news",
+          "title": "Big Moves: GOOGL, RKLB, KLAC",
+          "title_zh": "",
+          "url": "https://www.youtube.com/watch?v=TZB__UDDsSs",
+          "published_at": "2026-06-15 16:00:14"
+        },
+        {
+          "id": "news_4",
+          "type": "news",
+          "title": "Bull v. Bear: GOOGL \"Tortoise and Hare\" AI Story",
+          "title_zh": "",
+          "url": "https://www.youtube.com/watch?v=56XFCOP6zzk",
+          "published_at": "2026-06-15 15:30:10"
+        },
+        {
+          "id": "news_5",
+          "type": "news",
+          "title": "SpaceX Traded More Than Apple, Microsoft, Tesla, Meta And Google Stocks Combined",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53208741/spacex-stock-ipo-traded-more-than-apple-microsoft-tesla-meta-google-combined",
+          "published_at": "2026-06-15 15:16:59"
+        },
+        {
+          "id": "news_6",
+          "type": "news",
+          "title": "What's Going On With Alphabet Stock Monday?",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53207569/whats-going-on-with-alphabet-stock-monday-2",
+          "published_at": "2026-06-15 14:37:29"
+        },
+        {
+          "id": "macro_1",
+          "type": "macro_event",
+          "title": "Housing Starts (May)",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-16 12:30:00"
+        },
+        {
+          "id": "macro_2",
+          "type": "macro_event",
+          "title": "Fed Interest Rate Decision",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_3",
+          "type": "macro_event",
+          "title": "FOMC Economic Projections",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_4",
+          "type": "macro_event",
+          "title": "Fed Press Conference",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:30:00"
+        }
+      ],
+      "top_signal": {
+        "type": "news",
+        "severity": "medium",
+        "title": "15亿美元阿拉巴马州数据中心扩建计划",
+        "summary": "谷歌宣布投资15亿美元扩建其位于阿拉巴马州的数据中心，以进一步增强其基础设施实力。",
+        "why_it_matters": "大规模基础设施投资表明谷歌在应对AI时代算力需求方面正在稳步布局，有利于支撑其长期AI和云业务竞争力。",
+        "source_ref_ids": [
+          "news_6"
+        ],
+        "observed_at": "2026-06-15 14:37:29"
+      },
+      "next_watchpoint": {
+        "type": "dated_event",
+        "date": "2026-06-17",
+        "title": "美联储利率决议及政策声明",
+        "what_to_watch": "关注美联储将于6月17日公布的利率决议、FOMC经济预测（点阵图）以及随后的新闻发布会。",
+        "why_it_matters": "宏观利率走势和美联储对通胀与经济前景的表态将对包括谷歌在内的科技巨头估值产生深远影响。",
+        "confidence": "high",
+        "source_ref_ids": [
+          "macro_2",
+          "macro_3",
+          "macro_4"
+        ]
+      },
+      "generated_at": "2026-06-15T20:53:04+00:00",
+      "is_stale": false
+    },
+    {
+      "symbol": "MSFT",
+      "status": "watch",
+      "priority_score": 84,
+      "headline": "股价企稳于关键支撑位上方，面临律所集体诉讼与美联储宏观决议考验",
+      "ai_take": "微软今日股价反弹2.31%至399.76美元，勉强守住398.01美元的第一支撑位。然而其技术面整体偏弱，目前承压于20日、50日及200日均线下方，趋势仍为下行。消息面上，Rosen律所针对微软在2025年5月1日至2026年1月28日期间的证券欺诈行为发起集体诉讼，虽然此类诉讼在美股较为常见，但仍会带来情绪面的波动。由于未来几天市场将迎来美联储利率决议及宏观经济预测，高估值科技股整体情绪偏向谨慎。建议投资者未来一周重点关注398美元关键支撑位的防守情况，不宜盲目追高。",
+      "news_summary": "",
+      "technical_monitor": {
+        "summary": "",
+        "technical_view": {
+          "regime": "insufficient_data",
+          "verdict": "",
+          "trend": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "momentum": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "location": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          },
+          "volatility": {
+            "label": "",
+            "state": "",
+            "explanation": ""
+          }
+        },
+        "signals": [],
+        "key_levels": {},
+        "updated_at": ""
+      },
+      "signal_types": [
+        "technical",
+        "news"
+      ],
+      "signals": [
+        {
+          "type": "technical",
+          "severity": "medium",
+          "title": "股价承压于多条均线下方，测试398.01美元关键支撑",
+          "summary": "微软目前均线呈混合排列，下行趋势强度为18。虽然收盘回升至399.76美元，但仍显著低于20日均线（418.64美元）和50日均线（412.32美元），正逼近第一支撑位398.01美元。",
+          "why_it_matters": "398.01美元是短期内的重要心理与技术防线，一旦收盘失守，可能会加速向下方更深的技术位靠拢，加剧短期筑底压力。",
+          "source_ref_ids": [
+            "technical_1",
+            "quote_1"
+          ],
+          "observed_at": ""
+        },
+        {
+          "type": "news",
+          "severity": "low",
+          "title": "多家律所就证券欺诈行为发起集体诉讼",
+          "summary": "Rosen等律师事务所宣布，代表在2025年5月1日至2026年1月28日期间购买微软股票的投资者发起集体诉讼诉讼，指控其存在证券欺诈行为并呼吁投资者联系律所。",
+          "why_it_matters": "这类集体诉讼属于美股市场常见的法律诉讼流程，通常在早期不会对微软的实际业务运营和基本面造成实质性破坏，但短期内会形成负面的舆论噪音。",
+          "source_ref_ids": [
+            "news_3",
+            "news_5",
+            "news_6"
+          ],
+          "observed_at": ""
+        }
+      ],
+      "watchpoints": [
+        {
+          "type": "dated_event",
+          "date": "2026-06-17",
+          "title": "美联储利率决议及经济预测公布",
+          "what_to_watch": "关注美联储将于美东时间2026年6月17日下午公布的利率决议、FOMC经济预测以及随后的新闻发布会。",
+          "why_it_matters": "微软作为万亿美元级别的巨头，其估值逻辑对美债收益率及美联储的降息预期极度敏感，美联储的表态将决定成长股分母端面临的宏观压力是否得以释放。",
+          "confidence": "high",
+          "source_ref_ids": [
+            "macro_2",
+            "macro_3",
+            "macro_4"
+          ]
+        },
+        {
+          "type": "open_watchpoint",
+          "date": null,
+          "title": "398.01美元支撑位防守及成交量配合",
+          "what_to_watch": "关注未来几个交易日，微软股价是否能在398.01美元上方企稳，以及在支撑位附近的成交量是否出现异动或缩量止跌信号。",
+          "why_it_matters": "如果股价在398.01美元上方成功获得支撑，意味着市场存在部分抄底资金，股价有望进入箱体震荡；若放量跌破，则需提防技术性抛盘。",
+          "confidence": "medium",
+          "source_ref_ids": [
+            "technical_1"
+          ]
+        }
+      ],
+      "event_candidates": [],
+      "source_refs": [
+        {
+          "id": "quote_1",
+          "type": "quote",
+          "title": "MSFT quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "technical_1",
+          "type": "technical",
+          "title": "MSFT technical snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "news_1",
+          "type": "news",
+          "title": "The Magnificent 7 Just Got Too Small For The AI Boom — Meet The FAB 10",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53210159/the-magnificent-7-just-got-too-small-for-the-ai-boom-meet-the-fab-10",
+          "published_at": "2026-06-15 16:01:04"
+        },
+        {
+          "id": "news_2",
+          "type": "news",
+          "title": "MSFT Investors Have Opportunity to Lead Microsoft Corporation Securities Fraud Lawsuit",
+          "title_zh": "",
+          "url": "https://www.gurufocus.com/news/8916908/msft-investors-have-opportunity-to-lead-microsoft-corporation-securities-fraud-lawsuit",
+          "published_at": "2026-06-15 16:00:00"
+        },
+        {
+          "id": "news_3",
+          "type": "news",
+          "title": "MSFT Investors Have Opportunity to Lead Microsoft Corporation Securities Fraud Lawsuit",
+          "title_zh": "",
+          "url": "https://www.prnewswire.com/news-releases/msft-investors-have-opportunity-to-lead-microsoft-corporation-securities-fraud-lawsuit-302800626.html",
+          "published_at": "2026-06-15 15:24:00"
+        },
+        {
+          "id": "news_4",
+          "type": "news",
+          "title": "SpaceX Traded More Than Apple, Microsoft, Tesla, Meta And Google Stocks Combined",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53208741/spacex-stock-ipo-traded-more-than-apple-microsoft-tesla-meta-google-combined",
+          "published_at": "2026-06-15 15:16:59"
+        },
+        {
+          "id": "news_5",
+          "type": "news",
+          "title": "Rosen Law Firm Urges Microsoft Corporation (NASDAQ: MSFT) Stockholders to Contact the Firm for Information About Their Rights",
+          "title_zh": "",
+          "url": "https://www.gurufocus.com/news/8916797/rosen-law-firm-urges-microsoft-corporation-nasdaq-msft-stockholders-to-contact-the-firm-for-information-about-their-rights",
+          "published_at": "2026-06-15 14:00:00"
+        },
+        {
+          "id": "news_6",
+          "type": "news",
+          "title": "Rosen Law Firm Urges Microsoft Corporation (NASDAQ: MSFT) Stockholders to Contact the Firm for Information About Their Rights",
+          "title_zh": "",
+          "url": "https://www.businesswire.com/news/home/20260615405006/en/Rosen-Law-Firm-Urges-Microsoft-Corporation-NASDAQ-MSFT-Stockholders-to-Contact-the-Firm-for-Information-About-Their-Rights/",
+          "published_at": "2026-06-15 13:28:00"
+        },
+        {
+          "id": "macro_1",
+          "type": "macro_event",
+          "title": "Housing Starts (May)",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-16 12:30:00"
+        },
+        {
+          "id": "macro_2",
+          "type": "macro_event",
+          "title": "Fed Interest Rate Decision",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_3",
+          "type": "macro_event",
+          "title": "FOMC Economic Projections",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_4",
+          "type": "macro_event",
+          "title": "Fed Press Conference",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:30:00"
+        }
+      ],
+      "top_signal": {
+        "type": "technical",
+        "severity": "medium",
+        "title": "股价承压于多条均线下方，测试398.01美元关键支撑",
+        "summary": "微软目前均线呈混合排列，下行趋势强度为18。虽然收盘回升至399.76美元，但仍显著低于20日均线（418.64美元）和50日均线（412.32美元），正逼近第一支撑位398.01美元。",
+        "why_it_matters": "398.01美元是短期内的重要心理与技术防线，一旦收盘失守，可能会加速向下方更深的技术位靠拢，加剧短期筑底压力。",
+        "source_ref_ids": [
+          "technical_1",
+          "quote_1"
+        ],
+        "observed_at": ""
+      },
+      "next_watchpoint": {
+        "type": "dated_event",
+        "date": "2026-06-17",
+        "title": "美联储利率决议及经济预测公布",
+        "what_to_watch": "关注美联储将于美东时间2026年6月17日下午公布的利率决议、FOMC经济预测以及随后的新闻发布会。",
+        "why_it_matters": "微软作为万亿美元级别的巨头，其估值逻辑对美债收益率及美联储的降息预期极度敏感，美联储的表态将决定成长股分母端面临的宏观压力是否得以释放。",
+        "confidence": "high",
+        "source_ref_ids": [
+          "macro_2",
+          "macro_3",
+          "macro_4"
+        ]
+      },
+      "generated_at": "2026-06-15T20:52:47+00:00",
+      "is_stale": false
+    },
+    {
+      "symbol": "AAPL",
+      "status": "watch",
+      "priority_score": 81,
+      "headline": "科技股反弹背景下收涨1.82%，技术面布林带收窄等待方向选择",
+      "ai_take": "苹果今日随科技股整体反弹而收涨1.82%，收于296.42美元。在纳斯达克100指数大涨3.14%和科技板块强势上攻的背景下，苹果的表现相对滞后，说明资金在反弹中更倾向于其他弹性更强的标的。技术面上，当前股价仍处于20日均线（303.69美元）下方，短期趋势依然承压；但布林带已出现明显收窄，暗示波动性在极度压缩后，短期内可能迎来方向性突破。未来14天内，投资者应重点关注即将到来的美联储利率决议对大盘流动性的影响，并紧密跟踪股价在266.95美元至317.40美元区间内的突破动能。",
+      "news_summary": "过去24小时的英文舆情主要侧重于对苹果长期基本面和市场地位的宏观讨论。有市场观点提出了“FAB 10”（前沿AI与大科技十巨头）概念来取代原有的“七巨头”，苹果依然被视为不可或缺的核心。此外，分析师针对苹果股价能否在2028年达到400美元展开辩论，提及iPhone 17的需求潜力及创纪录的业务表现。市场上对伯克希尔此前在WWDC前夕减持苹果股票的举动仍有持续讨论，但短期内并无重大的单一公司新闻，股价表现更多由科技板块贝塔及宏观利率预期主导。",
+      "technical_monitor": {
+        "summary": "技术面整体偏弱：价格仍在短期均线下方，趋势承压；动能上，RSI 14 为 49.5，处于中性区间，MACD 柱体收敛，短线动能有所降温；价位上，当前价 $296.42，最近支撑 $266.95，最近阻力 $317.40；今日硬信号包括 布林带收窄。",
+        "technical_view": {
+          "regime": "pullback",
+          "verdict": "当前技术面处在回调观察阶段，趋势尚未完全扭转，但短期均线和支撑位的得失会决定后续方向。趋势上，当前为承压，价格仍在短期均线下方运行，说明趋势尚未摆脱下行压力。关键均线：当前价 $296.42 / MA20 $303.69 / MA50 $286.30 / MA200 $267.20。动能上，当前为中性，动能没有进入明显过热或过冷区间，方向更多取决于价格能否突破或跌破关键位。指标读数：RSI 14 为 49.5；MACD 柱体收敛，短线动能有所降温。位置上，当前为区间中部，价格位于支撑 $266.95 与阻力 $317.40 之间，短线还在等待方向选择。波动上，当前为收敛，布林带宽度低于近 20 日均值，说明波动正在压缩，后续一旦突破或跌破，波动可能放大。成交量约为 20 日均量的 0.9 倍。",
+          "trend": {
+            "label": "趋势",
+            "state": "承压",
+            "explanation": "价格仍在短期均线下方运行，说明趋势尚未摆脱下行压力。关键均线：当前价 $296.42 / MA20 $303.69 / MA50 $286.30 / MA200 $267.20。"
+          },
+          "momentum": {
+            "label": "动能",
+            "state": "中性",
+            "explanation": "动能没有进入明显过热或过冷区间，方向更多取决于价格能否突破或跌破关键位。指标读数：RSI 14 为 49.5；MACD 柱体收敛，短线动能有所降温。"
+          },
+          "location": {
+            "label": "位置",
+            "state": "区间中部",
+            "explanation": "价格位于支撑 $266.95 与阻力 $317.40 之间，短线还在等待方向选择。"
+          },
+          "volatility": {
+            "label": "波动",
+            "state": "收敛",
+            "explanation": "布林带宽度低于近 20 日均值，说明波动正在压缩，后续一旦突破或跌破，波动可能放大。成交量约为 20 日均量的 0.9 倍。"
+          }
+        },
+        "signals": [
+          {
+            "id": "bb_squeeze",
+            "category": "volatility",
+            "title": "布林带收窄",
+            "detail": "布林带宽度低于近 20 日均值，后续可能出现波动放大。",
+            "price": 296.42,
+            "reference": null
+          }
+        ],
+        "key_levels": {
+          "sma_20": 303.69,
+          "sma_50": 286.3,
+          "sma_200": 267.2,
+          "bb_lower": 288.46,
+          "bb_upper": 318.92,
+          "support_1": 266.95,
+          "support_2": 265.32,
+          "resistance_1": 317.4,
+          "resistance_2": null,
+          "current_price": 296.42
+        },
+        "updated_at": "2026-06-15"
+      },
+      "signal_types": [
+        "technical",
+        "macro_sector"
+      ],
+      "signals": [
+        {
+          "type": "technical",
+          "severity": "medium",
+          "title": "布林带收窄，静待区间突破",
+          "summary": "布林带宽度低于近 20 日均值，表明近期股价波动受到压缩。",
+          "why_it_matters": "波动压缩后通常会迎来方向选择，放量突破 317.40 美元或跌破 266.95 美元都将决定后续的中线结构。",
+          "source_ref_ids": [
+            "technical_1"
+          ],
+          "observed_at": ""
+        },
+        {
+          "type": "macro_sector",
+          "severity": "low",
+          "title": "大科技股普涨，苹果反弹力度相对偏弱",
+          "summary": "在科技板块代指基金 XLK 上涨 3.78% 以及纳指上涨 3.14% 的情况下，苹果仅收涨 1.82%。",
+          "why_it_matters": "这表明大盘在风险偏好回暖时，苹果并非首要获益的资金流向目的地，短期动能略逊于同行。",
+          "source_ref_ids": [
+            "market_1",
+            "quote_1"
+          ],
+          "observed_at": ""
+        }
+      ],
+      "watchpoints": [
+        {
+          "type": "dated_event",
+          "date": "2026-06-17",
+          "title": "美联储利率决议及经济预测",
+          "what_to_watch": "关注 FOMC 利率决议、经济预测披露以及美联储主席的新闻发布会，重点看对高估值科技股估值的扰动。",
+          "why_it_matters": "作为核心宏观事件，其结果直接影响整个科技板块的折现率、风险偏好及市场资金的整体流向。",
+          "confidence": "high",
+          "source_ref_ids": [
+            "macro_2",
+            "macro_3",
+            "macro_4"
+          ]
+        },
+        {
+          "type": "open_watchpoint",
+          "date": null,
+          "title": "20日均线及上方压力位的突破确认",
+          "what_to_watch": "观察反弹时能否放量向上突破 20 日均线（303.69美元）及第一阻力位 317.40 美元。",
+          "why_it_matters": "如果能够有效向上收复，将打破目前短期偏弱的均线结构，扭转此前的下行压力并打开上行空间。",
+          "confidence": "medium",
+          "source_ref_ids": [
+            "technical_1"
+          ]
+        }
+      ],
+      "event_candidates": [
+        {
+          "id": "aapl_6cbf00ef64",
+          "symbol": "AAPL",
+          "event_type": "macro",
+          "event_date": "2026-06-17",
+          "date_precision": "exact",
+          "title": "FOMC 利率决议与经济预测",
+          "summary": "美联储同日公布利率决议、经济预测并召开新闻发布会，需要合并视为一个宏观事件包。",
+          "why_it_matters": "它不是公司自身事件，但会直接影响高估值成长股的折现率、风险偏好和半导体板块估值环境。",
+          "status": "scheduled",
+          "confidence": "high",
+          "source_ref_ids": [
+            "macro_2",
+            "macro_3",
+            "macro_4"
+          ],
+          "source_type": "macro_calendar",
+          "dedupe_key": "AAPL:macro:2026-06-17:fomc-meeting",
+          "metadata": {
+            "events": [
+              "FOMC Economic Projections",
+              "Fed Interest Rate Decision",
+              "Fed Press Conference"
+            ]
+          }
+        },
+        {
+          "id": "aapl_d3544cbe8b",
+          "symbol": "AAPL",
+          "event_type": "technical_trigger",
+          "event_date": null,
+          "date_precision": "unknown",
+          "title": "技术观察：布林带收窄",
+          "summary": "布林带宽度低于近 20 日均值，后续可能出现波动放大。 未来几个交易日重点看该结构是否被价格继续确认或反转。",
+          "why_it_matters": "这不是公司日程，只作为未来技术面观察点保留一条，避免事件清单被技术信号淹没。",
+          "status": "tentative",
+          "confidence": "medium",
+          "source_ref_ids": [
+            "technical_1"
+          ],
+          "source_type": "technical_snapshot",
+          "dedupe_key": "AAPL:technical_trigger:watch_next_setup",
+          "metadata": {
+            "price": 296.42,
+            "category": "volatility",
+            "reference": null,
+            "technical_signal_id": "bb_squeeze"
+          }
+        }
+      ],
+      "source_refs": [
+        {
+          "id": "quote_1",
+          "type": "quote",
+          "title": "AAPL quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "technical_1",
+          "type": "technical",
+          "title": "AAPL technical snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "market_1",
+          "type": "market",
+          "title": "Market benchmark quote snapshot",
+          "title_zh": "",
+          "url": "",
+          "published_at": ""
+        },
+        {
+          "id": "news_1",
+          "type": "news",
+          "title": "The Magnificent 7 Just Got Too Small For The AI Boom — Meet The FAB 10",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53210159/the-magnificent-7-just-got-too-small-for-the-ai-boom-meet-the-fab-10",
+          "published_at": "2026-06-15 16:01:04"
+        },
+        {
+          "id": "news_2",
+          "type": "news",
+          "title": "SpaceX Traded More Than Apple, Microsoft, Tesla, Meta And Google Stocks Combined",
+          "title_zh": "",
+          "url": "https://www.benzinga.com/trading-ideas/movers/26/06/53208741/spacex-stock-ipo-traded-more-than-apple-microsoft-tesla-meta-google-combined",
+          "published_at": "2026-06-15 15:16:59"
+        },
+        {
+          "id": "news_3",
+          "type": "news",
+          "title": "64 Years of Raises: How DGRO Finds Companies That Never Cut Dividends",
+          "title_zh": "",
+          "url": "https://247wallst.com/investing/2026/06/15/64-years-of-raises-how-dgro-finds-companies-that-never-cut-dividends/",
+          "published_at": "2026-06-15 12:56:00"
+        },
+        {
+          "id": "news_4",
+          "type": "news",
+          "title": "Summer Is Coming–But There's No End in Sight for This Crypto Winter",
+          "title_zh": "",
+          "url": "https://www.marketbeat.com/originals/summer-is-coming-but-theres-no-end-in-sight-for-this-crypto-winter/",
+          "published_at": "2026-06-15 11:40:32"
+        },
+        {
+          "id": "news_5",
+          "type": "news",
+          "title": "Is Apple (AAPL) a Buy as Wall Street Analysts Look Optimistic?",
+          "title_zh": "",
+          "url": "https://www.zacks.com/stock/news/2937185/is-apple-aapl-a-buy-as-wall-street-analysts-look-optimistic?cid=CS-STOCKNEWSAPI-FT-fundamental_analysis|average_broker_rating-2937185",
+          "published_at": "2026-06-15 10:31:14"
+        },
+        {
+          "id": "news_6",
+          "type": "news",
+          "title": "Can Apple Stock Reach $400 by 2028? Wall Street Says Maybe",
+          "title_zh": "",
+          "url": "https://247wallst.com/investing/2026/06/15/can-apple-stock-reach-400-by-2028-wall-street-says-maybe/",
+          "published_at": "2026-06-15 10:24:17"
+        },
+        {
+          "id": "news_7",
+          "type": "news",
+          "title": "Given the News Out of WWDC, Was Warren Buffett Right to Sell Apple Stock?",
+          "title_zh": "",
+          "url": "https://www.fool.com/investing/2026/06/14/after-wwdc-warren-buffett-right-sell-apple-stock/",
+          "published_at": "2026-06-14 08:45:00"
+        },
+        {
+          "id": "macro_1",
+          "type": "macro_event",
+          "title": "Housing Starts (May)",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-16 12:30:00"
+        },
+        {
+          "id": "macro_2",
+          "type": "macro_event",
+          "title": "FOMC Economic Projections",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_3",
+          "type": "macro_event",
+          "title": "Fed Interest Rate Decision",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:00:00"
+        },
+        {
+          "id": "macro_4",
+          "type": "macro_event",
+          "title": "Fed Press Conference",
+          "title_zh": "",
+          "url": "",
+          "published_at": "2026-06-17 18:30:00"
+        }
+      ],
+      "top_signal": {
+        "type": "technical",
+        "severity": "medium",
+        "title": "布林带收窄，静待区间突破",
+        "summary": "布林带宽度低于近 20 日均值，表明近期股价波动受到压缩。",
+        "why_it_matters": "波动压缩后通常会迎来方向选择，放量突破 317.40 美元或跌破 266.95 美元都将决定后续的中线结构。",
+        "source_ref_ids": [
+          "technical_1"
+        ],
+        "observed_at": ""
+      },
+      "next_watchpoint": {
+        "type": "dated_event",
+        "date": "2026-06-17",
+        "title": "美联储利率决议及经济预测",
+        "what_to_watch": "关注 FOMC 利率决议、经济预测披露以及美联储主席的新闻发布会，重点看对高估值科技股估值的扰动。",
+        "why_it_matters": "作为核心宏观事件，其结果直接影响整个科技板块的折现率、风险偏好及市场资金的整体流向。",
+        "confidence": "high",
+        "source_ref_ids": [
+          "macro_2",
+          "macro_3",
+          "macro_4"
+        ]
+      },
+      "generated_at": "2026-06-16T03:29:24+00:00",
+      "is_stale": false
+    }
+  ],
+  "future_watchpoints": [
+    {
+      "type": "dated_event",
+      "date": "2026-06-17",
+      "title": "美联储利率决议及经济预测",
+      "what_to_watch": "关注 FOMC 利率决议、经济预测披露以及美联储主席的新闻发布会，重点看对高估值科技股估值的扰动。",
+      "why_it_matters": "作为核心宏观事件，其结果直接影响整个科技板块的折现率、风险偏好及市场资金的整体流向。",
+      "confidence": "high",
+      "source_ref_ids": [
+        "macro_2",
+        "macro_3",
+        "macro_4"
+      ]
+    },
+    {
+      "type": "open_watchpoint",
+      "date": null,
+      "title": "20日均线及上方压力位的突破确认",
+      "what_to_watch": "观察反弹时能否放量向上突破 20 日均线（303.69美元）及第一阻力位 317.40 美元。",
+      "why_it_matters": "如果能够有效向上收复，将打破目前短期偏弱的均线结构，扭转此前的下行压力并打开上行空间。",
+      "confidence": "medium",
+      "source_ref_ids": [
+        "technical_1"
+      ]
+    },
+    {
+      "type": "dated_event",
+      "date": "2026-06-17",
+      "title": "美联储利率决议及经济预测公布",
+      "what_to_watch": "关注美联储将于美东时间2026年6月17日下午公布的利率决议、FOMC经济预测以及随后的新闻发布会。",
+      "why_it_matters": "微软作为万亿美元级别的巨头，其估值逻辑对美债收益率及美联储的降息预期极度敏感，美联储的表态将决定成长股分母端面临的宏观压力是否得以释放。",
+      "confidence": "high",
+      "source_ref_ids": [
+        "macro_2",
+        "macro_3",
+        "macro_4"
+      ]
+    },
+    {
+      "type": "open_watchpoint",
+      "date": null,
+      "title": "398.01美元支撑位防守及成交量配合",
+      "what_to_watch": "关注未来几个交易日，微软股价是否能在398.01美元上方企稳，以及在支撑位附近的成交量是否出现异动或缩量止跌信号。",
+      "why_it_matters": "如果股价在398.01美元上方成功获得支撑，意味着市场存在部分抄底资金，股价有望进入箱体震荡；若放量跌破，则需提防技术性抛盘。",
+      "confidence": "medium",
+      "source_ref_ids": [
+        "technical_1"
+      ]
+    },
+    {
+      "type": "dated_event",
+      "date": "2026-06-17",
+      "title": "美联储利率决议及政策声明",
+      "what_to_watch": "关注美联储将于6月17日公布的利率决议、FOMC经济预测（点阵图）以及随后的新闻发布会。",
+      "why_it_matters": "宏观利率走势和美联储对通胀与经济前景的表态将对包括谷歌在内的科技巨头估值产生深远影响。",
+      "confidence": "high",
+      "source_ref_ids": [
+        "macro_2",
+        "macro_3",
+        "macro_4"
+      ]
+    },
+    {
+      "type": "dated_event",
+      "date": "2026-06-17",
+      "title": "美联储公布利率决议与经济预测",
+      "what_to_watch": "关注美联储是否维持利率在3.75%的预期，以及鲍威尔在发布会上对通胀和降息路径的表态。",
+      "why_it_matters": "作为高成长、高资本支出的科技巨头，亚马逊对利率敏感，宏观政策走向将直接影响科技板块估值。",
+      "confidence": "high",
+      "source_ref_ids": [
+        "macro_2",
+        "macro_3",
+        "macro_4"
+      ]
+    },
+    {
+      "type": "open_watchpoint",
+      "date": null,
+      "title": "Anthropic模型下线事件的后续进展",
+      "what_to_watch": "观察美政府下线Anthropic相关模型的政策执行细节，以及亚马逊如何调整其底层AI大模型的合作或自研策略。",
+      "why_it_matters": "AI是当前AWS增长的主要驱动力，监管不确定性可能拖累亚马逊的AI商业化进程。",
+      "confidence": "medium",
+      "source_ref_ids": [
+        "news_3"
+      ]
+    },
+    {
+      "type": "open_watchpoint",
+      "date": null,
+      "title": "AI搜索变现进展跟踪",
+      "what_to_watch": "关注Meta AI搜索功能的用户采用率、广告主反馈及管理层对变现时间表的评论。",
+      "why_it_matters": "美银指出新兴变现机会，若成功可能成为新的收入增长引擎，但具体路径尚不明确。",
+      "confidence": "medium",
+      "source_ref_ids": [
+        "news_4",
+        "news_8"
+      ]
+    },
+    {
+      "type": "open_watchpoint",
+      "date": null,
+      "title": "机构多空分歧演变",
+      "what_to_watch": "观察Oppenheimer卖出建议后是否有其他机构跟进下调评级，以及Ackman等买方后续操作。",
+      "why_it_matters": "当前多空观点并存，机构动向可能影响短期股价波动和投资者情绪。",
+      "confidence": "medium",
+      "source_ref_ids": [
+        "news_2",
+        "news_11"
+      ]
+    },
+    {
+      "type": "dated_event",
+      "date": "2026-06-17",
+      "title": "美联储利率决议及经济展望发布",
+      "what_to_watch": "美联储将公布利率决议、经济预测图（点阵图）并召开新闻发布会。重点关注未来利率路径变动及其对高估值科技板块的宏观流动性影响。",
+      "why_it_matters": "利率走势将直接影响科技巨头债务融资的成本预期及成长股的估值水平。",
+      "confidence": "high",
+      "source_ref_ids": [
+        "macro_2",
+        "macro_3",
+        "macro_4"
+      ]
+    }
+  ],
+  "future_event_candidates": [
+    {
+      "id": "aapl_6cbf00ef64",
+      "symbol": "AAPL",
+      "event_type": "macro",
+      "event_date": "2026-06-17",
+      "date_precision": "exact",
+      "title": "FOMC 利率决议与经济预测",
+      "summary": "美联储同日公布利率决议、经济预测并召开新闻发布会，需要合并视为一个宏观事件包。",
+      "why_it_matters": "它不是公司自身事件，但会直接影响高估值成长股的折现率、风险偏好和半导体板块估值环境。",
+      "status": "scheduled",
+      "confidence": "high",
+      "source_ref_ids": [
+        "macro_2",
+        "macro_3",
+        "macro_4"
+      ],
+      "source_type": "macro_calendar",
+      "dedupe_key": "AAPL:macro:2026-06-17:fomc-meeting",
+      "metadata": {
+        "events": [
+          "FOMC Economic Projections",
+          "Fed Interest Rate Decision",
+          "Fed Press Conference"
+        ]
+      }
+    },
+    {
+      "id": "aapl_d3544cbe8b",
+      "symbol": "AAPL",
+      "event_type": "technical_trigger",
+      "event_date": null,
+      "date_precision": "unknown",
+      "title": "技术观察：布林带收窄",
+      "summary": "布林带宽度低于近 20 日均值，后续可能出现波动放大。 未来几个交易日重点看该结构是否被价格继续确认或反转。",
+      "why_it_matters": "这不是公司日程，只作为未来技术面观察点保留一条，避免事件清单被技术信号淹没。",
+      "status": "tentative",
+      "confidence": "medium",
+      "source_ref_ids": [
+        "technical_1"
+      ],
+      "source_type": "technical_snapshot",
+      "dedupe_key": "AAPL:technical_trigger:watch_next_setup",
+      "metadata": {
+        "price": 296.42,
+        "category": "volatility",
+        "reference": null,
+        "technical_signal_id": "bb_squeeze"
+      }
+    },
+    {
+      "id": "meta_39ba90988d",
+      "symbol": "META",
+      "event_type": "macro",
+      "event_date": "2026-06-17",
+      "date_precision": "exact",
+      "title": "FOMC 利率决议与经济预测",
+      "summary": "美联储同日公布利率决议、经济预测并召开新闻发布会，需要合并视为一个宏观事件包。",
+      "why_it_matters": "它不是公司自身事件，但会直接影响高估值成长股的折现率、风险偏好和半导体板块估值环境。",
+      "status": "scheduled",
+      "confidence": "high",
+      "source_ref_ids": [
+        "macro_3",
+        "macro_4",
+        "macro_5"
+      ],
+      "source_type": "macro_calendar",
+      "dedupe_key": "META:macro:2026-06-17:fomc-meeting",
+      "metadata": {
+        "events": [
+          "Fed Interest Rate Decision",
+          "FOMC Economic Projections",
+          "Fed Press Conference"
+        ]
+      }
+    }
+  ],
+  "freshness": {
+    "ai_generated_at": "2026-06-16T19:41:12+00:00",
+    "quotes_updated_at": null,
+    "social_updated_at": null,
+    "events_updated_at": null
+  },
+  "missing_symbols": []
+}
