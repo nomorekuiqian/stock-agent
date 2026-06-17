@@ -302,8 +302,7 @@ function buildDetailedOverviewSummary(
   const base = ensureSentenceEnd(
     (overviewSummary && !isMostlyEnglishDiscussionText(overviewSummary)
       ? overviewSummary
-      : "") ||
-      `${symbol} 过去 24 小时共有 ${overview.tweet_count} 条讨论。`,
+      : "") || `${symbol} 过去 24 小时共有 ${overview.tweet_count} 条讨论。`,
   );
   const structure = `样本覆盖 ${overview.tweet_count} 条讨论、${overview.author_count} 位作者；其中偏多 ${overview.bull_count} 条、偏空 ${overview.bear_count} 条、中性 ${overview.neutral_count} 条，整体主导情绪为${stanceText}。`;
 
@@ -324,9 +323,7 @@ function buildFallbackDiscussionSummary(
   tweets: TwitterTickerDiscussionTweet[],
 ) {
   const authors = new Set(
-    tweets
-      .map((tweet) => tweet.author_username?.toLowerCase())
-      .filter(Boolean),
+    tweets.map((tweet) => tweet.author_username?.toLowerCase()).filter(Boolean),
   );
   const counts = tweets.reduce(
     (acc, tweet) => {
@@ -540,6 +537,10 @@ function getMonitorFreshness(row: MonitorTickerRow): MonitorFreshness {
       "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     dotClassName: "bg-primary",
   };
+}
+
+function shouldShowMonitorFreshnessBadge(row: MonitorTickerRow) {
+  return !row.generated_at || row.is_stale;
 }
 
 type FutureEventItems = {
@@ -1532,6 +1533,7 @@ function TickerListItem({
   canRemove: boolean;
 }) {
   const freshness = getMonitorFreshness(row);
+  const showFreshnessBadge = shouldShowMonitorFreshnessBadge(row);
 
   return (
     <div
@@ -1554,11 +1556,13 @@ function TickerListItem({
             <span className="font-data text-base font-semibold text-foreground transition-colors duration-200 group-hover:text-primary motion-reduce:transition-none">
               {row.symbol}
             </span>
-            <span
-              className={`shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium ${freshness.badgeClassName}`}
-            >
-              {freshness.label}
-            </span>
+            {showFreshnessBadge && (
+              <span
+                className={`shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium ${freshness.badgeClassName}`}
+              >
+                {freshness.label}
+              </span>
+            )}
           </span>
           <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">
             {row.headline || freshness.description}
@@ -2179,6 +2183,7 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
     quote?.price ?? row.technical_monitor?.key_levels?.current_price;
   const dailyChange = quote?.daily_change;
   const freshness = getMonitorFreshness(row);
+  const showFreshnessBadge = shouldShowMonitorFreshnessBadge(row);
 
   return (
     <div className="space-y-4">
@@ -2193,11 +2198,13 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
                     {row.symbol}
                   </span>
                 </div>
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-xs font-medium ${freshness.badgeClassName}`}
-                >
-                  {freshness.label}
-                </span>
+                {showFreshnessBadge && (
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${freshness.badgeClassName}`}
+                  >
+                    {freshness.label}
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" aria-hidden />
                   {freshness.description}
