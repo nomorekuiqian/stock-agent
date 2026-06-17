@@ -196,36 +196,6 @@ const JOBS = {
       },
     }],
   },
-  watchlist_monitor_test_universe: {
-    description: "Generate AI watchlist monitor briefs for the limited test-user universe",
-    steps: [{
-      name: "watchlist_monitor_test_universe",
-      path: "/api/admin/watchlist-monitor/generate-test-universe",
-      body: {
-        user_ids: [
-          "fa726347-f49a-4fee-973e-a3b69fdcbdd4",
-          "d00a6201-646a-489f-95a2-aff8f90fe669",
-        ],
-        limit_per_user: 25,
-        max_symbols: 50,
-        force: false,
-        dry_run: false,
-      },
-      timeoutMs: 1800000,
-      validate: function(body) {
-        if (!body || body.success !== true) return "success=false";
-        if (Number(body.symbol_count || 0) === 0) return "symbol_count=0";
-        if (Number(body.failed_user_count || 0) > 0) {
-          return "failed_user_count=" + body.failed_user_count;
-        }
-        if (Number(body.skipped_user_count || 0) > 0) {
-          return "skipped_user_count=" + body.skipped_user_count;
-        }
-        if (Number(body.failed_count || 0) > 0) return "failed_count=" + body.failed_count;
-        return null;
-      },
-    }],
-  },
   watchlist_monitor_paid_universe: {
     description: "Generate AI watchlist monitor briefs for the paid For You user universe",
     steps: [{
@@ -304,7 +274,6 @@ function summarizeBody(body) {
     "generated_count",
     "failed_count",
     "failed_user_count",
-    "skipped_user_count",
     "dry_run",
   ].forEach(function(key) {
     if (body[key] !== undefined) summary[key] = body[key];

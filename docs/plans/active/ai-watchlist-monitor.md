@@ -667,7 +667,7 @@ Validation:
 
 Scope:
 
-- 增加 feature flag / admin config。
+- 生产 rollout 走 `for_you_website` entitlement；不再使用 watchlist monitor 专用 feature flag。
 - 配置每日生成 cron、事件发现 cron、可选盘中轻量 scan。
 - 增加 admin regeneration 操作。
 - 增加监控指标：生成成功率、缺失 brief 数、source failure、read latency、LLM cost。
@@ -677,7 +677,7 @@ Validation:
 
 - Staging 连续跑 3 个交易日，成功率、成本、延迟达到目标。
 - 失败 ticker 可单独重跑。
-- feature flag 可对内部账号开启，对普通用户保持 legacy。
+- Paid beta 对拥有 `for_you_website` entitlement 的用户开放；普通未付费用户由付费墙和后端 entitlement gate 拦截。
 - 文档更新完成：`watchlist_monitor/.context.md`、`brew/.context.md`、`for-you/.context.md`、API docs。
 - 产品验收：用户打开页面能在 30 秒内判断今天要处理什么。
 

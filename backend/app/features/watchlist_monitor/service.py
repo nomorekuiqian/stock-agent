@@ -38,7 +38,6 @@ from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
 from app.shared.data_tools.quotes import get_batch_quotes
 from app.shared.entitlements import list_users_with_entitlement
-from app.shared.feature_flags import list_feature_flag_assignments
 from app.shared.fmp_service import get_fmp_service
 from app.shared.ticker_discussion_cache import (
     build_ticker_discussion_summary,
@@ -54,7 +53,6 @@ logger = get_logger(__name__)
 
 MODEL_VERSION = WATCHLIST_MONITOR_MODEL_VERSION
 _MONITOR_FEATURE = "for_you_website"
-_TEST_UNIVERSE_FLAG = "watchlist_monitor_test_universe"
 _MARKET_DISCUSSION_HOURS = 24
 _MARKET_DISCUSSION_LIMIT = 200
 _MARKET_DISCUSSION_SOURCE_ID = "market_discussion"
@@ -557,23 +555,12 @@ async def generate_test_user_universe(
         for user_id in dict.fromkeys(user_ids or list(_DEFAULT_TEST_UNIVERSE_USER_IDS))
         if user_id
     ]
-    assignments = await list_feature_flag_assignments(_TEST_UNIVERSE_FLAG)
-    allowed_user_ids = {
-        str(item.get("user_id") or "").strip()
-        for item in assignments
-        if item.get("enabled") is True and item.get("user_id")
-    }
 
     user_watchlists: list[TestUniverseUser] = []
     failed_user_ids: list[str] = []
-    skipped_user_ids: list[str] = []
     universe: list[str] = []
 
     for user_id in target_user_ids:
-        if user_id not in allowed_user_ids:
-            skipped_user_ids.append(user_id)
-            continue
-
         watchlist = await get_user_watchlist(user_id)
         if watchlist is None:
             failed_user_ids.append(user_id)
@@ -592,18 +579,16 @@ async def generate_test_user_universe(
         generated, failed = await generate_for_symbols(requested_symbols, force=force)
 
     return GenerateTestUniverseResponse(
-        success=not failed_user_ids and not skipped_user_ids and not failed,
+        success=not failed_user_ids and not failed,
         dry_run=dry_run,
         user_ids=target_user_ids,
         user_watchlists=user_watchlists,
         failed_user_ids=failed_user_ids,
-        skipped_user_ids=skipped_user_ids,
         requested_symbols=requested_symbols,
         symbol_count=len(requested_symbols),
         generated_count=len(generated),
         failed_count=len(failed),
         failed_user_count=len(failed_user_ids),
-        skipped_user_count=len(skipped_user_ids),
         generated=generated,
         failed=failed,
     )

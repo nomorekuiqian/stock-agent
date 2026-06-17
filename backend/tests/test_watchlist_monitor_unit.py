@@ -1164,13 +1164,6 @@ async def test_generate_test_user_universe_dedupes_symbols(monkeypatch):
         }
         return data[user_id]
 
-    async def fake_assignments(flag: str | None = None):
-        assert flag == "watchlist_monitor_test_universe"
-        return [
-            {"user_id": "user-1", "flag": flag, "enabled": True},
-            {"user_id": "user-2", "flag": flag, "enabled": True},
-        ]
-
     captured: dict[str, object] = {}
 
     async def fake_generate_for_symbols(symbols: list[str], *, force: bool = False):
@@ -1182,7 +1175,6 @@ async def test_generate_test_user_universe_dedupes_symbols(monkeypatch):
         ], []
 
     monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
-    monkeypatch.setattr(service, "list_feature_flag_assignments", fake_assignments)
     monkeypatch.setattr(service, "generate_for_symbols", fake_generate_for_symbols)
 
     result = await service.generate_test_user_universe(
@@ -1193,7 +1185,6 @@ async def test_generate_test_user_universe_dedupes_symbols(monkeypatch):
     assert result.success is True
     assert result.requested_symbols == ["AAPL", "MSFT", "NVDA"]
     assert captured == {"symbols": ["AAPL", "MSFT", "NVDA"], "force": True}
-    assert result.skipped_user_ids == []
     assert [item.user_id for item in result.user_watchlists] == ["user-1", "user-2"]
     assert result.generated_count == 3
     assert result.failed_count == 0
@@ -1204,15 +1195,10 @@ async def test_generate_test_user_universe_dry_run_skips_generation(monkeypatch)
     async def fake_watchlist(user_id: str):
         return {"symbols": ["AAPL", "MSFT"]}
 
-    async def fake_assignments(flag: str | None = None):
-        assert flag == "watchlist_monitor_test_universe"
-        return [{"user_id": "user-1", "flag": flag, "enabled": True}]
-
     async def fail_generate_for_symbols(symbols: list[str], *, force: bool = False):
         raise AssertionError("dry run must not generate")
 
     monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
-    monkeypatch.setattr(service, "list_feature_flag_assignments", fake_assignments)
     monkeypatch.setattr(service, "generate_for_symbols", fail_generate_for_symbols)
 
     result = await service.generate_test_user_universe(
@@ -1227,26 +1213,21 @@ async def test_generate_test_user_universe_dry_run_skips_generation(monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_generate_test_user_universe_skips_users_without_flag(monkeypatch):
-    async def fail_watchlist(user_id: str):
-        raise AssertionError("unflagged users must not load watchlists")
-
-    async def fake_assignments(flag: str | None = None):
-        assert flag == "watchlist_monitor_test_universe"
-        return []
+async def test_generate_test_user_universe_records_failed_watchlist_load(monkeypatch):
+    async def fake_watchlist(user_id: str):
+        return None
 
     async def fail_generate_for_symbols(symbols: list[str], *, force: bool = False):
-        raise AssertionError("empty flagged universe must not generate")
+        raise AssertionError("failed watchlist universe must not generate")
 
-    monkeypatch.setattr(service, "get_user_watchlist", fail_watchlist)
-    monkeypatch.setattr(service, "list_feature_flag_assignments", fake_assignments)
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
     monkeypatch.setattr(service, "generate_for_symbols", fail_generate_for_symbols)
 
     result = await service.generate_test_user_universe(user_ids=["user-1"])
 
     assert result.success is False
-    assert result.skipped_user_ids == ["user-1"]
-    assert result.skipped_user_count == 1
+    assert result.failed_user_ids == ["user-1"]
+    assert result.failed_user_count == 1
     assert result.requested_symbols == []
 
 

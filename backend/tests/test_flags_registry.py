@@ -18,11 +18,6 @@ def test_holdings_sync_import_present():
     assert "holdings_sync_import" in keys
 
 
-def test_watchlist_monitor_test_universe_present():
-    keys = {f.key for f in KNOWN_FLAGS}
-    assert "watchlist_monitor_test_universe" in keys
-
-
 def test_flag_keys_unique():
     keys = [f.key for f in KNOWN_FLAGS]
     assert len(keys) == len(set(keys))

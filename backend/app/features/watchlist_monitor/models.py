@@ -422,13 +422,11 @@ class GenerateTestUniverseResponse(BaseModel):
     user_ids: list[str] = Field(default_factory=list)
     user_watchlists: list[TestUniverseUser] = Field(default_factory=list)
     failed_user_ids: list[str] = Field(default_factory=list)
-    skipped_user_ids: list[str] = Field(default_factory=list)
     requested_symbols: list[str] = Field(default_factory=list)
     symbol_count: int = 0
     generated_count: int = 0
     failed_count: int = 0
     failed_user_count: int = 0
-    skipped_user_count: int = 0
     generated: list[GenerateTickerResult] = Field(default_factory=list)
     failed: list[GenerateTickerResult] = Field(default_factory=list)
 
