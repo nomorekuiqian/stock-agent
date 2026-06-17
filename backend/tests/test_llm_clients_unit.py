@@ -12,8 +12,10 @@ Usage:
 
 from pydantic import BaseModel
 import pytest
+import httpx
 
 from app.shared import llm_metering
+from app.shared.llm_clients import deepseek
 from app.shared.llm_clients import structured
 
 
@@ -122,6 +124,92 @@ def test_record_usage_builds_provider_neutral_record(monkeypatch):
     assert record["cached_tokens"] == 3
     assert record["total_tokens"] == 13
     assert record["extra"] == {"provider": "deepseek"}
+
+
+@pytest.mark.asyncio
+async def test_deepseek_client_retries_retryable_status(monkeypatch):
+    responses = [
+        httpx.Response(429, headers={"retry-after": "0"}, text="rate limited"),
+        httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": '{"answer":"ok"}'}}]},
+        ),
+    ]
+    calls = []
+    sleeps = []
+
+    class _FakeAsyncClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def post(self, url, headers, json):
+            calls.append((url, headers, json))
+            return responses.pop(0)
+
+    async def fake_sleep(delay):
+        sleeps.append(delay)
+
+    monkeypatch.setattr(deepseek, "DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(deepseek.httpx, "AsyncClient", _FakeAsyncClient)
+    monkeypatch.setattr(deepseek.asyncio, "sleep", fake_sleep)
+
+    result = await deepseek.create_chat_completion(
+        model="deepseek-v4-pro",
+        messages=[{"role": "user", "content": "hi"}],
+        max_tokens=10,
+        temperature=0.1,
+        retries=1,
+    )
+
+    assert len(calls) == 2
+    assert sleeps == [0.0]
+    assert result["choices"][0]["message"]["content"] == '{"answer":"ok"}'
+
+
+@pytest.mark.asyncio
+async def test_deepseek_client_does_not_retry_non_retryable_status(monkeypatch):
+    calls = []
+    sleeps = []
+
+    class _FakeAsyncClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def post(self, url, headers, json):
+            calls.append((url, headers, json))
+            return httpx.Response(400, text="bad request")
+
+    async def fake_sleep(delay):
+        sleeps.append(delay)
+
+    monkeypatch.setattr(deepseek, "DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(deepseek.httpx, "AsyncClient", _FakeAsyncClient)
+    monkeypatch.setattr(deepseek.asyncio, "sleep", fake_sleep)
+
+    with pytest.raises(deepseek.DeepSeekAPIError) as exc:
+        await deepseek.create_chat_completion(
+            model="deepseek-v4-pro",
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=10,
+            temperature=0.1,
+            retries=3,
+        )
+
+    assert len(calls) == 1
+    assert sleeps == []
+    assert "HTTP 400 bad request" in str(exc.value)
 
 
 @pytest.mark.asyncio

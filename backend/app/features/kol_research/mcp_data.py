@@ -21,7 +21,6 @@ from app.features.kol_research.models import (
     KolMcpNewsRequest,
     KolMcpStockDataRequest,
 )
-from app.features.stock.service import get_stock_service
 from app.shared.data_tools import research_tools
 from app.shared.data_tools.briefs import (
     get_industry_brief,
@@ -31,6 +30,7 @@ from app.shared.data_tools.briefs import (
 )
 from app.shared.data_tools.news import get_combined_market_news, get_fmp_news
 from app.shared.fmp_service import get_fmp_service
+from app.shared.stock_sections import get_stock_earnings_data, get_stock_transcript
 
 logger = get_logger(__name__)
 
@@ -398,7 +398,6 @@ async def _press_releases(symbol: str, limit: int) -> dict[str, Any]:
 async def get_stock_data(req: KolMcpStockDataRequest, auth: dict[str, Any]) -> dict[str, Any]:
     started = time.perf_counter()
     symbol = _normalize_symbol(req.symbol)
-    service = get_stock_service()
 
     async def section_call(section: str) -> Any:
         if section == "quote":
@@ -420,11 +419,11 @@ async def get_stock_data(req: KolMcpStockDataRequest, auth: dict[str, Any]) -> d
         if section == "price_history":
             return await _price_history(symbol, req.history_days)
         if section == "earnings_data":
-            return await service.get_earnings_data(symbol)
+            return await get_stock_earnings_data(symbol)
         if section == "transcript":
             if req.year is None or req.quarter is None:
                 raise ValueError("year and quarter are required for transcript")
-            data = await service.get_transcript(symbol, req.year, req.quarter)
+            data = await get_stock_transcript(symbol, req.year, req.quarter)
             if isinstance(data, dict) and data.get("content"):
                 content = str(data["content"])
                 data = {**data, "content": content[:8000], "truncated": len(content) > 8000}

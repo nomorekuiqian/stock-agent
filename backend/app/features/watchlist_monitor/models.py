@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field, field_validator
 from app.shared.llm_output import CoerceNoneToDefaultsMixin
 
 
-TickerStatus = Literal["needs_attention", "watch", "quiet", "stale"]
 SignalType = Literal[
     "news",
     "social",
@@ -16,7 +15,6 @@ SignalType = Literal[
     "fundamental",
     "macro_sector",
 ]
-SignalSeverity = Literal["low", "medium", "high"]
 WatchpointType = Literal["dated_event", "open_watchpoint"]
 Confidence = Literal["low", "medium", "high"]
 EventType = Literal[
@@ -67,7 +65,6 @@ class SourceRef(BaseModel):
 
 class SignalBlock(CoerceNoneToDefaultsMixin, BaseModel):
     type: SignalType
-    severity: SignalSeverity = "medium"
     title: str = Field(..., max_length=80)
     summary: str = Field(..., max_length=260)
     why_it_matters: str = Field(..., max_length=260)
@@ -172,9 +169,8 @@ class MarketDiscussionOutput(CoerceNoneToDefaultsMixin, BaseModel):
 class BriefCompositionOutput(CoerceNoneToDefaultsMixin, BaseModel):
     """Small output for the final ticker-level monitor judgment."""
 
-    status: TickerStatus
     headline: str = Field(..., max_length=80)
-    ai_take: str = Field(..., min_length=40, max_length=650)
+    ai_take: str = Field(..., min_length=40, max_length=800)
     signals: list[SignalBlock] = Field(default_factory=list, max_length=4)
 
 
@@ -210,12 +206,76 @@ class TechnicalMonitor(BaseModel):
     updated_at: str = ""
 
 
+DiscussionTweetStance = Literal["bull", "bear", "neutral"]
+DiscussionSummaryStance = Literal["bull", "bear", "neutral", "mixed"]
+
+
+class MarketDiscussionTweet(BaseModel):
+    id: str
+    author_username: str = ""
+    text: str = ""
+    tweet_type: str | None = None
+    conversation_id: str | None = None
+    quoted_tweet_text: str | None = None
+    in_reply_to_username: str | None = None
+    created_at: str | None = None
+    url: str | None = None
+    like_count: int = 0
+    retweet_count: int = 0
+    reply_count: int = 0
+    view_count: int = 0
+    category: str | None = None
+    quality: str | None = None
+    content_type: str | None = None
+    key_claim: str | None = None
+    sectors: list[str] = Field(default_factory=list)
+    tickers: list[str] = Field(default_factory=list)
+    stance: DiscussionTweetStance | None = None
+
+
+class MarketDiscussionOverview(BaseModel):
+    tweet_count: int = 0
+    author_count: int = 0
+    bull_count: int = 0
+    bear_count: int = 0
+    neutral_count: int = 0
+    dominant_stance: DiscussionSummaryStance = "neutral"
+    latest_at: str | None = None
+    one_line_summary: str = ""
+
+
+class MarketDiscussionTheme(BaseModel):
+    key: str
+    title: str = ""
+    stance: DiscussionSummaryStance = "neutral"
+    summary: str = ""
+    tweet_count: int = 0
+    author_count: int = 0
+    representative_claims: list[str] = Field(default_factory=list)
+    evidence_tweet_ids: list[str] = Field(default_factory=list)
+
+
+class MarketDiscussionCache(BaseModel):
+    success: bool = True
+    symbol: str = ""
+    hours: int = 24
+    count: int = 0
+    overview: MarketDiscussionOverview = Field(default_factory=MarketDiscussionOverview)
+    themes: list[MarketDiscussionTheme] = Field(default_factory=list)
+    data: list[MarketDiscussionTweet] = Field(default_factory=list)
+    generated_at: str = ""
+
+    @field_validator("symbol")
+    @classmethod
+    def normalize_symbol(cls, value: str) -> str:
+        return (value or "").strip().upper()
+
+
 class TickerBriefAgentOutput(CoerceNoneToDefaultsMixin, BaseModel):
     """Structured output produced by the ticker brief LLM."""
 
-    status: TickerStatus
     headline: str = Field(..., max_length=80)
-    ai_take: str = Field(..., min_length=40, max_length=650)
+    ai_take: str = Field(..., min_length=40, max_length=800)
     news_summary: str = Field(default="", max_length=1200)
     translated_news_titles: list[TranslatedSourceTitle] = Field(default_factory=list, max_length=15)
     signals: list[SignalBlock] = Field(default_factory=list, max_length=4)
@@ -227,12 +287,11 @@ class TickerDailyBrief(BaseModel):
     symbol: str
     brief_date: str
     model_version: str = "watchlist-monitor-v0"
-    status: TickerStatus
     headline: str
     ai_take: str
     news_summary: str = ""
     technical_monitor: TechnicalMonitor = Field(default_factory=TechnicalMonitor)
-    priority_score: int = Field(default=0, ge=0, le=100)
+    market_discussion: MarketDiscussionCache = Field(default_factory=MarketDiscussionCache)
     signals: list[SignalBlock] = Field(default_factory=list)
     watchpoints: list[Watchpoint] = Field(default_factory=list)
     event_candidates: list[EventCandidate] = Field(default_factory=list)
@@ -255,31 +314,18 @@ class Freshness(BaseModel):
 
 
 class MonitorSummary(BaseModel):
-    needs_attention: int = 0
     new_signals: int = 0
     next_7d_watchpoints: int = 0
-    quiet_tickers: int = 0
     stale_tickers: int = 0
-
-
-class PriorityItem(BaseModel):
-    symbol: str
-    status: TickerStatus
-    priority_score: int
-    headline: str
-    reason: str
-    next_watchpoint: str = ""
-    generated_at: str | None = None
 
 
 class TickerRow(BaseModel):
     symbol: str
-    status: TickerStatus
-    priority_score: int
     headline: str
     ai_take: str
     news_summary: str = ""
     technical_monitor: TechnicalMonitor = Field(default_factory=TechnicalMonitor)
+    market_discussion: MarketDiscussionCache = Field(default_factory=MarketDiscussionCache)
     signal_types: list[SignalType] = Field(default_factory=list)
     signals: list[SignalBlock] = Field(default_factory=list)
     watchpoints: list[Watchpoint] = Field(default_factory=list)
@@ -296,7 +342,6 @@ class WatchlistMonitorResponse(BaseModel):
     as_of: str
     symbols: list[str] = Field(default_factory=list)
     summary: MonitorSummary
-    priority_items: list[PriorityItem] = Field(default_factory=list)
     ticker_rows: list[TickerRow] = Field(default_factory=list)
     future_watchpoints: list[Watchpoint] = Field(default_factory=list)
     future_event_candidates: list[EventCandidate] = Field(default_factory=list)
@@ -350,12 +395,17 @@ class GenerateTestUniverseRequest(BaseModel):
         return out
 
 
+class GeneratePaidUniverseRequest(BaseModel):
+    user_limit: int = Field(default=1000, ge=1, le=5000)
+    limit_per_user: int = Field(default=25, ge=1, le=50)
+    force: bool = False
+    dry_run: bool = False
+
+
 class GenerateTickerResult(BaseModel):
     symbol: str
     success: bool
-    status: TickerStatus | None = None
     headline: str = ""
-    priority_score: int | None = None
     error: str = ""
 
 
@@ -379,5 +429,24 @@ class GenerateTestUniverseResponse(BaseModel):
     failed_count: int = 0
     failed_user_count: int = 0
     skipped_user_count: int = 0
+    generated: list[GenerateTickerResult] = Field(default_factory=list)
+    failed: list[GenerateTickerResult] = Field(default_factory=list)
+
+
+class GeneratePaidUniverseResponse(BaseModel):
+    success: bool
+    dry_run: bool = False
+    entitlement_feature: str
+    entitled_user_count: int = 0
+    processed_user_count: int = 0
+    users_with_watchlist_count: int = 0
+    empty_user_count: int = 0
+    failed_user_count: int = 0
+    user_watchlists: list[TestUniverseUser] = Field(default_factory=list)
+    failed_user_ids: list[str] = Field(default_factory=list)
+    requested_symbols: list[str] = Field(default_factory=list)
+    symbol_count: int = 0
+    generated_count: int = 0
+    failed_count: int = 0
     generated: list[GenerateTickerResult] = Field(default_factory=list)
     failed: list[GenerateTickerResult] = Field(default_factory=list)

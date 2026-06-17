@@ -10,6 +10,7 @@ from app.features.watchlist_monitor.models import TickerDailyBrief
 logger = get_logger(__name__)
 
 _FUNCTION_NAME = "watchlist-monitor"
+_LATEST_BRIEFS_BATCH_SIZE = 50
 
 
 def _internal_headers() -> dict[str, str] | None:
@@ -75,31 +76,33 @@ async def get_latest_briefs(symbols: list[str]) -> dict[str, TickerDailyBrief]:
     if not normalized:
         return {}
 
+    out: dict[str, TickerDailyBrief] = {}
     db = get_insforge_service()
-    result = await db.call_function(
-        _FUNCTION_NAME,
-        method="GET",
-        params={"action": "latest_briefs", "symbols": ",".join(normalized)},
-        timeout=15.0,
-        extra_headers=_internal_headers(),
-    )
 
-    if result["status_code"] != 200:
-        raise RuntimeError(
-            "get_latest_briefs failed: HTTP %s %s"
-            % (result["status_code"], (result.get("text") or "")[:200])
+    for start in range(0, len(normalized), _LATEST_BRIEFS_BATCH_SIZE):
+        batch = normalized[start : start + _LATEST_BRIEFS_BATCH_SIZE]
+        result = await db.call_function(
+            _FUNCTION_NAME,
+            method="GET",
+            params={"action": "latest_briefs", "symbols": ",".join(batch)},
+            timeout=15.0,
+            extra_headers=_internal_headers(),
         )
 
-    payload = result.get("data") or {}
-    if not payload.get("success"):
-        raise RuntimeError("get_latest_briefs returned error: %s" % payload.get("error"))
+        if result["status_code"] != 200:
+            raise RuntimeError(
+                "get_latest_briefs failed: HTTP %s %s"
+                % (result["status_code"], (result.get("text") or "")[:200])
+            )
 
-    rows = payload.get("data") or {}
-    out: dict[str, TickerDailyBrief] = {}
-    if isinstance(rows, dict):
-        for symbol, row in rows.items():
-            parsed = _brief_from_row(row)
-            if parsed:
-                out[symbol.upper()] = parsed
+        payload = result.get("data") or {}
+        if not payload.get("success"):
+            raise RuntimeError("get_latest_briefs returned error: %s" % payload.get("error"))
+
+        rows = payload.get("data") or {}
+        if isinstance(rows, dict):
+            for symbol, row in rows.items():
+                parsed = _brief_from_row(row)
+                if parsed:
+                    out[symbol.upper()] = parsed
     return out
-

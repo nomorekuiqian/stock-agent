@@ -16,8 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.features.twitter_digest.service import pull_candidate_tweets
-from app.features.vector.models import VectorSearchFilters, VectorSearchRequest
-from app.features.vector.service import search as vector_search
+from app.shared.vector_retrieval import search_public_kol_tweet_chunks
 
 logger = get_logger(__name__)
 
@@ -461,16 +460,10 @@ async def _historical_vector_evidence(
     top_k: int,
 ) -> list[TopicEvidence]:
     expanded_query = "%s %s" % (query, " ".join(terms[:24]))
-    response = await vector_search(
-        VectorSearchRequest(
-            query=expanded_query,
-            top_k=max(top_k * 2, top_k),
-            threshold=_KOL_TOPIC_SEARCH_THRESHOLD,
-            filters=VectorSearchFilters(
-                source_types=["kol_tweet"],
-                visibility="public",
-            ),
-        )
+    response = await search_public_kol_tweet_chunks(
+        query=expanded_query,
+        top_k=max(top_k * 2, top_k),
+        threshold=_KOL_TOPIC_SEARCH_THRESHOLD,
     )
     evidence: list[TopicEvidence] = []
     for item in response.results:

@@ -1,11 +1,16 @@
+from pathlib import Path
+
 import pytest
 
+from app.features.watchlist_monitor import news_enrichment
+from app.features.watchlist_monitor import db as monitor_db
 from app.features.watchlist_monitor import service
 from app.features.watchlist_monitor import signal_builder
 from app.features.watchlist_monitor import ticker_brief_agent
 from app.features.watchlist_monitor.models import (
     BriefCompositionOutput,
     EventCandidate,
+    MarketDiscussionCache,
     MarketDiscussionOutput,
     NewsEventCandidate,
     NewsEventsSynthesisOutput,
@@ -23,18 +28,62 @@ from app.features.watchlist_monitor.models import (
 
 def _brief(
     symbol: str,
-    status="watch",
-    priority=50,
     brief_date="2026-06-15",
 ) -> TickerDailyBrief:
     return TickerDailyBrief(
         symbol=symbol,
         brief_date=brief_date,
         model_version="watchlist-monitor-v0",
-        status=status,
         headline=f"{symbol} headline",
         ai_take=f"{symbol} has a cached monitor brief with enough detail for the UI.",
         news_summary="Recent English news focused on one product update and market reaction.",
+        market_discussion=MarketDiscussionCache.model_validate(
+            {
+                "success": True,
+                "symbol": symbol,
+                "hours": 24,
+                "count": 1,
+                "overview": {
+                    "tweet_count": 1,
+                    "author_count": 1,
+                    "bull_count": 1,
+                    "bear_count": 0,
+                    "neutral_count": 0,
+                    "dominant_stance": "bull",
+                    "latest_at": "2026-06-15T19:00:00Z",
+                    "one_line_summary": f"{symbol} 市场讨论已离线缓存。",
+                },
+                "themes": [
+                    {
+                        "key": "ai_demand",
+                        "title": "AI 需求",
+                        "stance": "bull",
+                        "summary": "讨论集中在 AI 需求。",
+                        "tweet_count": 1,
+                        "author_count": 1,
+                        "representative_claims": ["AI 需求仍是主要讨论点。"],
+                        "evidence_tweet_ids": ["tweet-1"],
+                    }
+                ],
+                "data": [
+                    {
+                        "id": "tweet-1",
+                        "author_username": "analyst",
+                        "text": "AI demand remains the core discussion.",
+                        "created_at": "2026-06-15T19:00:00Z",
+                        "url": "https://x.com/analyst/status/tweet-1",
+                        "like_count": 10,
+                        "retweet_count": 2,
+                        "reply_count": 1,
+                        "view_count": 1000,
+                        "sectors": [],
+                        "tickers": [symbol],
+                        "stance": "bull",
+                    }
+                ],
+                "generated_at": "2026-06-15T20:00:00Z",
+            }
+        ),
         technical_monitor=TechnicalMonitor(
             summary="技术面整体偏强：价格与主要均线呈多头排列。",
             signals=[
@@ -50,14 +99,12 @@ def _brief(
             key_levels={"current_price": 120.0, "support_1": 112.0, "resistance_1": 125.0},
             updated_at="2026-06-15",
         ),
-        priority_score=priority,
         signals=[
             SignalBlock(
                 type="news",
-                severity="medium",
                 title="News signal",
                 summary="A relevant company update appeared.",
-                why_it_matters="It changes today's monitoring priority.",
+                why_it_matters="It changes what users should monitor today.",
                 source_ref_ids=["news_1"],
             )
         ],
@@ -88,50 +135,48 @@ def _brief(
     )
 
 
-def test_priority_score_caps_at_100_for_strong_brief():
-    output = TickerBriefAgentOutput(
-        status="needs_attention",
-        headline="High priority",
-        ai_take=(
-            "这只股票今天需要关注，因为新闻、事件和技术面都出现了新的监控信号。"
-            "短线重点不是单日涨跌，而是这些信号是否继续互相强化。"
-        ),
-        signals=[
-            SignalBlock(
-                type="news",
-                severity="high",
-                title="Major news",
-                summary="A major event happened.",
-                why_it_matters="It changes the near-term setup.",
-                source_ref_ids=["news_1"],
-            ),
-            SignalBlock(
-                type="event",
-                severity="high",
-                title="Upcoming event",
-                summary="A dated catalyst is coming.",
-                why_it_matters="The event can reset expectations.",
-                source_ref_ids=["event_1"],
-            ),
-        ],
-        watchpoints=[
-            Watchpoint(
-                type="dated_event",
-                date="2026-06-17",
-                title="FOMC decision",
-                what_to_watch="Watch rate guidance.",
-                confidence="high",
-                source_ref_ids=["event_1"],
-            )
-        ],
-    )
+@pytest.mark.asyncio
+async def test_get_latest_briefs_batches_large_symbol_universe(monkeypatch):
+    calls: list[list[str]] = []
 
-    assert service._compute_priority(output) == 100
+    class FakeInsforgeService:
+        async def call_function(
+            self,
+            function_name: str,
+            *,
+            method: str,
+            params: dict,
+            timeout: float,
+            extra_headers: dict | None,
+        ):
+            assert function_name == "watchlist-monitor"
+            assert method == "GET"
+            assert timeout == 15.0
+            symbols = str(params["symbols"]).split(",")
+            calls.append(symbols)
+            assert len(symbols) <= 50
+            return {
+                "status_code": 200,
+                "data": {
+                    "success": True,
+                    "data": {
+                        symbol: _brief(symbol).model_dump(mode="json")
+                        for symbol in symbols
+                    },
+                },
+            }
+
+    monkeypatch.setattr(monitor_db, "get_insforge_service", lambda: FakeInsforgeService())
+
+    symbols = ["T%03d" % index for index in range(125)]
+    briefs = await monitor_db.get_latest_briefs(symbols)
+
+    assert [len(batch) for batch in calls] == [50, 50, 25]
+    assert set(briefs) == set(symbols)
 
 
 def test_quality_gate_rejects_unknown_source_ref():
     output = TickerBriefAgentOutput(
-        status="watch",
         headline="Watch",
         ai_take=(
             "这只股票今天有一个需要观察的信号，但还不到紧急处理的程度。"
@@ -140,7 +185,6 @@ def test_quality_gate_rejects_unknown_source_ref():
         signals=[
             SignalBlock(
                 type="news",
-                severity="medium",
                 title="News",
                 summary="Summary",
                 why_it_matters="Reason",
@@ -152,9 +196,42 @@ def test_quality_gate_rejects_unknown_source_ref():
     assert service._validate_quality("AAPL", output, []) is not None
 
 
+def test_quality_gate_accepts_market_discussion_source_ref():
+    output = TickerBriefAgentOutput(
+        headline="市场讨论分歧升温",
+        ai_take=(
+            "今日信号是市场讨论围绕AI需求出现新的分歧；影响在于这些讨论会影响投资者"
+            "对短期估值和订单兑现的预期；接下来重点看公司后续披露是否能验证讨论中的核心假设。"
+        ),
+        signals=[
+            SignalBlock(
+                type="social",
+                title="市场讨论分歧",
+                summary="KOL 讨论集中在订单兑现和估值分歧。",
+                why_it_matters="这代表市场正在等待进一步验证。",
+                source_ref_ids=["market_discussion"],
+            )
+        ],
+    )
+
+    assert (
+        service._validate_quality(
+            "AAPL",
+            output,
+            [
+                SourceRef(
+                    id="market_discussion",
+                    type="market_discussion",
+                    title="AAPL market discussion",
+                )
+            ],
+        )
+        is None
+    )
+
+
 def test_quality_gate_rejects_missing_news_summary_when_news_exists():
     output = TickerBriefAgentOutput(
-        status="watch",
         headline="Watch",
         ai_take=(
             "今日信号是公司新闻流出现新的产品更新；影响在于市场会重新评估短期收入动能；"
@@ -184,7 +261,6 @@ def test_quality_gate_rejects_missing_news_summary_when_news_exists():
 
 def test_quality_gate_rejects_action_advice_copy():
     output = TickerBriefAgentOutput(
-        status="watch",
         headline="Watch",
         ai_take=(
             "今日信号是股价接近关键阻力；影响在于短线资金可能继续博弈方向；"
@@ -200,7 +276,6 @@ def test_quality_gate_rejects_action_advice_copy():
 
 def test_quality_gate_rejects_incomplete_technical_monitor():
     output = TickerBriefAgentOutput(
-        status="watch",
         headline="Watch",
         ai_take=(
             "今日信号是价格仍在关键均线下方；影响在于反弹确认度不足；"
@@ -220,7 +295,6 @@ def test_quality_gate_rejects_incomplete_technical_monitor():
 def test_ticker_brief_output_coerces_null_defaults():
     output = TickerBriefAgentOutput.model_validate(
         {
-            "status": "quiet",
             "headline": "暂无明显新增信号",
             "ai_take": (
                 "这只股票今天没有明显新增的公司级催化，当前更适合继续观察新闻流、"
@@ -481,7 +555,6 @@ async def test_generate_ticker_brief_uses_unified_news_events_pipeline(monkeypat
                 signals=[
                     SignalBlock(
                         type="technical",
-                        severity="medium",
                         title="技术结构偏强",
                         summary="价格仍在关键均线上方。",
                         why_it_matters="说明短线趋势尚未破坏。",
@@ -495,17 +568,15 @@ async def test_generate_ticker_brief_uses_unified_news_events_pipeline(monkeypat
                 signals=[
                     SignalBlock(
                         type="social",
-                        severity="low",
                         title="讨论度升温",
                         summary="KOL 主要在观察产品动能。",
                         why_it_matters="这代表市场关注点，但不是事实来源。",
-                        source_ref_ids=["social_1"],
+                        source_ref_ids=["market_discussion"],
                     )
                 ],
             )
         assert output_model is BriefCompositionOutput
         return BriefCompositionOutput(
-            status="watch",
             headline="HOOD 有待观察",
             ai_take=(
                 "HOOD 今天有一些值得跟踪的监控信号，但还不到紧急级别。"
@@ -514,7 +585,6 @@ async def test_generate_ticker_brief_uses_unified_news_events_pipeline(monkeypat
             signals=[
                 SignalBlock(
                     type="technical",
-                    severity="medium",
                     title="技术结构偏强",
                     summary="价格仍在关键均线上方。",
                     why_it_matters="说明短线趋势尚未破坏。",
@@ -555,22 +625,37 @@ async def test_generate_ticker_brief_uses_unified_news_events_pipeline(monkeypat
                 "signals": [{"id": "price_breakout_20d", "title": "突破"}],
                 "key_levels": {"current_price": 100.0},
             },
-            "social": {
-                "available": True,
-                "synthesis_zh": "KOL 正在讨论产品动能。",
-                "source_ref_id": "social_1",
+            "market_discussion": {
+                "count": 2,
+                "overview": {
+                    "tweet_count": 2,
+                    "author_count": 2,
+                    "dominant_stance": "mixed",
+                    "one_line_summary": "市场讨论集中在产品动能和估值分歧。",
+                },
+                "themes": [
+                    {
+                        "title": "产品动能",
+                        "stance": "mixed",
+                        "summary": "部分 KOL 认为产品动能改善，但仍等待经营数据验证。",
+                        "tweet_count": 2,
+                        "author_count": 2,
+                        "representative_claims": ["产品动能需要后续数据确认。"],
+                    }
+                ],
+                "data": [{"id": "tweet-1", "text": "raw tweet should not reach final"}],
+                "generated_at": "2026-06-16T20:00:00Z",
             },
             "event_candidates": [],
             "event_window": {"start": "2026-06-16", "end": "2026-06-30", "days": 14},
             "source_refs": [
                 {"id": "news_1", "type": "news", "title": "HOOD product update"},
                 {"id": "technical_1", "type": "technical", "title": "HOOD technical snapshot"},
-                {"id": "social_1", "type": "social", "title": "Twitter/KOL digest"},
+                {"id": "market_discussion", "type": "market_discussion", "title": "HOOD market discussion"},
             ],
         }
     )
 
-    assert output.status == "watch"
     assert output.news_summary == "HOOD 新闻主要围绕产品更新和交易活跃度展开。"
     assert output.translated_news_titles[0].title_zh == "HOOD 发布产品更新"
     assert output.news_event_candidates[0].source_ref_ids == ["news_1"]
@@ -587,11 +672,63 @@ async def test_generate_ticker_brief_uses_unified_news_events_pipeline(monkeypat
     assert calls[-1]["user_payload"]["news_events"]["watchpoints"][0]["title"] == "产品更新后续验证"
     assert calls[1]["user_payload"]["technical"]["recent_price_path"]["consecutive_down_days"] == 1
     assert calls[-1]["user_payload"]["technical_context"]["recent_price_path"]["consecutive_down_days"] == 1
+    assert calls[2]["user_payload"]["market_discussion"]["themes"][0]["title"] == "产品动能"
+    assert "representative_claims" not in calls[2]["user_payload"]["market_discussion"]["themes"][0]
+    assert calls[-1]["user_payload"]["market_discussion"]["themes"][0]["title"] == "产品动能"
+    assert "representative_claims" not in calls[-1]["user_payload"]["market_discussion"]["themes"][0]
+    assert calls[-1]["user_payload"]["market_discussion_interpretation"]["discussion_summary"] == "社交讨论集中在产品动能。"
+    assert "data" not in calls[-1]["user_payload"]["market_discussion"]
+
+
+@pytest.mark.asyncio
+async def test_generate_ticker_brief_runs_independent_subtasks_in_parallel(monkeypatch):
+    active = 0
+    max_active = 0
+
+    async def enter_subtask(result):
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        await ticker_brief_agent.asyncio.sleep(0.01)
+        active -= 1
+        return result
+
+    async def fake_news_events(_context):
+        return await enter_subtask(NewsEventsSynthesisOutput())
+
+    async def fake_technical(_context):
+        return await enter_subtask(TechnicalInterpretationOutput())
+
+    async def fake_discussion(_context):
+        return await enter_subtask(MarketDiscussionOutput())
+
+    async def fake_final(_context, *, news_events, technical, discussion):
+        assert isinstance(news_events, NewsEventsSynthesisOutput)
+        assert isinstance(technical, TechnicalInterpretationOutput)
+        assert isinstance(discussion, MarketDiscussionOutput)
+        return BriefCompositionOutput(
+            headline="暂无明显新增信号",
+            ai_take=(
+                "今日信号是暂无明显新增变化；影响在于监控优先级较低；"
+                "接下来重点看新闻、技术面和讨论是否出现新变化。"
+            ),
+            signals=[],
+        )
+
+    monkeypatch.setattr(ticker_brief_agent, "_synthesize_news_and_events", fake_news_events)
+    monkeypatch.setattr(ticker_brief_agent, "_interpret_technical", fake_technical)
+    monkeypatch.setattr(ticker_brief_agent, "_summarize_market_discussion", fake_discussion)
+    monkeypatch.setattr(ticker_brief_agent, "_compose_final_brief", fake_final)
+
+    output = await ticker_brief_agent.generate_ticker_brief(
+        {"symbol": "AAPL", "event_candidates": []}
+    )
+
+    assert max_active == 3
 
 
 def test_apply_translated_news_titles_updates_only_news_sources():
     output = TickerBriefAgentOutput(
-        status="watch",
         headline="Watch",
         ai_take=(
             "这只股票今天有一些新闻和事件值得继续观察，但暂时还不需要做出仓位层面的判断。"
@@ -615,6 +752,329 @@ def test_apply_translated_news_titles_updates_only_news_sources():
 
 
 @pytest.mark.asyncio
+async def test_build_market_discussion_cache_generates_offline_payload(monkeypatch):
+    sample_tweets = [
+        {
+            "id": "tweet-1",
+            "author_username": "analyst",
+            "text": "AMD discussion",
+            "created_at": "2026-06-16T15:00:00Z",
+            "url": "https://x.com/analyst/status/tweet-1",
+            "like_count": 10,
+            "retweet_count": 2,
+            "reply_count": 1,
+            "view_count": 1000,
+            "sectors": [],
+            "tickers": ["AMD"],
+            "stance": "bull",
+        }
+    ]
+    grouped = {
+        "overview": {
+            "tweet_count": 1,
+            "author_count": 1,
+            "bull_count": 1,
+            "bear_count": 0,
+            "neutral_count": 0,
+            "dominant_stance": "bull",
+            "latest_at": "2026-06-16T15:00:00Z",
+            "one_line_summary": "deterministic summary",
+        },
+        "themes": [],
+    }
+    generated_summary = {
+        "overview": {
+            **grouped["overview"],
+            "one_line_summary": "过去 24 小时 AMD 讨论集中在 AI 需求。",
+        },
+        "themes": [
+            {
+                "key": "ai_demand",
+                "title": "AI 需求",
+                "stance": "bull",
+                "summary": "讨论集中在 AI 需求。",
+                "tweet_count": 1,
+                "author_count": 1,
+                "representative_claims": ["AI 需求仍是主要讨论点。"],
+                "evidence_tweet_ids": ["tweet-1"],
+            }
+        ],
+    }
+
+    async def fake_list_ticker_discussion(symbol: str, *, hours: int, limit: int):
+        assert symbol == "AMD"
+        assert hours == 24
+        assert limit == 200
+        return sample_tweets
+
+    async def fake_generate_summary(
+        *,
+        symbol: str,
+        hours: int,
+        summary: dict,
+        tweets: list[dict],
+    ):
+        assert symbol == "AMD"
+        assert hours == 24
+        assert summary == grouped
+        assert tweets == sample_tweets
+        return generated_summary
+
+    monkeypatch.setattr(service, "list_ticker_discussion", fake_list_ticker_discussion)
+    monkeypatch.setattr(service, "build_ticker_discussion_summary", lambda *args, **kwargs: grouped)
+    monkeypatch.setattr(service, "generate_chinese_discussion_summary", fake_generate_summary)
+    monkeypatch.setattr(service, "utc_now_iso", lambda: "2026-06-16T16:00:00Z")
+
+    cache = await service._build_market_discussion_cache("amd")
+
+    assert cache.symbol == "AMD"
+    assert cache.count == 1
+    assert cache.overview.one_line_summary == "过去 24 小时 AMD 讨论集中在 AI 需求。"
+    assert cache.themes[0].title == "AI 需求"
+    assert cache.data[0].id == "tweet-1"
+    assert cache.generated_at == "2026-06-16T16:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_build_market_discussion_cache_falls_back_to_empty_cache(monkeypatch):
+    async def fail_list_ticker_discussion(symbol: str, *, hours: int, limit: int):
+        raise RuntimeError("discussion store unavailable")
+
+    def fake_grouped_summary(symbol: str, tweets: list[dict], *, hours: int):
+        assert symbol == "AMD"
+        assert tweets == []
+        assert hours == 24
+        return {
+            "overview": {
+                "tweet_count": 0,
+                "author_count": 0,
+                "bull_count": 0,
+                "bear_count": 0,
+                "neutral_count": 0,
+                "dominant_stance": "neutral",
+                "latest_at": None,
+                "one_line_summary": "过去 24 小时暂无结构化匹配讨论。",
+            },
+            "themes": [],
+        }
+
+    monkeypatch.setattr(service, "list_ticker_discussion", fail_list_ticker_discussion)
+    monkeypatch.setattr(service, "build_ticker_discussion_summary", fake_grouped_summary)
+    monkeypatch.setattr(service, "utc_now_iso", lambda: "2026-06-16T16:30:00Z")
+
+    cache = await service._build_market_discussion_cache("amd")
+
+    assert cache.symbol == "AMD"
+    assert cache.count == 0
+    assert cache.data == []
+    assert cache.overview.one_line_summary == "过去 24 小时暂无结构化匹配讨论。"
+    assert cache.generated_at == "2026-06-16T16:30:00Z"
+
+
+@pytest.mark.asyncio
+async def test_generate_for_symbols_regenerates_today_brief_missing_market_discussion(monkeypatch):
+    stale_shape_brief = _brief("AAPL", brief_date="2026-06-15").model_copy(
+        update={"market_discussion": MarketDiscussionCache()}
+    )
+    market_discussion = MarketDiscussionCache.model_validate(
+        {
+            "success": True,
+            "symbol": "AAPL",
+            "hours": 24,
+            "count": 0,
+            "overview": {
+                "tweet_count": 0,
+                "author_count": 0,
+                "bull_count": 0,
+                "bear_count": 0,
+                "neutral_count": 0,
+                "dominant_stance": "neutral",
+                "latest_at": None,
+                "one_line_summary": "暂无讨论。",
+            },
+            "themes": [],
+            "data": [],
+            "generated_at": "2026-06-15T21:00:00Z",
+        }
+    )
+    captured: dict[str, TickerDailyBrief] = {}
+
+    async def fake_latest_briefs(symbols: list[str]):
+        assert symbols == ["AAPL"]
+        return {"AAPL": stale_shape_brief}
+
+    async def fake_generate_ticker_brief(context: dict):
+        assert context["symbol"] == "AAPL"
+        assert context["market_discussion"]["overview"]["one_line_summary"] == "暂无讨论。"
+        assert any(ref["id"] == "market_discussion" for ref in context["source_refs"])
+        return TickerBriefAgentOutput(
+            headline="AAPL 有待观察",
+            ai_take=(
+                "今日信号是缓存结构需要补齐市场讨论；影响在于用户读取路径不能再实时生成；"
+                "接下来重点看离线缓存是否随 brief 一起返回。"
+            ),
+            news_summary="",
+            signals=[],
+            watchpoints=[],
+        )
+
+    async def fake_market_discussion(symbol: str):
+        assert symbol == "AAPL"
+        return market_discussion
+
+    async def fake_upsert(brief: TickerDailyBrief):
+        captured["brief"] = brief
+        return brief
+
+    async def fake_common_inputs(symbols: list[str]):
+        assert symbols == ["AAPL"]
+        return {
+            "quotes": {},
+            "earnings": [],
+            "macro_events": [],
+            "sector_performance": {},
+        }
+
+    monkeypatch.setattr(service, "market_today_str", lambda: "2026-06-15")
+    monkeypatch.setattr(service.monitor_db, "get_latest_briefs", fake_latest_briefs)
+    monkeypatch.setattr(service, "_load_common_inputs", fake_common_inputs)
+    monkeypatch.setattr(
+        service,
+        "build_ticker_context",
+        lambda *args, **kwargs: {
+            "symbol": "AAPL",
+            "source_refs": [],
+            "event_candidates": [],
+            "technical_monitor": {},
+        },
+    )
+    monkeypatch.setattr(service, "generate_ticker_brief", fake_generate_ticker_brief)
+    monkeypatch.setattr(service, "_build_market_discussion_cache", fake_market_discussion)
+    monkeypatch.setattr(service.monitor_db, "upsert_ticker_brief", fake_upsert)
+    monkeypatch.setattr(service, "utc_now_iso", lambda: "2026-06-15T22:00:00Z")
+
+    generated, failed = await service.generate_for_symbols(["AAPL"], force=False)
+
+    assert failed == []
+    assert generated[0].symbol == "AAPL"
+    assert captured["brief"].market_discussion.symbol == "AAPL"
+    assert captured["brief"].market_discussion.generated_at == "2026-06-15T21:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_generate_for_symbols_reuses_today_brief_with_market_discussion(monkeypatch):
+    cached = _brief("AAPL", brief_date="2026-06-15")
+
+    async def fake_latest_briefs(symbols: list[str]):
+        assert symbols == ["AAPL"]
+        return {"AAPL": cached}
+
+    async def fail_common_inputs(symbols: list[str]):
+        raise AssertionError("valid same-day cached brief must not regenerate")
+
+    monkeypatch.setattr(service, "market_today_str", lambda: "2026-06-15")
+    monkeypatch.setattr(service.monitor_db, "get_latest_briefs", fake_latest_briefs)
+    monkeypatch.setattr(service, "_load_common_inputs", fail_common_inputs)
+
+    generated, failed = await service.generate_for_symbols(["aapl"], force=False)
+
+    assert failed == []
+    assert len(generated) == 1
+    assert generated[0].symbol == "AAPL"
+    assert generated[0].headline == "AAPL headline"
+
+
+@pytest.mark.asyncio
+async def test_generate_for_symbols_limits_ticker_concurrency(monkeypatch):
+    active = 0
+    max_active = 0
+
+    async def fake_latest_briefs(symbols: list[str]):
+        assert symbols == ["AAPL", "MSFT", "NVDA", "TSLA"]
+        return {}
+
+    async def fake_common_inputs(symbols: list[str]):
+        assert symbols == ["AAPL", "MSFT", "NVDA", "TSLA"]
+        return {
+            "quotes": {},
+            "earnings": [],
+            "macro_events": [],
+            "sector_performance": {},
+        }
+
+    async def fake_generate_ticker_brief(context: dict):
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        await service.asyncio.sleep(0.01)
+        active -= 1
+        return TickerBriefAgentOutput(
+            headline="%s monitor" % context["symbol"],
+            ai_take=(
+                "今日信号是离线生成任务正在并发处理；影响在于整体批次耗时会下降；"
+                "接下来重点看并发上限是否被严格遵守。"
+            ),
+            news_summary="",
+            signals=[],
+            watchpoints=[],
+        )
+
+    async def fake_market_discussion(symbol: str):
+        return MarketDiscussionCache.model_validate(
+            {
+                "success": True,
+                "symbol": symbol,
+                "hours": 24,
+                "count": 0,
+                "overview": {
+                    "tweet_count": 0,
+                    "author_count": 0,
+                    "bull_count": 0,
+                    "bear_count": 0,
+                    "neutral_count": 0,
+                    "dominant_stance": "neutral",
+                    "latest_at": None,
+                    "one_line_summary": "暂无讨论。",
+                },
+                "themes": [],
+                "data": [],
+                "generated_at": "2026-06-15T21:00:00Z",
+            }
+        )
+
+    async def fake_upsert(brief: TickerDailyBrief):
+        return brief
+
+    monkeypatch.setattr(service, "WATCHLIST_MONITOR_GENERATION_CONCURRENCY", 2)
+    monkeypatch.setattr(service, "market_today_str", lambda: "2026-06-15")
+    monkeypatch.setattr(service.monitor_db, "get_latest_briefs", fake_latest_briefs)
+    monkeypatch.setattr(service, "_load_common_inputs", fake_common_inputs)
+    monkeypatch.setattr(
+        service,
+        "build_ticker_context",
+        lambda symbol, **kwargs: {
+            "symbol": symbol,
+            "source_refs": [],
+            "event_candidates": [],
+            "technical_monitor": {},
+        },
+    )
+    monkeypatch.setattr(service, "generate_ticker_brief", fake_generate_ticker_brief)
+    monkeypatch.setattr(service, "_build_market_discussion_cache", fake_market_discussion)
+    monkeypatch.setattr(service.monitor_db, "upsert_ticker_brief", fake_upsert)
+    monkeypatch.setattr(service, "utc_now_iso", lambda: "2026-06-15T22:00:00Z")
+
+    generated, failed = await service.generate_for_symbols(
+        ["AAPL", "MSFT", "NVDA", "TSLA"],
+        force=False,
+    )
+
+    assert failed == []
+    assert [item.symbol for item in generated] == ["AAPL", "MSFT", "NVDA", "TSLA"]
+    assert max_active == 2
+
+
+@pytest.mark.asyncio
 async def test_compose_monitor_uses_cached_briefs(monkeypatch):
     monkeypatch.setattr(service, "market_today_str", lambda: "2026-06-15")
 
@@ -625,8 +1085,8 @@ async def test_compose_monitor_uses_cached_briefs(monkeypatch):
     async def fake_latest_briefs(symbols: list[str]):
         assert symbols == ["AAPL", "MSFT", "NVDA"]
         return {
-            "AAPL": _brief("AAPL", status="needs_attention", priority=90),
-            "MSFT": _brief("MSFT", status="quiet", priority=10),
+            "AAPL": _brief("AAPL"),
+            "MSFT": _brief("MSFT"),
         }
 
     monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
@@ -635,13 +1095,13 @@ async def test_compose_monitor_uses_cached_briefs(monkeypatch):
     monitor = await service.compose_monitor_for_user("user-1")
 
     assert monitor.symbols == ["AAPL", "MSFT", "NVDA"]
-    assert monitor.summary.needs_attention == 1
-    assert monitor.summary.quiet_tickers == 1
     assert monitor.summary.stale_tickers == 1
     assert monitor.missing_symbols == ["NVDA"]
     assert [row.symbol for row in monitor.ticker_rows] == ["AAPL", "MSFT", "NVDA"]
     assert monitor.ticker_rows[0].signals[0].title == "News signal"
     assert monitor.ticker_rows[0].news_summary == "Recent English news focused on one product update and market reaction."
+    assert monitor.ticker_rows[0].market_discussion.count == 1
+    assert monitor.ticker_rows[0].market_discussion.themes[0].title == "AI 需求"
     assert monitor.ticker_rows[0].technical_monitor.signals[0].id == "price_breakout_20d"
     assert "technical" in monitor.ticker_rows[0].signal_types
     assert monitor.ticker_rows[0].watchpoints[0].title == "Watch follow-through"
@@ -664,14 +1124,10 @@ async def test_compose_monitor_marks_previous_market_date_briefs_stale(monkeypat
         return {
             "AAPL": _brief(
                 "AAPL",
-                status="needs_attention",
-                priority=100,
                 brief_date="2026-06-15",
             ),
             "MSFT": _brief(
                 "MSFT",
-                status="watch",
-                priority=80,
                 brief_date="2026-06-16",
             ),
         }
@@ -681,18 +1137,15 @@ async def test_compose_monitor_marks_previous_market_date_briefs_stale(monkeypat
 
     monitor = await service.compose_monitor_for_user("user-1")
 
-    assert monitor.summary.needs_attention == 0
     assert monitor.summary.stale_tickers == 1
     fresh = next(row for row in monitor.ticker_rows if row.symbol == "MSFT")
     assert monitor.summary.new_signals == len(fresh.signals) + len(fresh.technical_monitor.signals)
-    assert monitor.priority_items[0].symbol == "MSFT"
     stale = next(row for row in monitor.ticker_rows if row.symbol == "AAPL")
-    assert stale.status == "stale"
     assert stale.is_stale is True
-    assert stale.priority_score == 0
     assert stale.headline == "AAPL headline"
     assert stale.ai_take == "AAPL has a cached monitor brief with enough detail for the UI."
     assert stale.news_summary == "Recent English news focused on one product update and market reaction."
+    assert stale.market_discussion.count == 1
     assert stale.signals[0].title == "News signal"
     assert stale.technical_monitor.signals[0].id == "price_breakout_20d"
     assert stale.watchpoints[0].title == "Watch follow-through"
@@ -729,7 +1182,7 @@ async def test_generate_test_user_universe_dedupes_symbols(monkeypatch):
         ], []
 
     monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
-    monkeypatch.setattr(service.flags_db, "list_all_assignments", fake_assignments)
+    monkeypatch.setattr(service, "list_feature_flag_assignments", fake_assignments)
     monkeypatch.setattr(service, "generate_for_symbols", fake_generate_for_symbols)
 
     result = await service.generate_test_user_universe(
@@ -759,7 +1212,7 @@ async def test_generate_test_user_universe_dry_run_skips_generation(monkeypatch)
         raise AssertionError("dry run must not generate")
 
     monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
-    monkeypatch.setattr(service.flags_db, "list_all_assignments", fake_assignments)
+    monkeypatch.setattr(service, "list_feature_flag_assignments", fake_assignments)
     monkeypatch.setattr(service, "generate_for_symbols", fail_generate_for_symbols)
 
     result = await service.generate_test_user_universe(
@@ -786,7 +1239,7 @@ async def test_generate_test_user_universe_skips_users_without_flag(monkeypatch)
         raise AssertionError("empty flagged universe must not generate")
 
     monkeypatch.setattr(service, "get_user_watchlist", fail_watchlist)
-    monkeypatch.setattr(service.flags_db, "list_all_assignments", fake_assignments)
+    monkeypatch.setattr(service, "list_feature_flag_assignments", fake_assignments)
     monkeypatch.setattr(service, "generate_for_symbols", fail_generate_for_symbols)
 
     result = await service.generate_test_user_universe(user_ids=["user-1"])
@@ -795,6 +1248,126 @@ async def test_generate_test_user_universe_skips_users_without_flag(monkeypatch)
     assert result.skipped_user_ids == ["user-1"]
     assert result.skipped_user_count == 1
     assert result.requested_symbols == []
+
+
+@pytest.mark.asyncio
+async def test_generate_paid_user_universe_uses_entitled_users_and_dedupes_symbols(monkeypatch):
+    async def fake_entitled(feature: str):
+        assert feature == "for_you_website"
+        return [
+            {"user_id": "user-1", "email": "one@example.com"},
+            {"user_id": "user-2", "email": "two@example.com"},
+            {"user_id": "user-1", "email": "dupe@example.com"},
+        ]
+
+    async def fake_watchlist(user_id: str):
+        data = {
+            "user-1": {"symbols": ["AAPL", "MSFT", "AAPL"]},
+            "user-2": {"symbols": ["MSFT", "NVDA"]},
+        }
+        return data[user_id]
+
+    captured: dict[str, object] = {}
+
+    async def fake_generate_for_symbols(symbols: list[str], *, force: bool = False):
+        captured["symbols"] = symbols
+        captured["force"] = force
+        return [
+            service.GenerateTickerResult(symbol=symbol, success=True)
+            for symbol in symbols
+        ], []
+
+    monkeypatch.setattr(service, "list_users_with_entitlement", fake_entitled)
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service, "generate_for_symbols", fake_generate_for_symbols)
+
+    result = await service.generate_paid_user_universe(force=True)
+
+    assert result.success is True
+    assert result.entitlement_feature == "for_you_website"
+    assert result.entitled_user_count == 2
+    assert result.processed_user_count == 2
+    assert result.users_with_watchlist_count == 2
+    assert result.requested_symbols == ["AAPL", "MSFT", "NVDA"]
+    assert captured == {"symbols": ["AAPL", "MSFT", "NVDA"], "force": True}
+    assert result.generated_count == 3
+
+
+@pytest.mark.asyncio
+async def test_generate_paid_user_universe_dry_run_skips_generation(monkeypatch):
+    async def fake_entitled(feature: str):
+        return [{"user_id": "user-1"}]
+
+    async def fake_watchlist(user_id: str):
+        return {"symbols": ["AAPL", "MSFT"]}
+
+    async def fail_generate_for_symbols(symbols: list[str], *, force: bool = False):
+        raise AssertionError("dry run must not generate")
+
+    monkeypatch.setattr(service, "list_users_with_entitlement", fake_entitled)
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service, "generate_for_symbols", fail_generate_for_symbols)
+
+    result = await service.generate_paid_user_universe(dry_run=True)
+
+    assert result.success is True
+    assert result.dry_run is True
+    assert result.requested_symbols == ["AAPL", "MSFT"]
+    assert result.generated_count == 0
+
+
+@pytest.mark.asyncio
+async def test_generate_paid_user_universe_tracks_empty_and_failed_watchlists(monkeypatch):
+    async def fake_entitled(feature: str):
+        return [{"user_id": "empty-user"}, {"user_id": "failed-user"}]
+
+    async def fake_watchlist(user_id: str):
+        if user_id == "failed-user":
+            return None
+        return {"symbols": []}
+
+    async def fail_generate_for_symbols(symbols: list[str], *, force: bool = False):
+        raise AssertionError("empty paid universe must not generate")
+
+    monkeypatch.setattr(service, "list_users_with_entitlement", fake_entitled)
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service, "generate_for_symbols", fail_generate_for_symbols)
+
+    result = await service.generate_paid_user_universe()
+
+    assert result.success is False
+    assert result.entitled_user_count == 2
+    assert result.processed_user_count == 2
+    assert result.empty_user_count == 1
+    assert result.failed_user_ids == ["failed-user"]
+    assert result.failed_user_count == 1
+    assert result.requested_symbols == []
+
+
+@pytest.mark.asyncio
+async def test_generate_paid_user_universe_applies_user_limit(monkeypatch):
+    async def fake_entitled(feature: str):
+        assert feature == "for_you_website"
+        return [{"user_id": "user-1"}, {"user_id": "user-2"}, {"user_id": "user-3"}]
+
+    async def fake_watchlist(user_id: str):
+        return {"symbols": [user_id.replace("user-", "TICK")]}
+
+    async def fake_generate_for_symbols(symbols: list[str], *, force: bool = False):
+        return [
+            service.GenerateTickerResult(symbol=symbol, success=True)
+            for symbol in symbols
+        ], []
+
+    monkeypatch.setattr(service, "list_users_with_entitlement", fake_entitled)
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service, "generate_for_symbols", fake_generate_for_symbols)
+
+    result = await service.generate_paid_user_universe(user_limit=2)
+
+    assert result.entitled_user_count == 3
+    assert result.processed_user_count == 2
+    assert result.requested_symbols == ["TICK1", "TICK2"]
 
 
 def test_merge_event_candidates_filters_window_and_dedupes():
@@ -980,3 +1553,35 @@ def test_compact_market_context_adds_background_without_frontend_field():
     assert context["relative_move"]["vs_sector_proxy_pct"] == 2.47
     assert context["sector_snapshot"]["average_change_pct"] == 2.15
     assert "do not imply precise move attribution" in context["usage"]
+
+
+def test_tavily_query_uses_only_ticker_stock_news_even_with_company_profile():
+    queries = news_enrichment._build_tavily_queries(
+        "nvda",
+        {"companyName": "NVIDIA Corporation"},
+    )
+
+    assert queries == ["NVDA stock news"]
+
+
+def test_watchlist_monitor_edge_function_persists_market_discussion_not_removed_fields():
+    backend_root = Path(__file__).resolve().parents[1]
+    source = (backend_root / "app/edge_functions/watchlist-monitor.js").read_text()
+
+    assert "market_discussion:" in source
+    assert "body.market_discussion" in source
+    assert "priority_score:" not in source
+    assert "status: body.status" not in source
+
+
+def test_cron_trigger_defines_paid_universe_job_with_validation():
+    backend_root = Path(__file__).resolve().parents[1]
+    source = (backend_root / "app/edge_functions/cron-trigger.js").read_text()
+
+    assert "watchlist_monitor_paid_universe" in source
+    assert 'path: "/api/admin/watchlist-monitor/generate-paid-universe"' in source
+    assert "timeoutMs: 3600000" in source
+    assert "processed_user_count=0" in source
+    assert "symbol_count=0" in source
+    assert "failed_user_count=" in source
+    assert "failed_count=" in source

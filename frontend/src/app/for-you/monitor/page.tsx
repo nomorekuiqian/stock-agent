@@ -60,7 +60,6 @@ import type {
 import { useAuth } from "@/contexts/AuthContext";
 import { useStockQuotes } from "@/hooks/queries/use-stock-data";
 import { useStockSearch } from "@/hooks/useStockSearch";
-import { useTwitterTickerDiscussion } from "@/hooks/queries/use-twitter-ticker-discussion";
 import { useWatchlistMonitor } from "@/hooks/queries/use-watchlist-monitor";
 import { useSaveWatchlist, useWatchlist } from "@/hooks/queries/use-watchlist";
 import { queryKeys } from "@/hooks/queries/query-keys";
@@ -105,6 +104,12 @@ type DiscussionTopic = {
   authorCount: number;
   links: DiscussionSourceLink[];
 };
+type MonitorFreshness = {
+  label: string;
+  description: string;
+  badgeClassName: string;
+  dotClassName: string;
+};
 
 const LOGO_BASE = "https://financialmodelingprep.com/image-stock";
 
@@ -117,7 +122,7 @@ const signalLabel: Record<MonitorSignalType, string> = {
   macro_sector: "宏观/行业",
 };
 
-const severityLabel: Record<MonitorSignal["severity"], string> = {
+const confidenceLabel: Record<MonitorEventCandidate["confidence"], string> = {
   low: "低",
   medium: "中",
   high: "高",
@@ -242,11 +247,10 @@ function ensureSentenceEnd(value: string) {
   return /[。.!?！？]$/.test(value) ? value : `${value}。`;
 }
 
-function discussionFingerprint(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "")
-    .slice(0, 80);
+function isMostlyEnglishDiscussionText(value: string) {
+  const letters = (value.match(/[A-Za-z]/g) ?? []).length;
+  const chinese = (value.match(/[\u4e00-\u9fff]/g) ?? []).length;
+  return value.length >= 24 && letters > Math.max(32, chinese * 2);
 }
 
 function tweetUrl(tweet: TwitterTickerDiscussionTweet) {
@@ -272,64 +276,15 @@ function discussionLinkFromId(id: string): DiscussionSourceLink {
   };
 }
 
-function uniqueDiscussionClaims(
-  values: Array<string | null | undefined>,
-  existingText: string,
-  maxItems: number,
-) {
-  const existing = discussionFingerprint(existingText);
-  const seen = new Set<string>();
-  const claims: string[] = [];
+function synthesizedThemeSummary(theme: DiscussionTheme) {
+  const rawSummary = compactDiscussionText(theme.summary, 320);
+  const baseSummary = isMostlyEnglishDiscussionText(rawSummary)
+    ? ""
+    : rawSummary;
+  if (baseSummary) return ensureSentenceEnd(baseSummary);
 
-  for (const value of values) {
-    const claim = compactDiscussionText(value, 140);
-    const fingerprint = discussionFingerprint(claim);
-    if (!claim || !fingerprint || seen.has(fingerprint)) continue;
-    if (existing && existing.includes(fingerprint.slice(0, 40))) continue;
-    seen.add(fingerprint);
-    claims.push(claim);
-    if (claims.length >= maxItems) break;
-  }
-
-  return claims;
-}
-
-function buildDetailedThemeSummary(
-  theme: DiscussionTheme,
-  tweetsById: Map<string, TwitterTickerDiscussionTweet>,
-) {
-  const baseSummary = compactDiscussionText(theme.summary, 320);
-  const keyClaims = theme.evidence_tweet_ids.flatMap((id) => {
-    const tweet = tweetsById.get(id);
-    return tweet?.key_claim ? [tweet.key_claim] : [];
-  });
-  const rawEvidenceClaims = theme.evidence_tweet_ids.flatMap((id) => {
-    const tweet = tweetsById.get(id);
-    if (!tweet) return [];
-    return [tweet.text, tweet.quoted_tweet_text];
-  });
-  const primaryClaims = uniqueDiscussionClaims(
-    [...theme.representative_claims, ...keyClaims],
-    baseSummary,
-    4,
-  );
-  const fallbackClaims =
-    primaryClaims.length >= 3
-      ? []
-      : uniqueDiscussionClaims(
-          rawEvidenceClaims,
-          `${baseSummary} ${primaryClaims.join(" ")}`,
-          4 - primaryClaims.length,
-        );
-  const representativeClaims = [...primaryClaims, ...fallbackClaims];
-  const summary =
-    baseSummary || "这一组讨论暂时没有形成完整摘要，需要结合原文查看。";
-
-  if (!representativeClaims.length) return ensureSentenceEnd(summary);
-
-  return `${ensureSentenceEnd(summary)}代表观点包括：${representativeClaims
-    .map((claim) => `「${claim}」`)
-    .join("；")}。`;
+  const stanceText = discussionStanceLabel[theme.stance];
+  return `${theme.title || "相关讨论"}是本组讨论的主要方向，样本覆盖 ${theme.tweet_count} 条讨论、${theme.author_count} 位作者，整体倾向为${stanceText}。这部分更适合视为市场关注点和分歧线索，而不是已验证的公司事实。`;
 }
 
 function buildDetailedOverviewSummary(
@@ -341,21 +296,19 @@ function buildDetailedOverviewSummary(
     return ["过去 24 小时暂无结构化匹配的 Twitter/KOL 讨论。"];
   }
 
-  const tweets = discussion?.data ?? [];
-  const tweetsById = new Map(tweets.map((tweet) => [tweet.id, tweet]));
   const themes = discussion?.themes ?? [];
   const stanceText = discussionStanceLabel[overview.dominant_stance];
+  const overviewSummary = overview.one_line_summary || "";
   const base = ensureSentenceEnd(
-    overview.one_line_summary ||
+    (overviewSummary && !isMostlyEnglishDiscussionText(overviewSummary)
+      ? overviewSummary
+      : "") ||
       `${symbol} 过去 24 小时共有 ${overview.tweet_count} 条讨论。`,
   );
   const structure = `样本覆盖 ${overview.tweet_count} 条讨论、${overview.author_count} 位作者；其中偏多 ${overview.bull_count} 条、偏空 ${overview.bear_count} 条、中性 ${overview.neutral_count} 条，整体主导情绪为${stanceText}。`;
 
   const themeDetails = themes.slice(0, 3).map((theme, index) => {
-    const summary =
-      compactDiscussionText(theme.summary, 170) ||
-      compactDiscussionText(theme.representative_claims[0], 170) ||
-      "暂无足够摘要";
+    const summary = compactDiscussionText(synthesizedThemeSummary(theme), 210);
     return `${index + 1}) ${theme.title}：${summary}（${theme.tweet_count} 条，${discussionStanceLabel[theme.stance]}）`;
   });
 
@@ -363,39 +316,34 @@ function buildDetailedOverviewSummary(
     ? `主要讨论集中在：${themeDetails.join("；")}。`
     : "这组讨论暂时没有形成明确主题，更多细节需要结合下方原文逐条验证。";
 
-  const themeClaims = themes.flatMap((theme) => [
-    ...theme.representative_claims,
-    ...theme.evidence_tweet_ids.flatMap((id) => {
-      const tweet = tweetsById.get(id);
-      return tweet?.key_claim ? [tweet.key_claim] : [];
-    }),
-  ]);
-  const fallbackClaims = tweets.map((tweet) => tweet.key_claim || tweet.text);
-  const representativeClaims = uniqueDiscussionClaims(
-    themeClaims.length ? themeClaims : fallbackClaims,
-    `${base} ${themeParagraph}`,
-    4,
-  );
-  const claimsParagraph = representativeClaims.length
-    ? `代表观点包括：${representativeClaims
-        .map((claim) => `「${claim}」`)
-        .join("；")}。`
-    : "";
-
-  return [base + structure, themeParagraph, claimsParagraph].filter(Boolean);
+  return [base + structure, themeParagraph].filter(Boolean);
 }
 
-function buildTweetTopicSummary(tweet: TwitterTickerDiscussionTweet) {
-  const claim = compactDiscussionText(tweet.key_claim, 180);
-  const body = compactDiscussionText(tweet.text, 280);
-  const quote = compactDiscussionText(tweet.quoted_tweet_text, 180);
-  const parts = [
-    claim ? `核心观点：${ensureSentenceEnd(claim)}` : "",
-    body && body !== claim ? `原文要点：${ensureSentenceEnd(body)}` : "",
-    quote ? `引用内容：${ensureSentenceEnd(quote)}` : "",
-  ].filter(Boolean);
+function buildFallbackDiscussionSummary(
+  symbol: string,
+  tweets: TwitterTickerDiscussionTweet[],
+) {
+  const authors = new Set(
+    tweets
+      .map((tweet) => tweet.author_username?.toLowerCase())
+      .filter(Boolean),
+  );
+  const counts = tweets.reduce(
+    (acc, tweet) => {
+      const stance = tweet.stance ?? "neutral";
+      acc[stance] += 1;
+      return acc;
+    },
+    { bull: 0, bear: 0, neutral: 0 },
+  );
+  const dominant =
+    counts.bull > counts.bear && counts.bull >= counts.neutral
+      ? "bull"
+      : counts.bear > counts.bull && counts.bear >= counts.neutral
+        ? "bear"
+        : "neutral";
 
-  return parts.join(" ") || "暂无摘要，请打开原文查看完整讨论。";
+  return `${symbol} 过去 24 小时有 ${tweets.length} 条可归类讨论，来自 ${authors.size || tweets.length} 位作者，整体倾向为${discussionStanceLabel[dominant]}。当前样本还没有形成稳定主题，适合只作为市场关注度和讨论方向的辅助线索。`;
 }
 
 function buildDiscussionTopics(
@@ -408,17 +356,17 @@ function buildDiscussionTopics(
 
   if (themes.length) {
     return themes.map((theme) => {
-      const links = theme.evidence_tweet_ids
-        .slice(0, 4)
-        .map((id) => {
-          const tweet = tweetsById.get(id);
-          return tweet ? discussionLinkFromTweet(tweet) : discussionLinkFromId(id);
-        });
+      const links = theme.evidence_tweet_ids.slice(0, 4).map((id) => {
+        const tweet = tweetsById.get(id);
+        return tweet
+          ? discussionLinkFromTweet(tweet)
+          : discussionLinkFromId(id);
+      });
 
       return {
         key: theme.key,
         title: theme.title || `${symbol} 市场讨论`,
-        summary: buildDetailedThemeSummary(theme, tweetsById),
+        summary: synthesizedThemeSummary(theme),
         stance: theme.stance,
         tweetCount: theme.tweet_count,
         authorCount: theme.author_count,
@@ -427,34 +375,31 @@ function buildDiscussionTopics(
     });
   }
 
-  return tweets.slice(0, 12).map((tweet, index) => {
-    const contentTag =
-      formatDiscussionTag(tweet.content_type) || formatDiscussionTag(tweet.category);
-    const title =
-      compactDiscussionText(tweet.key_claim, 72) ||
-      compactDiscussionText(tweet.text, 72) ||
-      `${symbol} 市场讨论 ${index + 1}`;
+  if (!tweets.length) return [];
 
-    return {
-      key: tweet.id,
-      title,
-      summary: buildTweetTopicSummary(tweet),
-      stance: tweet.stance,
-      tweetCount: 1,
-      authorCount: 1,
-      links: [discussionLinkFromTweet(tweet)],
-      ...(contentTag && !tweet.key_claim
-        ? { title: `${contentTag}: ${title}` }
-        : {}),
-    };
-  });
+  const links = tweets.slice(0, 4).map(discussionLinkFromTweet);
+  return [
+    {
+      key: `${symbol}-market-discussion`,
+      title: `${symbol} 市场讨论`,
+      summary: buildFallbackDiscussionSummary(symbol, tweets),
+      stance: undefined,
+      tweetCount: tweets.length,
+      authorCount: new Set(
+        tweets
+          .map((tweet) => tweet.author_username?.toLowerCase())
+          .filter(Boolean),
+      ).size,
+      links,
+    },
+  ];
 }
 
-function severityClass(severity: MonitorSignal["severity"]) {
-  if (severity === "high") {
+function confidenceClass(confidence: MonitorEventCandidate["confidence"]) {
+  if (confidence === "high") {
     return "border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300";
   }
-  if (severity === "medium") {
+  if (confidence === "medium") {
     return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300";
   }
   return "border-border bg-muted/40 text-muted-foreground";
@@ -551,8 +496,6 @@ function normalizeWatchlistSymbols(symbols?: string[]) {
 function makePendingMonitorRow(symbol: string): MonitorTickerRow {
   return {
     symbol,
-    status: "stale",
-    priority_score: 0,
     headline: "今日监控尚未生成",
     ai_take:
       "这只股票已经加入关注列表。后台生成完成后，这里会展示新闻、技术面和未来观察点。",
@@ -566,6 +509,36 @@ function makePendingMonitorRow(symbol: string): MonitorTickerRow {
     next_watchpoint: null,
     generated_at: null,
     is_stale: true,
+  };
+}
+
+function getMonitorFreshness(row: MonitorTickerRow): MonitorFreshness {
+  if (!row.generated_at) {
+    return {
+      label: "待生成",
+      description: "等待今日监控",
+      badgeClassName:
+        "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      dotClassName: "bg-amber-500",
+    };
+  }
+
+  if (row.is_stale) {
+    return {
+      label: "上次监控",
+      description: `上次更新 ${formatTime(row.generated_at)}`,
+      badgeClassName:
+        "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+      dotClassName: "bg-sky-500",
+    };
+  }
+
+  return {
+    label: "今日更新",
+    description: `更新 ${formatTime(row.generated_at)}`,
+    badgeClassName:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    dotClassName: "bg-primary",
   };
 }
 
@@ -643,11 +616,7 @@ const canonicalEventAliases: Array<{
   },
   {
     key: "macro:pce",
-    groups: [
-      ["pce"],
-      ["personal consumption expenditures"],
-      ["个人消费支出"],
-    ],
+    groups: [["pce"], ["personal consumption expenditures"], ["个人消费支出"]],
   },
   {
     key: "macro:nfp",
@@ -815,7 +784,9 @@ function watchpointDedupeEvent(watchpoint: MonitorWatchpoint): DedupeEvent {
 
 function signalDedupeEvent(signal: MonitorSignal): DedupeEvent {
   return makeDedupeEvent({
-    itemKey: ["signal", signal.type, normalizeEventText(signal.title)].join(":"),
+    itemKey: ["signal", signal.type, normalizeEventText(signal.title)].join(
+      ":",
+    ),
     date: signal.observed_at?.slice(0, 10),
     sourceRefIds: signal.source_ref_ids ?? [],
     parts: [signal.title, signal.summary, signal.why_it_matters],
@@ -934,16 +905,6 @@ function sourceSiteLabel(source: MonitorSourceRef) {
   }
 }
 
-function statusDotClass(status: MonitorTickerRow["status"]) {
-  if (status === "needs_attention")
-    return "bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.16)]";
-  if (status === "watch")
-    return "bg-sky-500 shadow-[0_0_0_3px_rgba(14,165,233,0.14)]";
-  if (status === "quiet")
-    return "bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.14)]";
-  return "bg-muted-foreground";
-}
-
 function levelDotClass(key: string) {
   if (key.startsWith("support")) return "bg-emerald-500";
   if (key.startsWith("resistance")) return "bg-amber-500";
@@ -1032,6 +993,39 @@ function WatchlistMonitorContent() {
       return matchesSearch;
     });
   }, [effectiveRows, search]);
+  const monitorStats = useMemo(() => {
+    let freshCount = 0;
+    let staleCount = 0;
+    let pendingCount = 0;
+    let lastUpdatedAt: string | null = null;
+
+    for (const row of effectiveRows) {
+      if (!row.generated_at) {
+        pendingCount += 1;
+      } else if (row.is_stale) {
+        staleCount += 1;
+      } else {
+        freshCount += 1;
+      }
+
+      if (
+        row.generated_at &&
+        (!lastUpdatedAt ||
+          new Date(row.generated_at).getTime() >
+            new Date(lastUpdatedAt).getTime())
+      ) {
+        lastUpdatedAt = row.generated_at;
+      }
+    }
+
+    return {
+      freshCount,
+      pendingCount,
+      staleCount,
+      totalCount: effectiveRows.length,
+      lastUpdatedAt,
+    };
+  }, [effectiveRows]);
 
   useEffect(() => {
     if (!saveNotice) return;
@@ -1117,7 +1111,9 @@ function WatchlistMonitorContent() {
     (symbol: string) => {
       const nextSymbols = watchlistSymbols.filter((item) => item !== symbol);
       const nextSelected =
-        selectedRow?.symbol === symbol ? nextSymbols[0] ?? null : selectedRow?.symbol;
+        selectedRow?.symbol === symbol
+          ? (nextSymbols[0] ?? null)
+          : selectedRow?.symbol;
       saveWatchlistSymbols(nextSymbols, nextSelected, {
         id: Date.now(),
         message: `已移除 ${symbol}`,
@@ -1163,9 +1159,9 @@ function WatchlistMonitorContent() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <TopBar />
+      <TopBar stats={monitorStats} />
 
-      <div className="mx-auto grid w-full max-w-[1800px] gap-4 px-4 py-4 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="mx-auto grid w-full max-w-[1800px] gap-4 px-4 py-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-5 lg:px-5 xl:grid-cols-[340px_minmax(0,1fr)] xl:gap-6">
         <WatchlistSidebar
           rows={filteredRows}
           allRows={effectiveRows}
@@ -1191,29 +1187,91 @@ function WatchlistMonitorContent() {
   );
 }
 
-function TopBar() {
+function TopBar({
+  stats,
+}: {
+  stats: {
+    freshCount: number;
+    pendingCount: number;
+    staleCount: number;
+    totalCount: number;
+    lastUpdatedAt: string | null;
+  };
+}) {
   return (
     <section className="monitor-reveal border-b border-border/50 bg-background">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-8 md:py-10 lg:px-5">
-        <div className="max-w-3xl">
-          <div className="mb-3 flex items-center gap-3">
-            <div className="monitor-eyebrow-line h-px max-w-[60px] flex-1 bg-gradient-to-r from-primary to-transparent" />
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-              FOR YOU
-            </span>
-            <span className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-              / MONITOR
-            </span>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
+          <div className="max-w-3xl">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="monitor-eyebrow-line h-px max-w-[60px] flex-1 bg-gradient-to-r from-primary to-transparent" />
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                FOR YOU
+              </span>
+              <span className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                / MONITOR
+              </span>
+            </div>
+            <h1 className="font-editorial text-3xl leading-[1.1] tracking-tight text-foreground md:text-4xl">
+              AI 监控台
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+              用同一份关注列表查看每日监控结论、关键新闻、技术面结构和可验证来源。
+            </p>
           </div>
-          <h1 className="font-editorial text-3xl leading-[1.1] tracking-tight text-foreground md:text-4xl">
-            AI 监控台
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-            一个页面追踪新闻，技术面信号，社交媒体讨论
-          </p>
+
+          <div className="border-t border-border/50 pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+            <div className="grid grid-cols-3 gap-3">
+              <TopBarStat label="跟踪" value={stats.totalCount} />
+              <TopBarStat
+                label="今日"
+                value={stats.freshCount}
+                tone="primary"
+              />
+              <TopBarStat
+                label="待更新"
+                value={stats.pendingCount + stats.staleCount}
+                tone={
+                  stats.pendingCount + stats.staleCount > 0 ? "amber" : "muted"
+                }
+              />
+            </div>
+            <p className="mt-3 inline-flex items-center gap-2 text-sm leading-relaxed text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" aria-hidden />
+              最近更新 {formatTime(stats.lastUpdatedAt)}
+            </p>
+          </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function TopBarStat({
+  label,
+  value,
+  tone = "muted",
+}: {
+  label: string;
+  value: number;
+  tone?: "primary" | "amber" | "muted";
+}) {
+  const valueClass =
+    tone === "primary"
+      ? "text-primary"
+      : tone === "amber"
+        ? "text-amber-700 dark:text-amber-300"
+        : "text-foreground";
+
+  return (
+    <div>
+      <div className="text-sm font-medium text-muted-foreground">{label}</div>
+      <div
+        className={`mt-1 font-data text-2xl font-semibold tabular-nums ${valueClass}`}
+      >
+        {value}
+      </div>
+    </div>
   );
 }
 
@@ -1276,7 +1334,7 @@ function WatchlistSidebar({
   }, [addQuery, clearSearch, onAddSymbol]);
 
   return (
-    <aside className="monitor-sidebar-enter max-h-[430px] self-start overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-116px)]">
+    <aside className="monitor-sidebar-enter max-h-[360px] self-start overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm sm:max-h-[430px] lg:sticky lg:top-4 lg:max-h-[calc(100vh-116px)]">
       <div className="border-b border-border/50 bg-card/30 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1285,7 +1343,7 @@ function WatchlistSidebar({
               <h2 className="text-sm font-semibold">关注列表</h2>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {allRows.length} 个自选标的
+              {allRows.length} 个自选标的，点击查看详情
             </p>
           </div>
           <Link
@@ -1326,7 +1384,7 @@ function WatchlistSidebar({
                 onValueChange={onQueryChange}
                 {...inputHandlers}
                 disabled={!canEdit || atLimit}
-                placeholder={atLimit ? "关注列表已满" : "添加代码"}
+                placeholder={atLimit ? "关注列表已满" : "添加股票代码"}
                 className="h-10 min-w-0 flex-1 bg-transparent text-sm uppercase outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
                 autoComplete="off"
                 autoCorrect="off"
@@ -1377,7 +1435,7 @@ function WatchlistSidebar({
         </div>
 
         <label htmlFor="monitor-search" className="sr-only">
-          搜索代码
+          筛选关注列表
         </label>
         <div className="mt-4 flex h-11 items-center gap-2 rounded-md border border-border/60 bg-background px-3 transition-colors duration-200 focus-within:border-primary/40 motion-reduce:transition-none">
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -1385,7 +1443,7 @@ function WatchlistSidebar({
             id="monitor-search"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="搜索代码"
+            placeholder="筛选关注列表"
             className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
@@ -1426,7 +1484,7 @@ function CompanyLogo({
   const dimensions = size === "lg" ? 48 : 32;
   const wrapperClass =
     size === "lg" ? "h-12 w-12 rounded-xl" : "h-8 w-8 rounded-lg";
-  const textClass = size === "lg" ? "text-sm" : "text-[11px]";
+  const textClass = size === "lg" ? "text-sm" : "text-micro";
 
   if (logoError || !cleanSymbol) {
     return (
@@ -1473,9 +1531,11 @@ function TickerListItem({
   onRemove: () => void;
   canRemove: boolean;
 }) {
+  const freshness = getMonitorFreshness(row);
+
   return (
     <div
-      className={`monitor-list-row group flex h-14 w-full items-center gap-2 px-3 transition-colors duration-200 motion-reduce:transition-none ${
+      className={`monitor-list-row group flex min-h-[68px] w-full items-center gap-2 px-3 transition-colors duration-200 motion-reduce:transition-none ${
         active
           ? "monitor-list-row-active bg-primary/[0.08]"
           : "hover:bg-muted/30"
@@ -1486,17 +1546,29 @@ function TickerListItem({
         type="button"
         onClick={onSelect}
         aria-pressed={active}
-        className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 rounded-md px-1 py-2 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md px-1 py-2 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
       >
-        <span className="flex min-w-0 items-center gap-3">
-          <CompanyLogo symbol={row.symbol} />
-          <span className="font-data text-base font-semibold tracking-tight text-foreground transition-colors duration-200 group-hover:text-primary motion-reduce:transition-none">
-            {row.symbol}
+        <CompanyLogo symbol={row.symbol} />
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="font-data text-base font-semibold text-foreground transition-colors duration-200 group-hover:text-primary motion-reduce:transition-none">
+              {row.symbol}
+            </span>
+            <span
+              className={`shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium ${freshness.badgeClassName}`}
+            >
+              {freshness.label}
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">
+            {row.headline || freshness.description}
           </span>
         </span>
         <span
-          className={`monitor-list-dot h-2 w-2 rounded-full transition-colors duration-200 motion-reduce:transition-none ${
-            active ? "bg-primary" : "bg-border group-hover:bg-primary/60"
+          className={`monitor-list-dot h-2 w-2 shrink-0 rounded-full transition-colors duration-200 motion-reduce:transition-none ${
+            active
+              ? freshness.dotClassName
+              : "bg-border group-hover:bg-primary/60"
           }`}
           aria-hidden
         />
@@ -1516,10 +1588,7 @@ function TickerListItem({
 
 function TickerWorkbench({ row }: { row: MonitorTickerRow }) {
   const [activeTab, setActiveTab] = useState<TickerDetailTab>("news_events");
-  const twitterDiscussionQuery = useTwitterTickerDiscussion(
-    row.symbol,
-    activeTab === "market_discussion",
-  );
+  const marketDiscussion = row.market_discussion;
   const signals = getSignals(row);
   const nonNewsSignals = signals.filter((signal) => signal.type !== "news");
   const watchpoints = getWatchpoints(row);
@@ -1555,7 +1624,10 @@ function TickerWorkbench({ row }: { row: MonitorTickerRow }) {
       fundamentalSignals.length +
       earningsSources.length,
     technical: technicalSignalCount,
-    market_discussion: twitterDiscussionQuery.data?.count ?? socialSignals.length,
+    market_discussion:
+      marketDiscussion?.count ??
+      marketDiscussion?.overview?.tweet_count ??
+      socialSignals.length,
   };
 
   return (
@@ -1585,9 +1657,9 @@ function TickerWorkbench({ row }: { row: MonitorTickerRow }) {
         ) : (
           <MarketDiscussionTab
             symbol={row.symbol}
-            discussion={twitterDiscussionQuery.data}
-            isLoading={twitterDiscussionQuery.isLoading}
-            isError={twitterDiscussionQuery.isError}
+            discussion={marketDiscussion}
+            isLoading={false}
+            isError={false}
           />
         )}
       </div>
@@ -1730,7 +1802,11 @@ function MarketDiscussionTab({
           <EmptySection text="过去 24 小时暂无结构化匹配的 Twitter 讨论。" />
         )}
       </SectionShell>
-      <SectionShell title="Twitter 讨论原文" count={tweets.length} icon={MessageCircle}>
+      <SectionShell
+        title="Twitter 讨论原文"
+        count={tweets.length}
+        icon={MessageCircle}
+      >
         <div className="border-b border-border/40 bg-background/25 px-4 py-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="rounded-md border border-border/60 bg-background/35 px-2 py-1">
@@ -1791,44 +1867,48 @@ function TwitterDiscussionBrief({
   const summaryParagraphs = buildDetailedOverviewSummary(symbol, discussion);
 
   return (
-    <SectionShell title="讨论摘要" count={overview?.tweet_count ?? 0} icon={Activity}>
+    <SectionShell
+      title="讨论摘要"
+      count={overview?.tweet_count ?? 0}
+      icon={Activity}
+    >
       {isLoading ? (
         <TwitterBriefSkeleton />
       ) : (
-        <div>
-          <div className="bg-background/25 px-4 py-4">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 font-data text-xs font-semibold text-primary">
-                    {symbol}
+        <div className="bg-background/25 px-4 py-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 font-data text-xs font-semibold text-primary">
+                  {symbol}
+                </span>
+                {overview?.dominant_stance && (
+                  <span
+                    className={`rounded-md border px-2 py-1 text-xs ${discussionStanceClass(overview.dominant_stance)}`}
+                  >
+                    {discussionStanceLabel[overview.dominant_stance]}
                   </span>
-                  {overview?.dominant_stance && (
-                    <span
-                      className={`rounded-md border px-2 py-1 text-xs ${discussionStanceClass(overview.dominant_stance)}`}
-                    >
-                      {discussionStanceLabel[overview.dominant_stance]}
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    过去 24 小时
-                  </span>
-                </div>
-                <div className="mt-3 max-w-4xl space-y-2 text-sm leading-relaxed text-foreground md:text-base">
-                  {summaryParagraphs.map((paragraph, index) => (
-                    <p key={`discussion-overview-${index}`}>{paragraph}</p>
-                  ))}
-                </div>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  过去 24 小时
+                </span>
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <DiscussionStat label="讨论" value={overview?.tweet_count ?? 0} />
-                <DiscussionStat label="作者" value={overview?.author_count ?? 0} />
-                <DiscussionStat label="偏多" value={overview?.bull_count ?? 0} />
-                <DiscussionStat label="偏空" value={overview?.bear_count ?? 0} />
+              <div className="mt-3 max-w-4xl space-y-2 text-sm leading-relaxed text-foreground md:text-base">
+                {summaryParagraphs.map((paragraph, index) => (
+                  <p key={`discussion-overview-${index}`}>{paragraph}</p>
+                ))}
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <DiscussionStat label="讨论" value={overview?.tweet_count ?? 0} />
+              <DiscussionStat
+                label="作者"
+                value={overview?.author_count ?? 0}
+              />
+              <DiscussionStat label="偏多" value={overview?.bull_count ?? 0} />
+              <DiscussionStat label="偏空" value={overview?.bear_count ?? 0} />
+            </div>
           </div>
-
         </div>
       )}
     </SectionShell>
@@ -1857,7 +1937,7 @@ function DiscussionTopicCard({ topic }: { topic: DiscussionTopic }) {
       <h4 className="mt-3 text-base font-semibold leading-snug text-foreground">
         {topic.title}
       </h4>
-      <p className="mt-2 flex-1 text-sm leading-relaxed text-foreground/90">
+      <p className="mt-2 flex-1 text-sm leading-relaxed text-foreground">
         {topic.summary}
       </p>
 
@@ -1951,7 +2031,8 @@ function TwitterDiscussionRow({
   const author = tweet.author_username || "unknown";
   const url = tweetUrl(tweet);
   const contentTag =
-    formatDiscussionTag(tweet.content_type) || formatDiscussionTag(tweet.category);
+    formatDiscussionTag(tweet.content_type) ||
+    formatDiscussionTag(tweet.category);
   const bodyText = tweet.text || "暂无正文";
   const quotedText = tweet.quoted_tweet_text || "";
   const shouldCollapse =
@@ -2043,7 +2124,11 @@ function TwitterDiscussionRow({
             )}
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <TweetMetric icon={Heart} label="赞" value={tweet.like_count} />
-              <TweetMetric icon={Repeat2} label="转" value={tweet.retweet_count} />
+              <TweetMetric
+                icon={Repeat2}
+                label="转"
+                value={tweet.retweet_count}
+              />
               <TweetMetric
                 icon={MessageCircle}
                 label="评"
@@ -2093,6 +2178,7 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
   const currentPrice =
     quote?.price ?? row.technical_monitor?.key_levels?.current_price;
   const dailyChange = quote?.daily_change;
+  const freshness = getMonitorFreshness(row);
 
   return (
     <div className="space-y-4">
@@ -2106,19 +2192,15 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
                   <span className="font-data text-3xl font-semibold leading-tight tracking-tight md:text-4xl">
                     {row.symbol}
                   </span>
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${statusDotClass(row.status)}`}
-                    aria-hidden
-                  />
                 </div>
-                {row.is_stale && (
-                  <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
-                    {row.generated_at ? "显示上次监控" : "等待今日生成"}
-                  </span>
-                )}
+                <span
+                  className={`rounded-full border px-2.5 py-1 text-xs font-medium ${freshness.badgeClassName}`}
+                >
+                  {freshness.label}
+                </span>
                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" aria-hidden />
-                  AI 更新 {formatTime(row.generated_at)}
+                  {freshness.description}
                 </span>
               </div>
               <h2 className="mt-3 max-w-5xl text-balance font-editorial text-xl leading-snug tracking-tight text-foreground md:text-2xl">
@@ -2129,7 +2211,7 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
 
           <Link
             href={`/stock/${row.symbol}`}
-            className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-border/70 px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+            className="inline-flex h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-border/70 px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none sm:w-auto"
           >
             个股研究
             <ExternalLink className="h-4 w-4" aria-hidden />
@@ -2455,9 +2537,7 @@ function TechnicalDimensionCard({
   return (
     <article className="min-w-0 rounded-md border border-border/50 bg-background/35 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-sm font-semibold">
-          {dimension.label || "结构"}
-        </h4>
+        <h4 className="text-sm font-semibold">{dimension.label || "结构"}</h4>
         {dimension.state && (
           <span
             className={`shrink-0 rounded-md border px-2 py-1 text-xs ${technicalStateClass(dimension.state)}`}
@@ -2488,13 +2568,10 @@ function TechnicalPanel({
     view?.momentum,
     view?.location,
     view?.volatility,
-  ].filter(
-    (dimension): dimension is MonitorTechnicalViewDimension =>
-      Boolean(dimension?.state || dimension?.explanation),
+  ].filter((dimension): dimension is MonitorTechnicalViewDimension =>
+    Boolean(dimension?.state || dimension?.explanation),
   );
-  const hasView =
-    Boolean(view?.verdict) ||
-    dimensions.length > 0;
+  const hasView = Boolean(view?.verdict) || dimensions.length > 0;
   const hasAnyData = hasView || Boolean(summary);
 
   return (
@@ -2567,11 +2644,6 @@ function SignalCard({
         >
           <SignalTypeIcon type={signal.type} className="h-3.5 w-3.5" />
           {signalLabel[signal.type]}
-        </span>
-        <span
-          className={`rounded-md border px-2 py-1 text-xs ${severityClass(signal.severity)}`}
-        >
-          {severityLabel[signal.severity]}
         </span>
         {signal.observed_at && (
           <span className="text-xs text-muted-foreground">
@@ -2759,9 +2831,9 @@ function EventCandidateCard({
           {eventStatusLabel[candidate.status] ?? candidate.status}
         </span>
         <span
-          className={`rounded-md border px-2 py-1 text-xs ${severityClass(candidate.confidence)}`}
+          className={`rounded-md border px-2 py-1 text-xs ${confidenceClass(candidate.confidence)}`}
         >
-          {severityLabel[candidate.confidence]}
+          {confidenceLabel[candidate.confidence]}
         </span>
       </div>
       <h4 className="mt-3 text-sm font-semibold leading-snug">
@@ -2831,8 +2903,8 @@ function SourceChip({ source }: { source: MonitorSourceRef }) {
   const site = sourceSiteLabel(source);
   const content = (
     <>
-      {site && <span className="shrink-0 text-foreground/70">{site}</span>}
-      {site && <span className="shrink-0 text-muted-foreground/60">/</span>}
+      {site && <span className="shrink-0 text-muted-foreground">{site}</span>}
+      {site && <span className="shrink-0 text-muted-foreground/70">/</span>}
       <span className="truncate">{title}</span>
       {source.url && <ExternalLink className="h-3 w-3" aria-hidden />}
     </>

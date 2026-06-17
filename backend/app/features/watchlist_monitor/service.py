@@ -6,19 +6,20 @@ import asyncio
 from datetime import date, timedelta
 from typing import Any
 
-from app.core.config import WATCHLIST_MONITOR_MODEL_VERSION
+from app.core.config import (
+    WATCHLIST_MONITOR_GENERATION_CONCURRENCY,
+    WATCHLIST_MONITOR_MODEL_VERSION,
+)
 from app.core.logging import get_logger
-from app.features.brew.db import get_user_watchlist
-from app.features.flags import db as flags_db
-from app.features.twitter_digest import db as twitter_digest_db
 from app.features.watchlist_monitor import db as monitor_db
 from app.features.watchlist_monitor.models import (
     EventCandidate,
     Freshness,
+    GeneratePaidUniverseResponse,
     GenerateTestUniverseResponse,
     GenerateTickerResult,
+    MarketDiscussionCache,
     MonitorSummary,
-    PriorityItem,
     SignalBlock,
     SourceRef,
     TestUniverseUser,
@@ -36,13 +37,27 @@ from app.features.watchlist_monitor.ticker_brief_agent import generate_ticker_br
 from app.shared.data_tools.calendar import get_economic_calendar
 from app.shared.data_tools.earnings import get_earnings_calendar
 from app.shared.data_tools.quotes import get_batch_quotes
+from app.shared.entitlements import list_users_with_entitlement
+from app.shared.feature_flags import list_feature_flag_assignments
 from app.shared.fmp_service import get_fmp_service
+from app.shared.ticker_discussion_cache import (
+    build_ticker_discussion_summary,
+    generate_chinese_discussion_summary,
+    is_valid_ticker_symbol,
+    list_ticker_discussion,
+    normalize_ticker_symbol,
+)
+from app.shared.user_watchlists import get_user_watchlist
 from app.utils.timezone import market_today_str, utc_now_iso
 
 logger = get_logger(__name__)
 
 MODEL_VERSION = WATCHLIST_MONITOR_MODEL_VERSION
+_MONITOR_FEATURE = "for_you_website"
 _TEST_UNIVERSE_FLAG = "watchlist_monitor_test_universe"
+_MARKET_DISCUSSION_HOURS = 24
+_MARKET_DISCUSSION_LIMIT = 200
+_MARKET_DISCUSSION_SOURCE_ID = "market_discussion"
 _DEFAULT_TEST_UNIVERSE_USER_IDS = (
     "fa726347-f49a-4fee-973e-a3b69fdcbdd4",  # voya.technologies@gmail.com
     "d00a6201-646a-489f-95a2-aff8f90fe669",  # kedengpan@gmail.com
@@ -108,61 +123,6 @@ def _normalize_symbols(symbols: list[str]) -> list[str]:
         seen.add(symbol)
         out.append(symbol)
     return out
-
-
-def _severity_points(signal: SignalBlock) -> int:
-    base = {"low": 8, "medium": 16, "high": 28}.get(signal.severity, 10)
-    type_bonus = {
-        "event": 8,
-        "news": 6,
-        "technical": 4,
-        "social": 4,
-        "fundamental": 6,
-        "macro_sector": 3,
-    }.get(signal.type, 0)
-    return base + type_bonus
-
-
-def _event_candidate_points(candidate: EventCandidate) -> int:
-    if candidate.status == "completed":
-        return 0
-    score = 10 if candidate.event_date and candidate.date_precision == "exact" else 4
-    if candidate.confidence == "high":
-        score += 4
-    type_bonus = {
-        "earnings": 8,
-        "investor_event": 6,
-        "corporate_action": 6,
-        "regulatory_legal": 6,
-        "conference": 4,
-        "product_business": 4,
-        "macro": 3,
-        "social_watchpoint": 3,
-    }.get(candidate.event_type, 2)
-    return score + type_bonus
-
-
-def _compute_priority(
-    output: TickerBriefAgentOutput,
-    event_candidates: list[EventCandidate] | None = None,
-) -> int:
-    status_base = {
-        "needs_attention": 48,
-        "watch": 28,
-        "quiet": 8,
-        "stale": 0,
-    }[output.status]
-    signal_score = sum(_severity_points(s) for s in output.signals[:4])
-    watchpoint_score = 0
-    for item in output.watchpoints[:3]:
-        watchpoint_score += 12 if item.type == "dated_event" else 6
-        if item.confidence == "high":
-            watchpoint_score += 4
-    event_score = min(
-        24,
-        sum(_event_candidate_points(candidate) for candidate in (event_candidates or [])[:3]),
-    )
-    return max(0, min(100, status_base + signal_score + watchpoint_score + event_score))
 
 
 def _contains_action_advice(text: str) -> str | None:
@@ -232,9 +192,6 @@ def _validate_quality(
     )
     if technical_error:
         return technical_error
-    if output.status == "needs_attention" and not output.signals and not output.news_summary.strip() and not output.watchpoints:
-        return "needs_attention requires at least one signal, news summary, or watchpoint"
-
     source_ids = {s.id for s in source_refs}
     for signal in output.signals:
         missing = [sid for sid in signal.source_ref_ids if sid not in source_ids]
@@ -295,20 +252,106 @@ def _quote_map(quotes_result: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+def _has_market_discussion_cache(brief: TickerDailyBrief) -> bool:
+    discussion = brief.market_discussion
+    return (
+        discussion.symbol == brief.symbol
+        and discussion.hours == _MARKET_DISCUSSION_HOURS
+        and bool(discussion.generated_at)
+    )
+
+
+def _empty_market_discussion(
+    symbol: str,
+    *,
+    hours: int = _MARKET_DISCUSSION_HOURS,
+) -> MarketDiscussionCache:
+    """Return the cached-discussion payload shape for tickers without discussions."""
+    normalized = (symbol or "").strip().upper()
+    summary = build_ticker_discussion_summary(
+        normalized,
+        [],
+        hours=hours,
+    )
+    return MarketDiscussionCache.model_validate(
+        {
+            "success": True,
+            "symbol": normalized,
+            "hours": hours,
+            "count": 0,
+            **summary,
+            "data": [],
+            "generated_at": utc_now_iso(),
+        }
+    )
+
+
+def _market_discussion_source_ref(
+    symbol: str,
+    market_discussion: MarketDiscussionCache,
+) -> SourceRef:
+    return SourceRef(
+        id=_MARKET_DISCUSSION_SOURCE_ID,
+        type="market_discussion",
+        title="%s market discussion" % symbol,
+        published_at=market_discussion.generated_at,
+    )
+
+
+async def _build_market_discussion_cache(symbol: str) -> MarketDiscussionCache:
+    """Build the market discussion tab payload during offline ticker generation."""
+    normalized = normalize_ticker_symbol(symbol)
+    if not is_valid_ticker_symbol(normalized):
+        return _empty_market_discussion(normalized)
+
+    try:
+        tweets = await list_ticker_discussion(
+            normalized,
+            hours=_MARKET_DISCUSSION_HOURS,
+            limit=_MARKET_DISCUSSION_LIMIT,
+        )
+        grouped_summary = build_ticker_discussion_summary(
+            normalized,
+            tweets,
+            hours=_MARKET_DISCUSSION_HOURS,
+        )
+        summary = await generate_chinese_discussion_summary(
+            symbol=normalized,
+            hours=_MARKET_DISCUSSION_HOURS,
+            summary=grouped_summary,
+            tweets=tweets,
+        )
+        return MarketDiscussionCache.model_validate(
+            {
+                "success": True,
+                "symbol": normalized,
+                "hours": _MARKET_DISCUSSION_HOURS,
+                "count": len(tweets),
+                **summary,
+                "data": tweets,
+                "generated_at": utc_now_iso(),
+            }
+        )
+    except Exception:
+        logger.exception(
+            "Failed to build market discussion cache for %s",
+            normalized,
+        )
+        return _empty_market_discussion(normalized)
+
+
 async def _load_common_inputs(symbols: list[str]) -> dict[str, Any]:
     quote_symbols = list(dict.fromkeys([*symbols, *MARKET_CONTEXT_SYMBOLS]))
     quotes_task = asyncio.to_thread(get_batch_quotes, quote_symbols)
     earnings_task = asyncio.to_thread(get_earnings_calendar, 14)
     macro_task = asyncio.to_thread(get_economic_calendar, 14)
     sector_task = asyncio.to_thread(lambda: get_fmp_service().get_sector_performance_snapshot())
-    twitter_task = twitter_digest_db.get_latest_digest()
 
-    quotes_result, earnings_result, macro_result, sector_result, twitter_digest = await asyncio.gather(
+    quotes_result, earnings_result, macro_result, sector_result = await asyncio.gather(
         quotes_task,
         earnings_task,
         macro_task,
         sector_task,
-        twitter_task,
         return_exceptions=True,
     )
 
@@ -324,16 +367,11 @@ async def _load_common_inputs(symbols: list[str]) -> dict[str, Any]:
     if isinstance(sector_result, Exception):
         logger.warning("watchlist monitor sector snapshot fetch failed: %s", sector_result)
         sector_result = {"sectors": []}
-    if isinstance(twitter_digest, Exception):
-        logger.warning("watchlist monitor twitter digest fetch failed: %s", twitter_digest)
-        twitter_digest = None
-
     return {
         "quotes": _quote_map(quotes_result if isinstance(quotes_result, dict) else {}),
         "earnings": (earnings_result or {}).get("earnings", []) if isinstance(earnings_result, dict) else [],
         "macro_events": (macro_result or {}).get("events", []) if isinstance(macro_result, dict) else [],
         "sector_performance": sector_result if isinstance(sector_result, dict) else {},
-        "twitter_digest": twitter_digest,
     }
 
 
@@ -352,6 +390,113 @@ async def resolve_symbols_for_generation(
     return resolved[:limit]
 
 
+async def _generate_one_symbol(
+    symbol: str,
+    *,
+    common: dict[str, Any],
+    report_date: str,
+) -> tuple[GenerateTickerResult | None, GenerateTickerResult | None]:
+    try:
+        context = await asyncio.to_thread(
+            build_ticker_context,
+            symbol,
+            quote=common["quotes"].get(symbol),
+            market_quotes=common["quotes"],
+            sector_performance=common["sector_performance"],
+            earnings=common["earnings"],
+            macro_events=common["macro_events"],
+            report_date=report_date,
+        )
+        source_refs = [
+            SourceRef.model_validate(item)
+            for item in context.get("source_refs", [])
+            if isinstance(item, dict)
+        ]
+
+        market_discussion = await _build_market_discussion_cache(symbol)
+        context["market_discussion"] = market_discussion.model_dump(mode="json")
+        source_refs.append(_market_discussion_source_ref(symbol, market_discussion))
+        context["source_refs"] = [ref.model_dump(mode="json") for ref in source_refs]
+
+        output = await generate_ticker_brief(context)
+        quality_error = _validate_quality(
+            symbol,
+            output,
+            source_refs,
+            context.get("technical_monitor") if isinstance(context.get("technical_monitor"), dict) else None,
+        )
+        if quality_error:
+            raise RuntimeError("quality gate failed: %s" % quality_error)
+        source_refs = _apply_translated_news_titles(source_refs, output)
+
+        deterministic_candidates = [
+            EventCandidate.model_validate(item)
+            for item in context.get("event_candidates", [])
+            if isinstance(item, dict)
+        ]
+        extracted_candidates = [
+            EventCandidate(
+                symbol=symbol,
+                event_type=candidate.event_type,
+                event_date=candidate.event_date,
+                date_precision=candidate.date_precision,
+                title=candidate.title,
+                summary=candidate.summary,
+                why_it_matters=candidate.why_it_matters,
+                status=candidate.status,
+                confidence=candidate.confidence,
+                source_ref_ids=candidate.source_ref_ids,
+                source_type=candidate.source_type or "llm_extracted",
+            )
+            for candidate in output.news_event_candidates
+            if candidate.event_type != "macro"
+            and candidate.status != "completed"
+            and candidate.source_ref_ids
+            and all(sid.startswith("news_") for sid in candidate.source_ref_ids)
+        ]
+        event_candidates = merge_event_candidates(
+            [*deterministic_candidates, *extracted_candidates],
+            symbol=symbol,
+            report_date=report_date,
+        )
+
+        brief = TickerDailyBrief(
+            symbol=symbol,
+            brief_date=report_date,
+            model_version=MODEL_VERSION,
+            headline=output.headline,
+            ai_take=output.ai_take,
+            news_summary=output.news_summary,
+            technical_monitor=TechnicalMonitor.model_validate(context.get("technical_monitor") or {}),
+            market_discussion=market_discussion,
+            signals=output.signals,
+            watchpoints=output.watchpoints,
+            event_candidates=event_candidates,
+            source_refs=source_refs,
+            generated_at=utc_now_iso(),
+        )
+        saved = await monitor_db.upsert_ticker_brief(brief)
+        logger.info("Generated watchlist brief for %s", symbol)
+        return (
+            GenerateTickerResult(
+                symbol=symbol,
+                success=True,
+                headline=saved.headline,
+            ),
+            None,
+        )
+    except Exception as exc:
+        logger.exception("Failed to generate watchlist brief for %s", symbol)
+        return (
+            None,
+            GenerateTickerResult(
+                symbol=symbol,
+                success=False,
+                error=str(exc),
+            ),
+        )
+
+
 async def generate_for_symbols(symbols: list[str], *, force: bool = False) -> tuple[list[GenerateTickerResult], list[GenerateTickerResult]]:
     """Generate and persist ticker briefs for the provided symbols."""
     normalized = _normalize_symbols(symbols)
@@ -364,122 +509,36 @@ async def generate_for_symbols(symbols: list[str], *, force: bool = False) -> tu
         missing_today = [
             symbol
             for symbol in normalized
-            if not existing.get(symbol) or existing[symbol].brief_date != report_date
+            if not existing.get(symbol)
+            or existing[symbol].brief_date != report_date
+            or not _has_market_discussion_cache(existing[symbol])
         ]
         if not missing_today:
             return [
                 GenerateTickerResult(
                     symbol=symbol,
                     success=True,
-                    status=existing[symbol].status,
                     headline=existing[symbol].headline,
-                    priority_score=existing[symbol].priority_score,
                 )
                 for symbol in normalized
             ], []
         normalized = missing_today
 
     common = await _load_common_inputs(normalized)
-    generated: list[GenerateTickerResult] = []
-    failed: list[GenerateTickerResult] = []
+    concurrency = max(1, WATCHLIST_MONITOR_GENERATION_CONCURRENCY)
+    semaphore = asyncio.Semaphore(concurrency)
 
-    for symbol in normalized:
-        try:
-            context = await asyncio.to_thread(
-                build_ticker_context,
+    async def run_limited(symbol: str) -> tuple[GenerateTickerResult | None, GenerateTickerResult | None]:
+        async with semaphore:
+            return await _generate_one_symbol(
                 symbol,
-                quote=common["quotes"].get(symbol),
-                market_quotes=common["quotes"],
-                sector_performance=common["sector_performance"],
-                earnings=common["earnings"],
-                macro_events=common["macro_events"],
-                twitter_digest=common["twitter_digest"],
-                report_date=report_date,
-            )
-            source_refs = [
-                SourceRef.model_validate(item)
-                for item in context.get("source_refs", [])
-                if isinstance(item, dict)
-            ]
-
-            output = await generate_ticker_brief(context)
-            quality_error = _validate_quality(
-                symbol,
-                output,
-                source_refs,
-                context.get("technical_monitor") if isinstance(context.get("technical_monitor"), dict) else None,
-            )
-            if quality_error:
-                raise RuntimeError("quality gate failed: %s" % quality_error)
-            source_refs = _apply_translated_news_titles(source_refs, output)
-
-            deterministic_candidates = [
-                EventCandidate.model_validate(item)
-                for item in context.get("event_candidates", [])
-                if isinstance(item, dict)
-            ]
-            extracted_candidates = [
-                EventCandidate(
-                    symbol=symbol,
-                    event_type=candidate.event_type,
-                    event_date=candidate.event_date,
-                    date_precision=candidate.date_precision,
-                    title=candidate.title,
-                    summary=candidate.summary,
-                    why_it_matters=candidate.why_it_matters,
-                    status=candidate.status,
-                    confidence=candidate.confidence,
-                    source_ref_ids=candidate.source_ref_ids,
-                    source_type=candidate.source_type or "llm_extracted",
-                )
-                for candidate in output.news_event_candidates
-                if candidate.event_type != "macro"
-                and candidate.status != "completed"
-                and candidate.source_ref_ids
-                and all(sid.startswith("news_") for sid in candidate.source_ref_ids)
-            ]
-            event_candidates = merge_event_candidates(
-                [*deterministic_candidates, *extracted_candidates],
-                symbol=symbol,
+                common=common,
                 report_date=report_date,
             )
 
-            brief = TickerDailyBrief(
-                symbol=symbol,
-                brief_date=report_date,
-                model_version=MODEL_VERSION,
-                status=output.status,
-                headline=output.headline,
-                ai_take=output.ai_take,
-                news_summary=output.news_summary,
-                technical_monitor=TechnicalMonitor.model_validate(context.get("technical_monitor") or {}),
-                priority_score=_compute_priority(output, event_candidates),
-                signals=output.signals,
-                watchpoints=output.watchpoints,
-                event_candidates=event_candidates,
-                source_refs=source_refs,
-                generated_at=utc_now_iso(),
-            )
-            saved = await monitor_db.upsert_ticker_brief(brief)
-            generated.append(
-                GenerateTickerResult(
-                    symbol=symbol,
-                    success=True,
-                    status=saved.status,
-                    headline=saved.headline,
-                    priority_score=saved.priority_score,
-                )
-            )
-            logger.info("Generated watchlist brief for %s", symbol)
-        except Exception as exc:
-            logger.exception("Failed to generate watchlist brief for %s", symbol)
-            failed.append(
-                GenerateTickerResult(
-                    symbol=symbol,
-                    success=False,
-                    error=str(exc),
-                )
-            )
+    results = await asyncio.gather(*(run_limited(symbol) for symbol in normalized))
+    generated = [item for item, _failed in results if item is not None]
+    failed = [item for _generated, item in results if item is not None]
 
     return generated, failed
 
@@ -498,7 +557,7 @@ async def generate_test_user_universe(
         for user_id in dict.fromkeys(user_ids or list(_DEFAULT_TEST_UNIVERSE_USER_IDS))
         if user_id
     ]
-    assignments = await flags_db.list_all_assignments(flag=_TEST_UNIVERSE_FLAG)
+    assignments = await list_feature_flag_assignments(_TEST_UNIVERSE_FLAG)
     allowed_user_ids = {
         str(item.get("user_id") or "").strip()
         for item in assignments
@@ -550,14 +609,82 @@ async def generate_test_user_universe(
     )
 
 
-def _top_signal(brief: TickerDailyBrief) -> SignalBlock | None:
-    severity_rank = {"high": 3, "medium": 2, "low": 1}
-    signals = sorted(
-        brief.signals,
-        key=lambda s: (severity_rank.get(s.severity, 0), _severity_points(s)),
-        reverse=True,
+def _entitled_user_id(row: dict[str, Any]) -> str:
+    return str(row.get("user_id") or row.get("id") or "").strip()
+
+
+async def generate_paid_user_universe(
+    *,
+    user_limit: int = 1000,
+    limit_per_user: int = 25,
+    force: bool = False,
+    dry_run: bool = False,
+) -> GeneratePaidUniverseResponse:
+    """Generate monitor briefs for the union of paid/entitled users' watchlists."""
+    entitled_rows = await list_users_with_entitlement(_MONITOR_FEATURE)
+    user_ids: list[str] = []
+    seen_user_ids: set[str] = set()
+    for row in entitled_rows:
+        if not isinstance(row, dict):
+            continue
+        user_id = _entitled_user_id(row)
+        if not user_id or user_id in seen_user_ids:
+            continue
+        seen_user_ids.add(user_id)
+        user_ids.append(user_id)
+
+    limited_user_ids = user_ids[: max(1, user_limit)]
+    user_watchlists: list[TestUniverseUser] = []
+    failed_user_ids: list[str] = []
+    empty_user_count = 0
+    universe: list[str] = []
+
+    for user_id in limited_user_ids:
+        watchlist = await get_user_watchlist(user_id)
+        if watchlist is None:
+            failed_user_ids.append(user_id)
+            logger.warning(
+                "watchlist monitor paid universe failed to load user=%s",
+                user_id[:8],
+            )
+            continue
+
+        symbols = _normalize_symbols(watchlist.get("symbols") or [])[:limit_per_user]
+        if not symbols:
+            empty_user_count += 1
+            continue
+        user_watchlists.append(TestUniverseUser(user_id=user_id, symbols=symbols))
+        universe.extend(symbols)
+
+    requested_symbols = _normalize_symbols(universe)
+    generated: list[GenerateTickerResult] = []
+    failed: list[GenerateTickerResult] = []
+
+    if requested_symbols and not dry_run:
+        generated, failed = await generate_for_symbols(requested_symbols, force=force)
+
+    return GeneratePaidUniverseResponse(
+        success=not failed_user_ids and not failed,
+        dry_run=dry_run,
+        entitlement_feature=_MONITOR_FEATURE,
+        entitled_user_count=len(user_ids),
+        processed_user_count=len(limited_user_ids),
+        users_with_watchlist_count=len(user_watchlists),
+        empty_user_count=empty_user_count,
+        failed_user_count=len(failed_user_ids),
+        user_watchlists=user_watchlists,
+        failed_user_ids=failed_user_ids,
+        requested_symbols=requested_symbols,
+        symbol_count=len(requested_symbols),
+        generated_count=len(generated),
+        failed_count=len(failed),
+        generated=generated,
+        failed=failed,
     )
-    return signals[0] if signals else None
+
+
+def _top_signal(brief: TickerDailyBrief) -> SignalBlock | None:
+    return brief.signals[0] if brief.signals else None
 
 
 def _next_watchpoint(brief: TickerDailyBrief) -> Watchpoint | None:
@@ -565,16 +692,6 @@ def _next_watchpoint(brief: TickerDailyBrief) -> Watchpoint | None:
     if dated:
         return sorted(dated, key=lambda w: w.date or "9999-99-99")[0]
     return brief.watchpoints[0] if brief.watchpoints else None
-
-
-def _priority_reason(brief: TickerDailyBrief) -> str:
-    top_signal = _top_signal(brief)
-    if top_signal:
-        return top_signal.title
-    next_watch = _next_watchpoint(brief)
-    if next_watch:
-        return next_watch.title
-    return brief.headline
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -614,7 +731,7 @@ def _next_7d_watchpoint_count(
 
 
 def _is_current_brief(brief: TickerDailyBrief, report_date: str) -> bool:
-    return brief.brief_date == report_date and brief.status != "stale"
+    return brief.brief_date == report_date
 
 
 def _row_from_brief(brief: TickerDailyBrief, report_date: str) -> TickerRow:
@@ -624,12 +741,11 @@ def _row_from_brief(brief: TickerDailyBrief, report_date: str) -> TickerRow:
         signal_types.append("technical")
     return TickerRow(
         symbol=brief.symbol,
-        status=brief.status if is_current else "stale",
-        priority_score=brief.priority_score if is_current else 0,
         headline=brief.headline,
         ai_take=brief.ai_take,
         news_summary=brief.news_summary,
         technical_monitor=brief.technical_monitor,
+        market_discussion=brief.market_discussion,
         signal_types=signal_types,
         signals=brief.signals,
         watchpoints=brief.watchpoints,
@@ -645,11 +761,10 @@ def _row_from_brief(brief: TickerDailyBrief, report_date: str) -> TickerRow:
 def _stale_row(symbol: str) -> TickerRow:
     return TickerRow(
         symbol=symbol,
-        status="stale",
-        priority_score=0,
         headline="今日监控尚未生成",
         ai_take="这只股票今天还没有可用的 AI 监控结果。后台生成完成后，这里会显示新闻、社交讨论、事件和技术面的综合判断。",
         news_summary="",
+        market_discussion=_empty_market_discussion(symbol),
         signal_types=[],
         generated_at=None,
         is_stale=True,
@@ -687,24 +802,7 @@ async def compose_monitor_for_user(user_id: str) -> WatchlistMonitorResponse:
         future_event_candidates.extend(brief.event_candidates)
         generated_times.append(brief.generated_at)
 
-    rows.sort(key=lambda r: (r.priority_score, 0 if r.status == "stale" else 1), reverse=True)
-
-    priority_items = [
-        PriorityItem(
-            symbol=row.symbol,
-            status=row.status,
-            priority_score=row.priority_score,
-            headline=row.headline,
-            reason=_priority_reason(briefs[row.symbol]) if row.symbol in briefs else row.headline,
-            next_watchpoint=row.next_watchpoint.title if row.next_watchpoint else "",
-            generated_at=row.generated_at,
-        )
-        for row in rows
-        if row.status in ("needs_attention", "watch")
-    ][:5]
-
     summary = MonitorSummary(
-        needs_attention=sum(1 for r in rows if r.status == "needs_attention"),
         new_signals=sum(
             len(brief.signals) + len(brief.technical_monitor.signals)
             for brief in current_briefs
@@ -714,15 +812,13 @@ async def compose_monitor_for_user(user_id: str) -> WatchlistMonitorResponse:
             watchpoints=future_watchpoints,
             report_date=report_date,
         ),
-        quiet_tickers=sum(1 for r in rows if r.status == "quiet"),
-        stale_tickers=sum(1 for r in rows if r.status == "stale"),
+        stale_tickers=sum(1 for r in rows if r.is_stale),
     )
 
     return WatchlistMonitorResponse(
         as_of=utc_now_iso(),
         symbols=symbols,
         summary=summary,
-        priority_items=priority_items,
         ticker_rows=rows,
         future_watchpoints=future_watchpoints[:10],
         future_event_candidates=future_event_candidates[:20],

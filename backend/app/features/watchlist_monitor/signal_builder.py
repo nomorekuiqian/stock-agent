@@ -7,7 +7,6 @@ from datetime import date, timedelta
 from typing import Any
 
 from app.core.logging import get_logger
-from app.features.twitter_digest.models import DailyDigest
 from app.features.watchlist_monitor.news_enrichment import get_tavily_ticker_news
 from app.features.watchlist_monitor.models import (
     EventCandidate,
@@ -1389,66 +1388,6 @@ def _compact_macro_events(events: list[dict[str, Any]], source_refs: list[Source
     return out
 
 
-def _compact_social(symbol: str, digest: DailyDigest | None, source_refs: list[SourceRef]) -> dict[str, Any]:
-    if not digest:
-        return {"available": False}
-
-    thesis = None
-    for item in digest.ticker_theses:
-        if item.ticker.upper() == symbol:
-            thesis = item
-            break
-
-    watchpoints = [
-        w for w in digest.watchpoints
-        if symbol in {s.upper() for s in w.related_tickers}
-    ][:3]
-
-    if not thesis and not watchpoints:
-        return {
-            "available": True,
-            "digest_date": digest.date,
-            "discussion_level": "low",
-            "summary": "",
-            "watchpoints": [],
-        }
-
-    ref_id = "social_1"
-    source_refs.append(
-        _source_ref(
-            ref_id,
-            "social",
-            "Twitter/KOL digest %s" % digest.date,
-            "",
-            digest.generated_at,
-        )
-    )
-
-    return {
-        "available": True,
-        "digest_date": digest.date,
-        "discussion_level": "high" if thesis and thesis.tweet_count >= 4 else "medium",
-        "side": thesis.side if thesis else "",
-        "tweet_count": thesis.tweet_count if thesis else 0,
-        "primary_kols": thesis.primary_kols if thesis else [],
-        "stance_summary": thesis.stance_summary if thesis else "",
-        "synthesis_zh": thesis.synthesis_zh if thesis else "",
-        "buy_count": thesis.buy_count if thesis else 0,
-        "sell_count": thesis.sell_count if thesis else 0,
-        "observation_count": thesis.observation_count if thesis else 0,
-        "watchpoints": [
-            {
-                "title": w.title,
-                "date_hint": w.date_hint,
-                "why_it_matters_zh": w.why_it_matters_zh,
-                "kols_watching": w.kols_watching,
-            }
-            for w in watchpoints
-        ],
-        "source_ref_id": ref_id,
-    }
-
-
 def _parse_date(value: Any) -> date | None:
     if not value:
         return None
@@ -1586,8 +1525,8 @@ def merge_event_candidates(
         parsed = _parse_date(item.event_date)
         date_bucket = 0 if parsed else 1
         date_value = item.event_date or "9999-99-99"
-        priority = confidence_rank.get(item.confidence, 0)
-        return (date_bucket, date_value, -priority, item.title)
+        confidence_value = confidence_rank.get(item.confidence, 0)
+        return (date_bucket, date_value, -confidence_value, item.title)
 
     return sorted(merged.values(), key=sort_key)[:limit]
 
@@ -1739,37 +1678,6 @@ def _macro_event_candidates(
     return candidates
 
 
-def _social_event_candidates(symbol: str, social: dict[str, Any], report_date: str) -> list[EventCandidate]:
-    if not social.get("available"):
-        return []
-    ref_id = social.get("source_ref_id") or ""
-    candidates: list[EventCandidate] = []
-    for item in social.get("watchpoints") or []:
-        title = item.get("title") or ""
-        if not title:
-            continue
-        candidate = _event_candidate(
-            symbol=symbol,
-            event_type="social_watchpoint",
-            title=title,
-            summary=item.get("why_it_matters_zh") or "社交平台上有人在持续关注这个话题。",
-            why_it_matters="这不是已确认日程，但代表当前投资者正在等待验证的公司相关叙事。",
-            report_date=report_date,
-            date_precision="unknown",
-            status="tentative",
-            confidence="medium",
-            source_ref_ids=[ref_id] if ref_id else [],
-            source_type="twitter_digest",
-            metadata={
-                "date_hint": item.get("date_hint"),
-                "kols_watching": item.get("kols_watching") or [],
-            },
-        )
-        if candidate:
-            candidates.append(candidate)
-    return candidates
-
-
 def build_ticker_context(
     symbol: str,
     *,
@@ -1778,7 +1686,6 @@ def build_ticker_context(
     sector_performance: dict[str, Any] | None,
     earnings: list[dict[str, Any]],
     macro_events: list[dict[str, Any]],
-    twitter_digest: DailyDigest | None,
     report_date: str,
 ) -> dict[str, Any]:
     """Collect and compact all V0 inputs for a ticker."""
@@ -1795,12 +1702,10 @@ def build_ticker_context(
     news_items = _compact_news(symbol, source_refs, profile)
     earnings_events = _compact_earnings(symbol, earnings, source_refs)
     compact_macro_events = _compact_macro_events(macro_events, source_refs)
-    social = _compact_social(symbol, twitter_digest, source_refs)
     deterministic_events = merge_event_candidates(
         [
             *_earnings_event_candidates(symbol, earnings_events, report_date),
             *_macro_event_candidates(symbol, compact_macro_events, report_date),
-            *_social_event_candidates(symbol, social, report_date),
         ],
         symbol=symbol,
         report_date=report_date,
@@ -1823,7 +1728,6 @@ def build_ticker_context(
         "news_items": news_items,
         "earnings_events": earnings_events,
         "macro_events": compact_macro_events,
-        "social": social,
         "event_candidates": [item.model_dump(mode="json") for item in deterministic_events],
         "event_window": {
             "start": report_date,

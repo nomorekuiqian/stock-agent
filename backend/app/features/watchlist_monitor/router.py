@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
-from app.features.payment.entitlements import has_entitlement
 from app.features.watchlist_monitor.models import (
+    GeneratePaidUniverseRequest,
+    GeneratePaidUniverseResponse,
     GenerateRequest,
     GenerateResponse,
     GenerateTestUniverseRequest,
@@ -15,9 +16,11 @@ from app.features.watchlist_monitor.models import (
 from app.features.watchlist_monitor.service import (
     compose_monitor_for_user,
     generate_for_symbols,
+    generate_paid_user_universe,
     generate_test_user_universe,
     resolve_symbols_for_generation,
 )
+from app.shared.entitlements import has_feature_entitlement
 
 logger = get_logger(__name__)
 
@@ -26,7 +29,7 @@ _MONITOR_FEATURE = "for_you_website"
 
 
 async def _require_monitor_entitlement(user_id: str) -> None:
-    if not await has_entitlement(user_id, _MONITOR_FEATURE):
+    if not await has_feature_entitlement(user_id, _MONITOR_FEATURE):
         raise HTTPException(status_code=403, detail="AI monitor requires an active For You entitlement")
 
 
@@ -89,6 +92,22 @@ async def generate_test_universe(body: GenerateTestUniverseRequest | None = None
         user_ids=request.user_ids,
         limit_per_user=request.limit_per_user,
         max_symbols=request.max_symbols,
+        force=request.force,
+        dry_run=request.dry_run,
+    )
+
+
+@router.post(
+    "/admin/watchlist-monitor/generate-paid-universe",
+    response_model=GeneratePaidUniverseResponse,
+    dependencies=[Depends(verify_cron_secret)],
+)
+async def generate_paid_universe(body: GeneratePaidUniverseRequest | None = None):
+    """Generate ticker briefs for all users entitled to the paid monitor page."""
+    request = body or GeneratePaidUniverseRequest()
+    return await generate_paid_user_universe(
+        user_limit=request.user_limit,
+        limit_per_user=request.limit_per_user,
         force=request.force,
         dry_run=request.dry_run,
     )

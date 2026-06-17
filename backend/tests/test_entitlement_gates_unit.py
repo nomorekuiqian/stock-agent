@@ -76,7 +76,7 @@ class TestWatchlistMonitorEntitlementGate:
         app.dependency_overrides[verify_user_token] = lambda: "free-user"
 
         with patch(
-            "app.features.watchlist_monitor.router.has_entitlement",
+            "app.features.watchlist_monitor.router.has_feature_entitlement",
             new_callable=AsyncMock,
             return_value=False,
         ) as mock_has_entitlement:

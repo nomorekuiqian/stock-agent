@@ -174,7 +174,6 @@ export interface DigestResponse {
   }>;
 }
 
-export type MonitorStatus = 'needs_attention' | 'watch' | 'quiet' | 'stale';
 export type MonitorSignalType =
   | 'news'
   | 'social'
@@ -185,7 +184,6 @@ export type MonitorSignalType =
 
 export interface MonitorSignal {
   type: MonitorSignalType;
-  severity: 'low' | 'medium' | 'high';
   title: string;
   summary: string;
   why_it_matters: string;
@@ -296,12 +294,11 @@ export interface MonitorTechnicalMonitor {
 
 export interface MonitorTickerRow {
   symbol: string;
-  status: MonitorStatus;
-  priority_score: number;
   headline: string;
   ai_take: string;
   news_summary?: string;
   technical_monitor?: MonitorTechnicalMonitor;
+  market_discussion?: TwitterTickerDiscussionResponse;
   signal_types: MonitorSignalType[];
   signals: MonitorSignal[];
   watchpoints: MonitorWatchpoint[];
@@ -313,28 +310,15 @@ export interface MonitorTickerRow {
   is_stale: boolean;
 }
 
-export interface MonitorPriorityItem {
-  symbol: string;
-  status: MonitorStatus;
-  priority_score: number;
-  headline: string;
-  reason: string;
-  next_watchpoint?: string;
-  generated_at?: string | null;
-}
-
 export interface WatchlistMonitorResponse {
   success: boolean;
   as_of: string;
   symbols: string[];
   summary: {
-    needs_attention: number;
     new_signals: number;
     next_7d_watchpoints: number;
-    quiet_tickers: number;
     stale_tickers: number;
   };
-  priority_items: MonitorPriorityItem[];
   ticker_rows: MonitorTickerRow[];
   future_watchpoints: MonitorWatchpoint[];
   future_event_candidates: MonitorEventCandidate[];

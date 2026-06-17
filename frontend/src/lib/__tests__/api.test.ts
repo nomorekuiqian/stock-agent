@@ -816,7 +816,7 @@ describe('api (post cache removal)', () => {
       const payload = {
         success: true,
         symbols: ['AAPL'],
-        summary: { needs_attention: 1 },
+        summary: { new_signals: 1 },
         ticker_rows: [],
       };
       mockFetchOk(payload);

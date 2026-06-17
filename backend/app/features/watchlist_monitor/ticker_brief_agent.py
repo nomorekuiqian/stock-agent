@@ -91,6 +91,14 @@ Rules:
   stock unchanged.
 - If input.news_items is non-empty, news_summary must be non-empty and should
   answer what changed, why it matters, and what remains uncertain.
+- When input.news_items is non-empty, news_summary should be a compact
+  fundamental/event interpretation, not a headline list. Aim for 450-900
+  Chinese characters when there is enough source material.
+- For each major news/event theme, cover the factual claim, the business or
+  valuation channel it could affect, what remains unverified, and what future
+  disclosure or market reaction would confirm or weaken the theme.
+- Make the intermediate conclusion detailed enough that the final compositor can
+  use it without rereading raw news text.
 - Do not give buy/sell/hold instructions.
 - Never invent event dates, prices, source links, or schedules.
 - Dated watchpoints must include date and source_ref_ids.
@@ -126,15 +134,17 @@ MARKET_DISCUSSION_INSTRUCTION = """
 You summarize cached social/KOL discussion for one ticker.
 
 Rules:
-- Use only input.social. Social discussion is not a factual source for company events.
+- Use only input.market_discussion. Market discussion is not a factual source
+  for company events.
 - Explain what people are debating or watching; avoid vague sentiment labels.
 - You may emit social SignalBlock items if discussion is meaningful.
-- Surface concrete debate topics that can change monitoring priority, such as
+- Surface concrete debate topics that can change what users should monitor, such as
   regulatory review, delivery/usage data, capital allocation, pricing, or
   product adoption. Do not reduce the discussion to "sentiment is bullish".
 - Do not emit watchpoints. Future watchpoints are handled by the unified
   news/events synthesis step.
-- source_ref_ids must use the supplied social_* ids when present.
+- source_ref_ids must use ["market_discussion"] when market discussion is the
+  evidence source.
 - Do not give buy/sell/hold instructions.
 """
 
@@ -143,7 +153,7 @@ BRIEF_COMPOSITION_INSTRUCTION = """
 You are the final AI watchlist monitor compositor for US stock retail investors.
 
 Your job is NOT to write a full equity research report. Your job is to answer:
-1. Does this ticker need user attention today?
+1. Does this ticker need monitoring today?
 2. Why?
 3. What should the user watch over the next 14 days?
 
@@ -156,9 +166,8 @@ Rules:
 - Use only facts from the input JSON and subtask outputs. Never invent dates,
   news, events, prices, or source links.
 - Do not give buy/sell/hold instructions.
-- status must be one of needs_attention, watch, quiet, stale.
 - headline: one short neutral summary.
-- ai_take: one clear paragraph, 140-260 Chinese characters when possible.
+- ai_take: one clear paragraph, 220-360 Chinese characters when possible.
 - ai_take must explicitly cover three retail-monitoring questions inside the
   same paragraph using this rhythm: "今日信号是...；影响在于...；接下来重点看..."。
 - Be market-aware without creating a separate market section.
@@ -166,8 +175,12 @@ Rules:
   For example: financing cost for debt-heavy/AI-capex names, ad multiple for
   advertising platforms, consumer credit/demand for autos, cloud capex for
   hyperscalers. Do not reuse the same generic FOMC sentence for every ticker.
-- Use market_discussion when it adds newer or more concrete debate topics than
-  the news feed, but label it as market discussion rather than company fact.
+- Use input.market_discussion when it adds newer or more concrete debate topics
+  than the news feed, but label it as market discussion rather than company
+  fact. Do not treat market discussion as verified company disclosure.
+- If a signal uses market discussion as evidence, cite source_ref_ids
+  ["market_discussion"]. It is a valid source id when present in
+  input.source_refs.
 - Do not imply precise attribution such as "most of the move came from X" unless
   the input provides direct evidence.
 - For technical language, rely on input.technical_interpretation and
@@ -186,8 +199,8 @@ Rules:
   or input.news_events.watchpoints. Future events belong in those structures,
   not in signals.
 - source_ref_ids must refer to ids present in input.source_refs.
-- For quiet tickers, keep signals empty or very small and explain what would
-  change the priority.
+- If inputs are sparse, say that plainly in ai_take and explain what would
+  make the brief more actionable.
 - Do not turn ratings or investor actions into advice to the user. Analyst
   ratings or named investor buys/sells may be cited as facts, but never write
   direct user instructions such as 建议买入、建议卖出、建议加仓、追高、抄底、
@@ -450,7 +463,7 @@ async def _synthesize_news_and_events(context: dict[str, Any]) -> NewsEventsSynt
                     "deterministic_event_candidates": event_candidates,
                     "source_refs": _source_refs(
                         context,
-                        ("news_", "event_", "macro_", "social_"),
+                        ("news_", "event_", "macro_"),
                     ),
                 },
                 output_model=NewsEventsSynthesisOutput,
@@ -519,11 +532,8 @@ async def _interpret_technical(context: dict[str, Any]) -> TechnicalInterpretati
 
 
 async def _summarize_market_discussion(context: dict[str, Any]) -> MarketDiscussionOutput:
-    social = context.get("social") or {}
-    if not social.get("available") or (
-        not social.get("synthesis_zh")
-        and not social.get("stance_summary")
-    ):
+    market_discussion = _market_discussion_for_prompt(context)
+    if not market_discussion.get("available"):
         return MarketDiscussionOutput()
     try:
         return await asyncio.wait_for(
@@ -535,8 +545,8 @@ async def _summarize_market_discussion(context: dict[str, Any]) -> MarketDiscuss
                 user_payload={
                     "symbol": context.get("symbol"),
                     "report_date": context.get("report_date"),
-                    "social": social,
-                    "source_refs": _source_refs(context, ("social_",)),
+                    "market_discussion": market_discussion,
+                    "source_refs": _source_refs(context, ("market_discussion",)),
                 },
                 output_model=MarketDiscussionOutput,
                 max_tokens=_task_tokens(800),
@@ -572,6 +582,43 @@ def _technical_context_for_final(context: dict[str, Any]) -> dict[str, Any]:
         "usage": (
             "Use recent_price_path to verify daily sequence wording. Do not infer "
             "consecutive moves from aggregate 5d/20d changes alone."
+        ),
+    }
+
+
+def _market_discussion_for_prompt(context: dict[str, Any]) -> dict[str, Any]:
+    discussion = context.get("market_discussion") or context.get("market_discussion_cache") or {}
+    if not isinstance(discussion, dict):
+        return {"available": False}
+    overview = discussion.get("overview") if isinstance(discussion.get("overview"), dict) else {}
+    themes = [
+        {
+            "title": item.get("title"),
+            "stance": item.get("stance"),
+            "summary": item.get("summary"),
+            "tweet_count": item.get("tweet_count"),
+            "author_count": item.get("author_count"),
+        }
+        for item in (discussion.get("themes") or [])[:6]
+        if isinstance(item, dict)
+    ]
+    return {
+        "available": bool(discussion.get("count") or themes or overview.get("one_line_summary")),
+        "count": discussion.get("count", 0),
+        "generated_at": discussion.get("generated_at", ""),
+        "overview": {
+            "tweet_count": overview.get("tweet_count", 0),
+            "author_count": overview.get("author_count", 0),
+            "dominant_stance": overview.get("dominant_stance", "neutral"),
+            "one_line_summary": overview.get("one_line_summary", ""),
+            "latest_at": overview.get("latest_at"),
+        },
+        "themes": themes,
+        "usage": (
+            "This is a summary of cached KOL/social discussion generated during "
+            "the offline ticker brief job. Use it only as market discussion, not "
+            "as verified company fact. Cite source_ref_ids [\"market_discussion\"] "
+            "when using it as signal evidence."
         ),
     }
 
@@ -622,7 +669,7 @@ def _fallback_final_brief(
     else:
         signal_title = "暂无明显新增信号"
         signal_summary = "今天没有检测到足够明确的公司级新闻、社交或技术硬信号。"
-        signal_why = "监控优先级较低，主要等待新的新闻、事件或价格确认。"
+        signal_why = "当前更多是等待新的新闻、事件或价格确认。"
 
     next_watch = ""
     if news_events.watchpoints:
@@ -634,10 +681,6 @@ def _fallback_final_brief(
     next_watch = next_watch or "后续新闻流和价格确认"
 
     headline = _first_text(signal_title, "%s 今日监控更新" % symbol)[:80]
-    status = "watch" if signal_title != "暂无明显新增信号" else "quiet"
-    if any(signal.severity == "high" for signal in signals) or event_candidates:
-        status = "needs_attention" if signals else "watch"
-
     ai_take = (
         "今日信号是%s；影响在于%s；接下来重点看%s。"
         % (
@@ -647,7 +690,6 @@ def _fallback_final_brief(
         )
     )
     return BriefCompositionOutput(
-        status=status,
         headline=headline,
         ai_take=ai_take[:650],
         signals=signals[:4],
@@ -678,7 +720,8 @@ async def _compose_final_brief(
                     "news_events": news_events.model_dump(mode="json"),
                     "technical_interpretation": technical.model_dump(mode="json"),
                     "technical_context": _technical_context_for_final(context),
-                    "market_discussion": discussion.model_dump(mode="json"),
+                    "market_discussion": _market_discussion_for_prompt(context),
+                    "market_discussion_interpretation": discussion.model_dump(mode="json"),
                     "technical_monitor_summary": (context.get("technical_monitor") or {}).get("summary", ""),
                     "source_refs": _source_refs(context),
                 },
@@ -702,9 +745,11 @@ async def _compose_final_brief(
 async def generate_ticker_brief(context: dict) -> TickerBriefAgentOutput:
     """Run the split DeepSeek pipeline and return the combined brief output."""
     payload = _json_safe(context)
-    news_events = await _synthesize_news_and_events(payload)
-    technical = await _interpret_technical(payload)
-    discussion = await _summarize_market_discussion(payload)
+    news_events, technical, discussion = await asyncio.gather(
+        _synthesize_news_and_events(payload),
+        _interpret_technical(payload),
+        _summarize_market_discussion(payload),
+    )
     final = await _compose_final_brief(
         payload,
         news_events=news_events,
@@ -732,7 +777,6 @@ async def generate_ticker_brief(context: dict) -> TickerBriefAgentOutput:
     )
 
     return TickerBriefAgentOutput(
-        status=final.status,
         headline=final.headline,
         ai_take=final.ai_take,
         news_summary=news_events.news_summary,

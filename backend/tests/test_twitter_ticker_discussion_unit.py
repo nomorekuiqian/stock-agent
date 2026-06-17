@@ -150,59 +150,6 @@ def test_build_ticker_discussion_summary_groups_multiple_themes():
     assert "risks" not in summary
 
 
-def test_discussion_summary_agent_merges_chinese_theme_copy():
-    summary = {
-        "overview": {
-            "tweet_count": 2,
-            "author_count": 2,
-            "bull_count": 1,
-            "bear_count": 1,
-            "neutral_count": 0,
-            "dominant_stance": "mixed",
-            "latest_at": "2026-06-15T12:00:00+00:00",
-            "one_line_summary": "raw fallback",
-        },
-        "themes": [
-            {
-                "key": "valuation_positioning",
-                "title": "估值与仓位分歧",
-                "stance": "mixed",
-                "summary": "AMD valuation looks expensive after this move.",
-                "tweet_count": 2,
-                "author_count": 2,
-                "representative_claims": [
-                    "AMD valuation looks expensive after this move."
-                ],
-                "evidence_tweet_ids": ["risk-1"],
-            }
-        ],
-    }
-    output = discussion_summary_agent.DiscussionSynthesisOutput(
-        overview=discussion_summary_agent.DiscussionOverviewOutput(
-            one_line_summary="过去 24 小时，AMD 的讨论集中在估值分歧和仓位调整。"
-        ),
-        themes=[
-            discussion_summary_agent.DiscussionThemeOutput(
-                key="valuation_positioning",
-                title="估值分歧升温",
-                stance="mixed",
-                summary="部分作者认为股价上涨后估值压力变大，也有人把回调视为观察机会。",
-                representative_claims=["上涨后估值压力更受关注。"],
-            )
-        ],
-    )
-
-    merged = discussion_summary_agent._merge_agent_output(summary, output)
-
-    assert merged["overview"]["one_line_summary"].startswith("过去 24 小时")
-    assert merged["themes"][0]["title"] == "估值分歧升温"
-    assert "valuation looks" not in merged["themes"][0]["summary"]
-    assert merged["themes"][0]["representative_claims"] == [
-        "上涨后估值压力更受关注。"
-    ]
-    assert "risks" not in merged
-
-
 def test_discussion_summary_fallback_hides_raw_english_claims():
     summary = {
         "overview": {
@@ -233,7 +180,43 @@ def test_discussion_summary_fallback_hides_raw_english_claims():
 
     assert fallback["themes"][0]["representative_claims"] == []
     assert "valuation looks" not in fallback["themes"][0]["summary"]
-    assert "分歧和风险" in fallback["themes"][0]["summary"]
+    assert "观察线索" in fallback["themes"][0]["summary"]
+
+
+@pytest.mark.asyncio
+async def test_generate_chinese_discussion_summary_uses_deterministic_fallback():
+    summary = {
+        "overview": {
+            "tweet_count": 1,
+            "author_count": 1,
+            "bull_count": 1,
+            "bear_count": 0,
+            "neutral_count": 0,
+            "dominant_stance": "bull",
+        },
+        "themes": [
+            {
+                "key": "ai_demand",
+                "title": "AI 需求与芯片产品线",
+                "stance": "bull",
+                "summary": "AMD AI GPU demand is improving.",
+                "tweet_count": 1,
+                "author_count": 1,
+                "representative_claims": ["AMD AI GPU demand is improving."],
+                "evidence_tweet_ids": ["tweet-1"],
+            }
+        ],
+    }
+
+    result = await discussion_summary_agent.generate_chinese_discussion_summary(
+        symbol="AMD",
+        hours=24,
+        summary=summary,
+        tweets=[_tweet("tweet-1")],
+    )
+
+    assert result["overview"]["one_line_summary"].startswith("过去 24 小时")
+    assert "demand is improving" not in result["themes"][0]["summary"]
 
 
 @pytest.mark.asyncio

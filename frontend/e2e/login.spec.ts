@@ -385,7 +385,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
       });
     });
 
-    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/payment\/me\/entitlements$/, async (route: Route) => {
+    await page.route(/http:\/\/(?:localhost|127\.0\.0\.1):8000\/api\/payment\/me\/entitlements(?:\?.*)?$/, async (route: Route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

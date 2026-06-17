@@ -9,12 +9,11 @@ CREATE TABLE IF NOT EXISTS ticker_daily_briefs (
   symbol          TEXT NOT NULL,
   brief_date      DATE NOT NULL,
   model_version   TEXT NOT NULL DEFAULT 'watchlist-monitor-v0',
-  status          TEXT NOT NULL,
   headline        TEXT NOT NULL,
   ai_take         TEXT NOT NULL,
   news_summary    TEXT NOT NULL DEFAULT '',
   technical_monitor JSONB NOT NULL DEFAULT '{}'::jsonb,
-  priority_score  SMALLINT NOT NULL DEFAULT 0,
+  market_discussion JSONB NOT NULL DEFAULT '{}'::jsonb,
   signals         JSONB NOT NULL DEFAULT '[]'::jsonb,
   watchpoints     JSONB NOT NULL DEFAULT '[]'::jsonb,
   event_candidates JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -23,10 +22,6 @@ CREATE TABLE IF NOT EXISTS ticker_daily_briefs (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  CONSTRAINT ticker_daily_briefs_status_check
-    CHECK (status IN ('needs_attention', 'watch', 'quiet', 'stale')),
-  CONSTRAINT ticker_daily_briefs_priority_score_check
-    CHECK (priority_score >= 0 AND priority_score <= 100),
   CONSTRAINT ticker_daily_briefs_symbol_check
     CHECK (symbol ~ '^[A-Z0-9.\-^=]{1,12}$'),
   CONSTRAINT ticker_daily_briefs_unique_version
@@ -40,6 +35,9 @@ ALTER TABLE ticker_daily_briefs
   ADD COLUMN IF NOT EXISTS technical_monitor JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 ALTER TABLE ticker_daily_briefs
+  ADD COLUMN IF NOT EXISTS market_discussion JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE ticker_daily_briefs
   ADD COLUMN IF NOT EXISTS event_candidates JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_ticker_daily_briefs_symbol_date
@@ -47,9 +45,6 @@ CREATE INDEX IF NOT EXISTS idx_ticker_daily_briefs_symbol_date
 
 CREATE INDEX IF NOT EXISTS idx_ticker_daily_briefs_generated_at
   ON ticker_daily_briefs (generated_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_ticker_daily_briefs_status
-  ON ticker_daily_briefs (status);
 
 CREATE OR REPLACE FUNCTION u0a_set_updated_at() RETURNS trigger AS $$
 BEGIN

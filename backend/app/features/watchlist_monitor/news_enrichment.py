@@ -13,7 +13,6 @@ import httpx
 from app.core.config import (
     TAVILY_API_KEY,
     WATCHLIST_MONITOR_TAVILY_ENABLED,
-    WATCHLIST_MONITOR_TAVILY_QUERIES_PER_TICKER,
     WATCHLIST_MONITOR_TAVILY_INCLUDE_DOMAINS,
     WATCHLIST_MONITOR_TAVILY_RESULTS_PER_QUERY,
     WATCHLIST_MONITOR_TAVILY_TIMEOUT_S,
@@ -24,40 +23,11 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 _TAVILY_SEARCH_URL = "https://api.tavily.com/search"
-_LEGAL_SUFFIX_RE = re.compile(
-    r"\b(incorporated|inc|corp|corporation|company|co|ltd|limited|plc|class a|class b|common stock|ordinary shares)\b\.?",
-    re.IGNORECASE,
-)
 _URL_DATE_RE = re.compile(r"(20\d{2})[-_/](\d{2})[-_/](\d{2})")
 
 
-def _company_name(profile: dict[str, Any] | None) -> str:
-    if not isinstance(profile, dict):
-        return ""
-    return str(
-        profile.get("company_name")
-        or profile.get("companyName")
-        or profile.get("name")
-        or ""
-    ).strip()
-
-
-def _search_company_name(profile: dict[str, Any] | None) -> str:
-    name = _company_name(profile)
-    if not name:
-        return ""
-    cleaned = _LEGAL_SUFFIX_RE.sub("", name.replace(",", " "))
-    return " ".join(cleaned.split())
-
-
-def _build_tavily_queries(symbol: str, profile: dict[str, Any] | None) -> list[str]:
+def _build_tavily_queries(symbol: str, _profile: dict[str, Any] | None) -> list[str]:
     symbol = symbol.strip().upper()
-    company = _search_company_name(profile)
-    if company:
-        return [
-            "%s %s stock news" % (symbol, company),
-            "%s stock news" % symbol,
-        ]
     return ["%s stock news" % symbol]
 
 
@@ -136,9 +106,8 @@ def get_tavily_ticker_news(
             "reason": "disabled_or_missing_key",
         }
 
-    max_queries = max(1, WATCHLIST_MONITOR_TAVILY_QUERIES_PER_TICKER)
     max_results = min(max(1, WATCHLIST_MONITOR_TAVILY_RESULTS_PER_QUERY), 20)
-    queries = _build_tavily_queries(symbol, profile)[:max_queries]
+    queries = _build_tavily_queries(symbol, profile)
     headers = {
         "Authorization": "Bearer %s" % TAVILY_API_KEY,
         "Content-Type": "application/json",

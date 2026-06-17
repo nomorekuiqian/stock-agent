@@ -10,6 +10,7 @@ Implemented:
 - `ticker_daily_briefs` schema and `watchlist-monitor` Edge Function.
 - Cached user read API: `GET /api/watchlist-monitor`.
 - Cron/admin generation API: `POST /api/admin/watchlist-monitor/generate-active-tickers`.
+- Paid universe generation API: `POST /api/admin/watchlist-monitor/generate-paid-universe`.
 - Beta frontend page: `/for-you/monitor`.
 - Monitor right panel is now a full-width ticker workbench: selected ticker summary, top-of-page full K-line market structure chart, key levels, AI memo, then 3 detail tabs for news/events, technicals, and market discussion.
 - News section now uses `news_summary` from rolling 24h English news, with up to 15 source headlines.
@@ -19,9 +20,8 @@ Implemented:
 
 Still pending:
 
-- Full active ticker universe across all users.
 - Digest/email integration.
-- Scheduled cron setup.
+- Scheduled production cron setup for the paid universe endpoint.
 - User state such as read/handled/snooze.
 - Source/evidence UI beyond the top signal drawer.
 
@@ -45,7 +45,7 @@ Still pending:
 
 - 不在用户每次打开页面或发 query 时重新全量跑 LLM。
 - 不在 V1 做真正的个性化投资建议、买卖指令或组合调仓建议。
-- 不把 Twitter/KOL 作为事实来源；社交内容只用于解释市场讨论和关注度。
+- 不把 Twitter/KOL 作为事实来源；Market Discussion 只用于解释市场讨论和关注度。
 - 不依赖已计划 rollback 的模拟持仓能力作为核心输入。V1 以 watchlist 为主，portfolio 只作为兼容输入。
 - 不重写 `/stock` 个股研究页。工作台只提供深挖入口。
 
@@ -108,21 +108,20 @@ M1-M4 阶段建议新增 `/for-you/monitor`，保持现有 `/for-you` 不受影�
 页面应是工作台，不是文章流。
 
 1. Header Summary
-   - 今日需要关注：高优先级 ticker 或事件数量。
+   - 今日覆盖：已生成 brief 的 ticker 数和旧缓存 ticker 数。
    - 新信号：过去 24 小时新增 signal 数。
    - 未来观察点：未来 7 天 watchpoints 数。
-   - 平稳 ticker：无重大变化的关注项数量。
    - Freshness：AI 分析更新时间、行情更新时间、社交数据更新时间。
 
-2. Priority Queue
-   - 展示 3-5 个最重要的事项。
-   - 每项包含 ticker、priority、触发原因、AI 一句话判断、下一步观察点。
-   - 用户打开页面首先看这里，而不是自己从 ticker 列表中筛。
+2. Watchlist Brief List
+   - 按用户 watchlist 顺序展示 ticker brief。
+   - 每项包含 ticker、AI 一句话判断、下一步观察点和更新时间。
+   - 不在 V0 为每个 brief 设计 status 或排序分数字段；如需排序，后续必须单独设计信息架构和解释方式。
 
 3. Watchlist Table
-   - 行级结构：Ticker、状态、触发 signals、AI 判断、下一观察点、更新时间。
-   - 状态建议：`Needs Attention`、`Watch`、`Quiet`、`Stale`。
-   - 支持按 priority、signal type、更新时间筛选。
+   - 行级结构：Ticker、触发 signals、AI 判断、下一观察点、更新时间、是否为旧缓存。
+   - 不给 brief 增加业务 status 或排序分数字段；是否 stale 由 `brief_date` 派生。
+   - 支持按 signal type、更新时间筛选。
 
 4. Signal Feed
    - 按时间展示系统新捕获的新闻、社交、事件、技术信号。
@@ -189,9 +188,9 @@ V1 数据源按可靠性分层：
    - Existing macro cache/report data。
 
 2. Existing product data
-   - `twitter_digest` 的 `ticker_theses`、`hot_tickers`、`watchpoints`。
    - `/stock` 已有的数据工具和基本面/技术工具。
    - 用户 watchlist/profile from `brew` / `portfolio`。
+   - `kol_tweets` ticker-level cached discussion, compressed into Market Discussion during the offline generation job.
 
 3. Event discovery sources
    - Company IR pages / press release feeds where available。
@@ -201,7 +200,7 @@ V1 数据源按可靠性分层：
 
 ### Search Strategy
 
-Deferred. V0 does not call a Search API and does not maintain a separate event-candidate history table. It uses FMP news/calendar plus the existing Twitter digest; future Search/IR crawling should land as a separate, source-grounded iteration.
+V0 uses Tavily only as ticker news enrichment. Each ticker performs one basic search with the fixed query `{TICKER} stock news`, then merges/dedupes those results with FMP news before LLM synthesis. It does not maintain a separate event-candidate history table. Future Search/IR crawling should land as a separate, source-grounded iteration.
 
 ### Database Tables
 
@@ -214,11 +213,11 @@ id uuid primary key
 symbol text not null
 brief_date date not null
 model_version text not null
-status text not null
 headline text
 ai_take text not null
 news_summary text
 technical_monitor jsonb not null
+market_discussion jsonb not null
 signals jsonb not null
 watchpoints jsonb not null
 event_candidates jsonb not null
@@ -235,7 +234,6 @@ unique(symbol, brief_date, model_version)
 [
   {
     "type": "news",
-    "severity": "medium",
     "title": "string",
     "summary": "string",
     "why_it_matters": "string",
@@ -272,7 +270,6 @@ id uuid primary key
 symbol text not null
 signal_date date not null
 signal_type text not null
-severity text not null
 title text not null
 summary text
 source_refs jsonb not null
@@ -318,12 +315,10 @@ Response:
     "events_updated_at": "ISO timestamp"
   },
   "summary": {
-    "needs_attention": 3,
     "new_signals": 8,
     "next_7d_watchpoints": 5,
-    "quiet_tickers": 9
+    "stale_tickers": 1
   },
-  "priority_items": [],
   "ticker_rows": [],
   "future_watchpoints": [],
   "signal_feed": []
@@ -342,6 +337,7 @@ M3 增加。保存 read/handled/snoozed 状态。
 POST /api/admin/watchlist-monitor/discover-events
 POST /api/admin/watchlist-monitor/generate-ticker
 POST /api/admin/watchlist-monitor/generate-active-tickers
+POST /api/admin/watchlist-monitor/generate-paid-universe
 ```
 
 这些端点使用 cron/admin auth，不暴露给普通用户。
@@ -349,10 +345,10 @@ POST /api/admin/watchlist-monitor/generate-active-tickers
 ### Generation Pipeline
 
 1. Build active ticker universe
-   - 所有用户 watchlist。
+   - Public paid page 使用 `for_you_website` entitlement 用户的 watchlist 去重并集。
    - 兼容 portfolio symbols。
    - Admin pinned tickers。
-   - Twitter digest hot tickers 可作为补充，但不超过配置上限。
+   - 不再使用 Twitter Digest hot tickers 作为 monitor universe 或 ticker brief 输入。
 
 2. Collect raw inputs per ticker
    - quotes。
@@ -360,7 +356,7 @@ POST /api/admin/watchlist-monitor/generate-active-tickers
    - company news and press releases。
    - earnings calendar。
    - event candidates。
-   - twitter digest ticker thesis。
+   - cached Market Discussion from ticker-level KOL/social discussion。
    - macro/sector context。
 
 3. Build deterministic signal candidates
@@ -510,14 +506,14 @@ WATCHLIST_MONITOR_MODEL_VERSION=watchlist-monitor-v1-deepseek-v4-pro
 2. Shadow eval：对固定 ticker set 同时跑 Gemini 和 DeepSeek，不写 DeepSeek 或写入新 `model_version`，比较 schema pass rate、质量门失败率、事件日期 hallucination、source ref 准确率、成本和延迟。
 3. Internal canary：admin 手动生成内部 watchlist，先观察 schema pass、质量门和事件日期引用。
 4. Production default：批量 cron 默认 DeepSeek direct API；子任务失败先降级为空结果，最终合成失败或 service 质量门失败时直接标记 ticker failed，不写 fake success。
-5. Optimization：如果 V4 Pro 质量稳定，再对 quiet/low-priority ticker A/B DeepSeek V4 Flash；needs_attention/high-event ticker 保持 Pro。
+5. Optimization：如果 V4 Pro 质量稳定，再评估是否按 ticker universe 分层 A/B DeepSeek V4 Flash；分层规则需要独立设计，不能依赖 brief 内的分数字段。
 
 #### Acceptance Criteria
 
 - DeepSeek V4 Pro 对 20 个样例 ticker 的分任务 schema pass rate >= 98%，最终 retry 后质量门通过率 >= 95%。
 - 0 条输出包含不存在的 `source_ref_ids`。
 - 0 条 exact-date event candidate 使用无来源日期。
-- `needs_attention` 不能在完全无 signal/news/watchpoint 时通过。
+- 生成 brief 不输出业务 status；读取路径仅用 `is_stale` 表示旧缓存回退。
 - 读路径无 LLM 调用，`GET /api/watchlist-monitor` 行为不变。
 - admin LLM usage dashboard 能看到 DeepSeek 调用量和粗略 USD 成本。
 - 子任务失败会记录 warning 并降级为空结果；最终合成失败或质量门失败时不写 brief。
@@ -571,7 +567,7 @@ Scope:
 - 完成本计划评审。
 - 定义后端 Pydantic models、TypeScript types、API response contract。
 - 确定 feature flag，例如 `watchlist_monitor_enabled`。
-- 确定 V1 支持的 signal taxonomy 和 priority ranking 规则。
+- 确定 V1 支持的 signal taxonomy；暂不设计 per-brief status 或排序规则。
 
 Validation:
 
@@ -601,14 +597,14 @@ Validation:
 Scope:
 
 - 实现 `signal_builder.py`。
-- 接入 FMP news/calendar、technical data、twitter digest 成品、macro context。
+- 接入 FMP news/calendar、technical data、cached Market Discussion、macro context。
 - 实现 `ticker_brief_agent.py`，使用 `gemini-3.5-flash` 输出结构化 brief。
 - 增加 admin/cron 批量 ticker 生成端点。
 
 Validation:
 
 - 对 5 个样例 ticker 生成完整 brief，例如 `NVDA`、`TSLA`、`AAPL`、`MSFT`、`AMD`。
-- 每个样例至少输出 `ai_take`、priority/status、signals、source_refs。
+- 每个样例至少输出 `ai_take`、signals、source_refs。
 - 有明确日期的 watchpoint 必须带 source。
 - 外部数据失败时返回 partial result，不写 fake success。
 - 日志记录 input source count、生成耗时、模型版本、失败原因。
@@ -620,8 +616,8 @@ Scope:
 
 - 实现 `GET /api/watchlist-monitor`。
 - 从当前用户 watchlist/portfolio 读取 ticker 列表。
-- 拼装 summary、priority_items、ticker_rows、future_watchpoints、signal_feed、freshness。
-- 实现 priority ranking：重大事件、强 news、强 technical move、social attention、stale data。
+- 拼装 summary、ticker_rows、future_watchpoints、signal_feed、freshness。
+- 按用户 watchlist 顺序返回 ticker_rows；不做系统排序。
 - 可选实现 `PATCH /api/watchlist-monitor/state`。
 
 Validation:
@@ -637,7 +633,7 @@ Validation:
 Scope:
 
 - 新增 `/for-you/monitor` 页面。
-- 实现 Header Summary、Priority Queue、Watchlist Table、Signal Feed、Future Watchpoints、Ticker Detail Drawer。
+- 实现 Header Summary、Watchlist Brief List、Watchlist Table、Signal Feed、Future Watchpoints、Ticker Detail Drawer。
 - 更新 `frontend/src/lib/api.ts` types 和 API client。
 - 保持现有 `/for-you` legacy digest 可用。
 - 加入 responsive layout，桌面优先，移动端可读。
@@ -688,10 +684,10 @@ Validation:
 ## Open Questions
 
 - V1 是否直接把 `/for-you` 切到 monitor，还是先以 `/for-you/monitor` beta 发布。
-- 是否购买 Benzinga/Trading Economics 等更完整事件源，还是先用 FMP + existing Twitter digest。
-- Priority ranking 是否先用规则，还是让 LLM 对 ticker brief 输出 `priority_hint` 后再由规则排序。
+- 是否购买 Benzinga/Trading Economics 等更完整事件源，还是先用 FMP + Market Discussion。
+- 如果未来要做排序，是否需要单独设计 explainable ranking，而不是在 brief schema 里直接加分数。
 - 是否在 M3 就加入 read/handled/snooze，还是先只做只读工作台。
-- Social Signal 只用现有 KOL digest 成品，还是增加 ticker-level tweet retrieval。
+- Market Discussion 是否继续只用 cached `kol_tweets`，还是增加更完整的 ticker-level discussion retrieval。
 
 ## Risks
 

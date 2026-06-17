@@ -803,11 +803,22 @@ h6 {
 }
 
 .monitor-list-row {
+  position: relative;
   animation: monitor-tab-enter 260ms var(--ease-out-standard) both;
   animation-delay: calc(var(--monitor-item-index, 0) * 24ms);
   transition:
     background-color var(--duration-fast) var(--ease-out-expo),
     transform var(--duration-fast) var(--ease-out-expo);
+}
+
+.monitor-list-row-active::before {
+  content: "";
+  position: absolute;
+  inset-block: 10px;
+  inset-inline-start: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--primary);
 }
 
 .monitor-list-row:hover {
@@ -872,6 +883,7 @@ h6 {
   .monitor-list-row,
   .monitor-list-row-active .monitor-list-dot,
   .monitor-empty-icon,
+  .monitor-list-row-active::before,
   .monitor-skeleton-block::after {
     animation: none;
     opacity: 1;
