@@ -73,6 +73,7 @@ const PLANS: {
     features: [
       "盘前早报邮件",
       "每日市场日报邮件",
+      "推特 KOL 日报",
       "专属持仓日报邮件",
       "宏观周报邮件",
     ],
@@ -82,7 +83,7 @@ const PLANS: {
     name: "Max",
     price: PRICING.max,
     priceLabel: PRICING.maxPerMonth,
-    summary: "适合需要研究助手、个股深度分析和 KOL 日报的人。",
+    summary: "适合需要研究助手、个股深度分析和博主研究室的人。",
     icon: Crown,
     accent: {
       icon: "text-amber-500",
@@ -93,7 +94,6 @@ const PLANS: {
     },
     features: [
       "Pro 全部功能",
-      "推特 KOL 日报",
       "AI研究助手",
       "AI深度个股分析",
       "博主研究室资料库",

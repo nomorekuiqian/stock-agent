@@ -12,6 +12,8 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 | Lifetime | `is_lifetime=true` | 永久 Max 全功能 |
 | 非 Stripe grant (过渡/赠送) | `access_expires_at` 未来 + `plan/status/entitlements` | 读时按 `access_expires_at` 失效；每日 reconciliation 清成 Free/expired |
 
+当前用户可见展示价格为 Pro `$10/月`、Max `$20/月`。前端页面价格以 `frontend/src/lib/pricing.ts` 为准；后端邮件模板中的价格常量必须与它保持一致。Stripe 实际扣款金额仍以对应 Price ID 为准。
+
 ## 功能边界
 
 **正式销售层只有 Pro / Max**:
@@ -24,7 +26,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 | AI 投研对话 (`/api/research/chat`) | 2/天 | 2/天 | 无限 |
 | 博主 Agent (`/api/kol_research/chat`) | 2/天 | 2/天 | 无限 |
 | Qinbafrank 研究室子页 | 登录后 Max CTA | 登录后 Max CTA | 解锁 |
-| 推特日报 (`twitter_digest`) | 前 3 封 intro 完整版 (注册 D0/D1/D2 自然日), 之后停 | 锁 | 每天完整 |
+| 推特日报 (`twitter_digest`) | 前 3 封 intro 完整版 (注册 D0/D1/D2 自然日), 之后停 | 每天完整 | 每天完整 |
 | `morning_report_email` / `weekly_report_email` / `personal_digest_email` | 无 | 有 | 有 |
 | 个股深度研究 (`stock_research`) | 无 | 锁 | 无限 |
 
@@ -39,8 +41,8 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 ## 设计原则
 
 1. **watchlist 对 Free 是钩子, 不是价值**: Free / Pro / Max 全部上限 25 — 数量不是付费卖点, 唯一作用是让用户录入"自己的股票"后引导升级 Pro 拿专属日报. Free 用户能加 25 只但收不到任何基于持仓的邮件, 没有日常 ROI; 这是设计意图.
-2. **AI 投研对话 Pro 不差异化**: Free + Pro 都是 2/天, Max 无限. AI 投研是 Max 独家深度使用功能, **不是 Pro 升级卖点**. Pro 卖点全部在邮件层 (morning / weekly / personal_digest). Max 卖点: 推特日报 + AI 投研无限 + 个股深度无限.
-3. **推特日报 "前 3 封后停"**: 注册自然日 D0/D1/D2 各发 1 封完整版, 周末也发 (跟正常发刊日历独立; 周末无新内容时复用最近一期). D4 onboarding 邮件转化推 Max.
+2. **AI 投研对话 Pro 不差异化**: Free + Pro 都是 2/天, Max 无限. AI 投研是 Max 独家深度使用功能, **不是 Pro 升级卖点**. Pro 卖点全部在邮件层 (morning / weekly / personal_digest / twitter_digest). Max 卖点: AI 投研无限 + 个股深度无限 + 博主研究室.
+3. **推特日报 "前 3 封后停"**: 注册自然日 D0/D1/D2 各发 1 封完整版, 周末也发 (跟正常发刊日历独立; 周末无新内容时复用最近一期). D4 onboarding 邮件转化推 Pro.
 4. **专属日报通过 onboarding 流程做转化**: Step 2 建完自选股 → Step 3 modal **直跳 Stripe Checkout** (`POST /api/payment/checkout-session` with `tier="pro"`), 不经 `/pricing`.
 
 ## Entitlements
@@ -53,12 +55,12 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 - `personal_digest_email`
 - `watchlist_extended` (保留, 但 Free 也 25 后不再有差异; 未来可能 repurpose)
 - `today_website` / `for_you_website`（含 `/for-you` 和 `/for-you/monitor`） / `morning_website`
+- `twitter_digest`
 
 **MAX_ONLY_FEATURES** (Pro 之外):
 - `stock_research`
 - `ai_research_engine` (赋予无限 `/api/research/chat` quota)
 - `portfolio_management`
-- `twitter_digest`
 
 **MAX_FEATURES** = `PRO_FEATURES | MAX_ONLY_FEATURES`
 

@@ -1,7 +1,7 @@
 """
 Twitter Digest segment drift audit.
 
-Twitter Digest is a Max-only, entitlement-managed email channel. This script is
+Twitter Digest is a Pro, entitlement-managed email channel. This script is
 read-only by default and checks that the Resend delivery segment does not
 contain users who lack the `twitter_digest` entitlement or who explicitly
 turned the channel off in app-side email preferences.
@@ -155,15 +155,15 @@ async def collect() -> list[TwitterDigestSegmentRow]:
 
 def summarize(rows: list[TwitterDigestSegmentRow]) -> list[TwitterDigestSegmentRow]:
     to_remove = [row for row in rows if row.should_remove]
-    max_users = [row for row in rows if row.entitled]
-    opted_in = [row for row in max_users if row.in_segment]
-    explicit_opt_out = [row for row in max_users if row.preference is False]
+    entitled_users = [row for row in rows if row.entitled]
+    opted_in = [row for row in entitled_users if row.in_segment]
+    explicit_opt_out = [row for row in entitled_users if row.preference is False]
 
     print("\n=== Twitter Digest Segment Audit ===")
     print(f"Total users checked     : {len(rows)}")
-    print(f"Max-entitled users      : {len(max_users)}")
-    print(f"Max users in segment    : {len(opted_in)}")
-    print(f"Explicit Max opt-outs   : {len(explicit_opt_out)}")
+    print(f"Entitled users          : {len(entitled_users)}")
+    print(f"Entitled users in segment: {len(opted_in)}")
+    print(f"Explicit opt-outs       : {len(explicit_opt_out)}")
     print(f"Needs removal           : {len(to_remove)}")
     print()
 

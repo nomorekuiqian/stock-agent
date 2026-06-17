@@ -65,7 +65,7 @@ CHANNEL_CONFIG: Dict[str, Dict[str, Any]] = {
         "requires_auth": True,
     },
     SubscriptionChannel.TWITTER_DIGEST: {
-        # Dedicated Max-only segment (`RESEND_SEGMENT_TWITTER_DIGEST`,
+        # Dedicated entitlement-gated segment (`RESEND_SEGMENT_TWITTER_DIGEST`,
         # currently "Twitter Digest" — id a1b0aa97). Contacts live in the
         # dedicated `RESEND_AUDIENCE_TWITTER_DIGEST` audience; delivery is
         # controlled by segment membership. Entitlement sync auto-adds users
@@ -433,7 +433,7 @@ class SubscriptionService:
         for report_type, seg_id in self.SEGMENT_IDS.items():
             if not seg_id:
                 # Free/default channels remain opt-in by historical behavior
-                # when a segment is missing in local config. The Max-only
+                # when a segment is missing in local config. The gated
                 # twitter digest must not appear enabled without its segment.
                 prefs[report_type] = report_type != "twitter_digest"
             else:
@@ -468,8 +468,8 @@ class SubscriptionService:
             if not seg_id:
                 continue
             if report_type == "twitter_digest":
-                # Defense in depth: direct service callers cannot add non-Max
-                # users to the Twitter digest sending segment.
+                # Defense in depth: direct service callers cannot add
+                # non-entitled users to the Twitter digest sending segment.
                 enabled = bool(enabled) and "twitter_digest" in entitlements
             try:
                 _rate_limit_wait()

@@ -175,7 +175,7 @@ class MacroThread(BaseModel):
         description="Topic 下被过滤保留下来的推文观点摘要; <=12 条尽量全收, "
                     ">12 条时保留最多 12 条代表性观点.",
     )
-    # Count preserved when `key_points` is stripped for non-Max users.
+    # Count preserved when `key_points` is stripped for non-entitled users.
     key_points_count: int = 0
 
 
@@ -221,7 +221,7 @@ class WatchpointItem(BaseModel):
         default_factory=list,
         description="1-2 条原推引用作为可信度锚 (折叠展开).",
     )
-    # Count preserved when `evidence` is stripped for non-Max users.
+    # Count preserved when `evidence` is stripped for non-entitled users.
     evidence_count: int = 0
     kols_watching: list[str] = Field(default_factory=list)
 
@@ -344,7 +344,7 @@ class DailyDigestArchiveResponse(BaseModel):
 
 
 class TwitterDigestTeaser(BaseModel):
-    """Public, non-sensitive preview of a Max-only Twitter digest."""
+    """Public, non-sensitive preview of the Pro-gated Twitter digest."""
 
     date: str
     generated_at: str

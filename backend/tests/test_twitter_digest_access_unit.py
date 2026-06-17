@@ -1,6 +1,6 @@
 """Unit tests for Twitter Digest access gating and locked-mode shaping.
 
-After the 2026-05 paywall redesign, free/Max users share the same DailyDigest
+After the 2026-05 paywall redesign, locked/entitled users share the same DailyDigest
 shape — the backend returns a locked projection (paid content stripped, counts
 preserved) for callers without the `twitter_digest` entitlement.
 """

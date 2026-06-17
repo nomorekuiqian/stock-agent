@@ -139,7 +139,7 @@ export function MacroUpgradeCTA() {
           <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-2xl">
             {isAuthenticated
               ? `${copy.subline} 或订阅 Pro 获取每周宏观邮件推送。`
-              : '注册免费用每日市场日报 + 宏观仪表盘; 升级 Max 解锁 AI 投研引擎无限使用、深度个股分析、推特 KOL 日报。'}
+              : '注册免费用每日市场日报 + 宏观仪表盘; 升级 Pro 解锁推特 KOL 日报，升级 Max 解锁 AI 投研引擎无限使用和深度个股分析。'}
           </p>
           <div className="grid md:grid-cols-2 gap-3">
             <Link

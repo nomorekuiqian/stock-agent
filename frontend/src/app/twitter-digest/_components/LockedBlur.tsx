@@ -12,8 +12,8 @@ const SOURCE = 'twitter_digest' as const;
  *
  * Renders a blurred multi-line skeleton that visually communicates "real
  * content lives here" rather than an empty card. Used to occupy the spot
- * where a Max user would see synthesis paragraphs, KOL arguments, or
- * evidence — keeping the page layout identical between free and Max users.
+ * where an entitled user would see synthesis paragraphs, KOL arguments, or
+ * evidence — keeping the page layout identical between free and Pro users.
  *
  * `kolSample` is shown as a chip row under the label to surface real KOL
  * names (e.g. "@AdamFletch / @JoshBrown 等") — a stronger conversion hook
@@ -89,7 +89,7 @@ export function LockedBlur({
 export function SectionUnlockCta() {
   return (
     <div className="mt-5 flex justify-center">
-      <UnlockCTA source={SOURCE} variant="primary" hideArrow />
+      <UnlockCTA source={SOURCE} tier="pro" variant="primary" label="升级 Pro 解锁" hideArrow />
     </div>
   );
 }
@@ -107,7 +107,7 @@ export function UpgradeBanner({
   targetPath: string;
 }) {
   useEffect(() => {
-    trackPaywallView({ source: SOURCE, tier: 'max' });
+    trackPaywallView({ source: SOURCE, tier: 'pro' });
   }, []);
 
   void isAuthenticated;
@@ -129,7 +129,14 @@ export function UpgradeBanner({
             每个个股的多空论据、原推证据链、宏观议题完整论述与短期关注事件的深度解读。
           </p>
         </div>
-        <UnlockCTA source={SOURCE} variant="primary" returnPath={targetPath} hideArrow />
+        <UnlockCTA
+          source={SOURCE}
+          tier="pro"
+          variant="primary"
+          label="升级 Pro 解锁"
+          returnPath={targetPath}
+          hideArrow
+        />
       </div>
     </section>
   );
@@ -159,7 +166,14 @@ export function BottomUpgradeCard({
         <p className="text-sm text-foreground/90 leading-relaxed">
           看完了今日 KOL 关注度榜 — 完整多空论据、宏观论述与短期事件深度解读为订阅者开放。
         </p>
-        <UnlockCTA source={SOURCE} variant="primary" returnPath={targetPath} hideArrow />
+        <UnlockCTA
+          source={SOURCE}
+          tier="pro"
+          variant="primary"
+          label="升级 Pro 解锁"
+          returnPath={targetPath}
+          hideArrow
+        />
       </div>
     </section>
   );

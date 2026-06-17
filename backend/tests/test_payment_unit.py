@@ -21,11 +21,16 @@ from fastapi.testclient import TestClient
 class TestEntitlementCatalog:
     """Static feature catalog regressions."""
 
-    def test_twitter_digest_is_max_only(self):
-        from app.features.payment.entitlements import MAX_FEATURES, MAX_ONLY_FEATURES
+    def test_twitter_digest_is_pro_feature(self):
+        from app.features.payment.entitlements import (
+            MAX_FEATURES,
+            MAX_ONLY_FEATURES,
+            PRO_FEATURES,
+        )
 
-        assert "twitter_digest" in MAX_ONLY_FEATURES
+        assert "twitter_digest" in PRO_FEATURES
         assert "twitter_digest" in MAX_FEATURES
+        assert "twitter_digest" not in MAX_ONLY_FEATURES
 
     def test_qinbafrank_pack_is_legacy_only(self):
         from app.features.payment.entitlements import (

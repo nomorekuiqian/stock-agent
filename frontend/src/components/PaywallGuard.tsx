@@ -35,7 +35,6 @@ interface PaywallGuardProps {
 const MAX_ONLY_FEATURES = new Set([
   'stock_research',
   'ai_research_engine',
-  'twitter_digest',
 ]);
 
 export default function PaywallGuard({
@@ -161,7 +160,7 @@ function ProToMaxLockScreen({
           <p className="text-xs font-semibold tracking-[0.25em] uppercase text-amber-500 mb-2">Max</p>
           <h1 className="text-2xl font-editorial text-foreground mb-2">解锁全部功能</h1>
           <p className="text-sm text-muted-foreground">
-            推特 KOL 日报、AI 投研引擎无限使用和 AI 深度个股分析
+            AI 投研引擎无限使用和 AI 深度个股分析
           </p>
         </div>
 
@@ -187,7 +186,7 @@ function ProToMaxLockScreen({
 
         <div className="text-center">
           <p className="text-xs text-muted-foreground/70">
-            包含：推特 KOL 日报 · AI 投研引擎（无限使用）· AI 深度个股分析 · 全部邮件订阅
+            包含：Pro 全部权益 · AI 投研引擎（无限使用）· AI 深度个股分析
           </p>
         </div>
       </div>
@@ -253,8 +252,12 @@ function LockScreen({
       : '一次解锁所有内容';
   const includedText =
     checkoutProduct === 'pro'
-      ? '包含：盘前早报 · 宏观周报 · 专属持仓日报 · AI 监控台'
-      : '包含：推特 KOL 日报 · AI 投研引擎（无限使用）· AI 深度个股分析 · 全部邮件订阅';
+      ? '包含：盘前早报 · 宏观周报 · 专属持仓日报 · 推特 KOL 日报 · AI 监控台'
+      : '包含：Pro 全部权益 · AI 投研引擎（无限使用）· AI 深度个股分析';
+  const fallbackDescription =
+    checkoutProduct === 'pro'
+      ? '盘前早报、宏观周报、专属持仓日报和推特 KOL 日报'
+      : 'Pro 全部权益、AI 投研无限使用与深度个股分析';
 
   return (
     <main className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -268,7 +271,7 @@ function LockScreen({
             {title || '解锁全部功能'}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {description || '推特 KOL 日报、专属持仓日报、AI 投研无限使用与深度个股分析，全部一次解锁'}
+            {description || fallbackDescription}
           </p>
         </div>
 

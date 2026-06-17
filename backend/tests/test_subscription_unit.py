@@ -77,7 +77,7 @@ class TestChannelConfig:
             assert "requires_auth" in config, f"{channel} missing requires_auth"
 
     def test_twitter_digest_requires_auth(self):
-        """Twitter digest email opt-in is managed by authenticated Max preferences."""
+        """Twitter digest email opt-in is managed by authenticated Pro preferences."""
         config = CHANNEL_CONFIG[SubscriptionChannel.TWITTER_DIGEST]
         assert config["requires_auth"] is True
 
@@ -86,7 +86,7 @@ class TestSubscriptionRouter:
     """Tests for subscription router boundaries."""
 
     def test_public_twitter_digest_subscribe_is_blocked(self):
-        """Public subscribe cannot bypass Max entitlement gating."""
+        """Public subscribe cannot bypass Pro entitlement gating."""
         from fastapi.testclient import TestClient
         from app.main import app
 
@@ -97,7 +97,7 @@ class TestSubscriptionRouter:
         )
 
         assert resp.status_code == 403
-        assert "requires Max" in resp.json()["detail"]
+        assert "requires Pro" in resp.json()["detail"]
 
 
 class TestSubscriptionModels:

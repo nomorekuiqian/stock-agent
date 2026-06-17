@@ -832,7 +832,7 @@ type ReportAccent = "amber" | "sky" | "primary";
 
 interface ReportCardConfig {
   key: string;
-  tier: "免费" | "Pro+" | "Max 专属";
+  tier: "免费" | "Pro+";
   name: string;
   tagline: string;
   cadence: string;
@@ -888,7 +888,7 @@ const DAILY_REPORTS: ReportCardConfig[] = [
   },
   {
     key: "kol",
-    tier: "Max 专属",
+    tier: "Pro+",
     name: "推特简报",
     tagline: "把高质量博主观点筛成可以阅读的市场线索",
     cadence: "工作日 · 盘后",

@@ -42,7 +42,7 @@ export interface TickerThesis {
   buy_arguments: Argument[];
   sell_arguments: Argument[];
   observation_arguments: Argument[];
-  /** Argument counts preserved when the lists are stripped for non-Max users. */
+  /** Argument counts preserved when the lists are stripped for non-entitled users. */
   buy_count?: number;
   sell_count?: number;
   observation_count?: number;
@@ -54,7 +54,7 @@ export interface MacroThread {
   primary_kols: string[];
   synthesis_zh: string;
   key_points: Argument[];
-  /** Count preserved when `key_points` is stripped for non-Max users. */
+  /** Count preserved when `key_points` is stripped for non-entitled users. */
   key_points_count?: number;
 }
 
@@ -71,7 +71,7 @@ export interface WatchpointItem {
   related_tickers: string[];
   /** Source tweet citations (2-5 evidence Arguments). */
   evidence?: Argument[];
-  /** Count preserved when `evidence` is stripped for non-Max users. */
+  /** Count preserved when `evidence` is stripped for non-entitled users. */
   evidence_count?: number;
   kols_watching: string[];
 }

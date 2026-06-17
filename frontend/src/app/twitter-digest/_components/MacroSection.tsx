@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function MacroSection({ thread, index, locked = false }: Props) {
-  // Array length wins when present (Max mode); count field fills in when the
+  // Array length wins when present (unlocked mode); count field fills in when the
   // array has been stripped (locked mode). Avoid `??` here — pydantic default
   // for `key_points_count` is 0, which would falsely override real array
   // counts on unlocked digests.

@@ -56,7 +56,7 @@ export function TwitterDigestActions({ showSubscribe = true }: Props) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : '操作失败';
       // 403 from the entitlement gate surfaces here too — show the real reason.
-      setFeedback({ type: 'error', text: msg.includes('entitlement') ? '需要 Max 权益才能订阅' : msg });
+      setFeedback({ type: 'error', text: msg.includes('entitlement') ? '需要 Pro 权益才能订阅' : msg });
     } finally {
       setSubscriptionLoading(false);
     }

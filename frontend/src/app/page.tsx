@@ -49,6 +49,7 @@ const PRICING_TIERS = [
     note: "随时取消 · Stripe 安全支付",
     features: [
       "盘前情报 + 盘后总览邮件推送",
+      "300+ 美股博主观点聚合",
       "基于持仓的专属日报",
       "宏观周报邮件推送",
       "自选股管理",
@@ -56,7 +57,7 @@ const PRICING_TIERS = [
   },
   {
     name: "Max",
-    description: "解锁完整 AI 投研、博主观点和深度个股研究",
+    description: "解锁完整 AI 投研、博主研究室和深度个股研究",
     price: PRICING.max,
     original: undefined,
     suffix: PRICING.interval,
@@ -66,7 +67,7 @@ const PRICING_TIERS = [
     note: "新功能优先体验",
     features: [
       "Pro 的所有功能",
-      "300+ 美股博主观点聚合",
+      "博主研究室资料库",
       "AI 投研助手",
       "AI 深度个股分析",
     ],
@@ -269,8 +270,8 @@ export default function Home() {
               </h2>
             </div>
             <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              免费版覆盖基础复盘；Pro 负责推送和持仓；Max 解锁完整 AI
-              投研、博主观点和深度个股分析。
+              免费版覆盖基础复盘；Pro 负责推送、持仓和博主观点；
+              Max 解锁完整 AI 投研、博主研究室和深度个股分析。
             </p>
           </div>
 
@@ -360,7 +361,7 @@ export default function Home() {
             从一份清晰研究开始
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-            免费体验日报和投研助手。需要更完整的推送、博主观点和深度个股分析时，再升级即可。
+            免费体验日报和投研助手。需要更完整的推送、博主观点、博主研究室和深度个股分析时，再升级即可。
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link

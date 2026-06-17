@@ -66,7 +66,8 @@ function normalizeEmailPreferences(
 }
 
 function lockedPreferenceLabel(entitlement?: string): string {
-  return entitlement === 'twitter_digest' ? '升级 Max 解锁' : '升级 Pro 解锁';
+  void entitlement;
+  return '升级 Pro 解锁';
 }
 
 export default function ProfilePage(): ReactNode {

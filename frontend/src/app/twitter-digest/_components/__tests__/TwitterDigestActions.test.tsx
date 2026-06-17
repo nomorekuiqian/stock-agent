@@ -125,7 +125,7 @@ describe('TwitterDigestActions', () => {
     expect(mockUpdatePreferences).toHaveBeenCalledWith({ twitter_digest: false });
   });
 
-  it('surfaces Max entitlement requirement when API throws entitlement error', async () => {
+  it('surfaces Pro entitlement requirement when API throws entitlement error', async () => {
     mockUseAuth.mockReturnValue({ user: { email: 'u@test.com' }, isLoading: false });
     mockUseEmailPreferences.mockReturnValue({ data: { twitter_digest: false } });
     mockUpdatePreferences.mockRejectedValue(
@@ -136,7 +136,7 @@ describe('TwitterDigestActions', () => {
     fireEvent.click(screen.getByText('订阅'));
 
     await waitFor(() => {
-      expect(screen.getByText('需要 Max 权益才能订阅')).toBeInTheDocument();
+      expect(screen.getByText('需要 Pro 权益才能订阅')).toBeInTheDocument();
     });
   });
 

@@ -53,7 +53,7 @@ const CHANNEL_COPY: Record<ManagedChannel, {
     successMessage: '我们已将该邮箱从推特 KOL 日报中移除。',
     resubscribeHref: '/profile?tab=email',
     resubscribeLabel: '管理邮件偏好',
-    footer: 'Max 用户可随时在个人资料页重新开启。',
+    footer: 'Pro 用户可随时在个人资料页重新开启。',
   },
 };
 

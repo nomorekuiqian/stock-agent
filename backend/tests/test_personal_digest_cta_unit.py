@@ -44,8 +44,8 @@ class TestGetPersonalDigestCtaSection:
 
     def test_upsell_contains_price_points(self):
         html = get_personal_digest_cta_section("upsell")
-        assert "$4.99" in html
-        assert "$9.99" in html
+        assert "$10" in html
+        assert "$20" in html
 
     def test_upsell_links_to_pricing_page(self):
         html = get_personal_digest_cta_section("upsell")
@@ -64,6 +64,8 @@ class TestGetPersonalDigestCtaSection:
         html = get_personal_digest_cta_section("upsell")
         for feature in ("更高级的模型", "更深度的推理", "持仓监控", "事件提醒"):
             assert feature in html, f"missing required feature mention: {feature}"
+        assert "推特 KOL 日报" in html
+        assert "Max 独享" not in html
 
     def test_upsell_does_not_name_specific_model(self):
         """Don't pin the upgrade promise to a specific provider/version

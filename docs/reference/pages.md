@@ -12,9 +12,9 @@
 | `/morning` | 盘前早报 | Backend (morningReports API) | 否 |
 | `/morning/[id]` | 早报详情 | Backend (morningReports.getById) | 否 |
 | `/morning/archive` | 早报存档 | Backend (morningReports API) | 否 |
-| `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest / getLatestTeaser) | 否（全文需 Max） |
-| `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Max） |
-| `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Max） |
+| `/twitter-digest` | 推特 KOL 观点日报 | Backend (twitterDigest.getLatest / getLatestTeaser) | 否（全文需 Pro） |
+| `/twitter-digest/[date]` | 推特 KOL 观点日报详情 | Backend (twitterDigest.getByDate / getTeaserByDate) | 否（全文需 Pro） |
+| `/twitter-digest/archive` | 推特 KOL 日报归档 | Backend (twitterDigest.listArchive / listArchiveTeaser) | 否（全文需 Pro） |
 | `/qinbafrank` | Qinbafrank 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
 | `/frank-agent` | Frank waitlist 旧链接兼容重定向 | redirect(`/kol/qinbafrank`) | 否 |
 | `/kol` | 博主研究室总入口 | 静态卡片：Qinbafrank / Serenity 研究室选择 | 否 |
@@ -99,21 +99,21 @@
 - 琥珀色主题 (amber accent)
 
 ### `/twitter-digest` 推特 KOL 观点日报
-- Client Component,完整内容需要登录且具备 `twitter_digest` Max entitlement
-- Max 用户调用 `api.twitterDigest.getLatest()` 获取完整 `DailyDigest`
-- 未登录 / 非 Max 用户调用 `api.twitterDigest.getLatestTeaser()`，只展示标题、热榜、intro preview 和 Max CTA
+- Client Component,完整内容需要登录且具备 `twitter_digest` Pro entitlement
+- Pro 用户调用 `api.twitterDigest.getLatest()` 获取完整 `DailyDigest`
+- 未登录 / 非 Pro 用户调用 `api.twitterDigest.getLatestTeaser()`，只展示标题、热榜、intro preview 和 Pro CTA
 - 页面结构: 信任条 + 开场 + 热榜 + ticker thesis + macro threads + watchpoints
 
 ### `/twitter-digest/[date]` 推特 KOL 观点日报详情
-- Client Component,完整内容需要登录且具备 `twitter_digest` Max entitlement
-- Max 用户调用 `api.twitterDigest.getByDate(date)` 并复用 `DigestView`
-- 未登录 / 非 Max 用户调用 `api.twitterDigest.getTeaserByDate(date)`，显示该日期 teaser
+- Client Component,完整内容需要登录且具备 `twitter_digest` Pro entitlement
+- Pro 用户调用 `api.twitterDigest.getByDate(date)` 并复用 `DigestView`
+- 未登录 / 非 Pro 用户调用 `api.twitterDigest.getTeaserByDate(date)`，显示该日期 teaser
 - 后端校验日期格式 `YYYY-MM-DD`,不存在返回 404
 
 ### `/twitter-digest/archive` 推特 KOL 日报归档
 - Client Component,分页加载
-- Max 用户调用 `api.twitterDigest.listArchive(limit, offset)`；未登录 / 非 Max 用户调用 `listArchiveTeaser`
-- 卡片链接到 `/twitter-digest/[date]`，非 Max 仍只看到 teaser
+- Pro 用户调用 `api.twitterDigest.listArchive(limit, offset)`；未登录 / 非 Pro 用户调用 `listArchiveTeaser`
+- 卡片链接到 `/twitter-digest/[date]`，非 Pro 仍只看到 teaser
 
 ### `/qinbafrank` Qinbafrank 旧链接兼容页
 - Server page，仅执行 `redirect('/kol/qinbafrank')`，并保留原 query 参数。
@@ -212,7 +212,7 @@
   - `daily_report` 始终可编辑
   - `morning_report` 需要 `morning_report_email`
   - `weekly_report` 需要 `weekly_report_email`
-  - `twitter_digest` 需要 Max `twitter_digest`
+  - `twitter_digest` 需要 Pro `twitter_digest`
   - `personal_digest` 需要 `personal_digest_email`
   - 无 entitlement 的项默认显示为关闭且不可开启
 

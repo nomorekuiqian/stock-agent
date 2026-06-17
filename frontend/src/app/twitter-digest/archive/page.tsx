@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Archive, ArrowRight, Crown, LockKeyhole } from 'lucide-react';
+import { Archive, ArrowRight, LockKeyhole, Zap } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -126,7 +126,7 @@ export default function TwitterDigestArchivePage() {
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2">
               {hasTwitterDigestAccess ? (
-                <Crown className="w-4 h-4 text-sky-400" />
+                <Zap className="w-4 h-4 text-sky-400" />
               ) : (
                 <LockKeyhole className="w-4 h-4 text-muted-foreground" />
               )}
@@ -140,23 +140,23 @@ export default function TwitterDigestArchivePage() {
 
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-10 space-y-8">
         {!hasTwitterDigestAccess && (
-          <section className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-5 md:p-6">
+          <section className="rounded-lg border border-primary/30 bg-primary/5 p-5 md:p-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
               <div className="space-y-2">
-                <div className="inline-flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs font-semibold uppercase tracking-[0.18em]">
-                  <Crown className="w-4 h-4" />
-                  Max 专属
+                <div className="inline-flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-[0.18em]">
+                  <Zap className="w-4 h-4" />
+                  Pro 专属
                 </div>
                 <h2 className="text-xl font-editorial text-foreground">解锁完整推特日报</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-                  免费用户可浏览标题和热门标的预览；升级 Max 后可阅读完整观点、原推证据和每日邮件推送。
+                  免费用户可浏览标题和热门标的预览；升级 Pro 后可阅读完整观点、原推证据和每日邮件推送。
                 </p>
               </div>
               <Link
                 href={isAuthenticated ? '/pricing' : `/login?redirect=${encodeURIComponent('/twitter-digest/archive')}`}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-600/90"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                {isAuthenticated ? '升级 Max' : '登录后开通 Max'}
+                {isAuthenticated ? '升级 Pro' : '登录后开通 Pro'}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>

@@ -111,7 +111,7 @@ async def subscribe_to_channel(channel: SubscriptionChannel, request: SubscribeR
             status_code=403,
             detail=(
                 "Twitter digest subscription is managed from account email "
-                "preferences and requires Max"
+                "preferences and requires Pro"
             ),
         )
 

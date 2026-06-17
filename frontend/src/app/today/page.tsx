@@ -218,7 +218,7 @@ function TwitterDigestConversion({ teaser }: { teaser: TwitterDigestTeaser }) {
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 max-w-[48px] bg-gradient-to-r from-amber-400 to-transparent" />
                 <span className="text-amber-400 text-xs font-medium tracking-[0.2em] uppercase">
-                  Max Intelligence
+                  Pro Intelligence
                 </span>
               </div>
               <div className="space-y-2">
@@ -262,7 +262,7 @@ function TwitterDigestConversion({ teaser }: { teaser: TwitterDigestTeaser }) {
                 浏览往期归档
               </Link>
               <p className="text-xs text-muted-foreground text-center">
-                全文、邮件推送和历史归档为 Max 专属
+                全文、邮件推送和历史归档为 Pro 专属
               </p>
             </div>
           </div>

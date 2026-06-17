@@ -22,13 +22,13 @@ PRO_FEATURES: Set[str] = {
     "today_website",
     "for_you_website",
     "morning_website",
+    "twitter_digest",
 }
 
 MAX_ONLY_FEATURES: Set[str] = {
     "stock_research",
     "ai_research_engine",
     "portfolio_management",
-    "twitter_digest",
 }
 
 KOL_PACK_QINBAFRANK = "kol_pack_qinbafrank"

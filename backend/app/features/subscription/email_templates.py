@@ -31,6 +31,9 @@ _LOGO_URL: str = "https://themarketbrew.com/logo-avatar.png"
 # regardless of the environment rendering the template. Dev/staging previews
 # should still link to production so recipients never land on localhost.
 _EMAIL_LINK_BASE: str = "https://themarketbrew.com"
+# Keep these user-visible email prices in sync with frontend/src/lib/pricing.ts.
+_PRO_PRICE_LABEL: str = "$10"
+_MAX_PRICE_LABEL: str = "$20"
 
 
 def _stock_url(ticker: str) -> str:
@@ -380,7 +383,7 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
 
     Card structure (both tiers)
     ---------------------------
-    1. Recommended badge (Pro) or spacer div (Max) — keeps optical
+    1. Recommended badge (Max) or spacer div (Pro) — keeps optical
        alignment between the two tier labels on desktop; the spacer is
        hidden on mobile since stacked cards no longer need alignment.
     2. Tier label (PRO / MAX).
@@ -445,18 +448,17 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
                     <div style="background: #fffbeb; border: 2px solid #b45309; border-radius: 10px; padding: 22px 18px; font-size: 14px; line-height: normal;">
                         <div style="margin-bottom: 12px;">
                             <span style="display: inline-block; background: #b45309; color: #ffffff; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; vertical-align: middle;">推荐</span>
-                            <span style="display: inline-block; background: #fde68a; color: #78350f; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 999px; margin-left: 4px; vertical-align: middle;">新功能</span>
                         </div>
                         <div style="font-size: 10px; font-weight: 700; color: #b45309; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Max</div>
                         <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 10px;">
-                            想看 KOL 圈在押什么票?
+                            想深度研究一只股票?
                         </div>
                         <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
-                            Max 独享 <strong style="color: #78350f; font-weight: 600;">推特 KOL 日报</strong>：每个交易日盘后整理 300+ 美股博主的观点、多空论据和后续观察点。
+                            Max 解锁 <strong style="color: #78350f; font-weight: 600;">AI 投研引擎</strong> 无限使用，并生成基本面、技术面和估值分析。
                         </div>
                         <div style="margin-bottom: 14px; line-height: 1;">
-                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$9.99</span>
-                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">{_MAX_PRICE_LABEL}</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月</span>
                         </div>
                         <a href="{max_url}" style="display: block; padding: 11px 20px; background-color: #b45309; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #b45309; text-align: center; margin-bottom: 16px;">
                             订阅 Max &rarr;
@@ -475,14 +477,14 @@ def get_digest_cta_section(variant: DailyCtaVariant = "upsell") -> str:
                         <div class="tmb-tier-spacer" style="height: 18px; margin-bottom: 12px; line-height: 0; font-size: 0;"><!-- spacer to align "Pro" label with Max's "Max" label (matches 18px badge + 12px margin) --></div>
                         <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Pro</div>
                         <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.01em; line-height: 1.4; margin-bottom: 10px;">
-                            没看到你持仓的股票?
+                            想看 KOL 圈在押什么票?
                         </div>
                         <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
-                            Pro 会员每天多收到一份<strong style="color: #065f46; font-weight: 600;">专属持仓日报</strong>，只分析你自选股里的股票。
+                            Pro 会员解锁 <strong style="color: #065f46; font-weight: 600;">推特 KOL 日报</strong>，并每天收到只分析自选股的专属持仓日报。
                         </div>
                         <div style="margin-bottom: 14px; line-height: 1;">
-                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$4.99</span>
-                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">{_PRO_PRICE_LABEL}</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月</span>
                         </div>
                         <a href="{pro_url}" style="display: block; padding: 11px 20px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857; text-align: center; margin-bottom: 16px;">
                             订阅 Pro &rarr;
@@ -560,14 +562,13 @@ def _get_personal_digest_upsell_cta() -> str:
                             完整的 AI 投资分析工作流
                         </div>
                         <div style="font-size: 12px; color: #3f3f46; line-height: 1.85; margin-bottom: 16px;">
-                            <div style="margin-bottom: 4px;"><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;<strong style="color: #78350f; font-weight: 600;">推特 KOL 日报</strong>（新功能 · Max 独享）：每日盘后 300+ 博主观点 + 多空论据</div>
                             <div style="margin-bottom: 4px;"><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;<strong style="color: #78350f; font-weight: 600;">更高级的模型</strong>生成更深度的每日分析</div>
                             <div style="margin-bottom: 4px;"><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;持仓监控 &amp; 个股事件提醒</div>
                             <div><span style="color: #b45309; font-weight: 700;">&bull;</span>&nbsp;<strong style="color: #78350f; font-weight: 600;">AI 投研引擎</strong> — 自己研究任意一只股票</div>
                         </div>
                         <div style="margin-bottom: 14px; line-height: 1;">
-                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$9.99</span>
-                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">{_MAX_PRICE_LABEL}</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月</span>
                         </div>
                         <a href="{max_url}" style="display: block; padding: 11px 20px; background-color: #b45309; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #b45309; text-align: center;">
                             升级 Max &rarr;
@@ -584,11 +585,11 @@ def _get_personal_digest_upsell_cta() -> str:
                             只升级每日日报
                         </div>
                         <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
-                            升级到<strong style="color: #065f46; font-weight: 600;">更高级的模型</strong>，更深度的推理与持仓事件分析。
+                            升级到<strong style="color: #065f46; font-weight: 600;">更高级的模型</strong>，并解锁推特 KOL 日报与更深度的持仓事件分析。
                         </div>
                         <div style="margin-bottom: 14px; line-height: 1;">
-                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">$4.99</span>
-                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月 早鸟价</span>
+                            <span style="font-size: 22px; font-weight: 700; color: #0a0a0a; letter-spacing: -0.02em;">{_PRO_PRICE_LABEL}</span>
+                            <span style="font-size: 11px; color: #52525b; font-weight: 500;">&nbsp;/月</span>
                         </div>
                         <a href="{pro_url}" style="display: block; padding: 11px 20px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857; text-align: center;">
                             升级 Pro &rarr;
@@ -1588,7 +1589,7 @@ def format_welcome_html(first_name: str = "", email: str = "") -> str:
                             <td style="padding: 14px 0;">
                                 <p style="color: #0a0a0a; font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">
                                     推特 KOL 日报
-                                    <span style="display: inline-block; background: #fde68a; color: #78350f; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle;">Max</span>
+                                    <span style="display: inline-block; background: #d1fae5; color: #065f46; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle;">Pro</span>
                                 </p>
                                 <p style="color: #71717a; font-size: 13px; line-height: 1.6; margin: 0 0 8px 0;">
                                     每个交易日盘后整理华尔街博主的观点、多空论据和后续观察点。适合重度跟踪市场叙事的人。

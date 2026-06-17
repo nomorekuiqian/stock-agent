@@ -47,7 +47,7 @@ const SIDE_META: Record<TickerSide, {
 export function TickerSection({
   thesis, index, locked = false,
 }: Props) {
-  // Counts: in unlocked (Max) mode, the arguments arrays carry the truth and
+  // Counts: in unlocked mode, the arguments arrays carry the truth and
   // `*_count` fields are not populated (pydantic default 0). In locked mode
   // the arrays are empty and `*_count` carry the truth. So pick whichever
   // is non-zero — array length wins when present, count field fills in

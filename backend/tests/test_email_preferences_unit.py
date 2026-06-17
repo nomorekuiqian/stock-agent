@@ -388,7 +388,7 @@ class TestPreferenceModels:
     """Test new Pydantic models for email preferences."""
 
     def test_email_preferences_defaults(self):
-        """Free/default report preferences default on; Max-only twitter defaults off."""
+        """Free/default report preferences default on; gated twitter defaults off."""
         prefs = EmailPreferences()
         assert prefs.morning_report is True
         assert prefs.daily_report is True
@@ -467,7 +467,7 @@ class TestSubscriptionServicePreferences:
         assert prefs["twitter_digest"] is True
 
     def test_get_email_preferences_empty_segment_config(self, mock_service_resend):
-        """Missing free segments default on; missing Max segment defaults off."""
+        """Missing free segments default on; missing gated segment defaults off."""
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -486,7 +486,7 @@ class TestSubscriptionServicePreferences:
         assert prefs["morning_report"] is True  # default True (unconfigured)
         assert prefs["daily_report"] is False  # configured but not in segments
         assert prefs["weekly_report"] is True  # default True (unconfigured)
-        assert prefs["twitter_digest"] is False  # Max-only never defaults on
+        assert prefs["twitter_digest"] is False  # gated channel never defaults on
 
     def test_update_email_preferences_add(self, mock_service_resend):
         """Enabling a preference calls ContactSegments.add."""
@@ -530,7 +530,7 @@ class TestSubscriptionServicePreferences:
     def test_update_twitter_digest_preference_toggles_segment(
         self, mock_service_resend,
     ):
-        """Twitter Digest toggle off removes; Max toggle on adds."""
+        """Twitter Digest toggle off removes; entitled toggle on adds."""
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -561,10 +561,10 @@ class TestSubscriptionServicePreferences:
             {"email": "user@test.com", "segment_id": "seg-twitter-id"}
         )
 
-    def test_update_twitter_digest_preference_blocks_non_max(
+    def test_update_twitter_digest_preference_blocks_non_entitled(
         self, mock_service_resend,
     ):
-        """Non-Max callers cannot add the Twitter Digest segment."""
+        """Non-entitled callers cannot add the Twitter Digest segment."""
         from app.features.subscription.service import SubscriptionService
 
         svc = SubscriptionService.__new__(SubscriptionService)
@@ -821,7 +821,7 @@ class TestGetEmailPreferencesUnsubscribed:
 
 
 class TestSyncResendSegmentsTwitterDigest:
-    """Webhook-driven sync must add Max users and remove non-Max users.
+    """Webhook-driven sync must add entitled users and remove non-entitled users.
 
     The 2026-05-30 change made `twitter_digest` entitlement-controlled —
     parity with morning/weekly. Lifetime users derive entitlements in code,

@@ -508,20 +508,21 @@ class TestDigestCtaSection:
     def test_pro_and_max_tiers_present(self, email_svc):
         """Comparison shows both tiers with pain-point headlines + prices."""
         html = email_svc._get_digest_cta_section()
-        # Pro tier — pain point headline + feature emphasis
+        # Pro tier — daily-report upgrade + feature emphasis
         assert "订阅 Pro" in html
-        assert "$4.99" in html
+        assert "$10" in html
         assert "推荐" in html  # recommended badge
-        assert "没看到你持仓的股票" in html  # pain point headline
-        assert "专属持仓日报" in html  # bolded feature
-        # Max tier — pain point headline + feature emphasis
+        assert "想看 KOL 圈在押什么票" in html
+        assert "推特 KOL 日报" in html
+        assert "专属持仓日报" in html
+        # Max tier — research workflow upgrade
         assert "订阅 Max" in html
-        assert "$9.99" in html
-        assert "想看 KOL 圈在押什么票" in html  # pain point headline (Max-only Twitter digest hook)
-        assert "推特 KOL 日报" in html  # bolded Max-only feature
-        assert "新功能" in html  # NEW badge marks Twitter digest as Max-exclusive
+        assert "$20" in html
+        assert "想深度研究一只股票" in html
         assert "AI 投研引擎" in html  # in bonus list
         assert "AI 深度个股分析" in html  # in bonus list
+        assert "Max 独享" not in html
+        assert "新功能" not in html
         # No free tier and no old copy
         assert "添加自选股" not in html
         assert "立即添加" not in html
