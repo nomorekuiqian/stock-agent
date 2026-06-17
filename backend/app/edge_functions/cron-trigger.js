@@ -200,22 +200,17 @@ const JOBS = {
     description: "Generate AI watchlist monitor briefs for the paid For You user universe",
     steps: [{
       name: "watchlist_monitor_paid_universe",
-      path: "/api/admin/watchlist-monitor/generate-paid-universe",
+      path: "/api/admin/watchlist-monitor/start-paid-universe",
       body: {
         user_limit: 1000,
         limit_per_user: 25,
         force: false,
         dry_run: false,
       },
-      timeoutMs: 3600000,
+      timeoutMs: 30000,
       validate: function(body) {
         if (!body || body.success !== true) return "success=false";
-        if (Number(body.processed_user_count || 0) === 0) return "processed_user_count=0";
-        if (Number(body.symbol_count || 0) === 0) return "symbol_count=0";
-        if (Number(body.failed_user_count || 0) > 0) {
-          return "failed_user_count=" + body.failed_user_count;
-        }
-        if (Number(body.failed_count || 0) > 0) return "failed_count=" + body.failed_count;
+        if (body.accepted !== true) return "accepted=false";
         return null;
       },
     }],

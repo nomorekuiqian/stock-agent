@@ -1692,13 +1692,18 @@ def build_ticker_context(
     symbol = symbol.upper()
     source_refs: list[SourceRef] = [
         _source_ref("quote_1", "quote", "%s quote snapshot" % symbol),
-        _source_ref("technical_1", "technical", "%s technical snapshot" % symbol),
         _source_ref("market_1", "market", "Market benchmark quote snapshot"),
     ]
 
     profile = _safe_company_profile(symbol)
     technical = get_technical_data(symbol)
+    compact_technical = _compact_technical(technical)
     technical_monitor = _build_technical_monitor(technical)
+    if compact_technical.get("available"):
+        source_refs.insert(
+            1,
+            _source_ref("technical_1", "technical", "%s technical snapshot" % symbol),
+        )
     news_items = _compact_news(symbol, source_refs, profile)
     earnings_events = _compact_earnings(symbol, earnings, source_refs)
     compact_macro_events = _compact_macro_events(macro_events, source_refs)
@@ -1723,7 +1728,7 @@ def build_ticker_context(
             market_quotes=market_quotes,
             sector_performance=sector_performance,
         ),
-        "technical": _compact_technical(technical),
+        "technical": compact_technical,
         "technical_monitor": technical_monitor.model_dump(mode="json"),
         "news_items": news_items,
         "earnings_events": earnings_events,

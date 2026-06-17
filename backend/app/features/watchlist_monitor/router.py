@@ -1,6 +1,6 @@
 """API routes for the AI watchlist monitor."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
@@ -11,6 +11,7 @@ from app.features.watchlist_monitor.models import (
     GenerateResponse,
     GenerateTestUniverseRequest,
     GenerateTestUniverseResponse,
+    StartPaidUniverseResponse,
     WatchlistMonitorResponse,
 )
 from app.features.watchlist_monitor.service import (
@@ -26,6 +27,34 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api", tags=["watchlist-monitor"])
 _MONITOR_FEATURE = "for_you_website"
+
+
+async def _run_paid_universe_background(request: GeneratePaidUniverseRequest) -> None:
+    """Run the long paid-universe job after the cron request has returned."""
+    try:
+        result = await generate_paid_user_universe(
+            user_limit=request.user_limit,
+            limit_per_user=request.limit_per_user,
+            force=request.force,
+            dry_run=False,
+        )
+        if result.success:
+            logger.info(
+                "watchlist monitor paid universe background job completed: symbols=%s generated=%s failed=%s",
+                result.symbol_count,
+                result.generated_count,
+                result.failed_count,
+            )
+        else:
+            logger.warning(
+                "watchlist monitor paid universe background job completed with failures: symbols=%s generated=%s failed=%s failed_users=%s",
+                result.symbol_count,
+                result.generated_count,
+                result.failed_count,
+                result.failed_user_count,
+            )
+    except Exception:
+        logger.exception("watchlist monitor paid universe background job failed")
 
 
 async def _require_monitor_entitlement(user_id: str) -> None:
@@ -110,4 +139,36 @@ async def generate_paid_universe(body: GeneratePaidUniverseRequest | None = None
         limit_per_user=request.limit_per_user,
         force=request.force,
         dry_run=request.dry_run,
+    )
+
+
+@router.post(
+    "/admin/watchlist-monitor/start-paid-universe",
+    response_model=StartPaidUniverseResponse,
+    dependencies=[Depends(verify_cron_secret)],
+)
+async def start_paid_universe(
+    background_tasks: BackgroundTasks,
+    body: GeneratePaidUniverseRequest | None = None,
+):
+    """Start the long paid-universe generation job without holding the cron HTTP request open."""
+    request = body or GeneratePaidUniverseRequest()
+    if request.dry_run:
+        dry_run_result = await generate_paid_user_universe(
+            user_limit=request.user_limit,
+            limit_per_user=request.limit_per_user,
+            force=request.force,
+            dry_run=True,
+        )
+        return StartPaidUniverseResponse(
+            success=dry_run_result.success,
+            accepted=False,
+            message="dry_run completed for %s symbols" % dry_run_result.symbol_count,
+        )
+
+    background_tasks.add_task(_run_paid_universe_background, request)
+    return StartPaidUniverseResponse(
+        success=True,
+        accepted=True,
+        message="paid universe generation started",
     )

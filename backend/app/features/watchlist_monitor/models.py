@@ -402,6 +402,13 @@ class GeneratePaidUniverseRequest(BaseModel):
     dry_run: bool = False
 
 
+class StartPaidUniverseResponse(BaseModel):
+    success: bool
+    accepted: bool
+    job: str = "watchlist_monitor_paid_universe"
+    message: str = ""
+
+
 class GenerateTickerResult(BaseModel):
     symbol: str
     success: bool

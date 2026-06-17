@@ -292,6 +292,37 @@ def test_quality_gate_rejects_incomplete_technical_monitor():
     ) == "technical_monitor.summary is empty"
 
 
+def test_build_context_omits_technical_source_when_technical_unavailable(monkeypatch):
+    monkeypatch.setattr(signal_builder, "_safe_company_profile", lambda symbol: {})
+    monkeypatch.setattr(
+        signal_builder,
+        "get_technical_data",
+        lambda symbol: {"error": "historical price unavailable"},
+    )
+    monkeypatch.setattr(
+        signal_builder,
+        "_compact_news",
+        lambda symbol, source_refs, profile: [],
+    )
+    monkeypatch.setattr(signal_builder, "_compact_earnings", lambda *args, **kwargs: [])
+    monkeypatch.setattr(signal_builder, "_compact_macro_events", lambda *args, **kwargs: [])
+    monkeypatch.setattr(signal_builder, "_compact_market_context", lambda *args, **kwargs: {})
+
+    context = signal_builder.build_ticker_context(
+        "BRK.B",
+        quote={},
+        market_quotes={},
+        sector_performance={},
+        earnings=[],
+        macro_events=[],
+        report_date="2026-06-17",
+    )
+
+    assert context["technical"]["available"] is False
+    assert context["technical_monitor"]["summary"] == ""
+    assert all(ref["id"] != "technical_1" for ref in context["source_refs"])
+
+
 def test_ticker_brief_output_coerces_null_defaults():
     output = TickerBriefAgentOutput.model_validate(
         {
@@ -1560,9 +1591,6 @@ def test_cron_trigger_defines_paid_universe_job_with_validation():
     source = (backend_root / "app/edge_functions/cron-trigger.js").read_text()
 
     assert "watchlist_monitor_paid_universe" in source
-    assert 'path: "/api/admin/watchlist-monitor/generate-paid-universe"' in source
-    assert "timeoutMs: 3600000" in source
-    assert "processed_user_count=0" in source
-    assert "symbol_count=0" in source
-    assert "failed_user_count=" in source
-    assert "failed_count=" in source
+    assert 'path: "/api/admin/watchlist-monitor/start-paid-universe"' in source
+    assert "timeoutMs: 30000" in source
+    assert "accepted=false" in source

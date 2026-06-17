@@ -11,6 +11,7 @@ Implemented:
 - Cached user read API: `GET /api/watchlist-monitor`.
 - Cron/admin generation API: `POST /api/admin/watchlist-monitor/generate-active-tickers`.
 - Paid universe generation API: `POST /api/admin/watchlist-monitor/generate-paid-universe`.
+- Production cron start API: `POST /api/admin/watchlist-monitor/start-paid-universe`.
 - Beta frontend page: `/for-you/monitor`.
 - Monitor right panel is now a full-width ticker workbench: selected ticker summary, top-of-page full K-line market structure chart, key levels, AI memo, then 3 detail tabs for news/events, technicals, and market discussion.
 - News section now uses `news_summary` from rolling 24h English news, with up to 15 source headlines.
@@ -21,7 +22,7 @@ Implemented:
 Still pending:
 
 - Digest/email integration.
-- Scheduled production cron setup for the paid universe endpoint.
+- Scheduled production cron setup for the paid universe background start endpoint.
 - User state such as read/handled/snooze.
 - Source/evidence UI beyond the top signal drawer.
 
@@ -338,6 +339,7 @@ POST /api/admin/watchlist-monitor/discover-events
 POST /api/admin/watchlist-monitor/generate-ticker
 POST /api/admin/watchlist-monitor/generate-active-tickers
 POST /api/admin/watchlist-monitor/generate-paid-universe
+POST /api/admin/watchlist-monitor/start-paid-universe
 ```
 
 这些端点使用 cron/admin auth，不暴露给普通用户。
@@ -668,7 +670,7 @@ Validation:
 Scope:
 
 - 生产 rollout 走 `for_you_website` entitlement；不再使用 watchlist monitor 专用 feature flag。
-- 配置每日生成 cron、事件发现 cron、可选盘中轻量 scan。
+- 配置每日生成 cron、事件发现 cron、可选盘中轻量 scan；生产 full-universe cron 走后台 start endpoint，避免 Edge Function 同步等待全量生成超时。
 - 增加 admin regeneration 操作。
 - 增加监控指标：生成成功率、缺失 brief 数、source failure、read latency、LLM cost。
 - 更新 `.context.md` 和相关 reference docs。

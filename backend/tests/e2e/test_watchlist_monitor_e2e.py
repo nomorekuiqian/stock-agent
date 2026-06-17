@@ -20,6 +20,7 @@ from app.features.watchlist_monitor.models import (
     GeneratePaidUniverseResponse,
     GenerateTickerResult,
     MonitorSummary,
+    StartPaidUniverseResponse,
     WatchlistMonitorResponse,
 )
 from app.main import app
@@ -203,4 +204,47 @@ class TestWatchlistMonitorGenerate:
             limit_per_user=25,
             force=False,
             dry_run=True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_start_paid_universe_endpoint_accepts_background_job(self, client):
+        app.dependency_overrides[verify_cron_secret] = lambda: None
+        payload = GeneratePaidUniverseResponse(
+            success=True,
+            dry_run=False,
+            entitlement_feature="for_you_website",
+            entitled_user_count=2,
+            processed_user_count=2,
+            users_with_watchlist_count=1,
+            requested_symbols=["AAPL"],
+            symbol_count=1,
+            generated_count=1,
+        )
+
+        with patch(
+            "app.features.watchlist_monitor.router.generate_paid_user_universe",
+            new_callable=AsyncMock,
+            return_value=payload,
+        ) as mock_generate:
+            resp = await client.post(
+                "/api/admin/watchlist-monitor/start-paid-universe",
+                json={
+                    "user_limit": 100,
+                    "limit_per_user": 25,
+                    "force": False,
+                    "dry_run": False,
+                },
+                timeout=30,
+            )
+
+        assert resp.status_code == 200
+        data = StartPaidUniverseResponse.model_validate(resp.json())
+        assert data.success is True
+        assert data.accepted is True
+        assert data.job == "watchlist_monitor_paid_universe"
+        mock_generate.assert_awaited_once_with(
+            user_limit=100,
+            limit_per_user=25,
+            force=False,
+            dry_run=False,
         )
