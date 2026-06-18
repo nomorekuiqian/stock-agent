@@ -249,6 +249,11 @@ describe('zsxq evidence rendering', () => {
     expect(container.textContent).toContain('知识星球内容');
     expect(container.textContent).toContain('在 X 查看原文');
     expect(container.textContent).toContain('在星球中查看原文');
+    expect(
+      Array.from(container.querySelectorAll('section > div')).some((el) =>
+        el.className.includes('sticky'),
+      ),
+    ).toBe(false);
   });
 
   it('renders Twitter cards as a clean tweet with stable signal avatar and no raw index metadata', () => {
