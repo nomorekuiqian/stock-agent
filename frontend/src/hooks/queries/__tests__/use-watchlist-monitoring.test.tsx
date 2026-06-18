@@ -1,19 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 import { useTwitterTickerDiscussion } from '../use-twitter-ticker-discussion';
-import { useWatchlistMonitor } from '../use-watchlist-monitor';
+import {
+  useBackfillWatchlistMonitor,
+  useWatchlistMonitor,
+} from '../use-watchlist-monitor';
 import { api } from '@/lib/api';
+import { queryKeys } from '../query-keys';
 
 vi.mock('@/lib/api', () => ({
   api: {
+    backfillWatchlistMonitor: vi.fn(),
     getWatchlistMonitor: vi.fn(),
     getTwitterTickerDiscussion: vi.fn(),
   },
 }));
 
+const mockBackfillWatchlistMonitor = vi.mocked(api.backfillWatchlistMonitor);
 const mockGetWatchlistMonitor = vi.mocked(api.getWatchlistMonitor);
 const mockGetTwitterTickerDiscussion = vi.mocked(api.getTwitterTickerDiscussion);
 
@@ -75,6 +81,36 @@ describe('useWatchlistMonitor', () => {
 
     expect(result.current.fetchStatus).toBe('idle');
     expect(mockGetWatchlistMonitor).not.toHaveBeenCalled();
+  });
+});
+
+describe('useBackfillWatchlistMonitor', () => {
+  it('queues backfill and invalidates the current monitor query', async () => {
+    const payload = {
+      success: true,
+      accepted: true,
+      requested_symbols: ['AAPL'],
+      queued_symbols: ['AAPL'],
+      skipped_symbols: [],
+      message: 'watchlist monitor backfill started',
+    };
+    mockBackfillWatchlistMonitor.mockResolvedValue(payload as never);
+    const { Wrapper, queryClient } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(
+      () => useBackfillWatchlistMonitor('user-1'),
+      { wrapper: Wrapper },
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync(['AAPL']);
+    });
+
+    expect(mockBackfillWatchlistMonitor).toHaveBeenCalledWith(['AAPL']);
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.watchlistMonitor.current('user-1'),
+    });
   });
 });
 

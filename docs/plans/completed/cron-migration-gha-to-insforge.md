@@ -29,6 +29,7 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 | `twitter-digest-generate.yml` | `Cron - Twitter Digest Generate` | `58df517a-89e6-4b0f-90a5-1929c1d8fbd9` | `30 20 * * 1-5` | `twitter_digest_generate` | active |
 | `twitter-digest-broadcast.yml` | `Cron - Twitter Digest Broadcast` | `49ee46f5-2300-40f6-8a63-6dd5d1af13be` | `15 22 * * 1-5` | `twitter_digest_broadcast` | active |
 | N/A | `Cron - Payment Reconcile Expired Grants` | `bdd60d1a-0db1-4b28-ac99-9df97fe27e57` | `10 8 * * *` | `payment_reconcile_expired_grants` | active |
+| N/A | `Cron - Watchlist Monitor Paid Universe` | `64209838-470b-440e-aa84-1eeba5e0394d` | `45 23 * * 1-5` | `watchlist_monitor_paid_universe` | active |
 | N/A | `Cron - Watchlist Monitor Test Universe` | `5f192434-7416-4481-9b52-594f61a4f7ba` | `30 23 * * 1-5` | `watchlist_monitor_test_universe` | inactive until backend endpoint deploy |
 
 ## 额外直连 Schedule
@@ -67,6 +68,13 @@ universe 为 14 个 ticker。Schedule 已创建但保持 `isActive=false`，
 `/api/admin/watchlist-monitor/generate-test-universe` 后才能真实触发。
 激活命令：
 `npx @insforge/cli schedules update 5f192434-7416-4481-9b52-594f61a4f7ba --active true`。
+
+2026-06-17: 新增并激活 `Cron - Watchlist Monitor Paid Universe`
+(`45 23 * * 1-5` UTC)，经 `cron-trigger` 调
+`watchlist_monitor_paid_universe`，最终命中
+`POST /api/admin/watchlist-monitor/start-paid-universe`。该端点快速返回
+`accepted=true` 后在 Railway 后台任务中生成所有 `for_you_website`
+entitlement 用户 watchlist 的去重 ticker universe。
 
 2026-06-06: onboarding drip 邮件已删除。`onboarding_drip` schedule 如果继续触发，
 只会经 `cron-trigger` 调用 legacy backend endpoint 并返回 `disabled=true`，不会发送邮件。

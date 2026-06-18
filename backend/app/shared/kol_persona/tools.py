@@ -1,9 +1,9 @@
 """KOL persona RAG tool: search_kol_tweets.
 
-Thin wrapper over `features.vector.service.search` filtered to
-`source_type=kol_tweet` + `metadata.author_username`. Captured chunks
-are appended to a contextvar buffer so the calling agent's run loop can
-read them out and forward to the response payload / SSE event.
+Thin wrapper over `features.vector.service.search` filtered to the active
+persona's corpus bindings. Captured chunks are appended to a contextvar buffer
+so the calling agent's run loop can read them out and forward to the response
+payload / SSE event.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from app.features.vector.models import (
 )
 from app.features.vector.service import search as vector_search
 from app.features.vector.service import search_text as vector_text_search
-from app.shared.kol_persona.models import PersonaChunkResult
+from app.shared.kol_persona.models import CorpusBinding, PersonaChunkResult
 
 logger = get_logger(__name__)
 
@@ -93,10 +93,12 @@ def _format_chunks_for_llm(
 def chunk_to_persona_result(
     chunk: VectorChunkResult, *, citation_index: int
 ) -> PersonaChunkResult:
-    md = chunk.metadata or {}
+    md = dict(chunk.metadata or {})
+    md.setdefault("source_type", chunk.source_type)
     return PersonaChunkResult(
         citation_index=citation_index,
         source_id=chunk.source_id,
+        source_type=chunk.source_type,
         title=chunk.title,
         url=chunk.url,
         content=chunk.content,
@@ -110,12 +112,17 @@ def chunk_to_persona_result(
 
 # Tweets are short, colloquial, mix Chinese + English + tickers, so cosine
 # similarity to a natural-language query rarely clears 0.7 (typical hits land
-# at 0.55-0.65 with text-embedding-3-small). The vector layer's default
-# threshold of 0.7 silently filters everything; use a looser bar here.
-_KOL_SEARCH_THRESHOLD = 0.45
+# at 0.55-0.65 with text-embedding-3-small). Keep vector recall below the
+# generic 0.7 threshold, then apply persona-specific relevance gates before
+# exposing results to the agent/UI.
+_KOL_SEARCH_THRESHOLD = 0.55
 _HYBRID_LANE_LIMIT = 8
+_HYBRID_TEXT_HIT_SCORE = 0.85
+_HYBRID_STRONG_SEMANTIC_SCORE = 0.70
+_HYBRID_MIN_SEMANTIC_SCORE = 0.60
 _MAX_QUERY_VARIANTS = 8
 _UPPERCASE_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9])\$?([A-Z]{1,5})(?![A-Za-z0-9])")
+_TICKER_SPLIT_RE = re.compile(r"[^A-Za-z0-9]+")
 _TICKER_STOPWORDS = {
     "AI",
     "API",
@@ -244,9 +251,9 @@ def _plan_summary(plan: _HybridQueryPlan) -> str:
 
 def _dedupe_chunks(results: list[VectorChunkResult], *, limit: int) -> list[VectorChunkResult]:
     deduped: list[VectorChunkResult] = []
-    seen: set[tuple[str, str, int | None]] = set()
+    seen: set[tuple[str, str]] = set()
     for item in results:
-        key = (item.source_type, item.source_id, item.chunk_index)
+        key = _chunk_key(item)
         if key in seen:
             continue
         seen.add(key)
@@ -254,6 +261,68 @@ def _dedupe_chunks(results: list[VectorChunkResult], *, limit: int) -> list[Vect
         if len(deduped) >= limit:
             break
     return deduped
+
+
+def _chunk_key(item: VectorChunkResult) -> tuple[str, str]:
+    return (item.source_type, item.source_id)
+
+
+def _filter_new_chunks(
+    results: list[VectorChunkResult],
+    existing: list[VectorChunkResult],
+) -> list[VectorChunkResult]:
+    seen = {_chunk_key(item) for item in existing}
+    fresh: list[VectorChunkResult] = []
+    for item in results:
+        key = _chunk_key(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        fresh.append(item)
+    return fresh
+
+
+def _normalize_ticker(value: object) -> str | None:
+    ticker = str(value or "").strip().upper().removeprefix("$")
+    if not ticker:
+        return None
+    return ticker
+
+
+def _metadata_tickers(item: VectorChunkResult) -> set[str]:
+    raw = (item.metadata or {}).get("tickers") or []
+    values: list[object] = []
+    if isinstance(raw, str):
+        values.extend(part for part in _TICKER_SPLIT_RE.split(raw) if part)
+    elif isinstance(raw, list | tuple | set):
+        values.extend(raw)
+    else:
+        values.append(raw)
+    if item.symbol:
+        values.append(item.symbol)
+    tickers: set[str] = set()
+    for value in values:
+        ticker = _normalize_ticker(value)
+        if ticker:
+            tickers.add(ticker)
+    return tickers
+
+
+def _is_relevant_chunk(item: VectorChunkResult, plan: _HybridQueryPlan) -> bool:
+    # Text lane scores start at 0.85; keep explicit keyword/source hits even
+    # when ticker enrichment is missing.
+    if item.similarity >= _HYBRID_TEXT_HIT_SCORE:
+        return True
+
+    query_tickers = set(plan.detected_tickers)
+    if query_tickers:
+        if _metadata_tickers(item) & query_tickers:
+            return True
+        # Allow very strong adjacent semantic hits, but do not let low-score
+        # vector drift from another sector fill a multi-corpus bucket.
+        return item.similarity >= _HYBRID_STRONG_SEMANTIC_SCORE
+
+    return item.similarity >= _HYBRID_MIN_SEMANTIC_SCORE
 
 
 async def _safe_text_search(
@@ -308,90 +377,164 @@ async def _safe_vector_search(
 async def _hybrid_search_persona_chunks(
     *,
     plan: _HybridQueryPlan,
-    author: str,
-    source_types: list[str],
+    bindings: list[CorpusBinding],
     k: int,
 ) -> list[VectorChunkResult]:
-    base_metadata: dict[str, object] = {"author_username": author}
-    tasks: list[asyncio.Task[list[VectorChunkResult]]] = []
+    tasks: list[tuple[int, asyncio.Task[list[VectorChunkResult]]]] = []
 
-    # Exact keyword lane: catches short symbols / Chinese aliases / source titles
-    # that semantic embeddings can miss.
-    tasks.append(
-        asyncio.create_task(
-            _safe_text_search(
-                keywords=plan.variants,
-                top_k=max(k, _HYBRID_LANE_LIMIT),
-                source_types=source_types,
-                metadata=base_metadata,
+    for binding_index, binding in enumerate(bindings):
+        source_types = list(binding.source_types or ["kol_tweet"])
+        base_metadata: dict[str, object] = {
+            **dict(binding.metadata or {}),
+            "author_username": binding.author_username,
+        }
+
+        # Exact keyword lane: catches short symbols / Chinese aliases / source
+        # titles that semantic embeddings can miss.
+        tasks.append(
+            (
+                binding_index,
+                asyncio.create_task(
+                    _safe_text_search(
+                        keywords=plan.variants,
+                        top_k=max(k, _HYBRID_LANE_LIMIT),
+                        source_types=source_types,
+                        metadata=base_metadata,
+                    )
+                ),
             )
         )
-    )
 
-    # Metadata lane: for indexed sources with deterministic/enriched ticker tags.
-    # Run per ticker so multi-ticker questions do not require every source to
-    # contain all mentioned symbols.
-    for ticker in plan.detected_tickers[:3]:
-        tasks.append(
-            asyncio.create_task(
-                _safe_text_search(
-                    keywords=plan.variants,
-                    top_k=max(k, _HYBRID_LANE_LIMIT),
-                    source_types=source_types,
-                    metadata={**base_metadata, "tickers": [ticker]},
+        # Metadata lane: for indexed sources with deterministic/enriched ticker
+        # tags. Run per ticker so multi-ticker questions do not require every
+        # source to contain all mentioned symbols.
+        for ticker in plan.detected_tickers[:3]:
+            tasks.append(
+                (
+                    binding_index,
+                    asyncio.create_task(
+                        _safe_text_search(
+                            keywords=plan.variants,
+                            top_k=max(k, _HYBRID_LANE_LIMIT),
+                            source_types=source_types,
+                            metadata={**base_metadata, "tickers": [ticker]},
+                        )
+                    ),
                 )
             )
-        )
-        tasks.append(
-            asyncio.create_task(
-                _safe_vector_search(
-                    query=plan.semantic_query,
-                    top_k=max(k, _HYBRID_LANE_LIMIT),
-                    source_types=source_types,
-                    metadata={**base_metadata, "tickers": [ticker]},
+            tasks.append(
+                (
+                    binding_index,
+                    asyncio.create_task(
+                        _safe_vector_search(
+                            query=plan.semantic_query,
+                            top_k=max(k, _HYBRID_LANE_LIMIT),
+                            source_types=source_types,
+                            metadata={**base_metadata, "tickers": [ticker]},
+                        )
+                    ),
                 )
             )
-        )
 
-    # Semantic lane: still useful for adjacent concepts / fuzzy wording.
-    tasks.append(
-        asyncio.create_task(
-            _safe_vector_search(
-                query=plan.semantic_query,
-                top_k=max(k, _HYBRID_LANE_LIMIT),
-                source_types=source_types,
-                metadata=base_metadata,
+        # Semantic lane: still useful for adjacent concepts / fuzzy wording.
+        tasks.append(
+            (
+                binding_index,
+                asyncio.create_task(
+                    _safe_vector_search(
+                        query=plan.semantic_query,
+                        top_k=max(k, _HYBRID_LANE_LIMIT),
+                        source_types=source_types,
+                        metadata=base_metadata,
+                    )
+                ),
             )
         )
-    )
 
-    lane_results = await asyncio.gather(*tasks)
+    lane_results = await asyncio.gather(*(task for _, task in tasks))
+    by_binding: list[list[VectorChunkResult]] = [[] for _ in bindings]
+    for (binding_index, _task), results in zip(tasks, lane_results):
+        by_binding[binding_index].extend(results)
+
+    prepared: list[list[VectorChunkResult]] = []
+    for results in by_binding:
+        relevant = [item for item in results if _is_relevant_chunk(item, plan)]
+        relevant.sort(key=lambda item: item.similarity, reverse=True)
+        prepared.append(_dedupe_chunks(relevant, limit=k))
+
+    if len(prepared) <= 1:
+        return prepared[0][:k] if prepared else []
+
+    # Multi-corpus personas need source diversity. A pure global sort lets large
+    # text corpora with many exact hits fill all k slots, hiding a smaller
+    # Twitter corpus even when it has a strong exact hit. Round-robin keeps the
+    # top result from each binding visible, then fills remaining slots by the
+    # same per-binding relevance order.
     merged: list[VectorChunkResult] = []
-    for results in lane_results:
-        merged.extend(results)
-    return _dedupe_chunks(merged, limit=k)
+    seen: set[tuple[str, str]] = set()
+    positions = [0 for _ in prepared]
+    while len(merged) < k:
+        added = False
+        for bucket_index, bucket in enumerate(prepared):
+            while positions[bucket_index] < len(bucket):
+                item = bucket[positions[bucket_index]]
+                positions[bucket_index] += 1
+                key = (item.source_type, item.source_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged.append(item)
+                added = True
+                break
+            if len(merged) >= k:
+                break
+        if not added:
+            break
+    return merged
 
 
 def _persona_source_types(author_username: str) -> List[str]:
-    """Resolve which vector `source_type`s the active persona's corpus lives in.
+    """Compatibility helper: summarize source_type values across corpus bindings."""
+    out: list[str] = []
+    for binding in _persona_corpus_bindings(author_username):
+        for source_type in binding.source_types:
+            if source_type not in out:
+                out.append(source_type)
+    return out or ["kol_tweet"]
 
-    Twitter personas keep the historical default ['kol_tweet']. Personas backed
-    by a different corpus (e.g. zsxq exports indexed as 'zsxq_thread') declare
-    `corpus_source_types` in the registry, so retrieval is pinned to the right
-    source_type instead of silently searching the Twitter corpus. Lookup is
-    lazy + best-effort: any failure falls back to ['kol_tweet'] so a registry
-    issue can never break retrieval.
-    """
+
+def _persona_corpus_bindings(author_username: str) -> list[CorpusBinding]:
+    """Resolve the exact vector corpus bindings for the active persona."""
     try:
         from app.shared.kol_persona.registry import get_persona
 
         persona = get_persona(author_username)
+        bindings = getattr(persona, "corpus_bindings", None)
+        if bindings:
+            return list(bindings)
+
         source_types = getattr(persona, "corpus_source_types", None)
         if source_types:
-            return list(source_types)
+            return [
+                CorpusBinding(
+                    author_username=author_username,
+                    source_types=list(source_types),
+                )
+            ]
     except Exception as exc:  # noqa: BLE001 - never break retrieval on lookup
-        logger.warning("persona source_type lookup failed for %s: %s", author_username, exc)
-    return ["kol_tweet"]
+        logger.warning("persona corpus binding lookup failed for %s: %s", author_username, exc)
+    return [CorpusBinding(author_username=author_username, source_types=["kol_tweet"])]
+
+
+def _bindings_summary(bindings: list[CorpusBinding]) -> str:
+    return ", ".join(
+        (
+            f"{binding.author_username}:"
+            f"{'/'.join(binding.source_types or ['kol_tweet'])}"
+            f"{' metadata=' + str(binding.metadata) if binding.metadata else ''}"
+        )
+        for binding in bindings
+    )
 
 
 async def search_kol_tweets(
@@ -424,27 +567,35 @@ async def search_kol_tweets(
     # The active persona (if any) wins over the LLM-supplied author so retrieval
     # stays pinned to the current KOL — never leaks another persona's tweets.
     author = _active_kol_author.get(None) or author_username
-    source_types = _persona_source_types(author)
+    bindings = _persona_corpus_bindings(author)
     plan = _build_hybrid_query_plan(query, query_variants)
     results = await _hybrid_search_persona_chunks(
         plan=plan,
-        author=author,
-        source_types=source_types,
+        bindings=bindings,
         k=k,
     )
     if not results:
         logger.info(
-            "persona hybrid search returned no results: author=%s plan=%s",
+            "persona hybrid search returned no results: author=%s bindings=%s plan=%s",
             author,
+            _bindings_summary(bindings),
             _plan_summary(plan),
         )
 
     buf = persona_chunks_buffer.get()
     if buf is not None:
+        original_count = len(results)
+        results = _filter_new_chunks(results, buf)
         # Use buf length to keep [#N] indices consistent across multiple calls
         # in the same agent run.
         start = len(buf) + 1
         buf.extend(results)
+        if original_count > 0 and not results:
+            return (
+                "This search only returned sources already cited earlier in "
+                "this turn. Do not create new citation IDs; reuse the earlier "
+                f"citation numbers if needed.\n\nSearch plan attempted: {_plan_summary(plan)}"
+            )
     else:
         start = 1
 

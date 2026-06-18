@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from app.core.logging import get_logger
-from app.shared.kol_persona.models import Persona, PersonaSummary, SkillDoc
+from app.shared.kol_persona.models import CorpusBinding, Persona, PersonaSummary, SkillDoc
 
 logger = get_logger(__name__)
 
@@ -110,8 +110,18 @@ _PERSONA_CONFIG: Dict[str, Dict[str, Any]] = {
         "core_file": "operating-system.md",
         # No distilled macro/framework/sector/ticker lenses yet (Phase 1 = thin
         # core + RAG). The persona's knowledge comes from search_kol_tweets over
-        # the zsxq_thread corpus rather than static distilled skill files.
-        "corpus_source_types": ["zsxq_thread"],
+        # the zsxq_thread corpus plus selected related X/Twitter posts.
+        "corpus_bindings": [
+            {
+                "author_username": "pandacircle",
+                "source_types": ["zsxq_thread"],
+            },
+            {
+                "author_username": "JohnsonZ91127",
+                "source_types": ["kol_tweet"],
+                "metadata": {"quality": "keep"},
+            },
+        ],
     },
 }
 
@@ -150,6 +160,59 @@ def _sanitize_skill_body(body: str) -> str:
         body,
         flags=re.IGNORECASE,
     )
+
+
+def _corpus_bindings_from_config(username: str, cfg: Dict[str, Any]) -> List[CorpusBinding]:
+    raw_bindings = cfg.get("corpus_bindings")
+    if raw_bindings:
+        bindings: List[CorpusBinding] = []
+        for raw in raw_bindings:
+            if not isinstance(raw, dict):
+                logger.warning("Ignoring invalid corpus binding for %s: %r", username, raw)
+                continue
+            author = str(raw.get("author_username") or username).strip().lstrip("@")
+            source_types = raw.get("source_types") or ["kol_tweet"]
+            if isinstance(source_types, str):
+                source_types = [source_types]
+            metadata = raw.get("metadata") or {}
+            bindings.append(
+                CorpusBinding(
+                    author_username=author,
+                    source_types=[
+                        str(source_type).strip()
+                        for source_type in source_types
+                        if str(source_type).strip()
+                    ]
+                    or ["kol_tweet"],
+                    metadata=dict(metadata) if isinstance(metadata, dict) else {},
+                )
+            )
+        if bindings:
+            return bindings
+
+    source_types = cfg.get("corpus_source_types", ["kol_tweet"])
+    if isinstance(source_types, str):
+        source_types = [source_types]
+    return [
+        CorpusBinding(
+            author_username=username,
+            source_types=[
+                str(source_type).strip()
+                for source_type in source_types
+                if str(source_type).strip()
+            ]
+            or ["kol_tweet"],
+        )
+    ]
+
+
+def _source_types_for_bindings(bindings: List[CorpusBinding]) -> List[str]:
+    out: List[str] = []
+    for binding in bindings:
+        for source_type in binding.source_types:
+            if source_type not in out:
+                out.append(source_type)
+    return out or ["kol_tweet"]
 
 
 def _skill_md_to_skill_doc(path: Path, layer: str) -> SkillDoc:
@@ -237,6 +300,8 @@ def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
         logger.warning("skill dir %s yielded no skill docs.", skill_dir)
         return None
 
+    corpus_bindings = _corpus_bindings_from_config(username, cfg)
+
     logger.info(
         "Loaded persona %r: 1 core + %d macro + %d sector/ticker lenses",
         username,
@@ -255,7 +320,8 @@ def _load_persona_skill_uncached(username: str) -> Optional[Persona]:
         cross_cutting=cross_cutting,
         lenses=lenses,
         last_indexed_at=None,
-        corpus_source_types=cfg.get("corpus_source_types", ["kol_tweet"]),
+        corpus_source_types=_source_types_for_bindings(corpus_bindings),
+        corpus_bindings=corpus_bindings,
     )
 
 

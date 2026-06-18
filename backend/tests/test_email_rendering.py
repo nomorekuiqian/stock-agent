@@ -217,6 +217,12 @@ class TestFormatDigestHtml:
         html = email_svc._format_digest_html({"one_line_summary": "Test"})
         assert "<html" in html
 
+    def test_monitor_cta_rendered(self, email_svc, mock_digest_data):
+        """Personal digest email points readers to the web AI monitor."""
+        html = email_svc._format_digest_html(mock_digest_data)
+        assert "查看 AI 监控台" in html
+        assert "themarketbrew.com/for-you/monitor" in html
+
 
 class TestFormatWelcomeHtml:
     """Test _format_welcome_html rendering."""

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowRight, Radar } from 'lucide-react';
 import { DigestResponse, DigestHeadlineNews, DigestBriefNews, DigestEvent, HoldingView } from '@/lib/api';
 import { formatReportDate, formatCalendarDate, isMarketToday, formatCompactTimestamp } from '@/lib/timezone';
 import StockOverviewPanel from './StockOverviewPanel';
@@ -95,6 +96,29 @@ export default function DigestInlineReport({
               </Link>
             )
           )}
+        </div>
+      </section>
+
+      <section className="terminal-card border-primary/20 bg-primary/[0.04] p-5 animate-fade-in-up">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
+              <Radar className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">AI 监控台</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                查看每只关注标的的新闻事件、技术面结构、市场讨论和未来观察点。
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/for-you/monitor"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+          >
+            查看详细监控
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
         </div>
       </section>
 

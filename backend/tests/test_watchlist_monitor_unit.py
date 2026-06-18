@@ -1187,6 +1187,62 @@ async def test_compose_monitor_marks_previous_market_date_briefs_stale(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_resolve_missing_symbols_for_user_backfill_only_queues_missing_watchlist_symbols(monkeypatch):
+    monkeypatch.setattr(service, "market_today_str", lambda: "2026-06-16")
+
+    async def fake_watchlist(user_id: str):
+        assert user_id == "user-1"
+        return {"symbols": ["AAPL", "MSFT", "NVDA", "META"]}
+
+    async def fake_latest_briefs(symbols: list[str]):
+        assert symbols == ["AAPL", "MSFT", "NVDA", "META"]
+        return {
+            "AAPL": _brief("AAPL", brief_date="2026-06-16"),
+            "MSFT": _brief("MSFT", brief_date="2026-06-15"),
+            "NVDA": _brief("NVDA", brief_date="2026-06-16").model_copy(
+                update={"market_discussion": MarketDiscussionCache()}
+            ),
+        }
+
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service.monitor_db, "get_latest_briefs", fake_latest_briefs)
+
+    requested, queued, skipped = await service.resolve_missing_symbols_for_user_backfill(
+        "user-1",
+        symbols=["aapl", "msft", "tsla", "nvda", "meta"],
+    )
+
+    assert requested == ["AAPL", "MSFT", "NVDA", "META"]
+    assert queued == ["MSFT", "NVDA", "META"]
+    assert skipped == ["TSLA", "AAPL"]
+
+
+@pytest.mark.asyncio
+async def test_resolve_missing_symbols_for_user_backfill_limits_to_user_watchlist(monkeypatch):
+    monkeypatch.setattr(service, "market_today_str", lambda: "2026-06-16")
+
+    async def fake_watchlist(user_id: str):
+        assert user_id == "user-1"
+        return {"symbols": ["AAPL", "MSFT", "NVDA"]}
+
+    async def fake_latest_briefs(symbols: list[str]):
+        assert symbols == ["AAPL", "MSFT"]
+        return {}
+
+    monkeypatch.setattr(service, "get_user_watchlist", fake_watchlist)
+    monkeypatch.setattr(service.monitor_db, "get_latest_briefs", fake_latest_briefs)
+
+    requested, queued, skipped = await service.resolve_missing_symbols_for_user_backfill(
+        "user-1",
+        limit=2,
+    )
+
+    assert requested == ["AAPL", "MSFT"]
+    assert queued == ["AAPL", "MSFT"]
+    assert skipped == []
+
+
+@pytest.mark.asyncio
 async def test_generate_test_user_universe_dedupes_symbols(monkeypatch):
     async def fake_watchlist(user_id: str):
         data = {

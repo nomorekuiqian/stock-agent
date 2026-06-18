@@ -5,6 +5,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from app.core.deps import verify_cron_secret, verify_user_token
 from app.core.logging import get_logger
 from app.features.watchlist_monitor.models import (
+    BackfillMonitorRequest,
+    BackfillMonitorResponse,
     GeneratePaidUniverseRequest,
     GeneratePaidUniverseResponse,
     GenerateRequest,
@@ -19,6 +21,7 @@ from app.features.watchlist_monitor.service import (
     generate_for_symbols,
     generate_paid_user_universe,
     generate_test_user_universe,
+    resolve_missing_symbols_for_user_backfill,
     resolve_symbols_for_generation,
 )
 from app.shared.entitlements import has_feature_entitlement
@@ -57,9 +60,39 @@ async def _run_paid_universe_background(request: GeneratePaidUniverseRequest) ->
         logger.exception("watchlist monitor paid universe background job failed")
 
 
+async def _run_user_backfill_background(user_id: str, symbols: list[str]) -> None:
+    """Generate only the already-resolved missing symbols for one user."""
+    try:
+        generated, failed = await generate_for_symbols(symbols, force=False)
+        if failed:
+            logger.warning(
+                "watchlist monitor user backfill completed with failures: user=%s symbols=%s generated=%s failed=%s",
+                user_id[:8],
+                len(symbols),
+                len(generated),
+                len(failed),
+            )
+            return
+        logger.info(
+            "watchlist monitor user backfill completed: user=%s symbols=%s generated=%s",
+            user_id[:8],
+            len(symbols),
+            len(generated),
+        )
+    except Exception:
+        logger.exception(
+            "watchlist monitor user backfill failed: user=%s symbols=%s",
+            user_id[:8],
+            len(symbols),
+        )
+
+
 async def _require_monitor_entitlement(user_id: str) -> None:
     if not await has_feature_entitlement(user_id, _MONITOR_FEATURE):
-        raise HTTPException(status_code=403, detail="AI monitor requires an active For You entitlement")
+        raise HTTPException(
+            status_code=403,
+            detail="AI monitor requires an active For You entitlement",
+        )
 
 
 @router.get("/watchlist-monitor", response_model=WatchlistMonitorResponse)
@@ -69,11 +102,70 @@ async def get_watchlist_monitor(user_id: str = Depends(verify_user_token)):
     try:
         return await compose_monitor_for_user(user_id)
     except RuntimeError as exc:
-        logger.warning("watchlist monitor read failed for user=%s: %s", user_id[:8], exc)
+        logger.warning(
+            "watchlist monitor read failed for user=%s: %s",
+            user_id[:8],
+            exc,
+        )
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("watchlist monitor read exception for user=%s", user_id[:8])
         raise HTTPException(status_code=500, detail="Failed to load watchlist monitor") from exc
+
+
+@router.post("/watchlist-monitor/backfill", response_model=BackfillMonitorResponse)
+async def backfill_watchlist_monitor(
+    background_tasks: BackgroundTasks,
+    body: BackfillMonitorRequest | None = None,
+    user_id: str = Depends(verify_user_token),
+):
+    """Queue one user's missing watchlist monitor briefs without touching the paid universe."""
+    await _require_monitor_entitlement(user_id)
+    request = body or BackfillMonitorRequest()
+    try:
+        requested_symbols, queued_symbols, skipped_symbols = (
+            await resolve_missing_symbols_for_user_backfill(
+                user_id,
+                symbols=request.symbols,
+                limit=request.limit,
+            )
+        )
+    except RuntimeError as exc:
+        logger.warning(
+            "watchlist monitor backfill resolve failed for user=%s: %s",
+            user_id[:8],
+            exc,
+        )
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception(
+            "watchlist monitor backfill resolve exception for user=%s",
+            user_id[:8],
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to prepare watchlist monitor backfill",
+        ) from exc
+
+    if not queued_symbols:
+        return BackfillMonitorResponse(
+            success=True,
+            accepted=False,
+            requested_symbols=requested_symbols,
+            queued_symbols=[],
+            skipped_symbols=skipped_symbols,
+            message="watchlist monitor is already current",
+        )
+
+    background_tasks.add_task(_run_user_backfill_background, user_id, queued_symbols)
+    return BackfillMonitorResponse(
+        success=True,
+        accepted=True,
+        requested_symbols=requested_symbols,
+        queued_symbols=queued_symbols,
+        skipped_symbols=skipped_symbols,
+        message="watchlist monitor backfill started",
+    )
 
 
 @router.post(

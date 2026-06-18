@@ -34,6 +34,42 @@ _CATALOG_TTL_SECONDS = 300
 _LIST_SOURCE_PREFIX = "list:"
 
 
+def _extract_media(tweet: dict) -> list[dict]:
+    """Extract compact media metadata from a raw TwitterAPI.io tweet object."""
+    raw_media = (
+        (tweet.get("extendedEntities") or {}).get("media")
+        or (tweet.get("entities") or {}).get("media")
+        or []
+    )
+    if not isinstance(raw_media, list):
+        return []
+
+    media: list[dict] = []
+    seen: set[str] = set()
+    for item in raw_media:
+        if not isinstance(item, dict):
+            continue
+        media_key = str(item.get("media_key") or item.get("id_str") or "").strip()
+        source_url = str(item.get("media_url_https") or "").strip()
+        media_type = str(item.get("type") or "").strip()
+        dedupe_key = media_key or source_url
+        if not dedupe_key or dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+
+        original_info = item.get("original_info") if isinstance(item.get("original_info"), dict) else {}
+        row = {
+            "type": media_type or None,
+            "media_key": media_key or None,
+            "source_url": source_url or None,
+            "expanded_url": item.get("expanded_url"),
+            "width": original_info.get("width"),
+            "height": original_info.get("height"),
+        }
+        media.append({key: value for key, value in row.items() if value not in (None, "")})
+    return media
+
+
 async def get_enabled_kols() -> list[KolAccount]:
     """
     Active KOL catalog from `kol_accounts` DB. Returns empty list when DB is
@@ -118,6 +154,7 @@ def _parse_tweet(tweet: dict) -> Optional[dict]:
         "reply_count": tweet.get("replyCount", 0) or 0,
         "view_count": tweet.get("viewCount", 0) or 0,
         "url": tweet.get("url"),
+        "media": _extract_media(tweet),
     }
 
 

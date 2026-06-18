@@ -1,13 +1,12 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, type ReactNode, useState } from 'react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 import MarkdownBody from '@/components/MarkdownBody';
 import type { KolPersonaChunk } from '@/lib/api';
 import {
   getPersonaDisplayLabel,
-  getPersonaDisplayName,
   replacePersonaUsernamesForDisplay,
 } from '../_lib/personaDisplay';
 
@@ -21,8 +20,16 @@ function XLogo({ className }: { className?: string }) {
 }
 
 const ZSXQ_LOGO_SRC = '/kol-avatars/zsxq_logo.png';
+const PANDACIRCLE_AVATAR_SRC = '/kol-avatars/pandacircle.png';
 const ZSXQ_PERSONA_CIRCLE_NAMES: Record<string, string> = {
   pandacircle: '潘大的科技交流圈',
+};
+const TWEET_SIGNAL_AVATAR_BY_AUTHOR: Record<string, string> = {
+  johnsonz91127: PANDACIRCLE_AVATAR_SRC,
+};
+
+type SourceAwareChunk = Pick<KolPersonaChunk, 'content' | 'title' | 'url' | 'metadata'> & {
+  source_type?: string | null;
 };
 
 interface KolChunksPanelProps {
@@ -91,7 +98,7 @@ function avatarSrcFor(author: string | null | undefined): string {
 }
 
 function zsxqAuthorAvatarSrcFor(chunk: KolPersonaChunk): string {
-  return avatarSrcFor(chunk.author_username) || '/kol-avatars/pandacircle.png';
+  return avatarSrcFor(chunk.author_username) || PANDACIRCLE_AVATAR_SRC;
 }
 
 function asString(value: unknown): string {
@@ -120,9 +127,10 @@ function chunkDateCandidates(chunk: Pick<KolPersonaChunk, 'created_at' | 'conten
   ];
 }
 
-export function isZsxqChunk(chunk: Pick<KolPersonaChunk, 'content' | 'title' | 'url' | 'metadata'>): boolean {
+export function isZsxqChunk(chunk: SourceAwareChunk): boolean {
   const metadata = chunk.metadata || {};
   const sourceType = [
+    asString(chunk.source_type),
     asString(metadata.source_type),
     asString(metadata.sourceType),
     asString(metadata.source),
@@ -270,12 +278,16 @@ export function linkifyTweetText(text: string): React.ReactNode[] {
 
 function CardList({ chunks }: { chunks: KolPersonaChunk[] }) {
   const sortedChunks = sortChunksByTimeDesc(chunks);
-  const zsxqCount = chunks.filter(isZsxqChunk).length;
+  const zsxqChunks = sortedChunks.filter(isZsxqChunk);
+  const tweetChunks = sortedChunks.filter((chunk) => !isZsxqChunk(chunk));
+  const zsxqCount = zsxqChunks.length;
+  const tweetCount = tweetChunks.length;
+  const hasMixedSources = zsxqCount > 0 && tweetCount > 0;
   const sourceSummary = zsxqCount === chunks.length
-    ? `${chunks.length} 条圈内原文证据`
+    ? `${chunks.length} 条知识星球内容`
     : zsxqCount > 0
       ? `${chunks.length} 条混合原文证据`
-      : `${chunks.length} 条博主历史推文`;
+      : `${chunks.length} 条 X 推文`;
 
   return (
     <div className="flex h-full flex-col">
@@ -286,13 +298,90 @@ function CardList({ chunks }: { chunks: KolPersonaChunk[] }) {
         <p className="mt-1 text-sm text-foreground">
           {sourceSummary}
         </p>
+        {hasMixedSources && (
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-medium">
+            <SourcePill icon={<XLogo className="h-3 w-3" />}>
+              X 推文 {tweetCount}
+            </SourcePill>
+            <SourcePill
+              icon={(
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={ZSXQ_LOGO_SRC} alt="" aria-hidden className="h-3 w-3 rounded-sm object-contain" />
+              )}
+            >
+              知识星球 {zsxqCount}
+            </SourcePill>
+          </div>
+        )}
       </div>
-      <ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
-        {sortedChunks.map((chunk) => (
+      {hasMixedSources ? (
+        <div className="flex-1 overflow-y-auto">
+          {tweetCount > 0 && (
+            <EvidenceSection
+              title="X / Twitter 推文"
+              count={tweetCount}
+              icon={<XLogo className="h-3.5 w-3.5" />}
+              chunks={tweetChunks}
+            />
+          )}
+          {zsxqCount > 0 && (
+            <EvidenceSection
+              title="知识星球内容"
+              count={zsxqCount}
+              icon={(
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={ZSXQ_LOGO_SRC} alt="" aria-hidden className="h-3.5 w-3.5 rounded-sm object-contain" />
+              )}
+              chunks={zsxqChunks}
+            />
+          )}
+        </div>
+      ) : (
+        <ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
+          {sortedChunks.map((chunk) => (
+            <EvidenceCard key={`${chunk.source_id}-${chunk.citation_index}`} chunk={chunk} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function SourcePill({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/35 px-2 py-0.5 text-muted-foreground">
+      {icon}
+      {children}
+    </span>
+  );
+}
+
+function EvidenceSection({
+  title,
+  count,
+  icon,
+  chunks,
+}: {
+  title: string;
+  count: number;
+  icon: ReactNode;
+  chunks: KolPersonaChunk[];
+}) {
+  return (
+    <section>
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/40 bg-background/95 px-4 py-2 backdrop-blur">
+        <div className="inline-flex items-center gap-2 text-xs font-medium text-foreground">
+          {icon}
+          <span>{title}</span>
+        </div>
+        <span className="text-[11px] text-muted-foreground">{count} 条</span>
+      </div>
+      <ul className="divide-y divide-border/40">
+        {chunks.map((chunk) => (
           <EvidenceCard key={`${chunk.source_id}-${chunk.citation_index}`} chunk={chunk} />
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 
@@ -306,20 +395,59 @@ function CardList({ chunks }: { chunks: KolPersonaChunk[] }) {
 export function extractTweetBody(raw: string): { original: string; quoted: string } {
   if (!raw) return { original: '', quoted: '' };
   const origMarker = 'Original tweet:';
-  const quoteMarker = 'Quoted tweet:';
+  const canonicalMarker = 'Canonical tweet content:';
+  const canonicalIdx = raw.indexOf(canonicalMarker);
   const origIdx = raw.indexOf(origMarker);
-  // If the marker isn't there, the chunk wasn't built by the standard pipeline.
-  // Fall back to raw text so we don't accidentally hide actual content.
-  if (origIdx < 0) return { original: raw.trim(), quoted: '' };
-  const afterOrig = raw.slice(origIdx + origMarker.length);
-  const quoteIdx = afterOrig.indexOf(quoteMarker);
+
+  if (canonicalIdx >= 0) {
+    return extractTweetSections(raw.slice(canonicalIdx + canonicalMarker.length));
+  }
+
+  if (origIdx >= 0) {
+    return extractTweetSections(raw.slice(origIdx + origMarker.length));
+  }
+
+  return { original: stripTweetIndexMetadata(raw), quoted: '' };
+}
+
+function extractTweetSections(raw: string): { original: string; quoted: string } {
+  const quoteMarker = 'Quoted tweet:';
+  const tweetMarker = 'Tweet:';
+  const imageMarker = /\n\s*Image\s+\d+\s+text\b/i;
+  let body = raw.trim();
+  if (body.startsWith(tweetMarker)) {
+    body = body.slice(tweetMarker.length).trim();
+  }
+  const imageIdx = body.search(imageMarker);
+  const visibleBody = imageIdx >= 0 ? body.slice(0, imageIdx).trim() : body;
+  const quoteIdx = visibleBody.indexOf(quoteMarker);
   if (quoteIdx < 0) {
-    return { original: afterOrig.trim(), quoted: '' };
+    return { original: stripTweetIndexMetadata(visibleBody), quoted: '' };
   }
   return {
-    original: afterOrig.slice(0, quoteIdx).trim(),
-    quoted: afterOrig.slice(quoteIdx + quoteMarker.length).trim(),
+    original: stripTweetIndexMetadata(visibleBody.slice(0, quoteIdx)),
+    quoted: stripTweetIndexMetadata(visibleBody.slice(quoteIdx + quoteMarker.length)),
   };
+}
+
+function stripTweetIndexMetadata(raw: string): string {
+  if (!raw) return '';
+  const lines = raw.split(/\r?\n/);
+  const metadataLine = /^(?:Source|Source ID|Title|Author|Date|Tweet type|Quality|Content type|Tickers|Sectors|Events|Summary|Persona|Source author|Article title)\s*[:：]/i;
+  let lastMetadataLine = -1;
+
+  for (let i = 0; i < Math.min(lines.length, 40); i += 1) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    if (metadataLine.test(line)) {
+      lastMetadataLine = i;
+    }
+  }
+
+  const bodyLines = lastMetadataLine >= 0 ? lines.slice(lastMetadataLine + 1) : lines.slice();
+  while (bodyLines.length > 0 && !bodyLines[0].trim()) bodyLines.shift();
+  while (bodyLines.length > 0 && !bodyLines[bodyLines.length - 1].trim()) bodyLines.pop();
+  return bodyLines.join('\n').trim();
 }
 
 export function extractZsxqBody(raw: string): string {
@@ -347,6 +475,37 @@ export function extractZsxqBody(raw: string): string {
 
 function truncateText(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}...` : text;
+}
+
+function tweetAvatarSrcFor(chunk: KolPersonaChunk): string {
+  const metadata = chunk.metadata || {};
+  const persona = asString(metadata.persona_username) || asString(metadata.personaUsername);
+  if (persona) return avatarSrcFor(persona);
+  const author = (chunk.author_username || '').trim().toLowerCase();
+  if (author && TWEET_SIGNAL_AVATAR_BY_AUTHOR[author]) {
+    return TWEET_SIGNAL_AVATAR_BY_AUTHOR[author];
+  }
+  return avatarSrcFor(chunk.author_username) || PANDACIRCLE_AVATAR_SRC;
+}
+
+function tweetMetadataValue(chunk: KolPersonaChunk, key: string, label: string): string {
+  const metadata = chunk.metadata || {};
+  const value = metadata[key];
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  const match = (chunk.content || '').match(new RegExp(`^${label}\\s*[:：]\\s*([^\\n]+)`, 'im'));
+  return match?.[1]?.trim() || '';
+}
+
+function tweetBadgeValues(chunk: KolPersonaChunk): string[] {
+  const values = [
+    tweetMetadataValue(chunk, 'tweet_type', 'Tweet type'),
+    tweetMetadataValue(chunk, 'quality', 'Quality'),
+  ]
+    .map((value) => value.trim())
+    .filter((value) => value && !/^n\/a$/i.test(value));
+  return Array.from(new Set(values)).slice(0, 2);
 }
 
 function EvidenceCard({ chunk }: { chunk: KolPersonaChunk }) {
@@ -466,11 +625,9 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
   const shownOriginal = expanded || !longText ? original : truncateText(original, 280);
   const shownQuoted = expanded || !longText ? quoted : truncateText(quoted, 140);
 
-  const author = chunk.author_username || 'unknown';
-  const displayAuthor = getPersonaDisplayName(author, author);
-  const displayAuthorLabel = getPersonaDisplayLabel(author, author);
-  const avatar = avatarSrcFor(chunk.author_username);
+  const avatar = tweetAvatarSrcFor(chunk);
   const timestamp = getChunkTimeLabel(chunk);
+  const badges = tweetBadgeValues(chunk);
 
   return (
     <li
@@ -484,41 +641,38 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={avatar}
-              alt={displayAuthor}
+              alt=""
+              aria-hidden
               className="h-10 w-10 rounded-full bg-muted object-cover"
               onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-                (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                const image = e.target as HTMLImageElement;
+                if (image.src.endsWith(PANDACIRCLE_AVATAR_SRC)) return;
+                image.src = PANDACIRCLE_AVATAR_SRC;
               }}
             />
           ) : null}
           <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-            {displayAuthor.slice(0, 2).toUpperCase()}
+            X
           </div>
         </div>
 
         {/* Main content */}
         <div className="min-w-0 flex-1">
-          {/* Header: display name + @handle + relative time, all on one line */}
-          <div className="flex flex-wrap items-baseline gap-x-1 text-sm leading-5">
-            <span className="truncate font-bold tracking-tight text-foreground">
-              {displayAuthor}
-            </span>
-            <a
-              href={`https://x.com/${author}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="relative z-20 truncate text-sm text-muted-foreground hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {displayAuthorLabel}
-            </a>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs leading-5 text-muted-foreground">
             {timestamp && (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">{timestamp}</span>
-              </>
+              <span>{timestamp}</span>
             )}
+            {badges.map((badge) => (
+              <span
+                key={badge}
+                className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+              >
+                {badge}
+              </span>
+            ))}
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+              #{chunk.citation_index}
+            </span>
           </div>
 
           {/* Tweet body — main text with auto-linkification */}

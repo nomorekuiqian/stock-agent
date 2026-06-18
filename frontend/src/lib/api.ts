@@ -331,6 +331,15 @@ export interface WatchlistMonitorResponse {
   missing_symbols: string[];
 }
 
+export interface WatchlistMonitorBackfillResponse {
+  success: boolean;
+  accepted: boolean;
+  requested_symbols: string[];
+  queued_symbols: string[];
+  skipped_symbols: string[];
+  message: string;
+}
+
 export type TwitterTickerDiscussionStance = 'bull' | 'bear' | 'neutral';
 
 export interface TwitterTickerDiscussionTweet {
@@ -390,6 +399,7 @@ export interface TwitterTickerDiscussionResponse {
   overview: TwitterTickerDiscussionOverview;
   themes: TwitterTickerDiscussionTheme[];
   data: TwitterTickerDiscussionTweet[];
+  generated_at?: string;
 }
 
 export interface SubscribeResponse {
@@ -1407,6 +1417,7 @@ export interface KolPersonaSummary {
 export interface KolPersonaChunk {
   citation_index: number;
   source_id: string;
+  source_type?: string | null;
   title: string | null;
   url: string | null;
   content: string;
@@ -2095,6 +2106,25 @@ export const api = {
     );
     if (!response.ok) {
       await throwProtectedApiError(response, 'Failed to fetch watchlist monitor');
+    }
+    return response.json();
+  },
+
+  backfillWatchlistMonitor: async (
+    symbols?: string[],
+  ): Promise<WatchlistMonitorBackfillResponse> => {
+    const body = symbols?.length ? { symbols } : {};
+    const response = await fetchProtected(
+      `${API_BASE_URL}/watchlist-monitor/backfill`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      'Failed to backfill watchlist monitor',
+    );
+    if (!response.ok) {
+      await throwProtectedApiError(response, 'Failed to backfill watchlist monitor');
     }
     return response.json();
   },

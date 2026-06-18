@@ -66,6 +66,32 @@ describe('extractTweetBody', () => {
     expect(quoted).toBe('');
   });
 
+  it('strips canonical metadata and image OCR from tweet card body', () => {
+    const raw = [
+      'Author: @JohnsonZ91127',
+      'Date: 2026-06-09T08:38:43+00:00',
+      'Tweet type: original',
+      'Quality: keep',
+      'Content type: thesis',
+      'Tickers: SNOW, CRWD, NOW, PANW',
+      'Summary: 投资逻辑',
+      '',
+      'Canonical tweet content:',
+      'Tweet:',
+      '软件股预计下半年会跑赢大盘， snow，crwd，now，panw 四个软件公司的比较 https://t.co/CJgfd5cxxw',
+      '',
+      'Image 1 text (3_2064265922123284480):',
+      '算力之后，企业AI落地前必补的四个底座',
+      'Source ID: should not leak',
+    ].join('\n');
+
+    const { original, quoted } = extractTweetBody(raw);
+    expect(original).toBe('软件股预计下半年会跑赢大盘， snow，crwd，now，panw 四个软件公司的比较 https://t.co/CJgfd5cxxw');
+    expect(quoted).toBe('');
+    expect(original).not.toContain('Image 1 text');
+    expect(original).not.toContain('Source ID');
+  });
+
   it('splits original and quoted tweets when both present', () => {
     const raw = [
       'Author: @qinbafrank',
@@ -124,11 +150,18 @@ describe('zsxq evidence rendering', () => {
     expect(isZsxqChunk(mkChunk({ content: rawZsxq }))).toBe(true);
   });
 
+  it('detects zsxq chunks from top-level source_type', () => {
+    expect(
+      isZsxqChunk(mkChunk({ content: '正文', source_type: 'zsxq_thread' })),
+    ).toBe(true);
+  });
+
   it('does not treat ordinary X posts mentioning 知识星球 as zsxq evidence', () => {
     const xChunk = mkChunk({
       source_id: 'tweet-zsxq-mention',
       title: '@pandacircle tweet',
       url: 'https://x.com/pandacircle/status/1',
+      source_type: 'kol_tweet',
       content: 'Original tweet:\n我在知识星球看到一个观点，但这是 X 推文。',
       metadata: { source_type: 'kol_tweet' },
     });
@@ -186,6 +219,87 @@ describe('zsxq evidence rendering', () => {
     );
     expect(imageSources).toContain('/kol-avatars/pandacircle.png');
     expect(imageSources).toContain('/kol-avatars/zsxq_logo.png');
+  });
+
+  it('groups mixed X and Knowledge Planet evidence in separate right-panel sections', () => {
+    const tweet = mkChunk({
+      citation_index: 1,
+      source_id: 'tweet-1',
+      source_type: 'kol_tweet',
+      title: '@JohnsonZ91127 tweet 2064265925122253011',
+      url: 'https://x.com/JohnsonZ91127/status/2064265925122253011',
+      content: 'Original tweet:\nJohnson 对 AI 产业链的更新。',
+      author_username: 'JohnsonZ91127',
+      metadata: { source_type: 'kol_tweet' },
+    });
+    const zsxq = mkChunk({
+      citation_index: 2,
+      source_id: 'zsxq-1',
+      source_type: 'zsxq_thread',
+      content: rawZsxq,
+      metadata: { source_type: 'zsxq_thread' },
+    });
+
+    const { container } = render(<KolChunksPanel chunks={[tweet, zsxq]} />);
+
+    expect(container.textContent).toContain('2 条混合原文证据');
+    expect(container.textContent).toContain('X 推文 1');
+    expect(container.textContent).toContain('知识星球 1');
+    expect(container.textContent).toContain('X / Twitter 推文');
+    expect(container.textContent).toContain('知识星球内容');
+    expect(container.textContent).toContain('在 X 查看原文');
+    expect(container.textContent).toContain('在星球中查看原文');
+  });
+
+  it('renders Twitter cards as a clean tweet with stable signal avatar and no raw index metadata', () => {
+    const tweet = mkChunk({
+      citation_index: 1,
+      source_id: '2064265925122253011',
+      source_type: 'kol_tweet',
+      title: '@JohnsonZ91127 tweet 2064265925122253011',
+      url: 'https://x.com/JohnsonZ91127/status/2064265925122253011',
+      author_username: 'JohnsonZ91127',
+      created_at: '2026-06-09T08:38:43Z',
+      metadata: {
+        source_type: 'kol_tweet',
+        tweet_type: 'original',
+        quality: 'keep',
+      },
+      content: [
+        'Author: @JohnsonZ91127',
+        'Date: 2026-06-09T08:38:43+00:00',
+        'Tweet type: original',
+        'Quality: keep',
+        'Source ID: 2064265925122253011',
+        'Title: @JohnsonZ91127 tweet 2064265925122253011',
+        '',
+        'Canonical tweet content:',
+        'Tweet:',
+        '软件股预计下半年会跑赢大盘， snow，crwd，now，panw 四个软件公司的比较 https://t.co/CJgfd5cxxw',
+        '',
+        'Image 1 text (3_2064265922123284480):',
+        '算力之后，企业AI落地前必补的四个底座',
+      ].join('\n'),
+    });
+
+    const { container } = render(<KolChunksPanel chunks={[tweet]} />);
+
+    expect(container.textContent).toContain('软件股预计下半年会跑赢大盘');
+    expect(container.textContent).toContain('original');
+    expect(container.textContent).toContain('keep');
+    expect(container.textContent).toContain('在 X 查看原文');
+    expect(container.textContent).not.toContain('Author:');
+    expect(container.textContent).not.toContain('Date:');
+    expect(container.textContent).not.toContain('Source ID');
+    expect(container.textContent).not.toContain('Title:');
+    expect(container.textContent).not.toContain('@JohnsonZ91127');
+    expect(container.textContent).not.toContain('Image 1 text');
+    expect(container.textContent).not.toContain('企业AI落地前必补的四个底座');
+
+    const imageSources = Array.from(container.querySelectorAll('img')).map((img) =>
+      img.getAttribute('src'),
+    );
+    expect(imageSources).toContain('/kol-avatars/pandacircle.png');
   });
 
   it('sorts rendered evidence cards by post time descending', () => {

@@ -5,10 +5,11 @@ Public API:
   - build_always_on_instruction(persona)                              [registry]
   - build_lens_skills(persona)                                        [skills]
   - search_kol_tweets, persona_chunks_buffer, chunk_to_persona_result [tools]
-  - Persona / PersonaSummary / PersonaChunkResult / SkillDoc          [models]
+  - CorpusBinding / Persona / PersonaSummary / PersonaChunkResult / SkillDoc [models]
 """
 
 from app.shared.kol_persona.models import (
+    CorpusBinding,
     Persona,
     PersonaChunkResult,
     PersonaSummary,
@@ -28,6 +29,7 @@ from app.shared.kol_persona.tools import (
 )
 
 __all__ = [
+    "CorpusBinding",
     "Persona",
     "PersonaChunkResult",
     "PersonaSummary",

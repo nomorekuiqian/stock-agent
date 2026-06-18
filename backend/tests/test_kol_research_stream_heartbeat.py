@@ -13,6 +13,7 @@ import asyncio
 import time
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -143,3 +144,45 @@ def test_no_heartbeat_when_events_flow_normally():
         assert len(data_lines) == 4, f"expected 4 events, got {len(data_lines)}"
     finally:
         app.dependency_overrides.pop(kol_router.require_kol_research_flag, None)
+
+
+@pytest.mark.asyncio
+async def test_stream_can_close_after_error_from_different_task(monkeypatch):
+    """Closing the async generator from another task must not raise ContextVar
+    token errors after an error event has already been yielded."""
+    from app.features.kol_research import agent as kol_agent
+
+    async def fake_preload_recent_reports():
+        return None
+
+    async def fake_prepare_runtime_context(**_kwargs):
+        return None, object(), "prompt", []
+
+    async def fake_run_session(**_kwargs):
+        raise asyncio.TimeoutError()
+
+    class FakeRunner:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+    monkeypatch.setattr(kol_agent, "_preload_recent_reports", fake_preload_recent_reports)
+    monkeypatch.setattr(kol_agent, "get_agent", lambda _persona: object())
+    monkeypatch.setattr(kol_agent, "InMemoryRunner", FakeRunner)
+    monkeypatch.setattr(kol_agent, "_prepare_runtime_context", fake_prepare_runtime_context)
+    monkeypatch.setattr(kol_agent, "_run_session", fake_run_session)
+
+    stream = kol_agent.stream_kol_research(
+        message="test",
+        persona_username="pandacircle",
+        conversation_id="test-conversation",
+        user_id="test-user",
+        turn_id="test-turn",
+        timeout=1,
+    )
+
+    event = await stream.__anext__()
+    assert event["type"] == "error"
+    assert event["code"] == "agent_timeout"
+
+    close_task = asyncio.create_task(stream.aclose())
+    await close_task

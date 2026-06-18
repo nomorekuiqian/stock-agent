@@ -259,6 +259,14 @@ def _has_market_discussion_cache(brief: TickerDailyBrief) -> bool:
     )
 
 
+def _brief_needs_generation(brief: TickerDailyBrief | None, report_date: str) -> bool:
+    return (
+        brief is None
+        or brief.brief_date != report_date
+        or not _has_market_discussion_cache(brief)
+    )
+
+
 def _empty_market_discussion(
     symbol: str,
     *,
@@ -388,6 +396,42 @@ async def resolve_symbols_for_generation(
     return resolved[:limit]
 
 
+async def resolve_missing_symbols_for_user_backfill(
+    user_id: str,
+    *,
+    symbols: list[str] | None = None,
+    limit: int = 25,
+) -> tuple[list[str], list[str], list[str]]:
+    """Return only this user's watchlist symbols that need today's monitor generation."""
+    watchlist = await get_user_watchlist(user_id)
+    if watchlist is None:
+        raise RuntimeError("failed to load user watchlist")
+
+    watchlist_symbols = _normalize_symbols(watchlist.get("symbols") or [])[:limit]
+    requested = _normalize_symbols(symbols or [])
+    skipped: list[str] = []
+
+    if requested:
+        watchlist_set = set(watchlist_symbols)
+        candidates = [symbol for symbol in requested if symbol in watchlist_set][:limit]
+        skipped.extend(symbol for symbol in requested if symbol not in watchlist_set)
+    else:
+        candidates = watchlist_symbols
+
+    if not candidates:
+        return [], [], skipped
+
+    report_date = market_today_str()
+    existing = await monitor_db.get_latest_briefs(candidates)
+    queued = [
+        symbol
+        for symbol in candidates
+        if _brief_needs_generation(existing.get(symbol), report_date)
+    ]
+    skipped.extend(symbol for symbol in candidates if symbol not in queued)
+    return candidates, queued, _normalize_symbols(skipped)
+
+
 async def _generate_one_symbol(
     symbol: str,
     *,
@@ -507,9 +551,7 @@ async def generate_for_symbols(symbols: list[str], *, force: bool = False) -> tu
         missing_today = [
             symbol
             for symbol in normalized
-            if not existing.get(symbol)
-            or existing[symbol].brief_date != report_date
-            or not _has_market_discussion_cache(existing[symbol])
+            if _brief_needs_generation(existing.get(symbol), report_date)
         ]
         if not missing_today:
             return [

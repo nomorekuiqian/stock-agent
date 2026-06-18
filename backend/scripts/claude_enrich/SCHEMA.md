@@ -16,16 +16,29 @@ the output, validates against this schema, and writes the result to the
   "created_at": "2025-07-21",
   "tweet_type": "original",
   "text": "印象中应该是第一次美国SEC主席说以太坊不是证券，对以太坊意义重大",
+  "raw_text": "印象中应该是第一次美国SEC主席说以太坊不是证券，对以太坊意义重大",
   "quoted_excerpt": null,
-  "reply_to": null
+  "reply_to": null,
+  "media": [],
+  "canonical_status": "raw_only",
+  "content_parts": []
 }
 ```
 
-- `text`: full tweet text (not truncated).
+- `text`: canonical tweet text when available; otherwise raw tweet text. If a
+  tweet has image text, this field includes the extracted image text as part of
+  the tweet body.
+- `raw_text`: original Twitter API text only, not used as the primary
+  classification body when `canonical_status != raw_only`.
 - `quoted_excerpt`: ≤220 chars (already truncated).
 - `created_at`: date only (`YYYY-MM-DD`).
 - `tweet_type`: `original | reply | retweet | quote`.
 - `reply_to`: in_reply_to_username if reply, else null.
+- `media`: optional compact media metadata (`type`, `source_url`,
+  `expanded_url`, `width`, `height`). It is context only; output schema stays
+  text classification fields below.
+- `content_parts`: ordered canonical body parts (`tweet_text`,
+  `quoted_tweet_text`, `image_text`).
 
 ## Output format
 

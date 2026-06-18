@@ -179,6 +179,8 @@ def _type_quality_breakdown(tweets: list[dict[str, Any]]) -> dict[str, int]:
 def _metadata_for_tweet(tweet: dict[str, Any]) -> dict[str, Any]:
     enrichment = _enrichment_of(tweet)
     tickers = [item.upper() for item in _string_list(enrichment.get("tickers"))]
+    media = _as_list(tweet.get("media"))
+    content_parts = _as_list(tweet.get("content_parts"))
 
     metadata: dict[str, Any] = {
         "author_username": tweet.get("author_username"),
@@ -191,6 +193,16 @@ def _metadata_for_tweet(tweet: dict[str, Any]) -> dict[str, Any]:
         "retweet_count": tweet.get("retweet_count") or 0,
         "reply_count": tweet.get("reply_count") or 0,
         "view_count": tweet.get("view_count") or 0,
+        "media_count": len(media),
+        "content_part_types": [
+            str(part.get("type"))
+            for part in content_parts
+            if isinstance(part, dict) and part.get("type")
+        ],
+        "canonical_status": tweet.get("canonical_status"),
+        "canonical_hash": tweet.get("canonical_hash"),
+        "canonical_extracted_at": tweet.get("canonical_extracted_at"),
+        "canonical_extracted_model": tweet.get("canonical_extracted_model"),
         "quality": enrichment.get("quality"),
         "quality_features": _string_list(enrichment.get("quality_features")),
         "content_summary_zh": enrichment.get("content_summary_zh") or "",
@@ -219,6 +231,7 @@ def _content_for_tweet(tweet: dict[str, Any], metadata: dict[str, Any]) -> str:
     persona = metadata.get("persona_username")
     original = (tweet.get("text") or "").strip()
     quoted = (tweet.get("quoted_tweet_text") or "").strip()
+    canonical = (tweet.get("canonical_text") or "").strip()
     summary = metadata.get("content_summary_zh") or metadata.get("key_claim") or "N/A"
 
     parts = [
@@ -238,9 +251,12 @@ def _content_for_tweet(tweet: dict[str, Any], metadata: dict[str, Any]) -> str:
         parts.append(f"Source author: @{source_author}")
     if metadata.get("article_title"):
         parts.append(f"Article title: {metadata.get('article_title')}")
-    parts.extend(["", "Original tweet:", original])
-    if quoted:
-        parts.extend(["", "Quoted tweet:", quoted])
+    if canonical:
+        parts.extend(["", "Canonical tweet content:", canonical])
+    else:
+        parts.extend(["", "Original tweet:", original])
+        if quoted:
+            parts.extend(["", "Quoted tweet:", quoted])
     return "\n".join(parts).strip()
 
 

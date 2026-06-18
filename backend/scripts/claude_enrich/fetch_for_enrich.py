@@ -4,6 +4,8 @@ Reads `kol_tweets` via the `kol-tweets` edge function (`list_batch` action),
 filters out rows whose `symbols.quality` is already a string (already v2/v3
 enriched), slims each surviving row, and writes batches of 50 to
 `scripts/claude_enrich/_work/tweets/<username>-<stamp>-batchNN.jsonl`.
+Use `--include-enriched` for explicit manual v3 reclassification of rows that
+already passed the daily light enrichment pipeline.
 
 Usage:
     cd backend && source venv/bin/activate
@@ -11,6 +13,12 @@ Usage:
         --username qinbafrank \\
         --since 2024-01-01 --until 2025-01-01 \\
         --batch-size 50 --max-batches 12
+
+    # Manual v3 reclassification for the latest already-enriched rows:
+    python scripts/claude_enrich/fetch_for_enrich.py \\
+        --username qinbafrank \\
+        --since 2026-01-01 --until 2026-12-31 \\
+        --include-enriched --limit 50 --batch-size 50 --max-batches 1
 
 The stamp printed at the end is the shared prefix for the matching enrichment
 files that `push_enrichments.py` will write back under
@@ -47,13 +55,18 @@ def _slim(row: dict) -> dict:
     quoted = row.get("quoted_tweet_text") or None
     if quoted and len(quoted) > _QUOTED_LIMIT:
         quoted = quoted[:_QUOTED_LIMIT - 1] + "…"
+    canonical_text = (row.get("canonical_text") or "").strip()
     return {
         "id": row.get("id"),
         "created_at": created,
         "tweet_type": row.get("tweet_type"),
-        "text": row.get("text") or "",
+        "text": canonical_text or row.get("text") or "",
+        "raw_text": row.get("text") or "",
         "quoted_excerpt": quoted,
         "reply_to": row.get("in_reply_to_username") or None,
+        "media": row.get("media") or [],
+        "canonical_status": row.get("canonical_status") or "raw_only",
+        "content_parts": row.get("content_parts") or [],
     }
 
 
@@ -166,7 +179,8 @@ async def _run(args: argparse.Namespace) -> None:
         f"INFO  fetch_for_enrich start\n"
         f"      username=@{args.username}\n"
         f"      window=[{args.since}, {args.until})\n"
-        f"      batch_size={args.batch_size} max_batches={args.max_batches}"
+        f"      batch_size={args.batch_size} max_batches={args.max_batches}\n"
+        f"      include_enriched={args.include_enriched} limit={args.limit or 'none'}"
     )
 
     print("\nINFO  pulling list_batch window...")
@@ -174,22 +188,26 @@ async def _run(args: argparse.Namespace) -> None:
     print(f"INFO  fetched {len(rows)} rows in window")
 
     unenriched = [r for r in rows if _needs_enrichment(r)]
+    selected = rows if args.include_enriched else unenriched
+    if args.limit is not None:
+        selected = selected[:args.limit]
     print(f"INFO  unenriched: {len(unenriched)} / {len(rows)}")
+    print(f"INFO  selected for output: {len(selected)}")
 
-    if not unenriched:
-        print("INFO  nothing to do — every row in window already enriched")
+    if not selected:
+        print("INFO  nothing to do — no rows selected for output")
         return
 
     out_dir = Path(__file__).resolve().parent / "_work" / "tweets"
     print(f"\nINFO  writing batches to {out_dir}")
     stamp, written = _write_batches(
-        unenriched, args.username, args.batch_size, args.max_batches, out_dir
+        selected, args.username, args.batch_size, args.max_batches, out_dir
     )
 
     print(
         f"\nSUMMARY  stamp={stamp}  batches_written={written}\n"
-        f"  unenriched_total={len(unenriched)}\n"
-        f"  remaining_after_this_wave={max(0, len(unenriched) - written * args.batch_size)}\n"
+        f"  selected_total={len(selected)}\n"
+        f"  remaining_after_this_wave={max(0, len(selected) - written * args.batch_size)}\n"
         f"  next step: classify each batch jsonl, write to\n"
         f"    _work/enrichments/{args.username}-{stamp}-batchNN.jsonl\n"
         f"  then: python scripts/claude_enrich/push_enrichments.py "
@@ -206,6 +224,12 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--until", required=True, help="ISO date or datetime (exclusive)")
     p.add_argument("--batch-size", type=int, default=50)
     p.add_argument("--max-batches", type=int, default=12)
+    p.add_argument(
+        "--include-enriched",
+        action="store_true",
+        help="Include rows that already have symbols.quality; useful for manual v3 reclassification.",
+    )
+    p.add_argument("--limit", type=int, default=None, help="Cap selected rows before batching")
     return p.parse_args()
 
 

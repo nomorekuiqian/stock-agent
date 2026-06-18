@@ -349,6 +349,33 @@ class WatchlistMonitorResponse(BaseModel):
     missing_symbols: list[str] = Field(default_factory=list)
 
 
+class BackfillMonitorRequest(BaseModel):
+    symbols: list[str] = Field(default_factory=list, max_length=25)
+    limit: int = Field(default=25, ge=1, le=25)
+
+    @field_validator("symbols")
+    @classmethod
+    def normalize_symbols(cls, value: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for raw in value:
+            symbol = (raw or "").strip().upper()
+            if not symbol or symbol in seen:
+                continue
+            seen.add(symbol)
+            out.append(symbol)
+        return out
+
+
+class BackfillMonitorResponse(BaseModel):
+    success: bool
+    accepted: bool
+    requested_symbols: list[str] = Field(default_factory=list)
+    queued_symbols: list[str] = Field(default_factory=list)
+    skipped_symbols: list[str] = Field(default_factory=list)
+    message: str = ""
+
+
 class GenerateRequest(BaseModel):
     symbols: list[str] = Field(default_factory=list, max_length=25)
     user_id: str | None = None

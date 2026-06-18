@@ -15,6 +15,13 @@
 //   retweet_count INT DEFAULT 0,
 //   reply_count INT DEFAULT 0,
 //   view_count INT DEFAULT 0,
+//   media JSONB DEFAULT '[]'::jsonb,
+//   content_parts JSONB DEFAULT '[]'::jsonb,
+//   canonical_text TEXT,
+//   canonical_status TEXT DEFAULT 'raw_only',
+//   canonical_hash TEXT,
+//   canonical_extracted_at TIMESTAMPTZ,
+//   canonical_extracted_model TEXT,
 //   category TEXT,
 //   symbols JSONB                      -- Phase 2: per-tweet ticker list, e.g. ["NVDA", "INTC"];
 //                                      -- null = unlabeled. Index: GIN (symbols).
@@ -53,6 +60,7 @@ module.exports = async function(request) {
   const RUNS_TABLE = "twitter_fetch_runs";
   const DIGESTS_TABLE = "kol_daily_digests";
   const ACCOUNTS_TABLE = "kol_accounts";
+  const TWEET_SELECT = "id, author_username, text, tweet_type, conversation_id, quoted_tweet_text, in_reply_to_username, created_at, url, like_count, retweet_count, reply_count, view_count, media, content_parts, canonical_text, canonical_status, canonical_hash, canonical_extracted_at, canonical_extracted_model, category, symbols";
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
   // Gate POST actions behind X-Internal-Secret. Reads (GET) stay open so
@@ -95,7 +103,7 @@ module.exports = async function(request) {
 
       let query = client.database
         .from(TABLE)
-        .select("id, author_username, text, tweet_type, conversation_id, quoted_tweet_text, in_reply_to_username, created_at, url, like_count, retweet_count, reply_count, view_count, category, symbols")
+        .select(TWEET_SELECT)
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -319,7 +327,7 @@ module.exports = async function(request) {
 
       let query = client.database
         .from(TABLE)
-        .select("id, author_username, text, tweet_type, conversation_id, quoted_tweet_text, in_reply_to_username, created_at, url, like_count, retweet_count, reply_count, view_count, category, symbols")
+        .select(TWEET_SELECT)
         .order("created_at", { ascending: false })
         .range(0, limit - 1);
       if (!allKols) {
@@ -359,7 +367,7 @@ module.exports = async function(request) {
 
       let query = client.database
         .from(TABLE)
-        .select("id, author_username, text, tweet_type, conversation_id, quoted_tweet_text, in_reply_to_username, created_at, url, like_count, retweet_count, reply_count, view_count, category, symbols")
+        .select(TWEET_SELECT)
         .order("created_at", { ascending: false })
         .range(0, limit - 1);
 
@@ -417,6 +425,66 @@ module.exports = async function(request) {
         const { error } = await client.database
           .from(TABLE)
           .update({ symbols: update.symbols })
+          .eq("id", update.id);
+        if (error) {
+          errorCount++;
+          if (errorDetails.length < 5) {
+            errorDetails.push({ id: update.id, error: error.message });
+          }
+        } else {
+          successCount++;
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          updated: successCount,
+          errors: errorCount,
+          error_samples: errorDetails,
+        }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
+    // POST ?action=update_canonical_batch - bulk write canonical tweet content
+    //   body: { updates: [{ id, media, content_parts, canonical_text,
+    //                       canonical_status, canonical_hash,
+    //                       canonical_extracted_at, canonical_extracted_model }] }
+    if (request.method === "POST" && action === "update_canonical_batch") {
+      const body = await request.json();
+      const updates = body.updates;
+
+      if (!updates || !Array.isArray(updates) || updates.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "updates array required" }),
+          { status: 400, headers: jsonHeaders }
+        );
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errorDetails = [];
+
+      for (const update of updates) {
+        if (!update.id || typeof update.canonical_text !== "string") {
+          errorCount++;
+          continue;
+        }
+
+        const patch = {
+          media: Array.isArray(update.media) ? update.media : [],
+          content_parts: Array.isArray(update.content_parts) ? update.content_parts : [],
+          canonical_text: update.canonical_text,
+          canonical_status: update.canonical_status || "raw_only",
+          canonical_hash: update.canonical_hash || null,
+          canonical_extracted_at: update.canonical_extracted_at || null,
+          canonical_extracted_model: update.canonical_extracted_model || null,
+        };
+
+        const { error } = await client.database
+          .from(TABLE)
+          .update(patch)
           .eq("id", update.id);
         if (error) {
           errorCount++;

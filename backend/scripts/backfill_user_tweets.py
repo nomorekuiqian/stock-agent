@@ -20,7 +20,7 @@ Options:
 Tweet format matches the hourly kol-tweets cron exactly:
   id, author_username, text, tweet_type, conversation_id, quoted_tweet_text,
   in_reply_to_username, created_at, url, like_count, retweet_count,
-  reply_count, view_count
+  reply_count, view_count, media
   (category and symbols are left null — enrich afterward if needed)
 """
 
@@ -69,6 +69,42 @@ def _classify_tweet_type(tweet: dict) -> str:
     return "original"
 
 
+def _extract_media(tweet: dict) -> list[dict]:
+    """Extract compact media metadata from a raw TwitterAPI.io tweet object."""
+    raw_media = (
+        (tweet.get("extendedEntities") or {}).get("media")
+        or (tweet.get("entities") or {}).get("media")
+        or []
+    )
+    if not isinstance(raw_media, list):
+        return []
+
+    media: list[dict] = []
+    seen: set[str] = set()
+    for item in raw_media:
+        if not isinstance(item, dict):
+            continue
+        media_key = str(item.get("media_key") or item.get("id_str") or "").strip()
+        source_url = str(item.get("media_url_https") or "").strip()
+        media_type = str(item.get("type") or "").strip()
+        dedupe_key = media_key or source_url
+        if not dedupe_key or dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+
+        original_info = item.get("original_info") if isinstance(item.get("original_info"), dict) else {}
+        row = {
+            "type": media_type or None,
+            "media_key": media_key or None,
+            "source_url": source_url or None,
+            "expanded_url": item.get("expanded_url"),
+            "width": original_info.get("width"),
+            "height": original_info.get("height"),
+        }
+        media.append({key: value for key, value in row.items() if value not in (None, "")})
+    return media
+
+
 def _parse_tweet(tweet: dict) -> Optional[dict]:
     """Parse raw TwitterAPI.io tweet. Returns None for pure retweets."""
     tweet_type = _classify_tweet_type(tweet)
@@ -94,6 +130,7 @@ def _parse_tweet(tweet: dict) -> Optional[dict]:
         "reply_count": tweet.get("replyCount", 0) or 0,
         "view_count": tweet.get("viewCount", 0) or 0,
         "url": tweet.get("url"),
+        "media": _extract_media(tweet),
     }
 
 
@@ -159,7 +196,13 @@ async def _fetch_page(
 # Core backfill
 # ---------------------------------------------------------------------------
 
-async def backfill(username: str, months: int, dry_run: bool, delay: float) -> None:
+async def backfill(
+    username: str,
+    months: int,
+    dry_run: bool,
+    delay: float,
+    limit: Optional[int] = None,
+) -> None:
     from app.core.config import TWITTER_API_KEY
     from app.features.twitter import db as twitter_db
 
@@ -174,7 +217,7 @@ async def backfill(username: str, months: int, dry_run: bool, delay: float) -> N
         f"INFO  backfill start\n"
         f"      username=@{username}\n"
         f"      months={months}  cutoff={cutoff.date()}\n"
-        f"      dry_run={dry_run}  page_delay={delay}s\n"
+        f"      dry_run={dry_run}  page_delay={delay}s  limit={limit or 'none'}\n"
         f"      run_id={run_id}"
     )
 
@@ -186,6 +229,7 @@ async def backfill(username: str, months: int, dry_run: bool, delay: float) -> N
     total_stored = 0
     total_skipped_retweets = 0
     total_skipped_old = 0
+    total_accepted = 0
     pages_fetched = 0
     cursor: Optional[str] = None
     stopped_reason = "cutoff_reached"
@@ -222,6 +266,7 @@ async def backfill(username: str, months: int, dry_run: bool, delay: float) -> N
 
             page_oldest: Optional[datetime] = None
             reached_cutoff = False
+            reached_limit = False
 
             for raw in raw_tweets:
                 parsed = _parse_tweet(raw)
@@ -239,16 +284,25 @@ async def backfill(username: str, months: int, dry_run: bool, delay: float) -> N
                         continue
 
                 if parsed.get("id") and parsed.get("author_username"):
+                    if limit is not None and total_accepted >= limit:
+                        reached_limit = True
+                        break
                     pending.append(parsed)
+                    total_accepted += 1
 
             await _flush()
 
             print(
                 f"PAGE  {pages_fetched:3d}  raw={len(raw_tweets):3d}  "
                 f"pending={len(pending):3d}  stored={total_stored:4d}  "
+                f"accepted={total_accepted:4d}  "
                 f"oldest={str(page_oldest.date()) if page_oldest else '?':<10}  "
-                f"{'<CUTOFF' if reached_cutoff else ''}"
+                f"{'<LIMIT' if reached_limit else '<CUTOFF' if reached_cutoff else ''}"
             )
+
+            if reached_limit:
+                stopped_reason = "limit_reached"
+                break
 
             if reached_cutoff:
                 stopped_reason = "cutoff_reached"
@@ -288,6 +342,7 @@ async def backfill(username: str, months: int, dry_run: bool, delay: float) -> N
         f"\nSUMMARY  @{username}  run_id={run_id}\n"
         f"  pages_fetched          = {pages_fetched}\n"
         f"  total_fetched          = {total_fetched}\n"
+        f"  accepted               = {total_accepted}\n"
         f"  skipped_retweets       = {total_skipped_retweets}\n"
         f"  skipped_before_cutoff  = {total_skipped_old}\n"
         f"  stored                 = {'(dry-run)' if dry_run else total_stored}\n"
@@ -319,10 +374,14 @@ def _parse_args() -> argparse.Namespace:
         "--delay", type=float, default=0.5,
         help="Seconds between page requests (default: 0.5)",
     )
+    p.add_argument(
+        "--limit", type=int, default=None,
+        help="Stop after this many parsed tweets have been accepted (default: no limit)",
+    )
     return p.parse_args()
 
 
 if __name__ == "__main__":
     _load_env()
     args = _parse_args()
-    asyncio.run(backfill(args.username, args.months, args.dry_run, args.delay))
+    asyncio.run(backfill(args.username, args.months, args.dry_run, args.delay, args.limit))

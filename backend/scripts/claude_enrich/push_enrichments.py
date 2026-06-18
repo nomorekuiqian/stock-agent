@@ -33,7 +33,7 @@ def _bootstrap() -> Path:
     return root
 
 
-ENRICHED_MODEL = "claude-opus-4-7"
+ENRICHED_MODEL = "codex-gpt-5-in-session"
 
 VALID_CONTENT_TYPES = {
     "thesis", "trade_action", "catalyst", "sector_framework",

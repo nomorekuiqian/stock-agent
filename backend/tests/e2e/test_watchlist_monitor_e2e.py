@@ -119,6 +119,88 @@ class TestWatchlistMonitorRead:
 
 
 @pytest.mark.e2e
+class TestWatchlistMonitorBackfill:
+    """Tests for POST /api/watchlist-monitor/backfill."""
+
+    @pytest.mark.asyncio
+    async def test_entitled_user_queues_missing_monitor_briefs(self, client):
+        app.dependency_overrides[verify_user_token] = lambda: "pro-user"
+
+        with (
+            patch(
+                "app.features.watchlist_monitor.router.has_feature_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_has_entitlement,
+            patch(
+                "app.features.watchlist_monitor.router.resolve_missing_symbols_for_user_backfill",
+                new_callable=AsyncMock,
+                return_value=(["AAPL", "MSFT"], ["MSFT"], ["AAPL"]),
+            ) as mock_resolve,
+            patch(
+                "app.features.watchlist_monitor.router._run_user_backfill_background",
+                new_callable=AsyncMock,
+            ) as mock_background,
+        ):
+            resp = await client.post(
+                "/api/watchlist-monitor/backfill",
+                headers={"Authorization": "Bearer test-token"},
+                json={"symbols": ["aapl", "msft"], "limit": 5},
+                timeout=30,
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["accepted"] is True
+        assert data["requested_symbols"] == ["AAPL", "MSFT"]
+        assert data["queued_symbols"] == ["MSFT"]
+        assert data["skipped_symbols"] == ["AAPL"]
+        mock_has_entitlement.assert_awaited_once_with("pro-user", "for_you_website")
+        mock_resolve.assert_awaited_once_with(
+            "pro-user",
+            symbols=["AAPL", "MSFT"],
+            limit=5,
+        )
+        mock_background.assert_awaited_once_with("pro-user", ["MSFT"])
+
+    @pytest.mark.asyncio
+    async def test_entitled_user_gets_current_message_when_nothing_is_queued(self, client):
+        app.dependency_overrides[verify_user_token] = lambda: "pro-user"
+
+        with (
+            patch(
+                "app.features.watchlist_monitor.router.has_feature_entitlement",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "app.features.watchlist_monitor.router.resolve_missing_symbols_for_user_backfill",
+                new_callable=AsyncMock,
+                return_value=(["AAPL"], [], ["AAPL"]),
+            ),
+            patch(
+                "app.features.watchlist_monitor.router._run_user_backfill_background",
+                new_callable=AsyncMock,
+            ) as mock_background,
+        ):
+            resp = await client.post(
+                "/api/watchlist-monitor/backfill",
+                headers={"Authorization": "Bearer test-token"},
+                json={"symbols": ["aapl"]},
+                timeout=30,
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["accepted"] is False
+        assert data["queued_symbols"] == []
+        assert data["message"] == "watchlist monitor is already current"
+        mock_background.assert_not_called()
+
+
+@pytest.mark.e2e
 class TestWatchlistMonitorGenerate:
     """Tests for POST /api/admin/watchlist-monitor/generate-active-tickers."""
 

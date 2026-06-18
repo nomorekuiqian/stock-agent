@@ -60,7 +60,10 @@ import type {
 import { useAuth } from "@/contexts/AuthContext";
 import { useStockQuotes } from "@/hooks/queries/use-stock-data";
 import { useStockSearch } from "@/hooks/useStockSearch";
-import { useWatchlistMonitor } from "@/hooks/queries/use-watchlist-monitor";
+import {
+  useBackfillWatchlistMonitor,
+  useWatchlistMonitor,
+} from "@/hooks/queries/use-watchlist-monitor";
 import { useSaveWatchlist, useWatchlist } from "@/hooks/queries/use-watchlist";
 import { queryKeys } from "@/hooks/queries/query-keys";
 import {
@@ -427,10 +430,18 @@ function discussionStanceClass(
 }
 
 function signalTone(type: MonitorSignalType) {
-  if (type === "news") return "text-amber-700 dark:text-amber-300";
-  if (type === "social") return "text-sky-700 dark:text-sky-300";
-  if (type === "event") return "text-emerald-700 dark:text-emerald-300";
-  if (type === "technical") return "text-cyan-700 dark:text-cyan-300";
+  if (type === "news") {
+    return "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  }
+  if (type === "social") {
+    return "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+  }
+  if (type === "event" || type === "macro_sector") {
+    return "border-primary/25 bg-primary/10 text-primary";
+  }
+  if (type === "technical") {
+    return "border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300";
+  }
   return "text-muted-foreground";
 }
 
@@ -509,6 +520,12 @@ function makePendingMonitorRow(symbol: string): MonitorTickerRow {
   };
 }
 
+function rowNeedsBackfill(row: MonitorTickerRow) {
+  return (
+    !row.generated_at || row.is_stale || !row.market_discussion?.generated_at
+  );
+}
+
 function getMonitorFreshness(row: MonitorTickerRow): MonitorFreshness {
   if (!row.generated_at) {
     return {
@@ -530,6 +547,16 @@ function getMonitorFreshness(row: MonitorTickerRow): MonitorFreshness {
     };
   }
 
+  if (!row.market_discussion?.generated_at) {
+    return {
+      label: "待补讨论",
+      description: "等待市场讨论",
+      badgeClassName:
+        "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      dotClassName: "bg-amber-500",
+    };
+  }
+
   return {
     label: "今日更新",
     description: `更新 ${formatTime(row.generated_at)}`,
@@ -540,7 +567,7 @@ function getMonitorFreshness(row: MonitorTickerRow): MonitorFreshness {
 }
 
 function shouldShowMonitorFreshnessBadge(row: MonitorTickerRow) {
-  return !row.generated_at || row.is_stale;
+  return rowNeedsBackfill(row);
 }
 
 type FutureEventItems = {
@@ -878,6 +905,22 @@ function sourceTypeLabel(type: string) {
   return labels[type] ?? type;
 }
 
+function sourceTypeClass(type: string) {
+  if (type === "news") {
+    return "border-primary/25 bg-primary/10 text-primary";
+  }
+  if (type === "event" || type === "macro_event") {
+    return "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  }
+  if (type === "technical") {
+    return "border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300";
+  }
+  if (type === "social") {
+    return "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+  }
+  return "border-border/60 bg-background/35 text-muted-foreground";
+}
+
 function sourceDisplayTitle(source: MonitorSourceRef) {
   return source.title_zh || source.title || source.type;
 }
@@ -946,6 +989,12 @@ function WatchlistMonitorContent() {
   const [saveNotice, setSaveNotice] = useState<WatchlistSaveNotice | null>(
     null,
   );
+  const [backfillNotice, setBackfillNotice] = useState<string | null>(null);
+  const [backfillError, setBackfillError] = useState<string | null>(null);
+  const [isBackfillPolling, setIsBackfillPolling] = useState(false);
+  const [backfillPollUntil, setBackfillPollUntil] = useState<number | null>(
+    null,
+  );
   const { data, isLoading, isError, refetch } = useWatchlistMonitor(
     userId,
     !!userId && isAuthenticated,
@@ -955,6 +1004,7 @@ function WatchlistMonitorContent() {
     !!userId && isAuthenticated,
   );
   const saveWatchlistMutation = useSaveWatchlist();
+  const backfillMonitorMutation = useBackfillWatchlistMonitor(userId);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -1003,7 +1053,7 @@ function WatchlistMonitorContent() {
     for (const row of effectiveRows) {
       if (!row.generated_at) {
         pendingCount += 1;
-      } else if (row.is_stale) {
+      } else if (row.is_stale || !row.market_discussion?.generated_at) {
         staleCount += 1;
       } else {
         freshCount += 1;
@@ -1027,6 +1077,14 @@ function WatchlistMonitorContent() {
       lastUpdatedAt,
     };
   }, [effectiveRows]);
+  const backfillTargetSymbols = useMemo(
+    () =>
+      effectiveRows
+        .filter(rowNeedsBackfill)
+        .map((row) => row.symbol)
+        .slice(0, MAX_WATCHLIST_SIZE),
+    [effectiveRows],
+  );
 
   useEffect(() => {
     if (!saveNotice) return;
@@ -1035,6 +1093,47 @@ function WatchlistMonitorContent() {
     }, 1800);
     return () => window.clearTimeout(timeout);
   }, [saveNotice]);
+
+  useEffect(() => {
+    if (!backfillNotice || isBackfillPolling) return;
+    const timeout = window.setTimeout(() => {
+      setBackfillNotice(null);
+    }, 3600);
+    return () => window.clearTimeout(timeout);
+  }, [backfillNotice, isBackfillPolling]);
+
+  useEffect(() => {
+    if (!isBackfillPolling) return;
+
+    const pendingTotal = monitorStats.pendingCount + monitorStats.staleCount;
+    if (pendingTotal === 0) {
+      const timeout = window.setTimeout(() => {
+        setIsBackfillPolling(false);
+        setBackfillPollUntil(null);
+        setBackfillNotice("缺失监控已补齐。");
+      }, 0);
+      return () => window.clearTimeout(timeout);
+    }
+
+    if (backfillPollUntil && Date.now() > backfillPollUntil) {
+      const timeout = window.setTimeout(() => {
+        setIsBackfillPolling(false);
+        setBackfillPollUntil(null);
+      }, 0);
+      return () => window.clearTimeout(timeout);
+    }
+
+    const timeout = window.setTimeout(() => {
+      void refetch();
+    }, 8000);
+    return () => window.clearTimeout(timeout);
+  }, [
+    backfillPollUntil,
+    isBackfillPolling,
+    monitorStats.pendingCount,
+    monitorStats.staleCount,
+    refetch,
+  ]);
 
   const saveWatchlistSymbols = useCallback(
     (
@@ -1124,6 +1223,47 @@ function WatchlistMonitorContent() {
     [saveWatchlistSymbols, selectedRow?.symbol, watchlistSymbols],
   );
 
+  const handleBackfillMissing = useCallback(async () => {
+    if (!userId) return;
+
+    if (backfillTargetSymbols.length === 0) {
+      setBackfillError(null);
+      setBackfillNotice("当前关注列表已是最新。");
+      setIsBackfillPolling(false);
+      setBackfillPollUntil(null);
+      return;
+    }
+
+    setBackfillError(null);
+    setBackfillNotice(null);
+    try {
+      const result = await backfillMonitorMutation.mutateAsync(undefined);
+      if (result.accepted && result.queued_symbols.length > 0) {
+        setBackfillNotice(
+          `已开始补生成 ${result.queued_symbols.length} 个缺失监控。`,
+        );
+        setIsBackfillPolling(true);
+        setBackfillPollUntil(Date.now() + 120_000);
+        void refetch();
+        return;
+      }
+
+      setBackfillNotice(result.message || "当前关注列表已是最新。");
+      setIsBackfillPolling(false);
+      setBackfillPollUntil(null);
+      void refetch();
+    } catch {
+      setBackfillError("补生成请求失败，请稍后重试。");
+      setIsBackfillPolling(false);
+      setBackfillPollUntil(null);
+    }
+  }, [
+    backfillMonitorMutation,
+    backfillTargetSymbols.length,
+    refetch,
+    userId,
+  ]);
+
   if (authLoading || isLoading) {
     return <MonitorSkeleton />;
   }
@@ -1160,7 +1300,14 @@ function WatchlistMonitorContent() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <TopBar stats={monitorStats} />
+      <TopBar
+        stats={monitorStats}
+        canBackfill={backfillTargetSymbols.length > 0}
+        isBackfilling={backfillMonitorMutation.isPending || isBackfillPolling}
+        backfillNotice={backfillNotice}
+        backfillError={backfillError}
+        onBackfillMissing={handleBackfillMissing}
+      />
 
       <div className="mx-auto grid w-full max-w-[1800px] gap-4 px-4 py-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-5 lg:px-5 xl:grid-cols-[340px_minmax(0,1fr)] xl:gap-6">
         <WatchlistSidebar
@@ -1190,6 +1337,11 @@ function WatchlistMonitorContent() {
 
 function TopBar({
   stats,
+  canBackfill,
+  isBackfilling,
+  backfillNotice,
+  backfillError,
+  onBackfillMissing,
 }: {
   stats: {
     freshCount: number;
@@ -1198,11 +1350,18 @@ function TopBar({
     totalCount: number;
     lastUpdatedAt: string | null;
   };
+  canBackfill: boolean;
+  isBackfilling: boolean;
+  backfillNotice: string | null;
+  backfillError: string | null;
+  onBackfillMissing: () => void;
 }) {
+  const pendingTotal = stats.pendingCount + stats.staleCount;
+
   return (
     <section className="monitor-reveal border-b border-border/50 bg-background">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-8 md:py-10 lg:px-5">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
           <div className="max-w-3xl">
             <div className="mb-3 flex items-center gap-3">
               <div className="monitor-eyebrow-line h-px max-w-[60px] flex-1 bg-gradient-to-r from-primary to-transparent" />
@@ -1217,12 +1376,17 @@ function TopBar({
               AI 监控台
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              用同一份关注列表查看每日监控结论、关键新闻、技术面结构和可验证来源。
+              每个交易日更新一次关注列表监控，覆盖公司新闻、未来事件、技术面结构、市场讨论和来源链接；新加入标的若当天尚未生成，会先显示待更新状态。
             </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <MonitorFeaturePill label="交易日更新" tone="emerald" />
+              <MonitorFeaturePill label="新闻 / 事件 / 技术面" tone="amber" />
+              <MonitorFeaturePill label="来源可追溯" tone="sky" />
+            </div>
           </div>
 
-          <div className="border-t border-border/50 pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-            <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border border-border/50 bg-card/55 p-3">
+            <div className="grid grid-cols-3 gap-2">
               <TopBarStat label="跟踪" value={stats.totalCount} />
               <TopBarStat
                 label="今日"
@@ -1231,20 +1395,74 @@ function TopBar({
               />
               <TopBarStat
                 label="待更新"
-                value={stats.pendingCount + stats.staleCount}
-                tone={
-                  stats.pendingCount + stats.staleCount > 0 ? "amber" : "muted"
-                }
+                value={pendingTotal}
+                tone={pendingTotal > 0 ? "amber" : "muted"}
               />
             </div>
-            <p className="mt-3 inline-flex items-center gap-2 text-sm leading-relaxed text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" aria-hidden />
-              最近更新 {formatTime(stats.lastUpdatedAt)}
-            </p>
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-border/40 bg-background/40 px-3 py-2">
+              <p className="inline-flex items-center gap-2 text-sm leading-relaxed text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" aria-hidden />
+                最近更新 {formatTime(stats.lastUpdatedAt)}
+              </p>
+              <span className="hidden rounded border border-sky-500/25 bg-sky-500/10 px-2 py-1 text-xs font-medium text-sky-700 sm:inline-flex dark:text-sky-300">
+                每日更新
+              </span>
+            </div>
+            {pendingTotal > 0 && (
+              <button
+                type="button"
+                onClick={onBackfillMissing}
+                disabled={!canBackfill || isBackfilling}
+                className="monitor-action-button mt-3 inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 text-sm font-medium text-amber-700 transition-colors duration-200 hover:border-amber-500/45 hover:bg-amber-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30 disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none dark:text-amber-300"
+              >
+                {isBackfilling ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                )}
+                {isBackfilling ? "正在补生成" : "补生成缺失监控"}
+              </button>
+            )}
+            <div className="min-h-6" aria-live="polite">
+              {backfillError ? (
+                <p className="mt-2 inline-flex items-center gap-2 text-sm leading-relaxed text-rose-500">
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                  {backfillError}
+                </p>
+              ) : backfillNotice ? (
+                <p className="mt-2 inline-flex items-center gap-2 text-sm leading-relaxed text-primary">
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                  {backfillNotice}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function MonitorFeaturePill({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "emerald" | "amber" | "sky";
+}) {
+  const toneClass =
+    tone === "emerald"
+      ? "border-primary/25 bg-primary/10 text-primary"
+      : tone === "amber"
+        ? "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+        : "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+
+  return (
+    <span
+      className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium ${toneClass}`}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -1263,12 +1481,48 @@ function TopBarStat({
       : tone === "amber"
         ? "text-amber-700 dark:text-amber-300"
         : "text-foreground";
+  const surfaceClass =
+    tone === "primary"
+      ? "border-primary/20 bg-primary/5"
+      : tone === "amber"
+        ? "border-amber-500/20 bg-amber-500/10"
+        : "border-border/40 bg-background/45";
 
   return (
-    <div>
+    <div className={`rounded-md border px-3 py-3 ${surfaceClass}`}>
       <div className="text-sm font-medium text-muted-foreground">{label}</div>
       <div
         className={`mt-1 font-data text-2xl font-semibold tabular-nums ${valueClass}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SidebarMetric({
+  label,
+  value,
+  tone = "muted",
+}: {
+  label: string;
+  value: number;
+  tone?: "amber" | "muted";
+}) {
+  const surfaceClass =
+    tone === "amber"
+      ? "border-amber-500/20 bg-amber-500/10"
+      : "border-primary/20 bg-primary/5";
+
+  return (
+    <div className={`rounded-md border px-3 py-2 ${surfaceClass}`}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div
+        className={`mt-1 font-data text-lg font-semibold tabular-nums ${
+          tone === "amber"
+            ? "text-amber-700 dark:text-amber-300"
+            : "text-primary"
+        }`}
       >
         {value}
       </div>
@@ -1318,6 +1572,12 @@ function WatchlistSidebar({
     clearSearch,
   } = useStockSearch();
   const atLimit = symbols.length >= MAX_WATCHLIST_SIZE;
+  const waitingRows = allRows.filter(rowNeedsBackfill).length;
+  const freshRows = allRows.length - waitingRows;
+  const capacityPct = Math.min(
+    100,
+    Math.round((symbols.length / MAX_WATCHLIST_SIZE) * 100),
+  );
 
   const handleAddResult = useCallback(
     (result: StockSearchResult) => {
@@ -1336,7 +1596,7 @@ function WatchlistSidebar({
 
   return (
     <aside className="monitor-sidebar-enter max-h-[360px] self-start overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm sm:max-h-[430px] lg:sticky lg:top-4 lg:max-h-[calc(100vh-116px)]">
-      <div className="border-b border-border/50 bg-card/30 p-4">
+      <div className="border-b border-border/50 bg-card/35 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -1354,6 +1614,25 @@ function WatchlistSidebar({
           >
             <ArrowUpRight className="h-4 w-4" aria-hidden />
           </Link>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <SidebarMetric label="今日覆盖" value={freshRows} />
+          <SidebarMetric label="待更新" value={waitingRows} tone="amber" />
+        </div>
+        <div className="mt-3 rounded-md border border-border/50 bg-background/45 px-3 py-2">
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>容量</span>
+            <span className="font-data tabular-nums">
+              {symbols.length}/{MAX_WATCHLIST_SIZE}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary/55 transition-[width] duration-300 motion-reduce:transition-none"
+              style={{ width: `${capacityPct}%` }}
+            />
+          </div>
         </div>
 
         <div ref={addSearchContainerRef} className="relative mt-4">
@@ -1680,6 +1959,33 @@ function TickerTabNav({
   counts: Record<TickerDetailTab, number>;
   onChange: (tab: TickerDetailTab) => void;
 }) {
+  function tabToneClass(tab: TickerDetailTab) {
+    if (tab === "technical") {
+      return {
+        active:
+          "border-cyan-500/35 bg-cyan-500/10 text-cyan-700 shadow-sm dark:text-cyan-300",
+        inactive:
+          "border-transparent text-muted-foreground hover:border-cyan-500/25 hover:bg-cyan-500/5 hover:text-foreground",
+        countActive: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
+      };
+    }
+    if (tab === "market_discussion") {
+      return {
+        active:
+          "border-sky-500/35 bg-sky-500/10 text-sky-700 shadow-sm dark:text-sky-300",
+        inactive:
+          "border-transparent text-muted-foreground hover:border-sky-500/25 hover:bg-sky-500/5 hover:text-foreground",
+        countActive: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+      };
+    }
+    return {
+      active: "border-primary/40 bg-primary/10 text-primary shadow-sm",
+      inactive:
+        "border-transparent text-muted-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-foreground",
+      countActive: "bg-primary/15 text-primary",
+    };
+  }
+
   return (
     <div
       className="grid min-w-0 gap-1 rounded-lg border border-border/50 bg-card/60 p-1 shadow-sm sm:grid-cols-3"
@@ -1690,6 +1996,7 @@ function TickerTabNav({
         const Icon = tab.icon;
         const active = activeTab === tab.key;
         const count = counts[tab.key] ?? 0;
+        const tone = tabToneClass(tab.key);
         return (
           <button
             key={tab.key}
@@ -1699,18 +2006,14 @@ function TickerTabNav({
             aria-selected={active}
             onClick={() => onChange(tab.key)}
             className={`monitor-tab-button inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none ${
-              active
-                ? "border-primary/40 bg-background text-primary shadow-sm"
-                : "border-transparent text-muted-foreground hover:border-primary/30 hover:bg-muted/30 hover:text-foreground"
+              active ? tone.active : tone.inactive
             }`}
           >
             <Icon className="h-4 w-4" aria-hidden />
             <span>{tab.label}</span>
             <span
               className={`rounded px-1.5 py-0.5 font-data text-xs tabular-nums ${
-                active
-                  ? "bg-primary/15 text-primary"
-                  : "bg-muted text-muted-foreground"
+                active ? tone.countActive : "bg-muted text-muted-foreground"
               }`}
             >
               {count}
@@ -1782,7 +2085,12 @@ function MarketDiscussionTab({
         discussion={discussion}
         isLoading={isLoading}
       />
-      <SectionShell title="市场讨论话题" count={topics.length} icon={Radio}>
+      <SectionShell
+        title="市场讨论话题"
+        count={topics.length}
+        icon={Radio}
+        tone="sky"
+      >
         <div className="border-b border-border/40 bg-background/25 px-4 py-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="rounded-md border border-border/60 bg-background/35 px-2 py-1">
@@ -1810,6 +2118,7 @@ function MarketDiscussionTab({
         title="Twitter 讨论原文"
         count={tweets.length}
         icon={MessageCircle}
+        tone="sky"
       >
         <div className="border-b border-border/40 bg-background/25 px-4 py-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -1875,6 +2184,7 @@ function TwitterDiscussionBrief({
       title="讨论摘要"
       count={overview?.tweet_count ?? 0}
       icon={Activity}
+      tone="sky"
     >
       {isLoading ? (
         <TwitterBriefSkeleton />
@@ -2083,7 +2393,7 @@ function TwitterDiscussionRow({
           </div>
 
           {tweet.key_claim && (
-            <p className="mt-2 border-l border-primary/50 pl-3 text-sm leading-relaxed text-foreground">
+            <p className="mt-2 rounded-md border border-border/45 bg-background/35 px-3 py-2 text-sm leading-relaxed text-foreground">
               {tweet.key_claim}
             </p>
           )}
@@ -2187,7 +2497,7 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-border/50 bg-card/45">
+      <section className="overflow-hidden rounded-lg border border-border/50 bg-card/55 shadow-sm">
         <div className="grid gap-4 px-4 py-4 md:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <CompanyLogo symbol={row.symbol} size="lg" />
@@ -2218,7 +2528,7 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
 
           <Link
             href={`/stock/${row.symbol}`}
-            className="inline-flex h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-border/70 px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none sm:w-auto"
+            className="monitor-action-button inline-flex h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-border/70 bg-background/40 px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none sm:w-auto"
           >
             个股研究
             <ExternalLink className="h-4 w-4" aria-hidden />
@@ -2227,9 +2537,9 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
       </section>
 
       <section className="min-w-0 overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm">
-        <div className="flex items-start justify-between gap-3 border-b border-border/50 bg-card/30 px-4 py-3">
+        <div className="flex items-start justify-between gap-3 border-b border-border/50 bg-card/35 px-4 py-3">
           <div className="flex min-w-0 gap-3">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
               <Activity className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0">
@@ -2244,13 +2554,13 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
         </div>
         <div className="grid gap-4 px-4 py-4 lg:grid-cols-[220px_minmax(0,1fr)]">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-            <div>
+            <div className="rounded-md border border-border/45 bg-background/45 px-3 py-3">
               <p className="text-xs text-muted-foreground">当前价</p>
               <p className="mt-1 font-data text-2xl font-semibold leading-tight tabular-nums text-foreground">
                 {formatPrice(currentPrice)}
               </p>
             </div>
-            <div>
+            <div className="rounded-md border border-border/45 bg-background/45 px-3 py-3">
               <p className="text-xs text-muted-foreground">今日涨跌幅</p>
               <p
                 className={`mt-1 font-data text-2xl font-semibold leading-tight tabular-nums ${changeTextClass(dailyChange)}`}
@@ -2259,7 +2569,7 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
               </p>
             </div>
           </div>
-          <div className="min-w-0 border-l border-primary/50 pl-4">
+          <div className="min-w-0 rounded-md border border-border/45 bg-background/35 px-4 py-4">
             <p className="text-sm leading-relaxed text-foreground md:text-base">
               {row.ai_take}
             </p>
@@ -2355,22 +2665,57 @@ function MarketLevelStrip({
   );
 }
 
+type SectionTone = "emerald" | "amber" | "sky" | "cyan";
+
+function sectionToneClass(tone: SectionTone) {
+  if (tone === "amber") {
+    return {
+      icon: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      count:
+        "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    };
+  }
+  if (tone === "sky") {
+    return {
+      icon: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+      count: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    };
+  }
+  if (tone === "cyan") {
+    return {
+      icon: "border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
+      count:
+        "border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
+    };
+  }
+  return {
+    icon: "border-primary/25 bg-primary/10 text-primary",
+    count: "border-primary/25 bg-primary/10 text-primary",
+  };
+}
+
 function SectionShell({
   title,
   count,
   icon: Icon,
+  tone = "emerald",
   children,
 }: {
   title: string;
   count?: number;
   icon: typeof Activity;
+  tone?: SectionTone;
   children: ReactNode;
 }) {
+  const toneClass = sectionToneClass(tone);
+
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm">
-      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-border/50 bg-card/30 px-4 py-3">
+      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-border/50 bg-card/35 px-4 py-3">
         <h3 className="flex min-w-0 items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
+          <span
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${toneClass.icon}`}
+          >
             <Icon className="h-4 w-4" aria-hidden />
           </span>
           <span className="min-w-0 truncate font-editorial text-lg leading-snug text-foreground">
@@ -2379,7 +2724,9 @@ function SectionShell({
         </h3>
         <div className="flex shrink-0 items-center gap-2">
           {typeof count === "number" && (
-            <span className="rounded-md border border-border/50 bg-background/40 px-2 py-1 text-sm text-muted-foreground">
+            <span
+              className={`rounded-md border px-2 py-1 text-sm ${toneClass.count}`}
+            >
               {count} 条
             </span>
           )}
@@ -2583,7 +2930,12 @@ function TechnicalPanel({
 
   return (
     <div className="space-y-4">
-      <SectionShell title="技术结构" count={signals.length} icon={LineChart}>
+      <SectionShell
+        title="技术结构"
+        count={signals.length}
+        icon={LineChart}
+        tone="cyan"
+      >
         {!hasAnyData ? (
           <EmptySection text="暂无技术盯盘总结。完整图表仍会尝试读取个股技术数据；重新生成今日监控后，这里会显示趋势、动能、位置和波动摘要。" />
         ) : hasView ? (
@@ -2696,7 +3048,7 @@ function NewsPanel({
       ) : (
         <div>
           <div className="border-b border-border/50 bg-background/25 px-4 py-4">
-            <div className="border-l border-primary/50 pl-4">
+            <div className="max-w-3xl rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
               <h4 className="font-editorial text-lg leading-snug text-foreground">
                 新闻总结
               </h4>
@@ -2739,7 +3091,12 @@ function FutureEventsPanel({
     signals.length + eventCandidates.length + watchpoints.length;
 
   return (
-    <SectionShell title="未来事件" count={totalCount} icon={CalendarDays}>
+    <SectionShell
+      title="未来事件"
+      count={totalCount}
+      icon={CalendarDays}
+      tone="amber"
+    >
       <div className="divide-y divide-border/40">
         {datedCandidates.map((candidate, index) => (
           <EventCandidateCard
@@ -2774,7 +3131,7 @@ function FutureEventsPanel({
                 className="px-4 py-4 transition-colors duration-200 hover:bg-muted/20 motion-reduce:transition-none"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                  <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
                     {formatDate(watchpoint.date)}
                   </span>
                 </div>
@@ -2828,7 +3185,7 @@ function EventCandidateCard({
   return (
     <article className="px-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+        <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
           {dateLabel}
         </span>
         <span className="rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground">
@@ -2884,6 +3241,7 @@ function EarningsPanel({
       title="财报"
       count={signals.length + sources.length}
       icon={CalendarDays}
+      tone="sky"
     >
       {signals.length === 0 && sources.length === 0 ? (
         <EmptySection text="暂无财报信号。下次接入 EPS、收入、指引、利润率和管理层重点后在这里显示。" />
@@ -2950,7 +3308,9 @@ function SourceRow({
     <div className="flex min-w-0 items-start justify-between gap-3">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-border/60 px-2 py-0.5 text-xs text-muted-foreground">
+          <span
+            className={`rounded-md border px-2 py-0.5 text-xs font-medium ${sourceTypeClass(source.type)}`}
+          >
             {sourceTypeLabel(source.type)}
           </span>
           {site && (

@@ -44,6 +44,41 @@ def _article_tweet_id(tweet: dict[str, Any]) -> str | None:
     return None
 
 
+def _extract_media(tweet: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_media = (
+        (tweet.get("extendedEntities") or {}).get("media")
+        or (tweet.get("entities") or {}).get("media")
+        or []
+    )
+    if not isinstance(raw_media, list):
+        return []
+
+    media: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in raw_media:
+        if not isinstance(item, dict):
+            continue
+        media_key = str(item.get("media_key") or item.get("id_str") or "").strip()
+        source_url = str(item.get("media_url_https") or "").strip()
+        media_type = str(item.get("type") or "").strip()
+        dedupe_key = media_key or source_url
+        if not dedupe_key or dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+
+        original_info = item.get("original_info") if isinstance(item.get("original_info"), dict) else {}
+        row = {
+            "type": media_type or None,
+            "media_key": media_key or None,
+            "source_url": source_url or None,
+            "expanded_url": item.get("expanded_url"),
+            "width": original_info.get("width"),
+            "height": original_info.get("height"),
+        }
+        media.append({key: value for key, value in row.items() if value not in (None, "")})
+    return media
+
+
 async def _fetch_tweets(client: httpx.AsyncClient, ids: list[str]) -> list[dict[str, Any]]:
     response = await client.get(
         f"{_BASE_URL}/tweets",
@@ -114,6 +149,7 @@ async def _to_storage_tweet(client: httpx.AsyncClient, tweet: dict[str, Any]) ->
         "retweet_count": tweet.get("retweetCount") or 0,
         "reply_count": tweet.get("replyCount") or 0,
         "view_count": tweet.get("viewCount") or 0,
+        "media": _extract_media(tweet),
     }
 
 

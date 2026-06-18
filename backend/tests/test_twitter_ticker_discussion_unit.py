@@ -184,7 +184,9 @@ def test_discussion_summary_fallback_hides_raw_english_claims():
 
 
 @pytest.mark.asyncio
-async def test_generate_chinese_discussion_summary_uses_deterministic_fallback():
+async def test_generate_chinese_discussion_summary_uses_deterministic_fallback(monkeypatch):
+    discussion_summary_agent._summary_cache.clear()
+    monkeypatch.setattr(discussion_summary_agent, "DEEPSEEK_API_KEY", "")
     summary = {
         "overview": {
             "tweet_count": 1,
@@ -217,6 +219,91 @@ async def test_generate_chinese_discussion_summary_uses_deterministic_fallback()
 
     assert result["overview"]["one_line_summary"].startswith("过去 24 小时")
     assert "demand is improving" not in result["themes"][0]["summary"]
+
+
+@pytest.mark.asyncio
+async def test_generate_chinese_discussion_summary_uses_tweet_evidence(monkeypatch):
+    discussion_summary_agent._summary_cache.clear()
+    captured = {}
+
+    async def fake_generate_structured_json(**kwargs):
+        captured.update(kwargs)
+        return discussion_summary_agent._DiscussionSummaryOutput(
+            one_line_summary=(
+                "META 的讨论核心不是简单看多或看空，而是在争论 AI 资本开支、"
+                "广告效率和现金流承压之间能否形成闭环：多方认为 AI 推荐和广告"
+                "转化率会消化投入，谨慎方担心回报周期太长。"
+            ),
+            themes=[
+                discussion_summary_agent._ThemeSummaryOutput(
+                    key="ai_demand",
+                    summary=(
+                        "这个主题主要围绕 AI 投入如何转化为广告效率展开。支持方的"
+                        "逻辑是 Llama、推荐系统和自研芯片会降低长期推理成本并提升"
+                        "广告变现；质疑方则把 capex 增速和自由现金流压力作为反证。"
+                    ),
+                    representative_claims=[
+                        "AI 投入能否转化为广告效率，是这组讨论的核心验证点。",
+                        "META AI capex must produce ad ROI or FCF will be questioned.",
+                    ],
+                )
+            ],
+        )
+
+    monkeypatch.setattr(discussion_summary_agent, "DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(
+        discussion_summary_agent,
+        "generate_structured_json",
+        fake_generate_structured_json,
+    )
+    summary = {
+        "overview": {
+            "tweet_count": 2,
+            "author_count": 2,
+            "bull_count": 1,
+            "bear_count": 1,
+            "neutral_count": 0,
+            "dominant_stance": "mixed",
+        },
+        "themes": [
+            {
+                "key": "ai_demand",
+                "title": "AI 投入与广告效率",
+                "stance": "mixed",
+                "summary": "Meta AI capex debate.",
+                "tweet_count": 2,
+                "author_count": 2,
+                "representative_claims": ["Meta AI capex must produce ad ROI."],
+                "evidence_tweet_ids": ["tweet-1"],
+            }
+        ],
+    }
+
+    result = await discussion_summary_agent.generate_chinese_discussion_summary(
+        symbol="META",
+        hours=24,
+        summary=summary,
+        tweets=[
+            {
+                **_tweet(
+                    "tweet-1",
+                    text="META AI capex must produce ad ROI or FCF will be questioned.",
+                ),
+                "key_claim": "META AI capex must produce ad ROI.",
+                "stance": "mixed",
+            }
+        ],
+    )
+
+    assert "AI 资本开支" in result["overview"]["one_line_summary"]
+    assert "广告效率" in result["themes"][0]["summary"]
+    assert result["themes"][0]["representative_claims"] == [
+        "AI 投入能否转化为广告效率，是这组讨论的核心验证点。"
+    ]
+    assert "不要把正文写成" in captured["system_prompt"]
+    payload_theme = captured["user_payload"]["themes"][0]
+    assert payload_theme["key"] == "ai_demand"
+    assert payload_theme["evidence_tweets"][0]["key_claim"] == "META AI capex must produce ad ROI."
 
 
 @pytest.mark.asyncio

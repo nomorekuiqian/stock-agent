@@ -214,6 +214,34 @@ _active_user_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "_kol_research_user_id", default=None
 )
 
+
+def _safe_context_reset(
+    var: contextvars.ContextVar,
+    token: contextvars.Token,
+    *,
+    name: str,
+) -> None:
+    """Reset a ContextVar without masking the SSE event already yielded.
+
+    Async generators can be closed by Starlette/client-disconnect handling from
+    a different asyncio context than the one that created the token. In that
+    case ContextVar.reset raises ValueError. Cleanup should be best-effort here:
+    the owning task is already ending, and surfacing the cleanup error would
+    break the SSE stream after an error/final event was produced.
+    """
+    try:
+        var.reset(token)
+    except ValueError as exc:
+        logger.debug("kol chat context reset skipped: name=%s err=%s", name, exc)
+
+
+def _safe_exit_turn_context(turn_ctx: Any) -> None:
+    try:
+        turn_ctx.__exit__(None, None, None)
+    except ValueError as exc:
+        logger.debug("kol chat turn context reset skipped: err=%s", exc)
+
+
 # LRU+TTL bounded tool result cache keyed by (scope, tool, args_hash). Scope is
 # (user_id, conversation_id) so anonymous requests never collide on "".
 _TOOL_RESULT_CACHE: "OrderedDict[tuple, tuple[float, Any]]" = OrderedDict()
@@ -229,7 +257,6 @@ _CACHEABLE_TOOLS = {
     "get_technical_analysis",
     "get_report_by_date",
     "list_recent_reports",
-    "search_kol_tweets",
 }
 
 
@@ -775,7 +802,7 @@ _SKILL_TOOL_USAGE_RULES = """
    - 如果涉及具体个股,加载对应 ticker skill。
    - 如果涉及产业或主题,加载对应 sector skill。
 4. 当用户问"为什么 / 怎么判断 / 框架 / 方法 / 如何理解",或博主近期没有直接观点但需要按其长期思路分析当下问题时,优先寻找方法论 / 相邻案例证据;方法论用于解释判断逻辑,不要机械复述 skill 内容。
-5. 用 `search_kol_tweets(query=..., author_username="{username}", query_variants=[...])` 检索当前 persona 的历史原文。具体标的、板块或事件问题先做 query planning,把 ticker / 公司名 / 中文名 / 产品 / 产业链 / 事件关键词作为 `query_variants` 一次性传入;后端会做 exact text + metadata + vector hybrid retrieval。
+5. 用 `search_kol_tweets(query=..., author_username="{username}", query_variants=[...])` 检索当前 persona 的历史原文。具体标的、板块或事件问题先做 query planning,把 ticker / 公司名 / 中文名 / 产品 / 产业链 / 事件关键词作为 `query_variants` 一次性传入;后端会做 exact text + metadata + vector hybrid retrieval。默认一轮只调用一次 `search_kol_tweets`;只有第一次没有直接证据,或需要检索明显不同的第二个主题时,才追加调用。
 6. 涉及当下判断时,调用 `get_stock_brief` / `get_peer_brief` / `get_industry_brief` / `get_macro_brief` 等 brief 工具;早报/复盘问题可用 `get_report_by_date` / `list_recent_reports`。
 7. 回答时先给综合判断,再清楚分开: 博主历史上说过什么、当前数据是什么、按博主方法论可以如何理解、后续需要观察哪些变化。
 
@@ -840,13 +867,12 @@ def get_agent(persona_username: str = DEFAULT_PERSONA) -> LlmAgent:
     if persona is None:
         raise ValueError(f"Unknown persona: {persona_username!r}")
 
-    # Enable Gemini's built-in thinking output so the agent emits `thought=True`
-    # parts during the response stream; the frontend uses them to render a
-    # collapsible "思考过程" section under each KOL answer.
+    # Keep default KOL chat reasoning at the lowest Gemini thinking level. The
+    # frontend can still render thought summaries when ADK emits them.
     gen_config = types.GenerateContentConfig(
         thinking_config=types.ThinkingConfig(
             include_thoughts=True,
-            thinking_level=types.ThinkingLevel.MEDIUM,
+            thinking_level=types.ThinkingLevel.MINIMAL,
         ),
     )
     agent = LlmAgent(
@@ -1406,17 +1432,17 @@ async def answer_kol_research(
             navigate=navigate,
         )
     finally:
-        _active_kol_author.reset(token_author)
-        persona_chunks_buffer.reset(token_chunks)
-        _activated_skills.reset(token_skills)
-        _tool_call_log.reset(token_log)
-        _navigate_buffer.reset(token_nav)
-        _tool_started_at.reset(token_timers)
-        _google_search_calls.reset(token_google)
-        _kol_tweet_search_calls.reset(token_kol_search)
-        _active_conversation_id.reset(token_conv)
-        _active_user_id.reset(token_user)
-        turn_ctx.__exit__(None, None, None)
+        _safe_context_reset(_active_kol_author, token_author, name="_active_kol_author")
+        _safe_context_reset(persona_chunks_buffer, token_chunks, name="persona_chunks_buffer")
+        _safe_context_reset(_activated_skills, token_skills, name="_activated_skills")
+        _safe_context_reset(_tool_call_log, token_log, name="_tool_call_log")
+        _safe_context_reset(_navigate_buffer, token_nav, name="_navigate_buffer")
+        _safe_context_reset(_tool_started_at, token_timers, name="_tool_started_at")
+        _safe_context_reset(_google_search_calls, token_google, name="_google_search_calls")
+        _safe_context_reset(_kol_tweet_search_calls, token_kol_search, name="_kol_tweet_search_calls")
+        _safe_context_reset(_active_conversation_id, token_conv, name="_active_conversation_id")
+        _safe_context_reset(_active_user_id, token_user, name="_active_user_id")
+        _safe_exit_turn_context(turn_ctx)
 
 
 async def stream_kol_research(
@@ -1802,15 +1828,15 @@ async def stream_kol_research(
                     persona_username, elapsed, len(tool_log),
                     exc_type.__name__, exc_val,
                 )
-        _sse_queue.reset(token_queue)
-        _active_kol_author.reset(token_author)
-        persona_chunks_buffer.reset(token_chunks)
-        _activated_skills.reset(token_skills)
-        _tool_call_log.reset(token_log)
-        _navigate_buffer.reset(token_nav)
-        _tool_started_at.reset(token_timers)
-        _google_search_calls.reset(token_google)
-        _kol_tweet_search_calls.reset(token_kol_search)
-        _active_conversation_id.reset(token_conv)
-        _active_user_id.reset(token_user)
-        turn_ctx.__exit__(None, None, None)
+        _safe_context_reset(_sse_queue, token_queue, name="_sse_queue")
+        _safe_context_reset(_active_kol_author, token_author, name="_active_kol_author")
+        _safe_context_reset(persona_chunks_buffer, token_chunks, name="persona_chunks_buffer")
+        _safe_context_reset(_activated_skills, token_skills, name="_activated_skills")
+        _safe_context_reset(_tool_call_log, token_log, name="_tool_call_log")
+        _safe_context_reset(_navigate_buffer, token_nav, name="_navigate_buffer")
+        _safe_context_reset(_tool_started_at, token_timers, name="_tool_started_at")
+        _safe_context_reset(_google_search_calls, token_google, name="_google_search_calls")
+        _safe_context_reset(_kol_tweet_search_calls, token_kol_search, name="_kol_tweet_search_calls")
+        _safe_context_reset(_active_conversation_id, token_conv, name="_active_conversation_id")
+        _safe_context_reset(_active_user_id, token_user, name="_active_user_id")
+        _safe_exit_turn_context(turn_ctx)

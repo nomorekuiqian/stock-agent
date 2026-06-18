@@ -35,6 +35,13 @@ class TweetRecord(BaseModel):
     retweet_count: int = 0
     reply_count: int = 0
     view_count: int = 0
+    media: list[dict] = Field(default_factory=list)
+    content_parts: list[dict] = Field(default_factory=list)
+    canonical_text: Optional[str] = None
+    canonical_status: str = "raw_only"
+    canonical_hash: Optional[str] = None
+    canonical_extracted_at: Optional[str] = None
+    canonical_extracted_model: Optional[str] = None
     category: Optional[str] = None
     symbols: Optional[list[str]] = Field(
         default=None,

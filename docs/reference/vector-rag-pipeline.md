@@ -169,8 +169,10 @@ keep, high, medium
 
 ## Embedded Text
 
-The embedded text is not the raw database row. The KOL tweet adapter builds a
-retrieval-friendly text block:
+The embedded text is not the raw database row. The KOL tweet adapter prefers
+`kol_tweets.canonical_text` when present; that canonical body is built from
+ordered `content_parts`, so image OCR / vision extraction text is embedded as
+part of the tweet body. The adapter builds a retrieval-friendly text block:
 
 ```text
 Author: @qinbafrank
@@ -182,6 +184,13 @@ Sectors: ...
 Events: ...
 Summary: ...
 
+Canonical tweet content:
+<kol_tweets.canonical_text>
+```
+
+When `canonical_text` is missing, it falls back to the raw tweet fields:
+
+```text
 Original tweet:
 <kol_tweets.text>
 
@@ -204,6 +213,12 @@ view_count
 quality
 quality_features
 content_summary_zh
+media_count
+content_part_types
+canonical_status
+canonical_hash
+canonical_extracted_at
+canonical_extracted_model
 tickers
 sectors
 events

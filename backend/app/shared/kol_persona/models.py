@@ -50,6 +50,23 @@ class PersonaSummary(BaseModel):
     )
 
 
+class CorpusBinding(BaseModel):
+    """One vector corpus slice that a persona is allowed to retrieve from."""
+
+    author_username: str = Field(
+        ...,
+        description="Exact metadata.author_username filter for this corpus slice.",
+    )
+    source_types: List[str] = Field(
+        default_factory=lambda: ["kol_tweet"],
+        description="Vector source_type values to search for this corpus slice.",
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Extra exact-match metadata filters, e.g. quality=keep.",
+    )
+
+
 class Persona(PersonaSummary):
     """Full persona payload: always-on docs + triggerable skills."""
 
@@ -73,10 +90,14 @@ class Persona(PersonaSummary):
     corpus_source_types: List[str] = Field(
         default_factory=lambda: ["kol_tweet"],
         description=(
-            "Which vector `source_type`s this persona's RAG corpus lives in. "
-            "Twitter personas use the default ['kol_tweet']; other corpora "
-            "(e.g. zsxq exports) override this so search_kol_tweets pins "
-            "retrieval to the right source_type."
+            "Compatibility summary of source_type values across corpus_bindings."
+        ),
+    )
+    corpus_bindings: List[CorpusBinding] = Field(
+        default_factory=list,
+        description=(
+            "Exact vector corpus slices this persona can retrieve from. Each "
+            "binding carries its own author/source_type/metadata filters."
         ),
     )
 
@@ -90,6 +111,7 @@ class PersonaChunkResult(BaseModel):
 
     citation_index: int = Field(..., description="1-based [#N] citation number.")
     source_id: str
+    source_type: Optional[str] = None
     title: Optional[str] = None
     url: Optional[str] = None
     content: str

@@ -839,6 +839,45 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('backfillWatchlistMonitor', () => {
+    it('queues missing AI monitor briefs with bearer auth', async () => {
+      const payload = {
+        success: true,
+        accepted: true,
+        requested_symbols: ['AAPL', 'MSFT'],
+        queued_symbols: ['MSFT'],
+        skipped_symbols: ['AAPL'],
+        message: 'watchlist monitor backfill started',
+      };
+      mockFetchOk(payload);
+
+      const result = await api.backfillWatchlistMonitor(['AAPL', 'MSFT']);
+
+      expect(result).toEqual(payload);
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/watchlist-monitor/backfill');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers.Authorization).toBe('Bearer fake-token');
+      expect(JSON.parse(opts.body)).toEqual({ symbols: ['AAPL', 'MSFT'] });
+    });
+
+    it('can ask the backend to resolve missing symbols from the user watchlist', async () => {
+      mockFetchOk({
+        success: true,
+        accepted: false,
+        requested_symbols: [],
+        queued_symbols: [],
+        skipped_symbols: [],
+        message: 'watchlist monitor is already current',
+      });
+
+      await api.backfillWatchlistMonitor();
+
+      const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(JSON.parse(opts.body)).toEqual({});
+    });
+  });
+
   describe('getTwitterTickerDiscussion', () => {
     it('passes symbol, hours, and limit query params with bearer auth', async () => {
       const payload = {

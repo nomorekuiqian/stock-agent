@@ -46,12 +46,12 @@ from app.shared.llm_output import CoerceNoneToDefaultsMixin
 
 RESEARCH_MODEL_NAME = "gemini-3.5-flash"
 RESEARCH_MODEL = RESEARCH_MODEL_NAME
-# Enable Gemini's built-in thinking so the agent emits `thought=True` parts during
-# the streaming response; the frontend renders them as a "思考过程" section.
+# Keep Gemini thinking at the lowest level for default research chat. The
+# frontend can still render thought summaries when ADK emits them.
 _RESEARCH_GENERATE_CONTENT_CONFIG = genai_types.GenerateContentConfig(
     thinking_config=genai_types.ThinkingConfig(
         include_thoughts=True,
-        thinking_level=genai_types.ThinkingLevel.LOW,
+        thinking_level=genai_types.ThinkingLevel.MINIMAL,
     ),
 )
 
