@@ -1,8 +1,8 @@
 # Serenity Skill Distillation v1
 
-> Status: v1-promoted · Generated: 2026-05-27 · Refreshed: 2026-06-15
+> Status: v1-promoted · Generated: 2026-05-27 · Refreshed: 2026-06-19
 
-按 **core / macro / framework / sector / ticker** 五层组织的可调用 skill 系统, 源自 Serenity (`@aleabitoreddit`) 的公开推文蒸馏物料。本轮 corpus 覆盖 1391 条保留语料（2025-09-02 ~ 2026-06-15）。
+按 **core / macro / framework / sector / ticker** 五层组织的可调用 skill 系统, 源自 Serenity (`@aleabitoreddit`) 的公开推文蒸馏物料。本轮 corpus 覆盖 1438 条保留语料（2025-09-02 ~ 2026-06-19）。
 
 正式物料目录: `backend/app/features/twitter/methodologies/aleabitoreddit/`
 
@@ -95,10 +95,11 @@ Skill 文件是 Agent 的判断素材库,不是用户可见输出模板。core /
 - Sector 数: 9 个独立。
 - Ticker 数: 11 high + 14 medium + 11 low；ASML 仍按 marker-style 回答,但 coverage 从 `none` 修正为 `low`。
 - 2026-06-15 周更补充：IQE 新增 epiwafer price hike、China InP export easing、IQE/TSEM multi-year InP deal 证据；photonics-and-cpo 新增 800V/CPO 延迟争议、InP 出口缓和、SIVE primary-source laser 证据。
+- 2026-06-19 即时刷新：SIVE / AAOI / AMD 追加 CW laser supply 与 AMD 采购链证据；photonics-and-cpo / optical-transceivers / substrates 追加 Mizuho CPO 时间线、AAOI/SIVE revenue capture、AEHR 硅光测试、LPK 玻璃基板设备、ALRIB/MBE 证据；memory-and-hbm / MU 追加 memory theme 复盘；neocloud / NBIS / IREN 追加 NBIS ATH vs IREN ATM 稀释对比；ASML / INTC marker/ticker 更新到 2026-06-19。
 
 ## Evidence audit
 
-✓ **本目录 Evidence Map 由 `evidence_audit.py --persona-key serenity-skill-v1` 校验**（最近刷新：2026-06-15）
+✓ **本目录 Evidence Map 由 `evidence_audit.py --persona-key serenity-skill-v1` 校验**（最近刷新：2026-06-19）
 
 每条 Evidence Map 的 tweet_id 都曾通过 corpus 校验, quote 是连续原文。审计报告和
 原始 corpus 属于生成过程物料,保存在本地 ignored distillation archive 中,不随正式

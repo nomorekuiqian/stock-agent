@@ -2,7 +2,11 @@
 skill: sector-substrates
 layer: sector
 coverage: high
-tweets: 182
+tweets: 213
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-15
+latest_evidence: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Sector: substrates
@@ -97,6 +101,17 @@ fake-it-til-you-make-it (避开):
 
 > "Not too shabby? $IQE is now up 4x in the past 3 months. MTSI paying off their debts does derisk the company long term." (id: 2053794972663754849, 2026-05-11)
 
+## 2026-06-15 后最新变化
+
+最新证据继续支持"沿材料 / 设备咽喉下沉"：
+
+- `2066340661633372452` — 2026-06-15，中国放松 InP substrate 出口预期，缓解 photonics mass production bottlenecks；这直接影响 AXTI / IQE / AAOI / LITE / SIVE 的验证窗口。
+- `2066535221554733278` — 2026-06-15，欧洲核心 longs 中继续保留 SIVE / LPK / SOI / RPI / IQE / ALRIB / XFAB，说明她仍在欧洲材料 / 设备 chokepoint 集合里找弹性。
+- `2067216066905088237` — 2026-06-17，LPK 玻璃基板设备被 80% major global players 选中；Absolics H2 2026、Samsung Electro-Mechanics 2027、潜在 TSM CoPoS 2028 是新的验证时间线。
+- `2067513458812473533` — 2026-06-18，ALRIB / Riber 的 ROSIE、BTO/STO photonics BD、MBE duopoly 证据补充了欧洲 photonics equipment 分支。
+
+处理口径：InP / SiPh / glass substrate 仍要分开。InP 是更强 chokepoint；LPK 是 glass substrate equipment 量产验证；ALRIB/Riber 是设备链补充，不能直接等同 AXTI / SIVE 级别 high conviction。
+
 ## 决策框架
 
 | 标的 | 阶段 | 姿态 |
@@ -148,3 +163,7 @@ fake-it-til-you-make-it (避开):
 - "$IQE up 4x in 3 months" (id: 2053794972663754849, 2026-05-11)
 - "AXT owns many material chokepoints upstream: indium/gallium/precursors/pBN crucible — 40% of entire InP supply chain" (id: 2058620094532718772, 2026-05-24)
 - "AI capex to $3-4T annually by 2030. Stay exposed + own the keys: $AXTI / $SOI" (id: 2058618801554604040, 2026-05-24)
+- "China eased InP substrate exports... relieve mass production bottlenecks" (id: 2066340661633372452, 2026-06-15)
+- "European chokepoints: SIVE / LPK / SOI / RPI / IQE / ALRIB / XFAB" (id: 2066535221554733278, 2026-06-15)
+- "LPK glass substrate equipment selected by 80% of major global players" (id: 2067216066905088237, 2026-06-17)
+- "ALRIB / Riber ROSIE and photonics MBE equipment evidence" (id: 2067513458812473533, 2026-06-18)

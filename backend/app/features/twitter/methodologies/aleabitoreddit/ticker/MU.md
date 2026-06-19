@@ -2,8 +2,13 @@
 skill: ticker-mu
 layer: ticker
 coverage: high
-mentions: 140
+mentions: 165
 sector: memory-and-hbm
+direct_mention_count: 165
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-18
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Ticker: MU
@@ -54,6 +59,12 @@ GPU (NVDA) → HBM (MU / SK Hynix / Samsung) → ...
 2. **客户改设计跳过 HBM**
 3. **大 MC 弹性差, 不在末段轮入**
 
+## 2026-06-18 后最新变化
+
+- `2067621883525394768` — 2026-06-18，Serenity 复盘 memory theme：3 个月前 X 上几乎一边倒 bearish memory，但 MU / SNDK / EWY / SK Hynix / Samsung 已大幅上涨。她把 memory 和 photonics 列为 top 2 themes，并强调 optics 仍更早期。
+
+处理口径：MU 的最新直接证据强化的是"memory theme 已兑现且仍是 AI buildout 核心瓶颈之一"，但不改变 MU 在 Serenity 体系里更像 anchor、弹性低于上游 photonics / substrate 小票的定位。
+
 ## 常见误读
 
 | 误读 | 实际 |
@@ -68,3 +79,4 @@ GPU (NVDA) → HBM (MU / SK Hynix / Samsung) → ...
 - "Strong Buy: ... $MU $TSM ..." (id: 2007071108831338685, 2026-01-02)
 - "Memory: Nanya $2408, SK Hynix $HXSCL, $MU" (id: 1985770241532838347, 2025-11-04)
 - "GPU (NVDA) → HBM (MU) → 电力 (IREN) → EML (LITE) ..." (id: 2047426124586893566, 2026-04-14)
+- "Memory and photonics are top themes; MU / SNDK / EWY / SK Hynix / Samsung gained after bearish consensus" (id: 2067621883525394768, 2026-06-18)

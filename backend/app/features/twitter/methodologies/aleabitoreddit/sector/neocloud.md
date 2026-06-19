@@ -2,7 +2,11 @@
 skill: sector-neocloud
 layer: sector
 coverage: high
-tweets: 127
+tweets: 144
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-17
+latest_evidence: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Sector: neocloud
@@ -93,6 +97,12 @@ $IREN: 拿 MSFT $9.7B 合同那天她还 bull, 但很快切到 bear, 因为 $6B 
 "HPC 矿工转 HPC" 大多失败: GRRR, MARA, CLSK, BITF, HIVE, RIOT
 ```
 
+## 2026-06-17 后最新变化
+
+- `2067260268166713561` — 2026-06-17，Serenity 用 NBIS at ATH vs IREN 受 $6B ATM 压制，作为"同环只选更强"框架的最新验证。
+
+处理口径：neocloud 不是主题 ETF。最新证据继续支持 NBIS 相对 IREN 的融资结构优势；CRWV / IREN / miner pivots 仍需分别检查客户集中、融资成本、ATM 稀释和 GPU 折旧。
+
 ### S 级 vs A 级 vs F 级判定:gross margin × 客户质量
 
 ```
@@ -169,3 +179,4 @@ U 级 矿工:
 - "Sold out of $CIFR 250%+ gain, $IREN, $BITF, $WYFI. $2M+ in $NBIS" (id: 1981981029029298374, 2025-10-25)
 - "$POET and $IREN both won the Fake it Until you make it award" (id: 2056171199512891790, 2026-05-18)
 - "Hut8 $7B with Anthropic, GOOGL backstop" (id: 2001265461963694140, 2025-12-17)
+- "NBIS at ATH while IREN is stuck with $6B ATM; debate settled" (id: 2067260268166713561, 2026-06-17)

@@ -2,8 +2,13 @@
 skill: ticker-intc
 layer: ticker
 coverage: medium
-mentions: 105
+mentions: 130
 sector: ai-infrastructure-mag7
+direct_mention_count: 130
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-18
+latest_evidence: 2026-06-19
+last_updated: 2026-06-19
 ---
 
 # Ticker: INTC
@@ -41,6 +46,13 @@ sector: ai-infrastructure-mag7
 
 INTC 出现在 2026-01-02 Strong Buy 列表 (id: 2007071108831338685).
 
+### 2026-06-18 后最新变化
+
+- `2067624913834549685` — 2026-06-18，Serenity 转述/评论 Trump 宣布 Intel + Apple partnership，把它归入 Trump 正在强推 INTC 的 national-security / Made-in-America 叙事。
+- `2067810292822929796` — 2026-06-19，她用"assembling the Avengers"式表达评价 Intel 团队/新闻流；这更像情绪和叙事确认，不是财务模型升级。
+
+处理口径：INTC 的最新直接证据继续强化国家安全 + Apple/美国制造叙事；但回答时要避免把 2026-06-19 的调侃式评论写成可量化 thesis。
+
 ## 决策框架
 
 | 信号 | 操作 |
@@ -56,3 +68,5 @@ INTC 出现在 2026-01-02 Strong Buy 列表 (id: 2007071108831338685).
 - "AAPL goes with $INTC for semi production" (id: 2053205192980721797, 2026-05-09)
 - "Intel CEO CPU Ratio 1:8 → 1:1, CPUs go brr" (id: 2048449289152778686, 2026-04-15)
 - "Strong Buy: $INTC" (id: 2007071108831338685, 2026-01-02)
+- "Trump announced Intel + Apple partnership; Trump hard carrying INTC" (id: 2067624913834549685, 2026-06-18)
+- "INTC assembling the Avengers" (id: 2067810292822929796, 2026-06-19)

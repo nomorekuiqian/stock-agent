@@ -2,8 +2,11 @@
 skill: sector/semiconductor-memory-hbm
 analyst: qinbafrank
 layer: sector
-sources: sector__semiconductor-memory-hbm (143 tweets) + legacy lens-ai-infrastructure HBM segments
-last_updated: 2026-06-11
+sources: sector__semiconductor-memory-hbm (147 tweets) + legacy lens-ai-infrastructure HBM segments
+static_corpus_cutoff: 2026-06-11
+recent_direct_evidence_since: 2026-06-19
+latest_evidence: 2026-06-19
+last_updated: 2026-06-19
 ---
 
 # Skill: Semiconductor / Memory / HBM
@@ -119,6 +122,7 @@ HBM 紧平衡持续到至少 2027 年（库存周期 + 产能扩张周期）。
 - `2060929419850723497` — 当下阶段是 HBM 狂飙 + 三大厂克制扩产，未来要动态匹配 DRAM / NAND / HDD。
 - `2061107928606908855` — Rubin 机柜首次交付，HBM4、先进封装、液冷和电力供应链同步验证。
 - `2061718814254100559` — Marvell / 光互联讨论中再次出现 HBM、互联和数据中心架构耦合。
+- `2067783639711256906` — 2026-06-19，Frank 引 UBS 半导体报告，强调 memory / storage 是确定性最高的半导体环节之一，2026/2027 memory 可能占半导体收入半数以上。
 
 ## Evidence Map
 
@@ -139,6 +143,7 @@ PEG 与估值口径：
 卡脖子迁移路径：
 
 - `2043653387271712962` — GPU → HBM → 光互连 → 电力 / 液冷 顺序
+- `2067783639711256906` — 2026-06-19，UBS 半导体报告指向 memory / storage 的高确定性和收入占比上升。
 
 SK 海力士产业史（长线锚点）：
 

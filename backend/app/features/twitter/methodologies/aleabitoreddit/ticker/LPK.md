@@ -2,8 +2,13 @@
 skill: ticker-lpk
 layer: ticker
 coverage: medium
-mentions: ~30
+mentions: 38
 sector: substrates
+direct_mention_count: 38
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-17
+latest_evidence: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Ticker: LPK
@@ -29,6 +34,12 @@ sector: substrates
 
 > "LPKF CEO bought shares off the market. More CEOs should do the same." (id: 2057761720710631573, 2026-05-22)
 
+### 2026-06-17 后最新变化
+
+- `2067216066905088237` — 2026-06-17，Serenity 补充 LPK glass substrate equipment：80% major global players 已选择 LPKF；Absolics H2 2026、Samsung Electro-Mechanics 2027、潜在 TSM CoPoS 2028 是新的验证节奏。
+
+处理口径：LPK 是 glass substrate equipment 受益链，不是 InP / CW laser 直接替代。它的最新证据是设备选型和 2026-2028 客户量产时间线。
+
 ## 决策框架
 
 | 信号 | 操作 |
@@ -42,3 +53,4 @@ sector: substrates
 - "$LPK up 80%, Glass Substrate supercycle, 2027 mass production" (id: 2052308880961810532, 2026-05-07)
 - "LPKF CEO bought shares off the market" (id: 2057761720710631573, 2026-05-22)
 - "European chokepoints: $ALRIB, $LPK, $IQE, $SOI" (id: 2057761720710631573)
+- "LPK glass substrate equipment selected by 80% of major global players" (id: 2067216066905088237, 2026-06-17)

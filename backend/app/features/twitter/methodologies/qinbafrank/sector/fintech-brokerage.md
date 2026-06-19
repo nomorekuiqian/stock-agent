@@ -2,8 +2,11 @@
 skill: sector/fintech-brokerage
 analyst: qinbafrank
 layer: sector
-sources: sector__fintech-brokerage (99 tweets), no legacy lens
-last_updated: 2026-06-11
+sources: sector__fintech-brokerage (111 tweets), no legacy lens
+static_corpus_cutoff: 2026-06-11
+recent_direct_evidence_since: 2026-06-12
+latest_evidence: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Skill: Fintech / Brokerage
@@ -124,6 +127,8 @@ Fintech / 经纪商在 AI 时代 + 加密时代的产业位置是什么？本 sk
 - `2060388312033182068` — HOOD Agentic Trading + 特朗普账户，AI 代理交易和儿童投资账户带来新增量。
 - `2060905508119400559` — CEX 美股业务会吸走空气山寨资金，资金和用户迁移是首要挑战。
 - `2060963237101982195` — rToken 可能封装期权和合约统一保证金，强化代币化券商的资金效率。
+- `2065257008933285889` / `2066463281989251094` — 2026-06-12 ~ 2026-06-15，Robinhood 世界杯赛事合约和 Rothera 初期交易量验证预测市场分发能力。
+- `2066698672906375472` / `2067269158883188780` — 2026-06-16 ~ 2026-06-17，Rothera self-run 替代 Kalshi split，使 Robinhood 捕获更多交易所 economics；Frank 把 HOOD breakout 与 Rothera switch 直接相连。
 
 ## Evidence Map
 
@@ -142,6 +147,8 @@ Z 世代代际更替：
 链上美股 / 跨资产：
 
 - `2016738565041115353` — "当未来绝大部分的证券资产都转移到了链上，全天候交易就成了必然"
+- `2066698672906375472` — 2026-06-16，HOOD 预测市场从 Kalshi split 切到 Rothera self-run，经济性被 Robinhood 重新捕获。
+- `2067269158883188780` — 2026-06-17，HOOD breakout 的核心逻辑之一是 Rothera switch。
 
 ## 与其他 skill 协同
 

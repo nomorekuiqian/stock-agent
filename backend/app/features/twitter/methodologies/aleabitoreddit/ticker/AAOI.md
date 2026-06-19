@@ -2,8 +2,13 @@
 skill: ticker-aaoi
 layer: ticker
 coverage: high
-mentions: 141
+mentions: 199
 sector: optical-transceivers
+direct_mention_count: 199
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-16
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Ticker: AAOI
@@ -70,6 +75,18 @@ LITE → 所有 ASIC 通吃 (GOOGL TPU + NVDA + AMZN Trainium)
 3. **客户改设计** (MSFT MAIA 升级路线)
 4. **产能 cap-out** + 估值已 priced-in 完美
 
+## 2026-06-16 后最新变化
+
+AAOI 的最新证据从"美国本土 800G/1.6T transceiver ramp"扩展到"AMD / hyperscaler CW laser supply"：
+
+- `2066707573139763211` — 2026-06-16，AMD 正在争抢 CW laser supply，Serenity 点名 AAOI / SIVE 是最直接受益者；这不是单纯光模块题材，而是 Nvidia 锁产能后产生的独立西方供应链缺口。
+- `2067071462360666165` — 2026-06-17，AAOI high conviction 被再次强化：稀缺 laser capacity、AMD/hyperscaler 需求、美国 800G/1.6T transceiver chain 共同构成逻辑。
+- `2067206734427697196` — 2026-06-17，AMD 大额 CW laser 采购协议把 AAOI 与 SIVE / Macom 放到同一批独立供给候选中。
+- `2067542382523122001` — 2026-06-18，她把 AAOI / SIVE 继续列为个人 favorites，并提示从 lasers 扩到 modules、engines、ELS 的 revenue capture 路径；主要 revenue ramp 更偏 2027 H1/H2。
+- `2067626358940082653` — 2026-06-18，她把 AAOI + SIVEF 视为 AMD 大额 CW laser purchase agreement 的可能猜测组合，依据是 AAOI / AMD analyst checks 与 AMD / GFS / Sivers reference laser 链条。
+
+处理口径：AAOI 最新直接证据已经补到 2026-06-18。回答时不要只停在 5 月财报和 100K 月产能，要补上 AMD 采购、独立西方产能稀缺、以及从模块向激光/engine/ELS revenue capture 延伸。
+
 ## 常见误读
 
 | 误读 | 实际 |
@@ -87,3 +104,6 @@ LITE → 所有 ASIC 通吃 (GOOGL TPU + NVDA + AMZN Trainium)
 - "$AAOI up 25.18% since ER drop, +16.09% today" (id: 2053841684698636599, 2026-05-11)
 - "AAOI levered toward MSFT MAIA ramp and Amazon Trainium" (id: 2003259964526330053, 2025-12-23)
 - "Photonics big day: SIVE +31.3%, TSEM +23.1%, AAOI +20%" (id: 2054687492750889323, 2026-05-13)
+- "AMD scrambling for CW laser supply; AAOI / SIVE are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "AAOI high conviction: scarce laser capacity for AMD / hyperscalers and US transceiver chain" (id: 2067071462360666165, 2026-06-17)
+- "AMD large CW laser purchase agreements include AAOI / SIVEF as likely guesses" (id: 2067626358940082653, 2026-06-18)

@@ -2,7 +2,11 @@
 skill: sector-memory-and-hbm
 layer: sector
 coverage: high
-tweets: 302
+tweets: 353
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-18
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Sector: memory-and-hbm
@@ -83,6 +87,12 @@ AEHR ~$49 提及, 她持续看好作为 HBM / AI 芯片 burn-in 测试供应商.
 
 她在 2026-05 提到 2D NAND 短缺作为新瓶颈, 但尚未给具体重仓标的.
 
+## 2026-06-18 后最新变化
+
+- `2067621883525394768` — 2026-06-18，Serenity 复盘 memory theme 的市场错位：3 个月前多数人 bearish memory，但 MU / SNDK / EWY / SK Hynix / Samsung 已明显上涨。她把 memory 和 photonics 列为 top 2 themes，同时提醒 optics 仍更早期。
+
+处理口径：memory 不再只是 1 月的 HBM bottleneck 旧证据；截至 2026-06-18，她仍把它列为核心 theme。但回答时要说明 memory 的许多大票已经明显重定价，新增弹性可能更偏 photonics / substrates。
+
 ## 决策框架
 
 | 标的 | 姿态 |
@@ -126,3 +136,4 @@ AEHR ~$49 提及, 她持续看好作为 HBM / AI 芯片 burn-in 测试供应商.
 - "Memory: Nanya $2408, SK Hynix $HXSCL, $MU" (id: 1985770241532838347, 2025-11-04)
 - "Strong Buy: SK Hynix $HXSCL $SNAP Samsung Electronics" (id: 1998846813177262295, 2025-12-10)
 - "2D NAND 短缺" (id: 2053205192980721797, 2026-05-09)
+- "Memory and photonics are top themes; MU / SNDK / EWY / SK Hynix / Samsung gained after bearish consensus" (id: 2067621883525394768, 2026-06-18)

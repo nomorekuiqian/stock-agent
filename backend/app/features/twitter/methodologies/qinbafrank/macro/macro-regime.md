@@ -2,8 +2,11 @@
 skill: macro/macro-regime
 analyst: qinbafrank
 layer: macro
-sources: macro bucket (670 tweets) + legacy lens-macro + macro_analysis.yaml
-last_updated: 2026-05-27
+sources: macro bucket (900 tweets) + legacy lens-macro + macro_analysis.yaml
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-16
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Skill: Macro Regime — qinbafrank 怎么读市场环境
@@ -126,6 +129,17 @@ last_updated: 2026-05-27
 1. 只看宏观流动性，把所有下跌都解释成"抽水"。
 2. 只看 AI 长期叙事，忽略资金市场压力对高估值资产的折现影响。
 
+## 2026-06-16 后最新变化
+
+本轮新增宏观证据集中在 FOMC / Worsh / 伊朗油价三条线：
+
+- `2066738814962565152` — 2026-06-16，FOMC / Worsh preview：政策节奏比偏好更重要，基线仍是按兵不动，关键看通胀、点阵图和发布会措辞。
+- `2067414191846416800` — 2026-06-18，若 Worsh 首次出现但不提交 dot plot，其他委员点阵图的指导意义会下降；伊朗停火和油价重置会反向影响利率路径。
+- `2067547681745178808` — 2026-06-18，Frank 明确提示不要被 dot plot 本身吓到，利率路径最终取决于油价、地缘和通胀。
+- `2067535604691480959` — 2026-06-18，FOMC 相关细节继续强化"看机制和约束，不看单一 headline"的宏观口径。
+
+处理口径：回答"最新宏观观点"时，不应停留在 5 月的流动性/关税框架。最新应先讲 FOMC/Worsh 的政策节奏、伊朗/油价对通胀的传导，再回到准备金、TGA、SOFR 等底层框架。
+
 ## 流动性单指标使用纪律
 
 - **3 万亿准备金不是魔法线**。它是警戒线，不是交易信号。必须同时看 SOFR-EFFR 利差、SRF 使用、NFCI / 信用利差、VIX / 市场宽度。
@@ -222,6 +236,12 @@ last_updated: 2026-05-27
 
 - `1992490745752854685` — AI 危机信号 4 条清单（财报 miss / 盈利见顶 / 现金透支 / 违约）
 - `1996775737500844405` — RMP ≠ QE 但 = 扩表（术语拆解的标杆）
+
+2026-06 FOMC / Worsh / 油价：
+
+- `2066738814962565152` — 2026-06-16，FOMC / Worsh preview：政策节奏比政策偏好更重要。
+- `2067414191846416800` — 2026-06-18，若 Worsh 不提交 dot plot，其他点阵图指导性下降；伊朗/油价重置利率路径。
+- `2067547681745178808` — 2026-06-18，不要被 dot plot 本身吓到，利率最终取决于通胀和地缘油价。
 
 ## 与其他 skill 协同
 

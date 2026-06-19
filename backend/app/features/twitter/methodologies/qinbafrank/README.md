@@ -1,8 +1,8 @@
 # qinbafrank Skill Distillation
 
-> Status: active · Generated: 2026-05-27 · Refreshed: 2026-06-15
+> Status: active · Generated: 2026-05-27 · Refreshed: 2026-06-19
 
-按"core / macro / sector / ticker"四层组织的可调用 skill 系统。初版源自 qinbafrank 1048 条 quality-filtered 推文（2025-10-28 ~ 2026-05-25）；2026-06-15 周更后，离线蒸馏 corpus 覆盖 1438 条保留语料（2025-09-02 ~ 2026-06-15），包含新版 `content_type` 语料和旧版 `quality=keep/high/medium` 兼容语料。
+按"core / macro / sector / ticker"四层组织的可调用 skill 系统。初版源自 qinbafrank 1048 条 quality-filtered 推文（2025-10-28 ~ 2026-05-25）；2026-06-19 即时刷新后，离线蒸馏 corpus 覆盖 1472 条保留语料（2025-09-02 ~ 2026-06-19），包含新版 `content_type` 语料和旧版 `quality=keep/high/medium` 兼容语料。
 
 ## 结构
 
@@ -99,6 +99,7 @@ ticker → 落回 sector → 落回 macro → 落回 core
 - 后续直接覆盖补丁：MRVL（静态蒸馏截至 2026-05-25 未覆盖；2026-05-28 ~ 2026-06-11 后续入库证据已直接讨论）
 - 周更新增光互连 ticker：LITE / NOK（从 sector fallback 升级为独立 playbook）
 - 2026-06-15 周更补充：HOOD 已纳入世界杯事件合约 / Rothera / IPO 散户申购规则证据，`direct_mention_count` 更新为 52。
+- 2026-06-19 即时刷新：HOOD `direct_mention_count` 更新为 54，新增 Rothera self-run / Kalshi 切换 / HOOD breakout 证据；sector lens 同步补充 AI infra bottleneck、memory/storage UBS、FERC data-center power reform、SpaceX unlock/index timing、Zama confidential DeFi、FOMC/Worsh 宏观口径。
 
 **Sector playbook：7 个 sector + neocloud 子章节**：
 
@@ -106,6 +107,7 @@ ticker → 落回 sector → 落回 macro → 落回 core
 - 计划外发现：defense-and-space（语料第三大主题）/ power-and-physical-ai / fintech-brokerage
 - neocloud 作为 ai-infrastructure 子章节（数据量小）
 - 2026-06-15 周更补充：defense-and-space 更新到 302 条 bucket 证据，新增 SpaceX 上市后代理资产分化、RKLB 纳入纳斯达克 100、美伊停战备忘录与霍尔木兹恢复通行证据。
+- 2026-06-19 即时刷新：defense-and-space 更新到 308 条 bucket 证据，新增 SpaceX 7/7 指数纳入、7 月中旬散户翻转限制、7 月下旬 Q2 财务披露/解禁前后的节奏修正。
 
 ## 待办
 

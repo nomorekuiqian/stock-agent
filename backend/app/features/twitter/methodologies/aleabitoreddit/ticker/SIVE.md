@@ -2,8 +2,13 @@
 skill: ticker-sive
 layer: ticker
 coverage: high
-mentions: 206
+mentions: 330
 sector: photonics-and-cpo
+direct_mention_count: 330
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-15
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Ticker: SIVE
@@ -116,6 +121,18 @@ SIVE design-in 客户链 -> Win Semi 量产能力 -> forward revenue ramp / re-r
 - 已持有语境: 重点不是“涨了多少”,而是客户链和 ramp 有没有破。没有破时,她历史上倾向把媒体噪音当反指。
 - 未持有语境: 不要把历史 high conviction 当作追高理由。先等客户链/量产/流动性结构的下一条硬证据。
 
+## 2026-06-15 后最新变化
+
+新增证据把 SIVE 从"历史 high conviction"推进到"AMD / hyperscaler CW laser 供应链验证窗口"：
+
+- `2066498742942159288` / `2066509405634597036` — 2026-06-15，Serenity 继续把 SIVE 放在下一代 photonics foundational / primary-source laser 位置，连接 JBL、Ayar 和 NVDA NVLink CPO ecosystem。
+- `2066707573139763211` — 2026-06-16，AMD 正在争抢 CW laser supply，Serenity 点名 SIVE / AAOI 是显性受益者；Lumentum / Coherent 产能被 Nvidia 锁到 2028，使独立西方供应更稀缺。
+- `2067033934194696469` — 2026-06-16，Mizuho 口径显示 CPO / 800V 没有延迟，光引擎预期上修；Serenity 明确把关注点放在 InP DFB lasers，而不是未验证的 VCSEL / microLED 路线。
+- `2067206734427697196` — 2026-06-17，AMD 大额采购 CW laser supply 的链条继续出现，Serenity 将独立西方产能压缩到 SIVE / AAOI / Macom，并提示 hyperscaler 可能跟随。
+- `2067542382523122001` — 2026-06-18，她把 AAOI / SIVE 称为个人 favorites，并强调它们可能从 lasers 扩到 modules、engines、ELS；主要 revenue ramp 仍更偏 2027 H1/H2。
+
+处理口径：SIVE 的最新直接证据已经不是 2026-05-24，而是 2026-06-18。回答"最新怎么看 SIVE"时，必须先讲 AMD CW laser supply / 独立西方产能稀缺，再回到旧的 Ayar、JBL、Win Semi、Nasdaq/MSCI 框架。
+
 ## 常见误读
 
 1. 把 SIVE 当普通激光器公司,忽略它在 CPO 架构中的 design-in 角色。
@@ -142,3 +159,8 @@ SIVE design-in 客户链 -> Win Semi 量产能力 -> forward revenue ramp / re-r
 - "MSCI listing inflow + NASDAQ listing + JBL news + M&A board" (id: 2057062953237823978, 2026-05-20)
 - "I'm cheering on $SIVE to become the next $LITE, not get bought out" (id: 2057063548115902967, 2026-05-20)
 - "Fab-lite with Win Semi as production scale" (id: 2054901944653656384, 2026-05-14)
+- "$SIVE as primary/sole source with JBL and Ayar/NVDA NVLink CPO ecosystem" (id: 2066498742942159288, 2026-06-15)
+- "AMD scrambling for CW laser supply; SIVE / AAOI are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "Mizuho: no CPO / 800V delays; InP DFB lasers remain focus" (id: 2067033934194696469, 2026-06-16)
+- "AMD large CW laser purchase agreements; independent Western capacity is SIVE / AAOI / Macom" (id: 2067206734427697196, 2026-06-17)
+- "AAOI / SIVE are personal favorites; revenue ramp mostly 2027 H1/H2" (id: 2067542382523122001, 2026-06-18)

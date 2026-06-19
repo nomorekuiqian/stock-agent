@@ -2,8 +2,11 @@
 skill: sector/power-and-physical-ai
 analyst: qinbafrank
 layer: sector
-sources: sector__power-and-physical-ai (269 tweets) + legacy lens-ai-infrastructure L3-L5 segments
-last_updated: 2026-06-11
+sources: sector__power-and-physical-ai (275 tweets) + legacy lens-ai-infrastructure L3-L5 segments
+static_corpus_cutoff: 2026-06-11
+recent_direct_evidence_since: 2026-06-18
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Skill: Power & Physical AI
@@ -129,6 +132,7 @@ GPU → HBM → 光互连 → **电力** 这条卡脖子迁移链上，电力是
 - `2061107928606908855` — Rubin VR200 首次交付验证液冷、电源模块和 800V HVDC 需求。
 - `2062463349573718318` — 访谈参考稿把 800V HVDC、边缘计算和 Physical AI 放入 AI 资金轮动的"升级 / 远期"逻辑。
 - `2062912854983086556` / `2063103873867452886` — AI Factory、液冷、高压电、配电和电力概念短期过热，要区分产业趋势和交易节奏。
+- `2067644161558458407` — 2026-06-18，FERC order 要求 RTO / ISO 改革 large-load interconnection，Frank 将其视为数据中心接入电力系统的绿色通道，点名 VST / TLN / AEIS / FCEL 等链条。
 
 ## Evidence Map
 
@@ -154,6 +158,7 @@ Robotaxi + Optimus 进度：
 工程奇迹型团队：
 
 - `2012789705964990803` — Colossus 2 122 天 vs 几倍规模 < 1 年
+- `2067644161558458407` — 2026-06-18，FERC large-load interconnection 改革为 AI data center power access 提供政策级催化。
 
 ## 与其他 skill 协同
 

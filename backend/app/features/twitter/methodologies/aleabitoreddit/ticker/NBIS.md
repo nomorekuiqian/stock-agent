@@ -2,8 +2,13 @@
 skill: ticker-nbis
 layer: ticker
 coverage: high
-mentions: 161
+mentions: 217
 sector: neocloud
+direct_mention_count: 217
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-17
+latest_evidence: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Ticker: NBIS
@@ -118,6 +123,12 @@ NBIS 是她“同环只选最强”的典型案例。她不是把 Neocloud 分�
 - 已持有语境: 重点复核 forward ARR、客户合同和融资结构,而不是被 20-40% 波动带走。
 - 未持有语境: 不要把她历史加仓 LEAPS 当成今天的复制动作。先确认当前事实是否仍支持“同环 King”判断。
 
+## 2026-06-17 后最新变化
+
+- `2067260268166713561` — 2026-06-17，Serenity 用 NBIS 创新高而 IREN 受 $6B ATM 融资压制，来说明此前"NBIS > IREN"的争论已经由市场表现验证。
+
+处理口径：NBIS 最新证据没有改变 neocloud 主线，但强化了同环排序。回答 NBIS / IREN 对比时，必须把资本结构和融资来源放在第一层，而不是只看 GPU capacity 或合同 headline。
+
 ## 常见误读
 
 1. NBIS = CRWV 2.0。她反驳点在多元业务、融资结构和客户集中度差异。
@@ -144,3 +155,4 @@ NBIS 是她“同环只选最强”的典型案例。她不是把 Neocloud 分�
 - "Institutional ownership 38% -> 44.6%" (id: 1989608255371579717, 2025-11-15)
 - "Hedgeye shorting NBIS, but their thesis is wrong" (id: 1997034977524121633, 2025-12-05)
 - "$NBIS objectively better than $IREN, NVDA didn't fund IREN" (id: 2056745774760026410, 2026-05-19)
+- "NBIS at ATH while IREN is stuck with $6B ATM; debate settled" (id: 2067260268166713561, 2026-06-17)

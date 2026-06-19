@@ -1,12 +1,12 @@
 ---
 ticker: HOOD
 coverage: high
-direct_mention_count: 52
+direct_mention_count: 54
 parent_sector: fintech-brokerage
 static_corpus_cutoff: 2026-05-27
 recent_direct_evidence_since: 2026-05-29
-latest_evidence: 2026-06-15
-last_updated: 2026-06-15
+latest_evidence: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Ticker: HOOD — Robinhood
@@ -78,8 +78,10 @@ HOOD 在加密 + 链上 + 24h 都是早期布局。
 - `2065257008933285889` — 2026-06-12，世界杯赛事合约由 RotheraMarkets 承接，Rothera 是 Robinhood 与 SIG 投资的 CFTC 持牌预测市场交易所，合约直接集成在 HOOD App。
 - `2065423706193825939` — 2026-06-12，SpaceX IPO 散户申购平台的反翻转规则说明，HOOD 仍处在"散户 IPO 入口"叙事中，但短期卖出会被平台规则约束。
 - `2066463281989251094` — 2026-06-15，Rothera 上线数日后日合约量达到 4420 万 / 6970 万份，Frank 用"Robinhood 终于迎来自己的节奏"来描述事件合约执行进展。
+- `2066698672906375472` — 2026-06-16，Frank 把 HOOD 预测市场从 Kalshi 分成模式切到 Rothera 自营模式视为经济性回收：Q1 "other revenue" 147M 的基础上，Rothera 让 Robinhood 重新捕获交易所 economics。
+- `2067269158883188780` — 2026-06-17，Frank 评论 HOOD breakout，认为 Rothera switch 是核心逻辑之一，而不是单纯股价技术突破。
 
-这些证据是 P1 级补充：足以更新 Evidence Map 和观察变量；但不能把它写成"预测市场已经完全兑现"或直接交易指令。
+这些证据是 P1 级补充：足以更新 Evidence Map 和观察变量；但不能把它写成"预测市场已经完全兑现"或直接交易指令。最新口径应强调 Rothera self-run 对 economics 的影响。
 
 ## 决策框架
 
@@ -143,6 +145,8 @@ Z 世代代际更替（核心论点）：
 - `2065257008933285889` — 2026-06-12，Robinhood 世界杯赛事合约服务商 RotheraMarkets，CFTC 持牌并由 Robinhood / SIG 投资。
 - `2065423706193825939` — 2026-06-12，SpaceX IPO 散户申购平台反翻转规则，HOOD 作为散户 IPO 入口仍需规则约束。
 - `2066463281989251094` — 2026-06-15，Rothera 事件合约上线初期交易量，验证 HOOD 预测市场分发能力仍在推进。
+- `2066698672906375472` — 2026-06-16，HOOD 预测市场从 Kalshi split 切到 Rothera self-run，经济性被 Robinhood 重新捕获。
+- `2067269158883188780` — 2026-06-17，HOOD breakout 的核心逻辑之一是 Rothera switch，而不是单纯交易量 headline。
 
 ## 与其他 skill 协同
 

@@ -2,11 +2,11 @@
 skill: sector-photonics-and-cpo
 layer: sector
 coverage: high
-direct_mention_count: 472
+direct_mention_count: 484
 static_corpus_cutoff: 2026-05-27
 recent_direct_evidence_since: 2026-06-12
-latest_evidence: 2026-06-15
-last_updated: 2026-06-15
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Sector: photonics-and-cpo
@@ -55,7 +55,7 @@ AI capex -> 800G / 1.6T / CPO demand
 
 ## 2026-06-12 后最新变化
 
-本轮新增证据集中在三件事：CPO / 800V 延迟争议、InP 出口管制缓和、以及 SIVE/IQE 等上游节点的客户链验证。
+本轮新增证据集中在五件事：CPO / 800V 延迟争议、InP 出口管制缓和、SIVE/IQE 等上游节点的客户链验证、AMD CW laser 采购链、以及 photonics revenue capture 从 lasers 扩到 modules / engines / ELS。
 
 - `2065289672356745561` — 2026-06-12，Serenity 复盘自己 2025 年的 high conviction ideas，承认部分 nuance 曾有偏差，但核心 AI / photonics 方向显著兑现。
 - `2065291889885274552` — 2026-06-12，她用 AXTI 的验证周期提醒用户：InP substrate bottleneck 花了数月才被公司和政府确认，CPO 相关 idea 不应按 1 个月时间框架判定失败。
@@ -63,8 +63,14 @@ AI capex -> 800G / 1.6T / CPO demand
 - `2066340661633372452` — 2026-06-15，中国放松 InP substrate 出口预期缓解 photonics mass production bottlenecks，直接指向 AXTI / IQE / AAOI / LITE / SIVE。
 - `2066498742942159288` / `2066509405634597036` — 2026-06-15，Serenity 继续把 SIVE 定位为下一代 photonics 的 foundational / primary-source laser，尤其连接 JBL、Ayar、NVDA NVLink CPO ecosystem。
 - `2066535221554733278` — 2026-06-15，欧洲核心 longs 复盘中把 SIVE / LPK / SOI / RPI / IQE / ALRIB / XFAB 归为欧洲 photonics / supply-chain chokepoint 集合。
+- `2066707573139763211` / `2067206734427697196` / `2067626358940082653` — 2026-06-16 ~ 2026-06-18，AMD CW laser supply 需求成为新的验证线；SIVE / AAOI / Macom 被放在独立西方供给候选中，Lumentum / Coherent 因 Nvidia 产能锁定而更像 anchor 而非最大弹性。
+- `2067033934194696469` — 2026-06-16，Mizuho 口径显示 CPO / 800V 没有延迟，optical engine 预期上修；Serenity 强调 InP DFB lasers 是更成熟的关注点。
+- `2067267047781015579` — 2026-06-17，AEHR 获得 major silicon photonics customer 的 wafer-level burn-in follow-up production order，说明 photonics 测试设备也在进入量产链条。
+- `2067216066905088237` — 2026-06-17，LPK 玻璃基板设备被 80% major global players 选中，Absolics / Samsung Electro-Mechanics / 可能的 TSM CoPoS 时间线给玻璃基板设备链增加新证据。
+- `2067513458812473533` — 2026-06-18，ALRIB / Riber 的 ROSIE 和 BTO/STO photonics BD 证据，补充欧洲 MBE / photonics equipment 分支。
+- `2067542382523122001` — 2026-06-18，AAOI / SIVE 被再次列为个人 favorites；她强调 photonics 仍早，更多收入 ramp 可能落在 2027 H1/H2。
 
-处理口径：这组证据足以补强"估值回撤 vs 验证窗口"判断，但不能写成所有 photonics 小票都已去风险。回答时仍要分开：已验证的客户链、仍待验证的 revenue capture、以及可能被时间线后推打脸的条件。
+处理口径：这组证据足以补强"估值回撤 vs 验证窗口"判断，但不能写成所有 photonics 小票都已去风险。回答时仍要分开：已验证的客户链、正在验证的 revenue capture、以及可能被时间线后推或客户链证伪打脸的条件。
 
 ## 支持信号
 
@@ -173,3 +179,9 @@ AI capex -> 800G / 1.6T / CPO demand
 - "$SIVE is the next SIVE... primary/sole source with JBL and Ayar/NVDA NVLink CPO ecosystem" (id: 2066498742942159288, 2026-06-15)
 - "Ayar ... likely made $SIVE primary source" (id: 2066509405634597036, 2026-06-15)
 - "core European longs: SIVE / LPK / SOI / RPI / IQE / ALRIB / XFAB" (id: 2066535221554733278, 2026-06-15)
+- "AMD scrambling for CW laser supply; SIVE / AAOI are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "Mizuho: no CPO / 800V delays; optical engine estimates revised up" (id: 2067033934194696469, 2026-06-16)
+- "AEHR follow-up production order from major silicon photonics customer" (id: 2067267047781015579, 2026-06-17)
+- "LPK glass substrate equipment selected by 80% of major global players" (id: 2067216066905088237, 2026-06-17)
+- "AAOI / SIVE are personal favorites; photonics revenue ramp mostly 2027 H1/H2" (id: 2067542382523122001, 2026-06-18)
+- "AAOI + SIVEF likely guesses for AMD CW laser purchase agreements" (id: 2067626358940082653, 2026-06-18)

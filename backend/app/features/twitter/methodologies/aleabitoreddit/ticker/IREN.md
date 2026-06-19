@@ -2,9 +2,14 @@
 skill: ticker-iren
 layer: ticker
 coverage: medium
-mentions: 125
+mentions: 158
 sector: neocloud
 stance_history: bull→bear (rare switch)
+direct_mention_count: 158
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-17
+latest_evidence: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Ticker: IREN
@@ -46,6 +51,12 @@ stance_history: bull→bear (rare switch)
 
 > "$IREN back down -34% from $70 to $46. $NBIS is objectively the better Neocloud" (id: 2056745774760026410, 2026-05-19)
 
+### 2026-06-17 后最新变化
+
+- `2067260268166713561` — 2026-06-17，NBIS 创新高、IREN 受 $6B ATM 融资压制，Serenity 将其视为此前 NBIS vs IREN 争论的验证。
+
+这条证据强化的是 IREN 的结构性弱点，而不是短线看空价格。问 IREN 时必须先交代它曾经是 neocloud bull case，但最新口径仍被 ATM 稀释和 NBIS 相对优势压制。
+
 ## 决策框架
 
 | 信号 | 操作 |
@@ -71,3 +82,4 @@ stance_history: bull→bear (rare switch)
 - "Neocloud Tierlist: A 级 $CIFR, $WULF, $IREN" (id: 1992181846134968633, 2025-11-22)
 - "$POET and $IREN both won the Fake it Until you make it award" (id: 2056171199512891790, 2026-05-18)
 - "$IREN back down -34%" (id: 2056745774760026410, 2026-05-19)
+- "NBIS at ATH while IREN is stuck with $6B ATM; debate settled" (id: 2067260268166713561, 2026-06-17)

@@ -2,12 +2,12 @@
 skill: ticker-asml
 layer: ticker
 coverage: low
-direct_mention_count: 18
+direct_mention_count: 19
 sector: ai-infrastructure-mag7
 static_corpus_cutoff: 2026-05-27
 recent_direct_evidence_since: 2026-04-18
-latest_evidence: 2026-05-17
-last_updated: 2026-06-15
+latest_evidence: 2026-06-19
+last_updated: 2026-06-19
 ---
 
 # Ticker Marker: ASML
@@ -19,6 +19,12 @@ last_updated: 2026-06-15
 静态蒸馏截至 2026-05-27 未覆盖独立 ASML thesis；但后续已入库语料重审中，2026-04-18 已有直接证据（`2045565771234021468`，"ASML / TSM earnings = Good Outlook. Semis + capex go brrr."）。
 
 这次从 `coverage: none` 修正为 `coverage: low` 是覆盖口径修正，不是高信念升级：她偶尔提到 ASML 在 sector_framework 推文中作为半导体设备 anchor 参考，但**没有专门 thesis**，没有重仓，没有进入 ratings。
+
+## 2026-06-19 后续已入库证据
+
+- `2067795114211340290` — 2026-06-19，她提到 China / ASML smuggling 相关问题。这是半导体设备出口管制 / 地缘风险 marker，不是独立 ASML thesis，也不是覆盖升级。
+
+处理口径：问 ASML 时要明确"有最新直接提及，但仍是 marker-style low lens"。不能把 2026-06-19 的走私/出口管制问题写成她对 ASML 基本面的高信念观点。
 
 ## Fallback
 
@@ -44,3 +50,4 @@ last_updated: 2026-06-15
 - "ASML / TSM earnings = Good Outlook. Semis + capex go brrr." (id: 2045565771234021468, 2026-04-18) — 直接正向证据，但仍是行业 TLDR，不是独立 ASML thesis。
 - "TLDR of recent semi developments... $TSM pushing CoPoS" — ASML 被提及但作为客户链 anchor (id: 2053205192980721797, 2026-05-09)
 - "$AAOI earnings ... rotation upstream like: $ASML-type suppliers" (id: 2027480850397573567, 2026-02-27) — 方法论推断：她用 ASML-type suppliers 类比上游设备环节，不等于直接看多 ASML 本身。
+- "China / ASML smuggling issue mentioned as export-control marker, not a standalone thesis" (id: 2067795114211340290, 2026-06-19)

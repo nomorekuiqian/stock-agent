@@ -2,8 +2,11 @@
 skill: sector/ai-infrastructure
 analyst: qinbafrank
 layer: sector
-sources: sector__ai-infrastructure (373 tweets) + legacy lens-ai-infrastructure
-last_updated: 2026-06-11
+sources: sector__ai-infrastructure (394 tweets) + legacy lens-ai-infrastructure
+static_corpus_cutoff: 2026-06-11
+recent_direct_evidence_since: 2026-06-16
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Skill: AI Infrastructure
@@ -110,6 +113,8 @@ L5 物理 AI: Robotaxi, 人形机器人, 工业自动化
 - `2060560681984991697` — 光互连节奏拆分：2026 年 LPO/NPO/1.6T，2027 年 Lumentum CPO 激光器，2028 年 CPO 大规模放量。
 - `2061107928606908855` — Rubin VR200 NVL72 首次交付，验证下一代 AI 平台量产节奏和 HBM4 / 液冷 / 电力供应链。
 - `2062912854983086556` / `2063103873867452886` — AI 硬件趋势未坏，但黄仁勋点名带来的抛物线式上涨进入交易过热区间。
+- `2067203577991553148` — 2026-06-17，Frank 认为 AI infra 进入新阶段：要从泛相关主题切到真正 bottleneck、稀缺现金流、架构控制、可验证订单。
+- `2067560270013346105` — 2026-06-18，GLM-5.2 / 开源模型追赶和国产芯片适配，提示模型侧进步仍会反向拉动算力和硬件生态。
 
 ## Evidence Map
 
@@ -141,6 +146,8 @@ AI 危机信号：
 - `1991505258451968462` — AI 时代最终阶段赢家通吃。
 - `2026100577550442559` — 让机器大军吞噬物理世界的基础设施具备长期想象空间。
 - `2042098322123714855` — 领先者抢占 AI 代理入口。
+- `2067203577991553148` — 2026-06-17，AI infra 进入新阶段，筛选标准升级为 bottleneck、现金流、架构控制和可验证订单。
+- `2067560270013346105` — 2026-06-18，GLM-5.2 / 开源模型追赶和国产芯片适配延续 AI infra 需求链。
 
 ## 与其他 skill 协同
 

@@ -2,8 +2,11 @@
 skill: sector/crypto-stablecoin-rwa
 analyst: qinbafrank
 layer: sector
-sources: sector__crypto-stablecoin-rwa (510 tweets) + legacy lens-crypto
-last_updated: 2026-06-11
+sources: sector__crypto-stablecoin-rwa (527 tweets) + legacy lens-crypto
+static_corpus_cutoff: 2026-06-11
+recent_direct_evidence_since: 2026-06-17
+latest_evidence: 2026-06-17
+last_updated: 2026-06-19
 ---
 
 # Skill: Crypto / Stablecoin / RWA
@@ -144,6 +147,7 @@ qinbafrank 看 crypto 的角度跟币圈完全不同——他不信"crypto nativ
 - `2060905508119400559` — 美股代币化会吸走山寨币资金，CEX 需要面对用户和资金迁移。
 - `2060963237101982195` — rToken 可进一步封装期权、合约和统一保证金。
 - `2062912854983086556` / `2063103873867452886` — AI 资产过热、SpaceX IPO 和宏观事件会共同影响 crypto 风险偏好。
+- `2067226947831427090` — 2026-06-17，Zama confidential DeFi vaults 被放入 privacy + composability + compliance 框架，补充 DeFi 隐私基础设施方向。
 
 ## Evidence Map
 
@@ -174,6 +178,7 @@ Coinbase / 合规交易所 / Robinhood Z 世代叙事：
 加密 ETF / 监管路径：
 
 - 各 BTC ETF / 清晰法案 / GENIUS 立法节奏（追踪而非预测）
+- `2067226947831427090` — 2026-06-17，Zama confidential DeFi vaults 代表隐私、可组合性和合规之间的基础设施尝试。
 
 ## 与其他 skill 协同
 

@@ -2,7 +2,11 @@
 skill: sector-optical-transceivers
 layer: sector
 coverage: high
-tweets: 187
+tweets: 235
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-16
+latest_evidence: 2026-06-18
+last_updated: 2026-06-19
 ---
 
 # Sector: optical-transceivers
@@ -66,6 +70,17 @@ LITE 在 EML(Electro-Absorption Modulated Laser)上 ~80% 市场份额. AI 高速
 
 CPO 量产后, 部分 EML 需求会被 SIVE 的 CW DFB 取代. 但 LITE 仍然是 anchor, 不轮出. AAOI 因美国本土制造溢价继续重仓.
 
+## 2026-06-16 后最新变化
+
+最新证据把 optical transceivers 的问题从"800G/1.6T 是否继续 ramp"推进到"谁能拿到稀缺 CW laser / transceiver capacity"：
+
+- `2066707573139763211` — 2026-06-16，AMD 正在争抢 CW laser supply，Serenity 直接点名 AAOI / SIVE；Lumentum / Coherent 被 Nvidia 锁产能到 2028，使 AAOI 的美国本土链条更有稀缺性。
+- `2067071462360666165` — 2026-06-17，AAOI high conviction 被再次强化，理由是 AMD / hyperscaler laser capacity 和美国 800G/1.6T transceiver chain。
+- `2067206734427697196` — 2026-06-17，AMD 大额 CW laser procurement 使 AAOI / SIVE / Macom 成为独立西方供给候选。
+- `2067542382523122001` — 2026-06-18，AAOI / SIVE 被继续列为个人 favorites；她强调 lasers、modules、engines、ELS 的 revenue capture 可能在 2027 H1/H2 才更明显。
+
+处理口径：问 LITE / COHR / AAOI 时必须拆分 anchor 与弹性。LITE / COHR 仍是核心 anchor，但最新增量更集中在 AAOI / SIVE 这类可捕捉独立西方产能缺口的节点。
+
 ## 决策框架
 
 | 标的 | 当前姿态 |
@@ -109,3 +124,6 @@ CPO 量产后, 部分 EML 需求会被 SIVE 的 CW DFB 取代. 但 LITE 仍然�
 - "I cut some exposure in $LITE $COHR, rotated to $SIVE / Foci" (id: 2056558267896311996, 2026-05-19)
 - "$LITE is now over $1000" (id: 2053857864637436221, 2026-05-11)
 - "Optical players go through Sivers, leading CPO hyperscaler supply chains" (id: 2058374522353672558, 2026-05-24) — pluggable → CPO 过渡
+- "AMD scrambling for CW laser supply; AAOI / SIVE are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "AAOI high conviction: scarce laser capacity for AMD / hyperscalers and US transceiver chain" (id: 2067071462360666165, 2026-06-17)
+- "AAOI / SIVE personal favorites; revenue capture can expand into modules / engines / ELS" (id: 2067542382523122001, 2026-06-18)

@@ -2,7 +2,11 @@
 skill: sector-ai-infrastructure-mag7
 layer: sector
 coverage: high
-tweets: 472
+tweets: 579
+static_corpus_cutoff: 2026-05-27
+recent_direct_evidence_since: 2026-06-16
+latest_evidence: 2026-06-19
+last_updated: 2026-06-19
 ---
 
 # Sector: ai-infrastructure-mag7
@@ -80,6 +84,14 @@ EML 激光独占: LITE
 光纤连接: AAOI (部分)
 ```
 
+## 2026-06-16 后最新变化
+
+- `2066868456457416871` — 2026-06-16，她继续把 AI 描述为最具颠覆性的技术，核心验证仍是 capex、hyperscalers 和 neoclouds。
+- `2066707573139763211` / `2067206734427697196` — 2026-06-16 ~ 2026-06-17，AMD CW laser 采购链把 AI infra anchor 的需求进一步传导到 SIVE / AAOI / Macom 等 photonics 供应商。
+- `2067624913834549685` / `2067810292822929796` — 2026-06-18 ~ 2026-06-19，INTC 的 Apple / Trump / talent/news flow 继续强化 Made-in-America foundry 叙事，但不改变 Mag7 anchor 不是最大 alpha 的框架。
+
+处理口径：问 AI infra 时不要只答 NVDA/TSM 大票。最新证据继续显示 Serenity 会从 anchor demand 下沉到 photonics、memory、glass substrate、foundry national-security 等更窄节点。
+
 ## 决策框架
 
 | 标的 | 姿态 | sizing 上限 |
@@ -127,3 +139,6 @@ EML 激光独占: LITE
 - "META + their $14B deal with $CRWV, MSFT + $17B with $NBIS" (id: 1973693781888417816, 2025-10-02)
 - "AMD repricing as the next NVDA" (id: 1975987940473045058, 2025-10-08)
 - "Google Project Suncatcher → PL / RKLB" (id: 1995865990341496999, 2025-12-02)
+- "AI remains the most disruptive technology; capex / hyperscalers / neoclouds still drive the chain" (id: 2066868456457416871, 2026-06-16)
+- "AMD scrambling for CW laser supply; SIVE / AAOI are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "Trump announced Intel + Apple partnership; INTC Made-in-America foundry narrative continues" (id: 2067624913834549685, 2026-06-18)
