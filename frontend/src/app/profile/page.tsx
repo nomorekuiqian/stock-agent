@@ -9,7 +9,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { api, type EmailPreferences } from '@/lib/api';
 import { useEmailPreferences } from '@/hooks/queries/use-preferences';
-import { PRICING, STRIPE_LIVE } from '@/lib/pricing';
+import { STRIPE_LIVE } from '@/lib/pricing';
 import { queryKeys } from '@/hooks/queries/query-keys';
 
 const PREFERENCE_ITEMS: { key: keyof EmailPreferences; label: string; description: string; entitlement?: string }[] = [
@@ -47,6 +47,44 @@ function formatDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
   } catch { return iso; }
+}
+
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga',
+  'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf',
+]);
+const INTERVAL_LABELS: Record<string, string> = {
+  day: '日',
+  week: '周',
+  month: '月',
+  year: '年',
+};
+
+function formatBillingPrice(
+  amountCents: number | null,
+  currency: string | null,
+  interval: string | null,
+  intervalCount: number | null
+): string | null {
+  if (amountCents === null || !currency) return null;
+
+  const normalizedCurrency = currency.toLowerCase();
+  const zeroDecimal = ZERO_DECIMAL_CURRENCIES.has(normalizedCurrency);
+  const amount = zeroDecimal ? amountCents : amountCents / 100;
+  const maximumFractionDigits = zeroDecimal || amountCents % 100 === 0 ? 0 : 2;
+  const amountLabel = normalizedCurrency === 'usd'
+    ? `$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits })}`
+    : new Intl.NumberFormat('zh-CN', {
+        style: 'currency',
+        currency: normalizedCurrency.toUpperCase(),
+        minimumFractionDigits: 0,
+        maximumFractionDigits,
+      }).format(amount);
+
+  const unit = INTERVAL_LABELS[interval || 'month'] || '月';
+  const count = intervalCount && intervalCount > 1 ? String(intervalCount) : '';
+
+  return `${amountLabel}/${count}${unit}`;
 }
 
 function normalizeEmailPreferences(
@@ -90,9 +128,15 @@ function ProfileContent(): ReactNode {
   const {
     plan, isLoading: subLoading, status,
     currentPeriodEnd, accessExpiresAt,
+    billingAmountCents, billingCurrency,
+    billingInterval, billingIntervalCount,
     cancelAtPeriodEnd, cancelAt,
     openBillingPortal,
+    cancelSubscription,
+    isCancellationLoading,
     portalError,
+    cancellationError,
+    refreshSubscription,
   } = useSubscription();
   const { has: hasEntitlement } = useEntitlements();
 
@@ -111,6 +155,11 @@ function ProfileContent(): ReactNode {
   useEffect(() => {
     setActiveTab(tabFromUrl);
   }, [tabFromUrl]);
+
+  useEffect(() => {
+    if (activeTab !== 'subscription' || !isAuthenticated) return;
+    void refreshSubscription();
+  }, [activeTab, isAuthenticated, refreshSubscription]);
 
   function switchTab(tab: TabId) {
     setActiveTab(tab);
@@ -143,6 +192,14 @@ function ProfileContent(): ReactNode {
     await openBillingPortal();
     // openBillingPortal redirects on success; reset after timeout if it didn't
     setTimeout(() => setIsPortalLoading(false), 5000);
+  }
+
+  async function handleCancelSubscription() {
+    const confirmed = typeof window === 'undefined' || window.confirm(
+      '确认取消自动续费？当前周期内的会员权限会保留，到期后自动回到免费版。'
+    );
+    if (!confirmed) return;
+    await cancelSubscription();
   }
 
   useEffect(() => {
@@ -235,7 +292,12 @@ function ProfileContent(): ReactNode {
   const isTrial = hasActivePlan && daysLeft !== null;
   const isCanceled = !hasActivePlan && status === 'canceled';
   const tierLabel = isDisplayMax ? 'Max' : hasActivePlan ? 'Pro' : null;
-  const tierPrice = isDisplayMax ? PRICING.maxPerMonth : PRICING.proPerMonth;
+  const renewalPrice = formatBillingPrice(
+    billingAmountCents,
+    billingCurrency,
+    billingInterval,
+    billingIntervalCount
+  ) || '原订阅价格';
 
   const urgency = daysLeft !== null
     ? daysLeft <= 3 ? 'red'
@@ -444,7 +506,7 @@ function ProfileContent(): ReactNode {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {isCancellationScheduled
                           ? `已取消 · 权益有效至 ${scheduledCancelDate ? formatDate(scheduledCancelDate) : '当前周期结束'}`
-                          : `${tierPrice} · 自动续费`}
+                          : `${renewalPrice} · 自动续费`}
                       </p>
                     </div>
                   </div>
@@ -509,10 +571,25 @@ function ProfileContent(): ReactNode {
                     )}
                     管理订阅
                   </button>
+                  {!isCancellationScheduled && (
+                    <button
+                      type="button"
+                      onClick={handleCancelSubscription}
+                      disabled={isCancellationLoading}
+                      className="mt-3 w-full px-4 py-2.5 bg-background border border-red-400/30 rounded-lg text-sm font-medium text-red-300 hover:bg-red-400/10 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {isCancellationLoading ? (
+                        <div className="w-4 h-4 rounded-full border-2 border-red-300/20 border-t-red-300 animate-spin" />
+                      ) : null}
+                      取消自动续费
+                    </button>
+                  )}
                   {portalError ? (
                     <p className="text-xs text-red-400 text-center mt-2">{portalError}</p>
+                  ) : cancellationError ? (
+                    <p className="text-xs text-red-400 text-center mt-2">{cancellationError}</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground/70 text-center mt-2">修改付款方式、查看账单或取消订阅</p>
+                    <p className="text-sm text-muted-foreground/70 text-center mt-2">修改付款方式或查看账单</p>
                   )}
                 </div>
               ) : isCanceled ? (

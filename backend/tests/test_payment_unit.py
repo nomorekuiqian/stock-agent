@@ -509,6 +509,254 @@ class TestCheckoutSession:
             {"id": "si_123", "price": "price_max", "quantity": 1}
         ]
 
+    @pytest.mark.asyncio
+    async def test_create_portal_session_explains_missing_subscription(self):
+        """A missing subscription in configured accounts should not surface as a generic 500."""
+        from app.features.payment import service
+
+        stripe_error = service.stripe.InvalidRequestError(
+            "No such subscription: 'sub_old'",
+            "subscription",
+        )
+
+        with patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "user_id": "user-1",
+                "stripe_customer_id": "cus_old",
+                "stripe_subscription_id": "sub_old",
+            },
+        ), patch(
+            "app.features.payment.service._retrieve_subscription",
+            new_callable=AsyncMock,
+            side_effect=stripe_error,
+        ):
+            with pytest.raises(ValueError, match="迁移前的 Stripe 账户"):
+                await service.create_portal_session("user-1")
+
+    @pytest.mark.asyncio
+    async def test_create_portal_session_falls_back_to_legacy_account(self):
+        """The same manage-subscription button opens the old account Portal when needed."""
+        from app.features.payment import service
+
+        missing = service.stripe.InvalidRequestError("No such subscription: 'sub_old'", "subscription")
+        legacy_sub = {
+            "id": "sub_old",
+            "customer": "cus_old",
+            "status": "active",
+            "items": {"data": [{"id": "si_old", "price": {"id": "price_old"}}]},
+        }
+        mock_session = MagicMock()
+        mock_session.url = "https://billing.stripe.test/legacy-session"
+
+        with patch.object(
+            service,
+            "STRIPE_SECRET_KEY",
+            "sk_primary",
+        ), patch.object(
+            service,
+            "STRIPE_LEGACY_SECRET_KEY",
+            "sk_legacy",
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "user_id": "user-1",
+                "stripe_customer_id": "cus_old",
+                "stripe_subscription_id": "sub_old",
+            },
+        ), patch(
+            "app.features.payment.service._retrieve_subscription",
+            new_callable=AsyncMock,
+            side_effect=[missing, legacy_sub],
+        ) as mock_retrieve, patch(
+            "app.features.payment.service.stripe.billing_portal.Session.create",
+            return_value=mock_session,
+        ) as mock_create:
+            url = await service.create_portal_session("user-1", return_path="/profile")
+
+        assert url == "https://billing.stripe.test/legacy-session"
+        assert mock_retrieve.await_args_list[0].kwargs["api_key"] == "sk_primary"
+        assert mock_retrieve.await_args_list[1].kwargs["api_key"] == "sk_legacy"
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["api_key"] == "sk_legacy"
+        assert kwargs["customer"] == "cus_old"
+        assert kwargs["return_url"].endswith("/profile")
+
+    @pytest.mark.asyncio
+    async def test_cancel_subscription_uses_primary_account(self):
+        """Self-service cancellation schedules period-end cancellation."""
+        from app.features.payment import service
+
+        stripe_sub = {
+            "id": "sub_primary",
+            "customer": "cus_primary",
+            "status": "active",
+            "cancel_at_period_end": True,
+            "current_period_start": 1700000000,
+            "current_period_end": 1702592000,
+            "items": {
+                "data": [{
+                    "price": {
+                        "id": "price_pro_test",
+                        "unit_amount": 1000,
+                        "currency": "usd",
+                        "recurring": {"interval": "month", "interval_count": 1},
+                    }
+                }]
+            },
+        }
+
+        with patch.object(
+            service,
+            "STRIPE_SECRET_KEY",
+            "sk_primary",
+        ), patch.object(
+            service,
+            "PRICE_ID_MAP",
+            {"pro": "price_pro_test", "max": "price_max_test"},
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "user_id": "user-1",
+                "plan": "pro",
+                "status": "active",
+                "stripe_customer_id": "cus_primary",
+                "stripe_subscription_id": "sub_primary",
+            },
+        ), patch(
+            "app.features.payment.service.stripe.Subscription.modify",
+            return_value=stripe_sub,
+        ) as mock_modify, patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_upsert:
+            result = await service.cancel_subscription_at_period_end("user-1")
+
+        assert result["success"] is True
+        assert result["cancel_at_period_end"] is True
+        assert result["stripe_account_ref"] == "primary"
+        mock_modify.assert_called_once()
+        assert mock_modify.call_args.kwargs["api_key"] == "sk_primary"
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["cancel_at_period_end"] is True
+        assert call_kwargs["cancel_at"] is not None
+        assert call_kwargs["stripe_account_ref"] == "primary"
+
+    @pytest.mark.asyncio
+    async def test_cancel_subscription_falls_back_to_legacy_account(self):
+        """Legacy subscriptions can be canceled without opening Portal."""
+        from app.features.payment import service
+
+        missing = service.stripe.InvalidRequestError("No such subscription: 'sub_old'", "subscription")
+        legacy_sub = {
+            "id": "sub_old",
+            "customer": "cus_old",
+            "status": "active",
+            "cancel_at_period_end": True,
+            "current_period_start": 1700000000,
+            "current_period_end": 1702592000,
+            "items": {
+                "data": [{
+                    "price": {
+                        "id": "price_early_bird",
+                        "unit_amount": 1000,
+                        "currency": "usd",
+                        "recurring": {"interval": "month", "interval_count": 1},
+                    }
+                }]
+            },
+        }
+
+        with patch.object(
+            service,
+            "STRIPE_SECRET_KEY",
+            "sk_primary",
+        ), patch.object(
+            service,
+            "STRIPE_LEGACY_SECRET_KEY",
+            "sk_legacy",
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "user_id": "user-1",
+                "plan": "max",
+                "status": "active",
+                "stripe_customer_id": "cus_old",
+                "stripe_subscription_id": "sub_old",
+            },
+        ), patch(
+            "app.features.payment.service.stripe.Subscription.modify",
+            side_effect=[missing, legacy_sub],
+        ) as mock_modify, patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_upsert:
+            result = await service.cancel_subscription_at_period_end("user-1")
+
+        assert result["stripe_account_ref"] == "legacy_2026"
+        assert result["stripe_migration_state"] == "legacy_cancel_scheduled"
+        assert mock_modify.call_count == 2
+        assert mock_modify.call_args_list[0].kwargs["api_key"] == "sk_primary"
+        assert mock_modify.call_args_list[1].kwargs["api_key"] == "sk_legacy"
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["stripe_account_ref"] == "legacy_2026"
+        assert call_kwargs["legacy_stripe_customer_id"] == "cus_old"
+        assert call_kwargs["legacy_stripe_subscription_id"] == "sub_old"
+        assert call_kwargs["stripe_migration_state"] == "legacy_cancel_scheduled"
+
+    def test_cancel_subscription_endpoint(self):
+        """POST /cancel-subscription exposes the self-service cancel path."""
+        app, client = self._client_with_auth("user-1")
+
+        try:
+            with patch(
+                "app.features.payment.router.cancel_subscription_at_period_end",
+                new_callable=AsyncMock,
+                return_value={
+                    "success": True,
+                    "plan": "max",
+                    "status": "active",
+                    "current_period_end": "2026-07-01T00:00:00+00:00",
+                    "cancel_at_period_end": True,
+                    "cancel_at": "2026-07-01T00:00:00+00:00",
+                    "canceled_at": "2026-06-18T00:00:00+00:00",
+                    "stripe_account_ref": "legacy_2026",
+                    "stripe_migration_state": "legacy_cancel_scheduled",
+                },
+            ) as mock_cancel:
+                resp = client.post("/api/payment/cancel-subscription")
+        finally:
+            app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        assert resp.json()["cancel_at_period_end"] is True
+        assert resp.json()["stripe_account_ref"] == "legacy_2026"
+        assert resp.json()["stripe_migration_state"] == "legacy_cancel_scheduled"
+        mock_cancel.assert_awaited_once_with("user-1")
+
+    def test_portal_session_endpoint_reports_legacy_key_configuration_error(self):
+        """Missing legacy Stripe key should be reported as a configuration issue."""
+        app, client = self._client_with_auth("user-1")
+
+        try:
+            with patch(
+                "app.features.payment.router.create_portal_session",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("Legacy Stripe key is not configured"),
+            ):
+                resp = client.post("/api/payment/portal-session")
+        finally:
+            app.dependency_overrides.clear()
+
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "Legacy Stripe key is not configured"
+
 
 # ---------------------------------------------------------------------------
 # get_user_email_by_id
@@ -1197,6 +1445,76 @@ class TestLegacyUltraSync:
     """Legacy Ultra rows are normalized back to Max during active syncs."""
 
     @pytest.mark.asyncio
+    async def test_subscription_sync_falls_back_to_legacy_account(self):
+        from app.features.payment import service
+
+        missing = service.stripe.InvalidRequestError("No such subscription: 'sub_old'", "subscription")
+        legacy_sub = {
+            "id": "sub_old",
+            "customer": "cus_old",
+            "status": "active",
+            "items": {
+                "data": [{
+                    "id": "si_old",
+                    "price": {
+                        "id": "price_old",
+                        "unit_amount": 1000,
+                        "currency": "usd",
+                        "recurring": {"interval": "month", "interval_count": 1},
+                    },
+                    "current_period_start": 1781232523,
+                    "current_period_end": 1783824523,
+                }]
+            },
+        }
+
+        with patch.object(
+            service,
+            "STRIPE_SECRET_KEY",
+            "sk_primary",
+        ), patch.object(
+            service,
+            "STRIPE_LEGACY_SECRET_KEY",
+            "sk_legacy",
+        ), patch(
+            "app.features.payment.service.get_subscription",
+            new_callable=AsyncMock,
+            return_value={
+                "user_id": "user-1",
+                "plan": "max",
+                "status": "active",
+                "stripe_customer_id": "cus_old",
+                "stripe_subscription_id": "sub_old",
+            },
+        ), patch(
+            "app.features.payment.service._retrieve_subscription",
+            new_callable=AsyncMock,
+            side_effect=[missing, legacy_sub],
+        ) as mock_retrieve, patch(
+            "app.features.payment.service.upsert_subscription",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_upsert, patch(
+            "app.features.payment.service.sync_entitlements_from_stripe",
+            new_callable=AsyncMock,
+            return_value={"synced": True},
+        ):
+            result = await service.sync_subscription_from_stripe(
+                "user-1",
+                source="subscription-status.fresh",
+            )
+
+        assert result["stripe_account_ref"] == "legacy_2026"
+        assert result["stripe_migration_state"] == "legacy_active"
+        assert mock_retrieve.await_args_list[0].kwargs["api_key"] == "sk_primary"
+        assert mock_retrieve.await_args_list[1].kwargs["api_key"] == "sk_legacy"
+        call_kwargs = mock_upsert.call_args.kwargs
+        assert call_kwargs["stripe_account_ref"] == "legacy_2026"
+        assert call_kwargs["legacy_stripe_customer_id"] == "cus_old"
+        assert call_kwargs["legacy_stripe_subscription_id"] == "sub_old"
+        assert call_kwargs["stripe_migration_state"] == "legacy_active"
+
+    @pytest.mark.asyncio
     async def test_subscription_sync_normalizes_local_ultra_for_active_stripe_max(self):
         from app.features.payment import service
         from app.features.payment.entitlements import KOL_PACK_QINBAFRANK, MAX_FEATURES
@@ -1217,7 +1535,12 @@ class TestLegacyUltraSync:
                 "data": [
                     {
                         "id": "si_legacy",
-                        "price": {"id": "price_max_test"},
+                        "price": {
+                            "id": "price_max_test",
+                            "unit_amount": 1000,
+                            "currency": "usd",
+                            "recurring": {"interval": "month", "interval_count": 1},
+                        },
                         "current_period_start": 1781232523,
                         "current_period_end": 1783824523,
                     }
@@ -1252,6 +1575,12 @@ class TestLegacyUltraSync:
         call_kwargs = mock_upsert.call_args.kwargs
         assert call_kwargs["plan"] == "max"
         assert KOL_PACK_QINBAFRANK not in call_kwargs["entitlements"]
+        assert call_kwargs["stripe_price_id"] == "price_max_test"
+        assert call_kwargs["billing_amount_cents"] == 1000
+        assert call_kwargs["billing_currency"] == "usd"
+        assert call_kwargs["billing_interval"] == "month"
+        assert call_kwargs["billing_interval_count"] == 1
+        assert result["billing_amount_cents"] == 1000
 
     @pytest.mark.asyncio
     async def test_entitlement_sync_normalizes_local_ultra_for_active_stripe_max(self):

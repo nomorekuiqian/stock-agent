@@ -14,6 +14,13 @@ interface SubscriptionStatus {
   status: string;
   current_period_end: string | null;
   access_expires_at: string | null;
+  stripe_price_id?: string | null;
+  billing_amount_cents?: number | null;
+  billing_currency?: string | null;
+  billing_interval?: string | null;
+  billing_interval_count?: number | null;
+  stripe_account_ref?: string | null;
+  stripe_migration_state?: string | null;
   cancel_at_period_end?: boolean;
   cancel_at?: string | null;
   canceled_at?: string | null;
@@ -24,12 +31,21 @@ interface SubscriptionContextType {
   isMax: boolean;
   isLoading: boolean;
   isCheckoutLoading: boolean;
+  isCancellationLoading: boolean;
   checkoutError: string | null;
   portalError: string | null;
+  cancellationError: string | null;
   plan: string;
   status: string;
   currentPeriodEnd: string | null;
   accessExpiresAt: string | null;
+  stripePriceId: string | null;
+  billingAmountCents: number | null;
+  billingCurrency: string | null;
+  billingInterval: string | null;
+  billingIntervalCount: number | null;
+  stripeAccountRef: string | null;
+  stripeMigrationState: string | null;
   cancelAtPeriodEnd: boolean;
   cancelAt: string | null;
   canceledAt: string | null;
@@ -43,6 +59,7 @@ interface SubscriptionContextType {
     product?: CheckoutProduct;
     billingInterval?: 'monthly';
   }) => Promise<void>;
+  cancelSubscription: () => Promise<boolean>;
   refreshSubscription: () => Promise<void>;
 }
 
@@ -103,8 +120,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+  const [isCancellationLoading, setIsCancellationLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [cancellationError, setCancellationError] = useState<string | null>(null);
 
   // One-shot read at mount: are we returning from a Stripe Checkout success?
   const [isCheckoutReturn] = useState(
@@ -112,9 +131,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       new URLSearchParams(window.location.search).get('checkout') === 'success'
   );
 
-  const queryKey = user?.id
-    ? queryKeys.subscriptionStatus.byUser(user.id)
-    : queryKeys.subscriptionStatus.all;
+  const queryKey = useMemo(
+    () => user?.id
+      ? queryKeys.subscriptionStatus.byUser(user.id)
+      : queryKeys.subscriptionStatus.all,
+    [user?.id]
+  );
 
   const { data, isLoading: queryLoading } = useQuery({
     queryKey,
@@ -160,6 +182,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const status = data?.status || 'none';
   const currentPeriodEnd = data?.current_period_end || null;
   const accessExpiresAt = data?.access_expires_at || null;
+  const stripePriceId = data?.stripe_price_id || null;
+  const billingAmountCents = data?.billing_amount_cents ?? null;
+  const billingCurrency = data?.billing_currency || null;
+  const billingInterval = data?.billing_interval || null;
+  const billingIntervalCount = data?.billing_interval_count ?? null;
+  const stripeAccountRef = data?.stripe_account_ref || null;
+  const stripeMigrationState = data?.stripe_migration_state || null;
   const cancelAtPeriodEnd = data?.cancel_at_period_end || false;
   const cancelAt = data?.cancel_at || null;
   const canceledAt = data?.canceled_at || null;
@@ -216,6 +245,63 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setPortalError('网络错误，请检查连接后重试');
     }
   }, [user?.id]);
+
+  const cancelSubscription = useCallback(async (): Promise<boolean> => {
+    if (!user?.id) return false;
+    setCancellationError(null);
+    setIsCancellationLoading(true);
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setCancellationError('登录已过期，请重新登录');
+        return false;
+      }
+      const res = await fetch(`${API_BASE_URL}/payment/cancel-subscription`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const detail = await readApiError(res);
+        setCancellationError(detail || '无法取消自动续费，请稍后再试');
+        return false;
+      }
+
+      const json = await res.json();
+      queryClient.setQueryData(queryKey, (prev: SubscriptionStatus | undefined) => ({
+        ...(prev || {}),
+        plan: json.plan || prev?.plan || plan,
+        status: json.status || prev?.status || status,
+        current_period_end: json.current_period_end ?? prev?.current_period_end ?? currentPeriodEnd,
+        access_expires_at: prev?.access_expires_at ?? accessExpiresAt,
+        cancel_at_period_end: json.cancel_at_period_end ?? true,
+        cancel_at: json.cancel_at ?? prev?.cancel_at ?? currentPeriodEnd,
+        canceled_at: json.canceled_at ?? prev?.canceled_at ?? null,
+        stripe_account_ref: json.stripe_account_ref ?? prev?.stripe_account_ref ?? stripeAccountRef,
+        stripe_migration_state: json.stripe_migration_state
+          ?? prev?.stripe_migration_state
+          ?? stripeMigrationState,
+      }));
+      await queryClient.invalidateQueries({ queryKey });
+      return true;
+    } catch (err) {
+      console.error('[Subscription] Failed to cancel subscription:', err);
+      setCancellationError('网络错误，请检查连接后重试');
+      return false;
+    } finally {
+      setIsCancellationLoading(false);
+    }
+  }, [
+    accessExpiresAt,
+    currentPeriodEnd,
+    plan,
+    queryClient,
+    queryKey,
+    status,
+    stripeAccountRef,
+    stripeMigrationState,
+    user?.id,
+  ]);
 
   const createCheckout = useCallback(async (
     product: CheckoutProduct = 'pro',
@@ -306,23 +392,37 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       isMax,
       isLoading,
       isCheckoutLoading,
+      isCancellationLoading,
       checkoutError,
       portalError,
+      cancellationError,
       plan,
       status,
       currentPeriodEnd,
       accessExpiresAt,
+      stripePriceId,
+      billingAmountCents,
+      billingCurrency,
+      billingInterval,
+      billingIntervalCount,
+      stripeAccountRef,
+      stripeMigrationState,
       cancelAtPeriodEnd,
       cancelAt,
       canceledAt,
       createCheckout,
       openBillingPortal,
+      cancelSubscription,
       refreshSubscription,
     }),
     [
-      isPro, isMax, isLoading, isCheckoutLoading, checkoutError, portalError,
-      plan, status, currentPeriodEnd, accessExpiresAt, cancelAtPeriodEnd, cancelAt, canceledAt,
-      createCheckout, openBillingPortal, refreshSubscription,
+      isPro, isMax, isLoading, isCheckoutLoading, isCancellationLoading,
+      checkoutError, portalError, cancellationError,
+      plan, status, currentPeriodEnd, accessExpiresAt, stripePriceId,
+      billingAmountCents, billingCurrency, billingInterval, billingIntervalCount,
+      stripeAccountRef, stripeMigrationState,
+      cancelAtPeriodEnd, cancelAt, canceledAt,
+      createCheckout, openBillingPortal, cancelSubscription, refreshSubscription,
     ]
   );
 

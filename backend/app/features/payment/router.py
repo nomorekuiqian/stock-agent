@@ -17,6 +17,7 @@ from app.core.config import (
 )
 from app.core.deps import verify_user_token, verify_cron_secret
 from app.features.payment.models import (
+    CancelSubscriptionResponse,
     CompleteCheckoutRequest,
     CompleteCheckoutResponse,
     CreateCheckoutRequest,
@@ -27,6 +28,7 @@ from app.features.payment.models import (
 )
 from app.core.logging import get_logger
 from app.features.payment.service import (
+    cancel_subscription_at_period_end,
     complete_checkout_session,
     create_checkout_session,
     create_portal_session,
@@ -230,12 +232,13 @@ async def api_subscription_status(
     user_id: str = Depends(verify_user_token),
 ):
     """Query subscription status for a user."""
+    fresh_result = None
     if fresh:
         invalidate_subscription_cache(user_id)
         sub_before_refresh = await get_subscription(user_id)
         if sub_before_refresh and not sub_before_refresh.get("is_lifetime"):
             try:
-                await sync_subscription_from_stripe(
+                fresh_result = await sync_subscription_from_stripe(
                     user_id,
                     source="subscription-status.fresh",
                 )
@@ -249,6 +252,36 @@ async def api_subscription_status(
         status=sub.get("status", "none"),
         current_period_end=sub.get("current_period_end"),
         access_expires_at=sub.get("access_expires_at"),
+        stripe_price_id=(
+            (fresh_result or {}).get("stripe_price_id")
+            or sub.get("stripe_price_id")
+        ),
+        billing_amount_cents=(
+            (fresh_result or {}).get("billing_amount_cents")
+            if (fresh_result or {}).get("billing_amount_cents") is not None
+            else sub.get("billing_amount_cents")
+        ),
+        billing_currency=(
+            (fresh_result or {}).get("billing_currency")
+            or sub.get("billing_currency")
+        ),
+        billing_interval=(
+            (fresh_result or {}).get("billing_interval")
+            or sub.get("billing_interval")
+        ),
+        billing_interval_count=(
+            (fresh_result or {}).get("billing_interval_count")
+            if (fresh_result or {}).get("billing_interval_count") is not None
+            else sub.get("billing_interval_count")
+        ),
+        stripe_account_ref=(
+            (fresh_result or {}).get("stripe_account_ref")
+            or sub.get("stripe_account_ref")
+        ),
+        stripe_migration_state=(
+            (fresh_result or {}).get("stripe_migration_state")
+            or sub.get("stripe_migration_state")
+        ),
         cancel_at_period_end=bool(sub.get("cancel_at_period_end")),
         cancel_at=sub.get("cancel_at"),
         canceled_at=sub.get("canceled_at"),
@@ -309,9 +342,28 @@ async def api_portal_session(
         return PortalSessionResponse(portal_url=url)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception:
         logger.exception("Portal session error")
         raise HTTPException(status_code=500, detail="Failed to create portal session")
+
+
+@router.post("/cancel-subscription", response_model=CancelSubscriptionResponse)
+async def api_cancel_subscription(
+    user_id: str = Depends(verify_user_token),
+):
+    """Schedule the current user's Stripe subscription to cancel at period end."""
+    try:
+        result = await cancel_subscription_at_period_end(user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception:
+        logger.exception("Cancel subscription error")
+        raise HTTPException(status_code=500, detail="Failed to cancel subscription")
+    return CancelSubscriptionResponse(**result)
 
 
 @router.post("/reconcile-expired-grants")

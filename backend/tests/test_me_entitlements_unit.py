@@ -156,10 +156,19 @@ class TestSubscriptionStatus:
             "status": "active",
             "current_period_end": None,
             "access_expires_at": None,
+            "stripe_price_id": "price_early_bird",
+            "billing_amount_cents": 1000,
+            "billing_currency": "usd",
+            "billing_interval": "month",
+            "billing_interval_count": 1,
         }
 
         resp = self.client.get("/api/payment/subscription-status?fresh=true")
 
         assert resp.status_code == 200
         assert resp.json()["plan"] == "max"
+        assert resp.json()["stripe_price_id"] == "price_early_bird"
+        assert resp.json()["billing_amount_cents"] == 1000
+        assert resp.json()["billing_currency"] == "usd"
+        assert resp.json()["billing_interval"] == "month"
         mock_invalidate.assert_called_once_with("user-sub-001")

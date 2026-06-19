@@ -112,7 +112,7 @@ class TestSetupLogging:
     def test_setup_logging_quiets_third_party(self):
         """Third-party loggers are set to WARNING after setup."""
         setup_logging(level="DEBUG")
-        for name in ("httpx", "httpcore", "google", "openai"):
+        for name in ("httpx", "httpcore", "google", "openai", "stripe"):
             assert logging.getLogger(name).level == logging.WARNING
         # Reset
         setup_logging(level="INFO")

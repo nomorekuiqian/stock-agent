@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SubscriptionProvider, useSubscription } from '../SubscriptionContext';
@@ -93,6 +93,41 @@ describe('SubscriptionContext - basic behavior', () => {
     // With paywall disabled at module level, query never fires; plan defaults.
     expect(result.current.plan).toBe('free');
     expect(result.current.status).toBe('none');
+  });
+
+  it('cancelSubscription posts to the self-service cancel endpoint', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        plan: 'pro',
+        status: 'active',
+        current_period_end: '2026-07-01T00:00:00Z',
+        cancel_at_period_end: true,
+        cancel_at: '2026-07-01T00:00:00Z',
+        canceled_at: '2026-06-18T00:00:00Z',
+        stripe_account_ref: 'primary',
+        stripe_migration_state: null,
+      }),
+      text: async () => '',
+    });
+    const { result } = renderHook(() => useSubscription(), { wrapper: makeWrapper() });
+
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.cancelSubscription();
+    });
+
+    expect(ok).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/payment/cancel-subscription'),
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer fake-token' },
+      },
+    );
+    expect(result.current.cancellationError).toBeNull();
+    expect(result.current.isCancellationLoading).toBe(false);
   });
 });
 

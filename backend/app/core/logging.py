@@ -120,6 +120,7 @@ def setup_logging(level: str | None = None):
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("google").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("stripe").setLevel(logging.WARNING)
     # ADK emits a cosmetic "app name mismatch" warning when LlmAgent is
     # instantiated outside a project-local agents/ directory (e.g. installed
     # via pip).  The check is purely advisory and doesn't affect runtime.

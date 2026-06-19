@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import ProfilePage from '../page';
 
 // ---------------------------------------------------------------------------
@@ -81,17 +81,25 @@ function subState(overrides = {}) {
     isMax: false,
     isLoading: false,
     isCheckoutLoading: false,
+    isCancellationLoading: false,
     checkoutError: null,
     portalError: null,
+    cancellationError: null,
     plan: 'free',
     status: 'none',
     currentPeriodEnd: null,
     accessExpiresAt: null,
+    stripePriceId: null,
+    billingAmountCents: null,
+    billingCurrency: null,
+    billingInterval: null,
+    billingIntervalCount: null,
     cancelAtPeriodEnd: false,
     cancelAt: null,
     canceledAt: null,
     createCheckout: vi.fn(),
     openBillingPortal: vi.fn(),
+    cancelSubscription: vi.fn().mockResolvedValue(true),
     refreshSubscription: vi.fn(),
     redeemInviteCode: vi.fn(),
     ...overrides,
@@ -155,6 +163,10 @@ describe('ProfilePage subscription states', () => {
       plan: 'max',
       status: 'active',
       currentPeriodEnd: '2026-05-01T00:00:00Z',
+      billingAmountCents: 2000,
+      billingCurrency: 'usd',
+      billingInterval: 'month',
+      billingIntervalCount: 1,
     }));
 
     render(<ProfilePage />);
@@ -163,6 +175,26 @@ describe('ProfilePage subscription states', () => {
     expect(screen.getByText('$20/月 · 自动续费')).toBeDefined();
     expect(screen.getByRole('button', { name: /管理订阅/ })).toBeDefined();
     expect(screen.queryByText(/升级到 Max/)).toBeNull();
+  });
+
+  it('renders early-bird Max renewal price from actual Stripe billing amount', () => {
+    mockUseSubscription.mockReturnValue(subState({
+      isPro: true,
+      isMax: true,
+      plan: 'max',
+      status: 'active',
+      currentPeriodEnd: '2026-05-01T00:00:00Z',
+      billingAmountCents: 1000,
+      billingCurrency: 'usd',
+      billingInterval: 'month',
+      billingIntervalCount: 1,
+    }));
+
+    render(<ProfilePage />);
+
+    expect(screen.getByText('Max 会员')).toBeDefined();
+    expect(screen.getByText('$10/月 · 自动续费')).toBeDefined();
+    expect(screen.queryByText('$20/月 · 自动续费')).toBeNull();
   });
 
   it('renders scheduled Max cancellation while access remains active', () => {
@@ -296,6 +328,27 @@ describe('ProfilePage manage subscription', () => {
 
     const link = screen.getByText(/升级到 Pro/).closest('a');
     expect(link?.getAttribute('href')).toBe('/pricing');
+  });
+
+  it('calls cancelSubscription from the self-service cancel button', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const mockCancel = vi.fn().mockResolvedValue(true);
+    mockUseSubscription.mockReturnValue(subState({
+      isPro: true,
+      plan: 'pro',
+      status: 'active',
+      currentPeriodEnd: '2026-05-01T00:00:00Z',
+      cancelSubscription: mockCancel,
+    }));
+
+    render(<ProfilePage />);
+
+    screen.getByRole('button', { name: /取消自动续费/ }).click();
+
+    await waitFor(() => {
+      expect(mockCancel).toHaveBeenCalled();
+    });
+    confirmSpy.mockRestore();
   });
 });
 

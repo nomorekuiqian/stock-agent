@@ -35,9 +35,28 @@ class SubscriptionStatusResponse(BaseModel):
     status: str
     current_period_end: Optional[str] = None
     access_expires_at: Optional[str] = None
+    stripe_price_id: Optional[str] = None
+    billing_amount_cents: Optional[int] = None
+    billing_currency: Optional[str] = None
+    billing_interval: Optional[str] = None
+    billing_interval_count: Optional[int] = None
+    stripe_account_ref: Optional[str] = None
+    stripe_migration_state: Optional[str] = None
     cancel_at_period_end: bool = False
     cancel_at: Optional[str] = None
     canceled_at: Optional[str] = None
+
+
+class CancelSubscriptionResponse(BaseModel):
+    success: bool
+    plan: str = "free"
+    status: str = "none"
+    current_period_end: Optional[str] = None
+    cancel_at_period_end: bool = False
+    cancel_at: Optional[str] = None
+    canceled_at: Optional[str] = None
+    stripe_account_ref: Optional[str] = None
+    stripe_migration_state: Optional[str] = None
 
 
 class PortalSessionResponse(BaseModel):

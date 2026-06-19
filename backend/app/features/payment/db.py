@@ -52,6 +52,16 @@ async def upsert_subscription(
     status: Optional[str] = None,
     current_period_start: Optional[str] = None,
     current_period_end: Optional[str] = None,
+    stripe_price_id: Optional[str] = None,
+    billing_amount_cents: Optional[int] = None,
+    billing_currency: Optional[str] = None,
+    billing_interval: Optional[str] = None,
+    billing_interval_count: Optional[int] = None,
+    stripe_account_ref: Optional[str] = None,
+    legacy_stripe_customer_id: Optional[str] = None,
+    legacy_stripe_subscription_id: Optional[str] = None,
+    stripe_migration_state: Optional[str] = None,
+    stripe_migrated_at: Optional[str] = None,
     cancel_at_period_end: Optional[bool] = None,
     cancel_at: Optional[str] = None,
     canceled_at: Optional[str] = None,
@@ -89,6 +99,26 @@ async def upsert_subscription(
         body["current_period_start"] = current_period_start
     if current_period_end is not None:
         body["current_period_end"] = current_period_end
+    if stripe_price_id is not None:
+        body["stripe_price_id"] = stripe_price_id
+    if billing_amount_cents is not None:
+        body["billing_amount_cents"] = billing_amount_cents
+    if billing_currency is not None:
+        body["billing_currency"] = billing_currency
+    if billing_interval is not None:
+        body["billing_interval"] = billing_interval
+    if billing_interval_count is not None:
+        body["billing_interval_count"] = billing_interval_count
+    if stripe_account_ref is not None:
+        body["stripe_account_ref"] = stripe_account_ref
+    if legacy_stripe_customer_id is not None:
+        body["legacy_stripe_customer_id"] = legacy_stripe_customer_id
+    if legacy_stripe_subscription_id is not None:
+        body["legacy_stripe_subscription_id"] = legacy_stripe_subscription_id
+    if stripe_migration_state is not None:
+        body["stripe_migration_state"] = stripe_migration_state
+    if stripe_migrated_at is not None:
+        body["stripe_migrated_at"] = stripe_migrated_at
     if clear_cancellation:
         body["cancel_at_period_end"] = False
         body["cancel_at"] = None

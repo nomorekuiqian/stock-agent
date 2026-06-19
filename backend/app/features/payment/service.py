@@ -7,6 +7,7 @@ Uses asyncio.to_thread to avoid blocking the event loop with synchronous Stripe 
 import asyncio
 import re
 import time
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -16,6 +17,7 @@ from app.core.config import (
     ALLOWED_ORIGINS,
     CORS_ALLOWED_ORIGIN_REGEX,
     FRONTEND_URL,
+    STRIPE_LEGACY_SECRET_KEY,
     STRIPE_MAX_PRICE_ID,
     STRIPE_PRO_PRICE_ID,
     STRIPE_SECRET_KEY,
@@ -86,6 +88,12 @@ LEGACY_ULTRA_LOOKUP_KEY = "themarketbrew_ultra_monthly"
 _RESOLVED_PRICE_ID_CACHE: dict[tuple[str, str], str] = {}
 UPGRADE_PORTAL_PRORATION_BEHAVIOR = "always_invoice"
 _UPGRADE_PORTAL_CONFIGURATION_CACHE: dict[str, str] = {}
+PRIMARY_STRIPE_ACCOUNT_REF = "primary"
+LEGACY_STRIPE_ACCOUNT_REF = "legacy_2026"
+PORTAL_ACCOUNT_MIGRATION_MESSAGE = (
+    "当前订阅无法打开 Stripe 管理页。该订阅可能属于迁移前的 Stripe 账户，"
+    "请联系支持处理取消或迁移。"
+)
 
 LEGACY_CREATOR_MAX_QINBAFRANK_PRODUCT = "creator_max_qinbafrank"
 CHECKOUT_PRODUCT_ALIASES = {
@@ -325,6 +333,48 @@ def _get_subscription_cancellation(sub_obj) -> tuple[bool, str | None, str | Non
     )
 
 
+def _price_unit_amount_cents(price: dict) -> int | None:
+    amount = price.get("unit_amount")
+    if isinstance(amount, int):
+        return amount
+    if amount is not None:
+        try:
+            return int(amount)
+        except (TypeError, ValueError):
+            pass
+
+    decimal_amount = price.get("unit_amount_decimal")
+    if decimal_amount in (None, ""):
+        return None
+    try:
+        return int(Decimal(str(decimal_amount)).to_integral_value())
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _extract_subscription_billing_fields(sub_obj) -> dict:
+    item = _first_subscription_item(sub_obj)
+    price = _to_dict(item.get("price")) if item else None
+    if not isinstance(price, dict):
+        return {}
+
+    recurring = _to_dict(price.get("recurring")) or {}
+    interval_count = recurring.get("interval_count")
+    if interval_count is not None:
+        try:
+            interval_count = int(interval_count)
+        except (TypeError, ValueError):
+            interval_count = None
+
+    return {
+        "stripe_price_id": price.get("id") or None,
+        "billing_amount_cents": _price_unit_amount_cents(price),
+        "billing_currency": (price.get("currency") or "").lower() or None,
+        "billing_interval": recurring.get("interval") or None,
+        "billing_interval_count": interval_count,
+    }
+
+
 def _first_subscription_item(sub_obj) -> dict | None:
     d = _to_dict(sub_obj) or {}
     items = _to_dict(d.get("items")) or {}
@@ -334,22 +384,27 @@ def _first_subscription_item(sub_obj) -> dict | None:
     return _to_dict(data[0]) or None
 
 
-async def _retrieve_subscription(subscription_id: str):
+async def _retrieve_subscription(subscription_id: str, *, api_key: str | None = None):
+    kwargs = {"expand": ["items.data.price"]}
+    if api_key:
+        kwargs["api_key"] = api_key
     return await asyncio.to_thread(
         stripe.Subscription.retrieve,
         subscription_id,
-        expand=["items.data.price"],
+        **kwargs,
     )
 
 
-async def _find_active_subscription_for_customer(customer_id: str):
-    response = await asyncio.to_thread(
-        stripe.Subscription.list,
-        customer=customer_id,
-        status="all",
-        limit=10,
-        expand=["data.items.data.price"],
-    )
+async def _find_active_subscription_for_customer(customer_id: str, *, api_key: str | None = None):
+    kwargs = {
+        "customer": customer_id,
+        "status": "all",
+        "limit": 10,
+        "expand": ["data.items.data.price"],
+    }
+    if api_key:
+        kwargs["api_key"] = api_key
+    response = await asyncio.to_thread(stripe.Subscription.list, **kwargs)
     data = _to_dict(response) or {}
     for sub in data.get("data", []) or []:
         sub_d = _to_dict(sub) or {}
@@ -365,6 +420,11 @@ async def sync_subscription_from_stripe(
     subscription_id: str | None = None,
     stripe_subscription=None,
     customer_email: str | None = None,
+    stripe_account_ref: str | None = PRIMARY_STRIPE_ACCOUNT_REF,
+    legacy_stripe_customer_id: str | None = None,
+    legacy_stripe_subscription_id: str | None = None,
+    stripe_migration_state: str | None = None,
+    stripe_migrated_at: str | None = None,
     source: str = "unknown",
 ) -> dict:
     """Refresh local subscription state from Stripe Subscription + catalog."""
@@ -377,8 +437,60 @@ async def sync_subscription_from_stripe(
     subscription_id = subscription_id or (sub_record or {}).get("stripe_subscription_id")
 
     if stripe_subscription is None:
-        if subscription_id:
+        if subscription_id and sub_record:
+            last_missing_error: Exception | None = None
+            for account_ref, candidate_subscription_id, api_key in _candidate_accounts_for_subscription(sub_record):
+                try:
+                    stripe_subscription = await _retrieve_subscription(
+                        candidate_subscription_id,
+                        api_key=api_key,
+                    )
+                    stripe_account_ref = account_ref
+                    subscription_id = candidate_subscription_id
+                    if account_ref == LEGACY_STRIPE_ACCOUNT_REF:
+                        legacy_stripe_subscription_id = candidate_subscription_id
+                        legacy_stripe_customer_id = (
+                            sub_record.get("legacy_stripe_customer_id")
+                            or sub_record.get("stripe_customer_id")
+                        )
+                        stripe_migration_state = stripe_migration_state or "legacy_active"
+                    break
+                except stripe.InvalidRequestError as e:
+                    if _is_missing_portal_resource_error(e):
+                        last_missing_error = e
+                        logger.warning(
+                            "subscription sync missing in Stripe account user=%s account=%s sub=%s: %s",
+                            user_id[:8],
+                            account_ref,
+                            candidate_subscription_id,
+                            e,
+                        )
+                        continue
+                    raise
+            if stripe_subscription is None and last_missing_error:
+                logger.warning(
+                    "subscription sync found no configured account for user=%s sub=%s",
+                    user_id[:8],
+                    subscription_id,
+                )
+        elif subscription_id:
             stripe_subscription = await _retrieve_subscription(subscription_id)
+        elif customer_id and sub_record:
+            for account_ref, candidate_customer_id, _subscription_id, api_key in (
+                _candidate_portal_accounts_for_subscription(sub_record)
+            ):
+                stripe_subscription = await _find_active_subscription_for_customer(
+                    candidate_customer_id,
+                    api_key=api_key,
+                )
+                if stripe_subscription is not None:
+                    stripe_account_ref = account_ref
+                    customer_id = candidate_customer_id
+                    if account_ref == LEGACY_STRIPE_ACCOUNT_REF:
+                        legacy_stripe_customer_id = candidate_customer_id
+                        legacy_stripe_subscription_id = _subscription_id
+                        stripe_migration_state = stripe_migration_state or "legacy_active"
+                    break
         elif customer_id:
             stripe_subscription = await _find_active_subscription_for_customer(customer_id)
 
@@ -387,29 +499,54 @@ async def sync_subscription_from_stripe(
 
     sub_d = _to_dict(stripe_subscription) or {}
     status = sub_d.get("status", "active")
-    customer_id = customer_id or sub_d.get("customer")
+    customer_id = sub_d.get("customer") or customer_id
     subscription_id = sub_d.get("id") or subscription_id
+    if stripe_account_ref == LEGACY_STRIPE_ACCOUNT_REF:
+        legacy_stripe_customer_id = legacy_stripe_customer_id or customer_id
+        legacy_stripe_subscription_id = legacy_stripe_subscription_id or subscription_id
+        stripe_migration_state = stripe_migration_state or "legacy_active"
     plan = resolve_plan_from_subscription(sub_d)
     period_start, period_end = _get_subscription_period(sub_d)
     cancel_at_period_end, cancel_at, canceled_at = _get_subscription_cancellation(sub_d)
+    billing_fields = _extract_subscription_billing_fields(sub_d)
     feature_keys = _canonical_features_for_plan(plan) if _is_active_subscription_status(status) else []
+    migration_fields = {
+        "stripe_account_ref": stripe_account_ref,
+        "legacy_stripe_customer_id": legacy_stripe_customer_id,
+        "legacy_stripe_subscription_id": legacy_stripe_subscription_id,
+        "stripe_migration_state": stripe_migration_state,
+        "stripe_migrated_at": stripe_migrated_at,
+    }
+    migration_fields = {
+        key: value for key, value in migration_fields.items() if value is not None
+    }
 
-    await upsert_subscription(
-        user_id=user_id,
-        stripe_customer_id=customer_id,
-        stripe_subscription_id=subscription_id,
-        plan=plan if feature_keys else "free",
-        status=status,
-        current_period_start=period_start,
-        current_period_end=period_end,
-        cancel_at_period_end=cancel_at_period_end,
-        cancel_at=cancel_at,
-        canceled_at=canceled_at,
-        clear_cancel_at=cancel_at is None,
-        clear_canceled_at=canceled_at is None,
-        entitlements=feature_keys,
-        clear_access_expires_at=True,
-    )
+    upsert_kwargs = {
+        "user_id": user_id,
+        "stripe_customer_id": customer_id,
+        "stripe_subscription_id": subscription_id,
+        "plan": plan if feature_keys else "free",
+        "status": status,
+        "current_period_start": period_start,
+        "current_period_end": period_end,
+        "cancel_at_period_end": cancel_at_period_end,
+        "cancel_at": cancel_at,
+        "canceled_at": canceled_at,
+        "clear_cancel_at": cancel_at is None,
+        "clear_canceled_at": canceled_at is None,
+        "entitlements": feature_keys,
+        "clear_access_expires_at": True,
+    }
+    extra_fields = {**billing_fields, **migration_fields}
+    upsert_ok = await upsert_subscription(**upsert_kwargs, **extra_fields)
+    if not upsert_ok and any(value is not None for value in extra_fields.values()):
+        logger.warning(
+            "subscription sync upsert failed with billing/migration fields; "
+            "retrying without extra fields user=%s source=%s",
+            user_id[:8],
+            source,
+        )
+        await upsert_subscription(**upsert_kwargs)
 
     if customer_id and feature_keys:
         try:
@@ -443,6 +580,8 @@ async def sync_subscription_from_stripe(
         "plan": plan if feature_keys else "free",
         "status": status,
         "entitlements": feature_keys,
+        **billing_fields,
+        **migration_fields,
     }
 
 
@@ -464,6 +603,187 @@ def _supports_subscription_price_update(config: dict) -> bool:
         return False
     allowed_updates = set(update.get("default_allowed_updates") or [])
     return not allowed_updates or "price" in allowed_updates
+
+
+def _is_missing_portal_resource_error(error: stripe.InvalidRequestError) -> bool:
+    message = str(error)
+    param = getattr(error, "param", None)
+    code = getattr(error, "code", None)
+    if "No such customer" in message or "No such subscription" in message:
+        return True
+    return code == "resource_missing" and param in {"customer", "subscription"}
+
+
+def _candidate_accounts_for_subscription(sub: dict) -> list[tuple[str, str, str]]:
+    """Return ordered (account_ref, subscription_id, api_key) candidates."""
+    candidates: list[tuple[str, str, str]] = []
+
+    def add(account_ref: str, subscription_id: str | None, api_key: str) -> None:
+        if not subscription_id or not api_key:
+            return
+        candidate = (account_ref, subscription_id, api_key)
+        if candidate not in candidates:
+            candidates.append(candidate)
+
+    account_ref = sub.get("stripe_account_ref") or PRIMARY_STRIPE_ACCOUNT_REF
+    if account_ref == LEGACY_STRIPE_ACCOUNT_REF:
+        add(
+            LEGACY_STRIPE_ACCOUNT_REF,
+            sub.get("legacy_stripe_subscription_id") or sub.get("stripe_subscription_id"),
+            STRIPE_LEGACY_SECRET_KEY,
+        )
+
+    add(PRIMARY_STRIPE_ACCOUNT_REF, sub.get("stripe_subscription_id"), STRIPE_SECRET_KEY)
+    add(
+        LEGACY_STRIPE_ACCOUNT_REF,
+        sub.get("legacy_stripe_subscription_id") or sub.get("stripe_subscription_id"),
+        STRIPE_LEGACY_SECRET_KEY,
+    )
+    return candidates
+
+
+def _candidate_portal_accounts_for_subscription(sub: dict) -> list[tuple[str, str, str, str]]:
+    """Return ordered (account_ref, customer_id, subscription_id, api_key) candidates."""
+    candidates: list[tuple[str, str, str, str]] = []
+
+    def add(
+        account_ref: str,
+        customer_id: str | None,
+        subscription_id: str | None,
+        api_key: str,
+    ) -> None:
+        if not customer_id or not subscription_id or not api_key:
+            return
+        candidate = (account_ref, customer_id, subscription_id, api_key)
+        if candidate not in candidates:
+            candidates.append(candidate)
+
+    account_ref = sub.get("stripe_account_ref") or PRIMARY_STRIPE_ACCOUNT_REF
+    if account_ref == LEGACY_STRIPE_ACCOUNT_REF:
+        add(
+            LEGACY_STRIPE_ACCOUNT_REF,
+            sub.get("legacy_stripe_customer_id") or sub.get("stripe_customer_id"),
+            sub.get("legacy_stripe_subscription_id") or sub.get("stripe_subscription_id"),
+            STRIPE_LEGACY_SECRET_KEY,
+        )
+
+    add(
+        PRIMARY_STRIPE_ACCOUNT_REF,
+        sub.get("stripe_customer_id"),
+        sub.get("stripe_subscription_id"),
+        STRIPE_SECRET_KEY,
+    )
+    add(
+        LEGACY_STRIPE_ACCOUNT_REF,
+        sub.get("legacy_stripe_customer_id") or sub.get("stripe_customer_id"),
+        sub.get("legacy_stripe_subscription_id") or sub.get("stripe_subscription_id"),
+        STRIPE_LEGACY_SECRET_KEY,
+    )
+    return candidates
+
+
+async def _cancel_subscription_with_key(subscription_id: str, api_key: str):
+    return await asyncio.to_thread(
+        stripe.Subscription.modify,
+        subscription_id,
+        cancel_at_period_end=True,
+        expand=["items.data.price"],
+        api_key=api_key,
+    )
+
+
+async def cancel_subscription_at_period_end(user_id: str) -> dict:
+    """Schedule a Stripe subscription cancellation for the current user.
+
+    During Stripe account migration, old subscriptions might still live in the
+    legacy Stripe account. Try the primary account first, then the configured
+    legacy account, and persist whichever account actually owns the
+    subscription.
+    """
+    sub = await get_subscription(user_id)
+    if not sub or sub.get("is_lifetime") or sub.get("access_expires_at"):
+        raise ValueError("No Stripe subscription found for this user")
+
+    candidates = _candidate_accounts_for_subscription(sub)
+    if not candidates:
+        raise ValueError("No Stripe subscription found for this user")
+
+    last_missing_error: Exception | None = None
+    for account_ref, subscription_id, api_key in candidates:
+        try:
+            stripe_sub = await _cancel_subscription_with_key(subscription_id, api_key)
+            break
+        except stripe.InvalidRequestError as e:
+            if _is_missing_portal_resource_error(e):
+                last_missing_error = e
+                logger.warning(
+                    "cancel subscription missing in Stripe account user=%s account=%s sub=%s: %s",
+                    user_id[:8],
+                    account_ref,
+                    subscription_id,
+                    e,
+                )
+                continue
+            raise
+    else:
+        if sub.get("stripe_account_ref") == LEGACY_STRIPE_ACCOUNT_REF and not STRIPE_LEGACY_SECRET_KEY:
+            raise RuntimeError("Legacy Stripe key is not configured")
+        raise ValueError("Stripe subscription not found in configured accounts") from last_missing_error
+
+    sub_d = _to_dict(stripe_sub) or {}
+    customer_id = sub_d.get("customer") or sub.get("stripe_customer_id")
+    status = sub_d.get("status", "active")
+    plan = resolve_plan_from_subscription(sub_d)
+    period_start, period_end = _get_subscription_period(sub_d)
+    cancel_at_period_end, cancel_at, canceled_at = _get_subscription_cancellation(sub_d)
+    if cancel_at_period_end and not cancel_at:
+        cancel_at = period_end
+    if cancel_at_period_end and not canceled_at:
+        canceled_at = datetime.now(timezone.utc).isoformat()
+    billing_fields = _extract_subscription_billing_fields(sub_d)
+    feature_keys = _canonical_features_for_plan(plan) if _is_active_subscription_status(status) else []
+
+    migration_fields: dict[str, str] = {"stripe_account_ref": account_ref}
+    if account_ref == LEGACY_STRIPE_ACCOUNT_REF:
+        migration_fields["legacy_stripe_customer_id"] = customer_id
+        migration_fields["legacy_stripe_subscription_id"] = subscription_id
+        migration_fields["stripe_migration_state"] = "legacy_cancel_scheduled"
+    migration_state = migration_fields.get("stripe_migration_state")
+
+    upsert_kwargs = {
+        "user_id": user_id,
+        "stripe_customer_id": customer_id,
+        "stripe_subscription_id": subscription_id,
+        "plan": plan if feature_keys else "free",
+        "status": status,
+        "current_period_start": period_start,
+        "current_period_end": period_end,
+        "cancel_at_period_end": cancel_at_period_end,
+        "cancel_at": cancel_at,
+        "canceled_at": canceled_at,
+        "entitlements": feature_keys,
+        "clear_access_expires_at": True,
+    }
+    extra_fields = {**billing_fields, **migration_fields}
+    upsert_ok = await upsert_subscription(**upsert_kwargs, **extra_fields)
+    if not upsert_ok:
+        logger.warning(
+            "cancel subscription upsert failed with extra fields; retrying core fields user=%s",
+            user_id[:8],
+        )
+        await upsert_subscription(**upsert_kwargs)
+
+    return {
+        "success": True,
+        "plan": plan if feature_keys else "free",
+        "status": status,
+        "current_period_end": period_end,
+        "cancel_at_period_end": cancel_at_period_end,
+        "cancel_at": cancel_at,
+        "canceled_at": canceled_at,
+        "stripe_account_ref": account_ref,
+        "stripe_migration_state": migration_state,
+    }
 
 
 def _upgrade_portal_configuration_cache_key() -> str:
@@ -915,20 +1235,50 @@ async def create_portal_session(
 
     safe_return_path = _normalize_return_path(return_path)
     return_url = _frontend_url(safe_return_path, frontend_origin=frontend_origin)
-    portal_kwargs = {
-        "customer": sub["stripe_customer_id"],
-        "return_url": return_url,
-    }
 
+    candidates = _candidate_portal_accounts_for_subscription(sub)
+    if not candidates:
+        if sub.get("stripe_account_ref") == LEGACY_STRIPE_ACCOUNT_REF and not STRIPE_LEGACY_SECRET_KEY:
+            raise RuntimeError("Legacy Stripe key is not configured")
+        raise ValueError("No Stripe subscription found for this user")
+
+    checkout_product = None
+    plan = None
+    price_id = None
     if product:
         checkout_product = normalize_checkout_product(product, product)
         plan = product_plan(checkout_product)
         price_id = await resolve_price_id_for_product(checkout_product, billing_interval)
         if not price_id:
             raise ValueError("No Stripe Price ID configured for product: %s" % checkout_product)
-        subscription_id = sub.get("stripe_subscription_id")
-        if subscription_id:
-            stripe_sub = await _retrieve_subscription(subscription_id)
+
+    last_missing_error: Exception | None = None
+    for account_ref, customer_id, subscription_id, api_key in candidates:
+        if product and account_ref != PRIMARY_STRIPE_ACCOUNT_REF:
+            continue
+
+        try:
+            stripe_sub = await _retrieve_subscription(subscription_id, api_key=api_key)
+        except stripe.InvalidRequestError as e:
+            if _is_missing_portal_resource_error(e):
+                last_missing_error = e
+                logger.warning(
+                    "Portal subscription missing in Stripe account user=%s account=%s sub=%s: %s",
+                    user_id[:8],
+                    account_ref,
+                    subscription_id,
+                    e,
+                )
+                continue
+            raise
+
+        stripe_sub_d = _to_dict(stripe_sub) or {}
+        portal_kwargs = {
+            "customer": stripe_sub_d.get("customer") or customer_id,
+            "return_url": return_url,
+        }
+
+        if product:
             item = _first_subscription_item(stripe_sub)
             item_id = item.get("id") if item else None
             if item_id:
@@ -958,18 +1308,34 @@ async def create_portal_session(
                     },
                 }
 
-    try:
-        session = await asyncio.to_thread(
-            stripe.billing_portal.Session.create,
-            **portal_kwargs,
-        )
-    except stripe.InvalidRequestError as e:
-        if "flow_data" not in portal_kwargs:
+        try:
+            session = await asyncio.to_thread(
+                stripe.billing_portal.Session.create,
+                **portal_kwargs,
+                api_key=api_key,
+            )
+            return session.url
+        except stripe.InvalidRequestError as e:
+            if _is_missing_portal_resource_error(e):
+                last_missing_error = e
+                logger.warning(
+                    "Portal customer missing in Stripe account user=%s account=%s customer=%s: %s",
+                    user_id[:8],
+                    account_ref,
+                    portal_kwargs["customer"],
+                    e,
+                )
+                continue
+            if "flow_data" not in portal_kwargs:
+                raise
+            logger.warning(
+                "Portal subscription update flow unavailable for user=%s account=%s: %s",
+                user_id[:8],
+                account_ref,
+                e,
+            )
             raise
-        logger.warning(
-            "Portal subscription update flow unavailable for user=%s: %s",
-            user_id[:8],
-            e,
-        )
-        raise
-    return session.url
+
+    if sub.get("stripe_account_ref") == LEGACY_STRIPE_ACCOUNT_REF and not STRIPE_LEGACY_SECRET_KEY:
+        raise RuntimeError("Legacy Stripe key is not configured")
+    raise ValueError(PORTAL_ACCOUNT_MIGRATION_MESSAGE) from last_missing_error
