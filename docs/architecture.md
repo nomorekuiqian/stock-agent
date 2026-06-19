@@ -315,7 +315,7 @@ Step 5  异步写入 DB (非阻塞)
 ```
 QueryClientProvider
   └─ ThemeProvider (dark/light)
-       └─ AuthProvider (Insforge SDK Direct → JWT)
+       └─ AuthProvider (server-cookie bridge → JWT)
             └─ SubscriptionProvider (Stripe 订阅状态)
                  └─ 页面内容
                       └─ React Query hooks (domain-specific staleTime)
@@ -345,7 +345,7 @@ Financial Terminal + Editorial Luxury
 |------|------|------|------|
 | AI 框架 | Google ADK (非 LangChain) | 原生 Pydantic schema、代码极简、Gemini 深度集成 | 生态不如 LangChain 丰富 |
 | 数据库操作 | Edge Functions (非 ORM) | 解耦、安全(Python不直连DB)、可独立部署 | 多一层 HTTP 调用 |
-| 认证 | SDK Direct (非 Server Bridge) | 开发快、少一层 | Safari/隐身模式 refresh token 失效 |
+| 认证 | Server-cookie bridge (first-party httpOnly cookies) | 刷新/OAuth/隐私模式下登录态更稳定 | 需要维护 Next.js server actions / route handlers |
 | 三级缓存 | 内存→DB→API | 成本控制(FMP 有配额)、性能分层 | 一致性管理复杂 |
 | 数据获取 | React Query (非 SWR/Redux) | 乐观更新、查询失效、缓存注入、DevTools | 比 SWR 更重 |
 | 个股分析 | 4 个独立 Agent | 并行、独立缓存、Token 效率、容错 | 4 次 API 调用(可并行) |

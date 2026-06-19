@@ -12,7 +12,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 | Lifetime | `is_lifetime=true` | 永久 Max 全功能 |
 | 非 Stripe grant (过渡/赠送) | `access_expires_at` 未来 + `plan/status/entitlements` | 读时按 `access_expires_at` 失效；每日 reconciliation 清成 Free/expired |
 
-当前用户可见展示价格为 Pro `$10/月`、Max `$20/月`。前端页面价格以 `frontend/src/lib/pricing.ts` 为准；后端邮件模板中的价格常量必须与它保持一致。Stripe 实际扣款金额仍以对应 Price ID 为准。
+当前公开销售价格为 Pro `$10/月`、Max `$20/月`。销售页价格以 `frontend/src/lib/pricing.ts` 为准；后端邮件模板中的价格常量必须与它保持一致。已订阅用户的账户页续费金额不能按公开价格推断，必须优先使用后端从 Stripe subscription item Price 同步的 `billing_amount_cents` / `billing_currency` / `billing_interval`，以保留早鸟价和其他历史价显示。Stripe 实际扣款金额仍以对应 Price ID 为准。
 
 ## 功能边界
 
@@ -125,6 +125,9 @@ python scripts/migrate_ultra_to_max.py --apply
 ## Grant 到期与同步
 
 - 真付费订阅通过 Stripe Subscription + Entitlements webhook 同步 `plan/status/entitlements`；legacy Ultra price / metadata / entitlement 一律归一化为 Max。
+- Subscription 同步同时缓存真实 Stripe Price 字段到 `subscriptions.stripe_price_id`、`billing_amount_cents`、`billing_currency`、`billing_interval`、`billing_interval_count`，供 `/api/payment/subscription-status` 和 Profile 续费价格显示使用。字段缺失时前端应显示非金额 fallback（如“原订阅价格”），不能回退到当前公开 Max 价格。
+- Stripe 账户迁移期用 `stripe_account_ref`、`legacy_stripe_customer_id`、`legacy_stripe_subscription_id`、`stripe_migration_state` 记录订阅归属。旧账户 customer/subscription 不能假设能打开当前账户 Billing Portal；用户取消必须可走 `/api/payment/cancel-subscription`，由后端 fallback 到 `STRIPE_LEGACY_SECRET_KEY` 设置周期末取消。
+- Stripe 账户迁移工具链是三段式：`preflight_stripe_account_migration.py` 先只读校验 keys/schema/customer map/product/source samples；`export_stripe_account_migration.py` 生成 Billing migration toolkit CSV 和 report；`reconcile_stripe_account_migration.py` 在新账户订阅 live 后验证 metadata/金额/Portal 并回写本地 row。迁移脚本使用专用 `STRIPE_MIGRATION_SOURCE_SECRET_KEY` / `STRIPE_MIGRATION_DESTINATION_SECRET_KEY`，默认拒绝 test-mode key；导出 CSV 必须使用目标账户 customer/product ID。脚本默认从 `STRIPE_MIGRATION_DESTINATION_PRO_PRICE_ID` / `STRIPE_MIGRATION_DESTINATION_MAX_PRICE_ID`（fallback `STRIPE_PRO_PRICE_ID` / `STRIPE_MAX_PRICE_ID`）解析目标 Pro/Max Product，不能把源账户 ID 直接上传到目标账户。
 - Webhook compensation：`checkout.session.completed`、`customer.subscription.updated`、`customer.subscription.deleted` 会调用同一个 entitlement sync，减少 webhook 乱序或漏投造成的漂移。
 - Stripe entitlement sync 写入 `plan/status/entitlements` 时必须清理旧 `access_expires_at`，避免历史 grant 到期字段拦住真实付费订阅。
 - 非 Stripe grant 仍保存在同一张 `subscriptions` 表，用 `access_expires_at` 表达到期时间。

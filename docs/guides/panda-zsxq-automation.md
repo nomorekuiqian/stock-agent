@@ -48,7 +48,7 @@ Panda 知识星球当前是 `pandacircle` persona 的一部分。它不是 Twitt
 | Corpus | `source_type` | Metadata filter | 说明 |
 | --- | --- | --- | --- |
 | Panda 知识星球 | `zsxq_thread` | `author_username=pandacircle` | 知识星球动态，一条 thread 是一个 vector document |
-| Johnson/Panda 相关 X/Twitter | `kol_tweet` | `author_username=JohnsonZ91127`, `quality=keep` | 走 Twitter/KOL pipeline，不属于知识星球入库 |
+| Johnson/Panda 相关 X/Twitter | `kol_tweet` | `author_username=JohnsonZ91127`, `quality=keep` | 走 Twitter/KOL pipeline；已纳入 4 次/天的自动 embedding schedule，不属于知识星球入库 |
 
 这份手册主要讲第一条：Panda 知识星球。
 
@@ -501,7 +501,9 @@ state/pandacircle-zsxq.json
 
 `pandacircle` 还检索 `JohnsonZ91127` 的 X/Twitter corpus。这条不是知识星球 pipeline。
 
-如果要自动化 Twitter companion corpus，走现有 KOL tweet 流程：
+Twitter companion corpus 的自动 embedding 已接入生产 schedule
+`KOL Tweet Embeddings - Frank + Serenity + Panda`。如果需要历史补全或重建,
+仍走现有 KOL tweet 流程：
 
 ```text
 backfill_user_tweets.py

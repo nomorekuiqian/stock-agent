@@ -49,6 +49,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `backend/app/features/daily_report/.context.md` -- Market daily report
 - `backend/app/features/feedback/.context.md` -- User feedback
 - `backend/app/features/flags/.context.md` -- Feature flags
+- `backend/app/features/community_access/.context.md` -- Partner/community Agent access grants
 - `backend/app/features/for_you/.context.md` -- For-You action bar aggregation
 - `backend/app/features/holdings_sync/.context.md` -- Holdings statement sync
 - `backend/app/features/invites/.context.md` -- Invite codes and trial access
@@ -82,6 +83,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 **Frontend**:
 - `frontend/src/app/.context.md` -- App Router shell, root layout, home page
 - `frontend/src/app/admin/.context.md` -- Admin dashboard pages
+- `frontend/src/app/panda/.context.md` -- Panda private community Agent page
 - `frontend/src/app/api/auth/.context.md` -- Server Proxy auth routes
 - `frontend/src/app/api/mcp/.context.md` -- MCP authorization route handlers
 - `frontend/src/app/auth/.context.md` -- OAuth callback route
@@ -190,9 +192,14 @@ FRED_API_KEY=xxx                # Liquidity indicators
 TAVILY_API_KEY=xxx              # Watchlist monitor news enrichment
 TWITTER_API_KEY=xxx             # KOL tweet ingestion
 STRIPE_SECRET_KEY=xxx           # Stripe payments
+STRIPE_LEGACY_SECRET_KEY=xxx    # Legacy Stripe account key for migration fallback
+STRIPE_MIGRATION_SOURCE_SECRET_KEY=xxx       # Explicit source Stripe account key
+STRIPE_MIGRATION_DESTINATION_SECRET_KEY=xxx  # Explicit destination Stripe account key
 STRIPE_WEBHOOK_SECRET=xxx       # Stripe Webhook signature
 STRIPE_PRO_PRICE_ID=xxx         # Pro subscription price ID
 STRIPE_MAX_PRICE_ID=xxx         # Max subscription price ID
+STRIPE_MIGRATION_DESTINATION_MAX_PRICE_ID=xxx  # Destination-account Max price override
+STRIPE_MIGRATION_DESTINATION_PRO_PRICE_ID=xxx  # Destination-account Pro price override
 STRIPE_ULTRA_PRICE_ID=xxx       # Ultra subscription price ID (Max + Qinbafrank pack)
 STRIPE_CREATOR_MAX_QINBAFRANK_PRICE_ID=xxx  # Legacy fallback alias for STRIPE_ULTRA_PRICE_ID
 RESEND_API_KEY=xxx              # Resend email
@@ -226,10 +233,12 @@ WATCHLIST_MONITOR_LLM_MODEL=deepseek-v4-pro
 WATCHLIST_MONITOR_LLM_MAX_TOKENS=2400
 WATCHLIST_MONITOR_LLM_RETRIES=2
 WATCHLIST_MONITOR_LLM_TEMPERATURE=0.2
+WATCHLIST_MONITOR_MODEL_VERSION=watchlist-monitor-v1-deepseek-v4-pro
 WATCHLIST_MONITOR_TAVILY_ENABLED=true
 WATCHLIST_MONITOR_TAVILY_RESULTS_PER_QUERY=8
 WATCHLIST_MONITOR_TAVILY_TIMEOUT_S=8.0
 WATCHLIST_MONITOR_TAVILY_TOPIC=general
+WATCHLIST_MONITOR_TAVILY_INCLUDE_DOMAINS=xxx  # Optional comma-separated allowlist
 AGENT_RUNTIME_REQUEST_HISTORY=fallback
 AGENT_RUNTIME_INMEMORY_MAX_SESSIONS=256
 AGENT_RUNTIME_INMEMORY_MAX_TRANSCRIPT=64
@@ -272,10 +281,11 @@ backend/app/
 ├── features/            # Feature modules (active code)
 │   ├── daily_report/    # Market daily report
 │   ├── brew/            # Personalized summary
+│   ├── for_you/         # For-You aggregation and action bar
 │   ├── stock/           # Individual stock research
 │   ├── macro/           # Macro system (risk/ + liquidity/ + weekly/ + cache/)
 │   ├── screener/        # Stock Screener (tvscreener full market screening)
-│   ├── sector/          # Sector analysis
+│   ├── twitter_digest/  # Twitter/KOL daily digest
 │   ├── subscription/    # Subscription management
 │   ├── notification/    # Email sending & broadcast
 │   ├── feedback/        # User feedback
@@ -322,7 +332,7 @@ Find auth endpoints: `grep -r "verify_user_token" backend/app/features/*/router.
 
 ```
 frontend/src/
-├── app/             # Next.js App Router (59 page.tsx files)
+├── app/             # Next.js App Router pages and route handlers
 ├── components/      # Shared component library
 ├── contexts/        # AuthContext + SubscriptionContext
 ├── hooks/           # useStockSearch + hooks/queries/ (TanStack Query)

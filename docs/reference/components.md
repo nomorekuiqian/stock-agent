@@ -16,7 +16,7 @@
 | 记忆反馈 | FeedbackBar, QuickThesisInput |
 | 订阅 | SubscribeForm, PaywallGuard |
 | 装饰 | TrustBadges, LogoMarquee, ProductShowcase, LandingDelight |
-| 全局 | Providers, PostHogProvider, TradingViewWidget, AuthSubscriptionSync, FeatureSections, AiChatLink |
+| 全局 | Providers, PostHogProvider, TradingViewWidget, AuthSubscriptionSync, FeatureSections, HomeGuidedTour, AiChatLink |
 | Auth 表单 | PasswordField |
 | 其他 | UnlockCTA |
 
@@ -87,6 +87,11 @@ AI 个股分析卡片，支持三种状态。
 ### LandingDelight
 首页微交互协调器。
 - **功能**: 仅基于 `data-delight-*` 标记驱动 reveal / hover 动效，尊重 `prefers-reduced-motion`
+- **使用场景**: `/`
+
+### HomeGuidedTour
+首页注册后轻量导览。
+- **功能**: 在 `/?tour=1` 时按顺序高亮「AI 研究助手 / 每日简报 / 投研 / 我的」导航入口；启动前会跳过已完成用户，`?tour=home` 可强制预览
 - **使用场景**: `/`
 
 ### PasswordField
@@ -208,8 +213,8 @@ AI 个股分析卡片，支持三种状态。
 - 使用场景: `/`
 
 ### PageShell.tsx — 页面通用 Shell
-- 统一的页面布局包装器 (标题 + 内容区)
-- 跨多个页面复用
+- 统一的页面布局包装器，默认渲染 Navbar、顶部 spacer 和 footer。
+- `?from=wechat` WebView 流程和 `/panda` focused partner Agent 页面会跳过全站 chrome。
 
 ### PostHogProvider.tsx — PostHog Provider
 - 客户端 PostHog 初始化和 provider 包裹

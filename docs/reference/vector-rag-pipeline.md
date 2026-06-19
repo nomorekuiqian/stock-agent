@@ -77,10 +77,10 @@ Production keeps selected KOL tweet embeddings fresh through a direct Insforge
 Schedule:
 
 ```text
-KOL Tweet Embeddings - Frank + Serenity
+KOL Tweet Embeddings - Frank + Serenity + Panda
 cron: 15 5,11,17,23 * * *
 endpoint: POST /api/vector/index-kol-tweets
-authors: qinbafrank, aleabitoreddit
+authors: qinbafrank, aleabitoreddit, JohnsonZ91127
 window_hours: 36
 limit/page_size: 1000
 tweet_types: original, quote, article

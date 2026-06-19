@@ -38,12 +38,16 @@ GitHub cron workflow 文件删除；实际调度统一由 Insforge 触发
 
 | Insforge schedule | Schedule ID | Cron UTC | Target | 状态 |
 |---|---|---|---|---|
-| `KOL Tweet Embeddings - Frank + Serenity` | `e07d6f04-c5fc-4206-9d44-489cf97ff16a` | `15 5,11,17,23 * * *` | `POST /api/vector/index-kol-tweets` with `author_usernames=["qinbafrank","aleabitoreddit"]` | active |
+| `KOL Tweet Embeddings - Frank + Serenity + Panda` | `e07d6f04-c5fc-4206-9d44-489cf97ff16a` | `15 5,11,17,23 * * *` | `POST /api/vector/index-kol-tweets` with `author_usernames=["qinbafrank","aleabitoreddit","JohnsonZ91127"]` | active |
 
 2026-06-09: embedding schedule 从每天一次 `15 23 * * *`
 扩为每天四次,并从 Frank-only 改为 Frank + Serenity (`aleabitoreddit`)。
 它只写 `vector_documents` / `vector_chunks`; KOL tweet 拉取和 enrichment 仍由
 `Cron - KOL Tweets Ingestion` 负责。
+
+2026-06-18: embedding schedule 增加 Panda Twitter companion corpus
+(`JohnsonZ91127`)。`pandacircle` 知识星球语料仍走独立 `zsxq_thread`
+indexing,不属于 Twitter/KOL tweet ingestion。
 
 2026-06-13: 晚间邮件错峰为 `daily_report` 18:00 ET (`0 22 * * 1-5`),
 `twitter_digest_broadcast` 18:15 ET (`15 22 * * 1-5`), `daily_digest`

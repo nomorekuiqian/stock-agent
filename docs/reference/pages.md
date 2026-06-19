@@ -28,6 +28,7 @@
 | `/kol/[username]/stocks` | KOL 个股观点 | Backend (kolResearch tickers) | 否 |
 | `/kol/serenity` | Serenity persona 入口 | redirect(`/kol/aleabitoreddit`) | 否 |
 | `/kol/serenity/[...path]` | Serenity persona 子路径别名 | redirect(`/kol/aleabitoreddit/[...path]`) | 否 |
+| `/panda` | Panda 私域社群 Agent | Backend (`/api/community/panda/*`) + Panda KOL Agent | 是 + Panda email grant |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
@@ -38,12 +39,12 @@
 | `/for-you/portfolio` | 投资组合管理 | Backend (portfolio API) | 是 |
 | `/for-you/health` | 持仓健康度 | Backend (portfolio_health API) | 是 |
 | `/for-you/onboarding` | For-You 引导 | Backend (portfolio API) | 是 |
-| `/macro` | 宏观仪表盘 | Backend (macro-risk + weekly-report API) | 是 |
-| `/macro/liquidity` | 流动性 | Backend (liquidity API) | 是 |
-| `/macro/economy` | 经济基本面 | Backend (macro-risk/economy) | 是 |
-| `/macro/inflation-rates` | 通胀与利率 | Backend (macro-risk/inflation-rates + cpi) | 是 |
-| `/macro/sentiment` | 市场情绪 | Backend (macro-risk/sentiment) | 是 |
-| `/macro/weekly` | 宏观周报 | Backend (weekly-report API) | 是 |
+| `/macro` | 宏观仪表盘 | Backend (macro-risk + weekly-report API) | 否 |
+| `/macro/liquidity` | 流动性 | Backend (liquidity API) | 否 |
+| `/macro/economy` | 经济基本面 | Backend (macro-risk/economy) | 否 |
+| `/macro/inflation-rates` | 通胀与利率 | Backend (macro-risk/inflation-rates + cpi) | 否 |
+| `/macro/sentiment` | 市场情绪 | Backend (macro-risk/sentiment) | 否 |
+| `/macro/weekly` | 宏观周报 | Backend (weekly-report API) | 否 |
 | `/mcp/authorize` | MCP 客户端授权 | Backend (kol_research MCP device authorize) | 是 |
 | `/login` | 登录 | Insforge Auth | 否 |
 | `/profile` | 用户资料 | Insforge Auth (profiles API) | 是 |
@@ -57,14 +58,15 @@
 | `/feedback` | 邮件反馈处理 | Backend (feedback) | 否 |
 | `/unsubscribe` | 邮件退订 | Backend (subscriptions API) | 否 |
 | `/email-test` | 邮件测试 | Backend (notification API) | 否 |
-| `/research` | 投研助手 (Research Desk) | Backend (screener/research API) | 是 |
-| `/research/kb` | 投研知识库 | Backend (research_kb API) | 是 |
-| `/research/gallery` | 投研画廊 | Backend (screener API) | 是 |
+| `/research` | 投研助手 (Research Desk) | Backend (screener/research API) | 否（发送消息需登录） |
+| `/research/kb` | 投研知识库 | Backend (research_kb API) | 否（发送消息需登录） |
+| `/research/gallery` | 投研画廊 | Backend (screener API) | 否（部分面板需登录） |
 | `/settings` | 用户设置 | Backend (notification API) | 是 |
 | `/admin` | 管理后台 | Backend (admin API) | 是 (admin) |
 | `/admin/activity` | 活跃趋势后台 | Backend (admin/activity API) | 是 (admin) |
 | `/admin/users/[id]` | 用户管理详情 | Backend (admin API) | 是 (admin) |
 | `/admin/flags` | Feature Flag 管理 | Backend (admin/flags API) | 是 (admin) |
+| `/admin/panda` | Panda Agent 授权管理 | Backend (admin/community/panda/grants API) | 是 (admin) |
 | `/admin/llm-usage` | LLM 用量与费用面板 | Backend (admin/llm-usage API) | 是 (admin) |
 | `/admin/feedback` | 用户反馈 dashboard | Backend (admin/feedback API) | 是 (admin) |
 | `/webview-check` | WebView 检测 | 无 API 调用 | 否 |
@@ -178,14 +180,14 @@
 - 面板提供 `/stock/{symbol}` 深挖入口
 
 ### `/macro` 宏观仪表盘
-- 需要登录，首层由项目自定义 middleware 拦截
+- 公开浏览，所有 macro 数据端点公开
 - 4 维度卡片: 流动性、经济、通胀、情绪
 - 每个维度显示: 信号灯 (green/yellow/red) + 子维度分析
 - 周报集成: `api.weeklyReport.getLatest()`
 - RiskGauge + RiskSummaryBar 展示综合风险评分
 
 ### `/macro/liquidity` 流动性
-- 需要登录，首层由项目自定义 middleware 拦截
+- 公开浏览，流动性数据端点公开
 - 净流动性图表 (NetLiquidityChart)
 - 全球流动性图表 (GlobalLiquidityChart)
 - 6 个 LiquidityCard 展示关键指标
@@ -201,8 +203,8 @@
 - 页面不展示、不存储 MCP bearer token，也不要求用户输入 TheMarketBrew 密码
 
 ### `/research` AI 选股助手
-- 需要登录，首层由项目自定义 middleware 拦截
-- 页面内仍保留 `useAuth()` 的登录兜底跳转
+- 页面可匿名浏览，发送 Research/KOL 消息和读取用户历史需要登录
+- 页面内保留 `useAuth()`，发送时未登录会跳 `/login?redirect=<当前 /research 完整 URL>`
 
 ### `/profile` 用户资料
 - 需要登录，未登录跳转 `/login?redirect=/profile`

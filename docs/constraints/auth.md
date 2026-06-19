@@ -91,7 +91,7 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
   -> AuthContext 通过 /api/auth/session 决定真实登录态
 ```
 
-`middleware` 当前维护的是 `PUBLIC_ROUTES` 白名单：`/`、`/today`、`/morning`、`/stock`、`/contact`、`/feedback`、`/unsubscribe`、`/login`、`/verify-email`、`/forgot-password`、`/reset-password`、`/auth/callback`、`/email-test`、`/pricing`、`/frank-agent`、`/qinbafrank`、`/webview-check`、`/macro`、`/research`、`/twitter-digest`、`/kol` 等公开前缀直接放行。其它页面先经过 cookie gate；例如 `/for-you`、`/profile`、`/settings`、`/admin`、`/request-access` 会在没有 `app_access_token` / `app_refresh_token` 时跳 `/login?redirect=...`。权威鉴权仍在 `/api/auth/session` 和后端 `verify_user_token` / admin API 中完成。
+`middleware` 当前维护的是 `PUBLIC_ROUTES` 白名单：`/`、`/today`、`/morning`、`/stock`、`/contact`、`/feedback`、`/unsubscribe`、`/login`、`/verify-email`、`/forgot-password`、`/reset-password`、`/auth/callback`、`/email-test`、`/pricing`、`/frank-agent`、`/qinbafrank`、`/webview-check`、`/macro`、`/research`、`/twitter-digest`、`/kol`、`/panda` 等公开前缀直接放行。其它页面先经过 cookie gate；例如 `/for-you`、`/profile`、`/settings`、`/admin`、`/request-access` 会在没有 `app_access_token` / `app_refresh_token` 时跳 `/login?redirect=...`。权威鉴权仍在 `/api/auth/session` 和后端 `verify_user_token` / admin API 中完成。
 
 ## Session 与 Token
 
@@ -196,6 +196,24 @@ MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，
 - `POST /api/kol_research/mcp/auth/device/start`、`POST /api/kol_research/mcp/auth/device/token`：公开登录辅助，device code 有过期时间。
 - `POST /api/kol_research/mcp/auth/device/authorize`：必须是已登录网站用户，使用 `verify_user_token`。
 - Persona/material/evidence/data/context/workflow MCP endpoints：必须带 MCP bearer token；未授权时返回 `auth_required` 并提示 `market_lens_login`。
+
+## Panda 社群 Agent 授权
+
+`/panda` 使用正常网站登录态，但访问权不来自 Stripe entitlements。后端先用
+`verify_user_token_with_email` 验证用户，再用 normalized email 查询
+`community_access_grants(partner_id='panda', status='active')`。
+
+关键边界：
+
+- Panda access 只允许使用 Panda Agent，不开通 Max / Pro 或主站其它功能。
+- Admin 在 `/admin/panda` 从知识星球报名评论收集 email 后批量 grant。
+- 普通 `/api/kol_research/chat*` 会拒绝 `pandacircle`；只有
+  `/api/community/panda/chat/stream` 可以调用该 persona。
+- 未授权用户拿到 `/panda` 链接也无法访问 Agent；分享账号密码仍需通过设备/session
+  限制或人工 revoke 处理。
+- `/panda` 是 focused partner route，新注册用户完成登录/验证后必须留在 `/panda`。
+  `OnboardingGate` 不能把它重定向到首页 `/?tour=1`，Panda 页面自己的登录/权限 gate
+  负责首次体验。
 
 ## 手动 QA 计划
 
@@ -400,5 +418,5 @@ MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，
 ## 注意事项
 
 - 不要重新引入 `@insforge/nextjs`
-- callback 与 session 恢复优先信任 SDK 当前 session，不要在页面层再造第二套状态机
-- 若需彻底解决刷新后登录丢失（无痕模式/Safari），需实现 `/api/auth/route.ts` Server Bridge，但实现前须将 `/api/auth` 路由从 `PUBLIC_ROUTES` 中保留（它目前不在受保护路由列表内）
+- callback 与 session 恢复优先信任 `app_access_token` / `app_refresh_token` 和 `/api/auth/session`，不要在页面层再造第二套状态机
+- `/api/auth/session` 是当前 server-cookie bridge 的权威恢复入口；不要回退到浏览器直连 Insforge refresh cookie 或恢复 `@insforge/nextjs`
