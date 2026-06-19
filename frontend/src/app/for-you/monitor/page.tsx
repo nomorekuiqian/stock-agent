@@ -36,7 +36,6 @@ import {
   Radio,
   RefreshCw,
   Repeat2,
-  Search,
   X,
 } from "lucide-react";
 
@@ -984,7 +983,6 @@ function WatchlistMonitorContent() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const userId = user?.id;
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<WatchlistSaveNotice | null>(
     null,
@@ -1037,13 +1035,6 @@ function WatchlistMonitorContent() {
     [effectiveRows, selectedSymbol],
   );
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toUpperCase();
-    return effectiveRows.filter((row) => {
-      const matchesSearch = !term || row.symbol.includes(term);
-      return matchesSearch;
-    });
-  }, [effectiveRows, search]);
   const monitorStats = useMemo(() => {
     let freshCount = 0;
     let staleCount = 0;
@@ -1311,11 +1302,9 @@ function WatchlistMonitorContent() {
 
       <div className="mx-auto grid w-full max-w-[1800px] gap-4 px-4 py-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-5 lg:px-5 xl:grid-cols-[340px_minmax(0,1fr)] xl:gap-6">
         <WatchlistSidebar
-          rows={filteredRows}
+          rows={effectiveRows}
           allRows={effectiveRows}
           selectedSymbol={selectedRow?.symbol ?? null}
-          search={search}
-          onSearchChange={setSearch}
           onSelect={setSelectedSymbol}
           symbols={watchlistSymbols}
           canEdit={watchlistLoaded && !saveWatchlistMutation.isPending}
@@ -1534,8 +1523,6 @@ function WatchlistSidebar({
   rows,
   allRows,
   selectedSymbol,
-  search,
-  onSearchChange,
   onSelect,
   symbols,
   canEdit,
@@ -1548,8 +1535,6 @@ function WatchlistSidebar({
   rows: MonitorTickerRow[];
   allRows: MonitorTickerRow[];
   selectedSymbol: string | null;
-  search: string;
-  onSearchChange: (value: string) => void;
   onSelect: (symbol: string) => void;
   symbols: string[];
   canEdit: boolean;
@@ -1574,10 +1559,29 @@ function WatchlistSidebar({
   const atLimit = symbols.length >= MAX_WATCHLIST_SIZE;
   const waitingRows = allRows.filter(rowNeedsBackfill).length;
   const freshRows = allRows.length - waitingRows;
-  const capacityPct = Math.min(
-    100,
-    Math.round((symbols.length / MAX_WATCHLIST_SIZE) * 100),
-  );
+  const statusNode = isSaving ? (
+    <p className="monitor-save-status inline-flex items-center gap-2 text-sm leading-relaxed text-muted-foreground">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+      正在同步关注列表
+    </p>
+  ) : saveError ? (
+    <p className="monitor-save-status monitor-save-status-error inline-flex items-center gap-2 text-sm leading-relaxed text-rose-500">
+      <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+      {saveError}
+    </p>
+  ) : saveNotice ? (
+    <p
+      key={saveNotice.id}
+      className={`monitor-save-status inline-flex items-center gap-2 text-sm leading-relaxed ${
+        saveNotice.tone === "success"
+          ? "text-primary"
+          : "text-muted-foreground"
+      }`}
+    >
+      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+      {saveNotice.message}
+    </p>
+  ) : null;
 
   const handleAddResult = useCallback(
     (result: StockSearchResult) => {
@@ -1595,8 +1599,8 @@ function WatchlistSidebar({
   }, [addQuery, clearSearch, onAddSymbol]);
 
   return (
-    <aside className="monitor-sidebar-enter max-h-[360px] self-start overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm sm:max-h-[430px] lg:sticky lg:top-4 lg:max-h-[calc(100vh-116px)]">
-      <div className="border-b border-border/50 bg-card/35 p-4">
+    <aside className="monitor-sidebar-enter flex max-h-[360px] min-h-0 flex-col self-start overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm sm:max-h-[430px] lg:sticky lg:top-20 lg:max-h-[calc(100dvh-96px)]">
+      <div className="shrink-0 border-b border-border/50 bg-card/35 p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -1609,33 +1613,19 @@ function WatchlistSidebar({
           </div>
           <Link
             href="/for-you/watchlist"
-            className="monitor-action-button inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+            className="monitor-action-button inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
             aria-label="编辑关注列表"
           >
             <ArrowUpRight className="h-4 w-4" aria-hidden />
           </Link>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <SidebarMetric label="今日覆盖" value={freshRows} />
           <SidebarMetric label="待更新" value={waitingRows} tone="amber" />
         </div>
-        <div className="mt-3 rounded-md border border-border/50 bg-background/45 px-3 py-2">
-          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>容量</span>
-            <span className="font-data tabular-nums">
-              {symbols.length}/{MAX_WATCHLIST_SIZE}
-            </span>
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary/55 transition-[width] duration-300 motion-reduce:transition-none"
-              style={{ width: `${capacityPct}%` }}
-            />
-          </div>
-        </div>
 
-        <div ref={addSearchContainerRef} className="relative mt-4">
+        <div ref={addSearchContainerRef} className="relative mt-3">
           <Command
             shouldFilter={false}
             loop
@@ -1670,9 +1660,6 @@ function WatchlistSidebar({
                 autoCorrect="off"
                 spellCheck={false}
               />
-              <span className="font-data text-xs tabular-nums text-muted-foreground">
-                {symbols.length}/{MAX_WATCHLIST_SIZE}
-              </span>
             </div>
             {showAddDropdown && canEdit && !atLimit && (
               <StockSearchDropdown
@@ -1688,51 +1675,17 @@ function WatchlistSidebar({
             )}
           </Command>
         </div>
-        <div className="mt-2 min-h-6" aria-live="polite">
-          {isSaving ? (
-            <p className="monitor-save-status inline-flex items-center gap-2 text-sm leading-relaxed text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              正在同步关注列表
-            </p>
-          ) : saveError ? (
-            <p className="monitor-save-status monitor-save-status-error inline-flex items-center gap-2 text-sm leading-relaxed text-rose-500">
-              <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-              {saveError}
-            </p>
-          ) : saveNotice ? (
-            <p
-              key={saveNotice.id}
-              className={`monitor-save-status inline-flex items-center gap-2 text-sm leading-relaxed ${
-                saveNotice.tone === "success"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-              {saveNotice.message}
-            </p>
-          ) : null}
-        </div>
-
-        <label htmlFor="monitor-search" className="sr-only">
-          筛选关注列表
-        </label>
-        <div className="mt-4 flex h-11 items-center gap-2 rounded-md border border-border/60 bg-background px-3 transition-colors duration-200 focus-within:border-primary/40 motion-reduce:transition-none">
-          <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <input
-            id="monitor-search"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="筛选关注列表"
-            className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-        </div>
+        {statusNode ? (
+          <div className="mt-2" aria-live="polite">
+            {statusNode}
+          </div>
+        ) : null}
       </div>
 
-      <div className="max-h-72 divide-y divide-border/40 overflow-y-auto lg:max-h-[calc(100vh-256px)]">
+      <div className="min-h-0 flex-1 divide-y divide-border/40 overflow-y-auto overscroll-contain">
         {rows.length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted-foreground">
-            没有匹配的标的
+            还没有自选标的
           </p>
         ) : (
           rows.map((row, index) => (
