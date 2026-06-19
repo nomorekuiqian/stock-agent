@@ -62,6 +62,7 @@ Each module has a `.context.md` file. **Read it before modifying code** to under
 - `backend/app/features/memory/.context.md` -- User memory and feedback learning
 - `backend/app/features/notification/.context.md` -- Email sending & broadcast
 - `backend/app/features/onboarding/.context.md` -- User onboarding status
+- `backend/app/features/okx_mcp/.context.md` -- OKX Context MCP adapter and x402 payment boundary
 - `backend/app/features/payment/.context.md` -- Stripe payments
 - `backend/app/features/portfolio/.context.md` -- Portfolio holdings/profile
 - `backend/app/features/portfolio_health/.context.md` -- Portfolio health analysis
@@ -202,6 +203,17 @@ STRIPE_MIGRATION_DESTINATION_MAX_PRICE_ID=xxx  # Destination-account Max price o
 STRIPE_MIGRATION_DESTINATION_PRO_PRICE_ID=xxx  # Destination-account Pro price override
 STRIPE_ULTRA_PRICE_ID=xxx       # Ultra subscription price ID (Max + Qinbafrank pack)
 STRIPE_CREATOR_MAX_QINBAFRANK_PRICE_ID=xxx  # Legacy fallback alias for STRIPE_ULTRA_PRICE_ID
+OKX_API_KEY=xxx                 # OKX Onchain OS Web3 API key for app.okx_main x402 middleware
+OKX_SECRET_KEY=xxx              # OKX Onchain OS Web3 API secret for app.okx_main
+OKX_PASSPHRASE=xxx              # OKX Onchain OS Web3 API passphrase for app.okx_main
+OKX_BASE_URL=https://web3.okx.com
+OKX_MCP_PAYMENT_ENABLED=false   # Enable OKX x402 middleware only for isolated OKX service
+OKX_MCP_PAYMENT_MODE=sdk        # sdk or external proxy
+OKX_MCP_NETWORK=eip155:196
+OKX_MCP_PAY_TO_ADDRESS=0x...
+OKX_MCP_PERSONA_CONTEXT_PRICE=$0.05
+OKX_MCP_MARKET_DATA_PRICE=$0.03
+OKX_MCP_MAX_TIMEOUT_SECONDS=300
 RESEND_API_KEY=xxx              # Resend email
 RESEND_WEBHOOK_SECRET=xxx       # Resend webhook signature
 RESEND_SEGMENT_MORNING=xxx      # Resend morning report segment

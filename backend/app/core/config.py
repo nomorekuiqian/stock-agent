@@ -49,6 +49,12 @@ STRIPE_ULTRA_PRICE_ID = os.getenv(
     os.getenv("STRIPE_CREATOR_MAX_QINBAFRANK_PRICE_ID", ""),
 )
 
+# OKX Onchain OS / x402 payment settings for the isolated OKX MCP app.
+OKX_API_KEY = os.getenv("OKX_API_KEY", "")
+OKX_SECRET_KEY = os.getenv("OKX_SECRET_KEY", "")
+OKX_PASSPHRASE = os.getenv("OKX_PASSPHRASE", "")
+OKX_BASE_URL = os.getenv("OKX_BASE_URL", "https://web3.okx.com")
+
 # PostHog Analytics
 POSTHOG_PROJECT_TOKEN = os.getenv("POSTHOG_PROJECT_TOKEN", "")
 POSTHOG_HOST = os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
@@ -168,6 +174,21 @@ def _bool_env(name: str, default: bool) -> bool:
     if raw is None or raw == "":
         return default
     return raw.lower() in {"1", "true", "yes", "on"}
+
+
+# OKX Context MCP payment defaults. The discovery endpoint stays public; paid
+# context/data endpoints can be protected either by this app's SDK middleware
+# or by an OKX reverse proxy configured outside the app.
+OKX_MCP_PAYMENT_ENABLED = _bool_env("OKX_MCP_PAYMENT_ENABLED", False)
+OKX_MCP_PAYMENT_MODE = os.getenv("OKX_MCP_PAYMENT_MODE", "sdk").lower()
+OKX_MCP_NETWORK = os.getenv("OKX_MCP_NETWORK", "eip155:196")
+OKX_MCP_PAY_TO_ADDRESS = os.getenv(
+    "OKX_MCP_PAY_TO_ADDRESS",
+    os.getenv("PAYMENT_RECIPIENT", ""),
+)
+OKX_MCP_PERSONA_CONTEXT_PRICE = os.getenv("OKX_MCP_PERSONA_CONTEXT_PRICE", "$0.05")
+OKX_MCP_MARKET_DATA_PRICE = os.getenv("OKX_MCP_MARKET_DATA_PRICE", "$0.03")
+OKX_MCP_MAX_TIMEOUT_SECONDS = _int_env("OKX_MCP_MAX_TIMEOUT_SECONDS", 300)
 
 
 # Watchlist monitor offline generation settings.

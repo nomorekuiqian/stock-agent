@@ -62,157 +62,61 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "themarketbrew-live-smoke-test", version: "0.5.0" },
+    clientInfo: { name: "themarketbrew-live-smoke-test", version: "0.6.0" },
   });
   notify("notifications/initialized");
 
   const toolList = await send("tools/list", {});
-  const toolNames = toolList.tools.map((tool) => tool.name);
-  for (const required of [
-    "market_lens_status",
-    "market_lens_login",
-    "market_lens_auth_status",
-    "market_lens_logout",
-    "market_lens_data_catalog",
-    "market_lens_get_brief",
-    "market_lens_get_stock_data",
-    "market_lens_get_market_data",
-    "market_lens_get_news",
-    "market_lens_personas",
-    "market_lens_list_lenses",
-    "market_lens_get_lens",
-    "market_lens_search_lenses",
-    "market_lens_search_evidence",
-    "market_lens_stock_diagnosis",
-  ]) {
-    if (!toolNames.includes(required)) throw new Error(`${required} missing from tools/list`);
-  }
-  for (const name of toolNames) {
-    if (name.startsWith("frank_")) throw new Error(`Frank-specific tool still exposed: ${name}`);
+  const toolNames = toolList.tools.map((tool) => tool.name).sort();
+  const required = [
+    "themarketbrew_discovery",
+    "themarketbrew_market_data",
+    "themarketbrew_persona_context",
+  ].sort();
+  if (JSON.stringify(toolNames) !== JSON.stringify(required)) {
+    throw new Error(`Unexpected tools/list: ${JSON.stringify(toolNames)}`);
   }
 
-  const status = parseTool(await send("tools/call", { name: "market_lens_status", arguments: {} }));
-  if (!status.ok) {
-    throw new Error(`market_lens_status failed: ${JSON.stringify(status)}`);
+  const discovery = parseTool(await send("tools/call", { name: "themarketbrew_discovery", arguments: {} }));
+  if (!discovery.ok || !Array.isArray(discovery.data?.personas)) {
+    throw new Error(`discovery failed: ${JSON.stringify(discovery).slice(0, 500)}`);
   }
-  if (!status.auth?.authenticated) {
-    const personasWithoutAuth = parseTool(await send("tools/call", { name: "market_lens_personas", arguments: {} }));
-    if (!personasWithoutAuth.auth_required) {
-      throw new Error("market_lens_personas should require account auth without a token");
-    }
-    const catalogWithoutAuth = parseTool(await send("tools/call", { name: "market_lens_data_catalog", arguments: {} }));
-    if (!catalogWithoutAuth.auth_required) {
-      throw new Error("market_lens_data_catalog should require account auth without a token");
+
+  const catalog = parseTool(await send("tools/call", {
+    name: "themarketbrew_market_data",
+    arguments: { data_type: "catalog" },
+  }));
+  if (catalog.payment_required) {
+    console.log(JSON.stringify({
+      ok: true,
+      backend: process.env.THEMARKETBREW_BACKEND_URL || process.env.OKX_MCP_BACKEND_URL || "default",
+      toolCount: toolNames.length,
+      discoveryPersonas: discovery.data.personas.length,
+      paidEndpointVerified: true,
+      note: "market_data returned 402; OKX wallet/payment retry is expected in marketplace flows.",
+    }, null, 2));
+  } else {
+    if (!catalog.ok) throw new Error(`catalog failed: ${JSON.stringify(catalog).slice(0, 500)}`);
+    const persona = parseTool(await send("tools/call", {
+      name: "themarketbrew_persona_context",
+      arguments: {
+        question: "NVDA AI capex 框架怎么看？",
+        ticker: "NVDA",
+        include_evidence_map: false,
+        include_vector_evidence: false,
+      },
+    }));
+    if (!persona.ok && !persona.payment_required) {
+      throw new Error(`persona_context failed: ${JSON.stringify(persona).slice(0, 500)}`);
     }
     console.log(JSON.stringify({
       ok: true,
-      backend: status.adapter?.backend_url,
+      backend: process.env.THEMARKETBREW_BACKEND_URL || process.env.OKX_MCP_BACKEND_URL || "default",
       toolCount: toolNames.length,
-      authenticated: false,
-      gatedContentVerified: true,
-      note: "Set THEMARKETBREW_ACCESS_TOKEN or run market_lens_login to run live content checks.",
+      discoveryPersonas: discovery.data.personas.length,
+      catalogOk: catalog.ok,
+      personaMode: persona.payment_required ? "paid_402" : "context_returned",
     }, null, 2));
-  } else {
-    const personas = parseTool(await send("tools/call", { name: "market_lens_personas", arguments: {} }));
-  if (!Array.isArray(personas.personas) || !personas.personas.some((persona) => persona.username === "aleabitoreddit")) {
-    throw new Error("market_lens_personas did not return aleabitoreddit");
-  }
-
-  const lenses = parseTool(await send("tools/call", {
-    name: "market_lens_list_lenses",
-    arguments: { persona: "qinbafrank", lens_type: "ticker" },
-  }));
-  if (!Array.isArray(lenses.lenses) || !lenses.lenses.some((lens) => lens.lens_id === "NVDA")) {
-    throw new Error("market_lens_list_lenses did not return NVDA ticker lens");
-  }
-
-  const nvdaLens = parseTool(await send("tools/call", {
-    name: "market_lens_get_lens",
-    arguments: { persona: "qinbafrank", lens_type: "ticker", lens_id: "NVDA" },
-  }));
-  if (!nvdaLens.full_body || !Array.isArray(nvdaLens.evidence_tweet_ids)) {
-    throw new Error("market_lens_get_lens did not return full lens context");
-  }
-
-  const materialSearch = parseTool(await send("tools/call", {
-    name: "market_lens_search_lenses",
-    arguments: { persona: "qinbafrank", query: "Veto 打脸条件", limit: 3 },
-  }));
-  if (!Array.isArray(materialSearch.results)) {
-    throw new Error("market_lens_search_lenses did not return results array");
-  }
-
-  const serenityLenses = parseTool(await send("tools/call", {
-    name: "market_lens_list_lenses",
-    arguments: { persona: "aleabitoreddit", lens_type: "ticker" },
-  }));
-  if (!Array.isArray(serenityLenses.lenses) || !serenityLenses.lenses.some((lens) => lens.lens_id === "SIVE")) {
-    throw new Error("market_lens_list_lenses did not return Serenity SIVE ticker lens");
-  }
-
-  const siveLens = parseTool(await send("tools/call", {
-    name: "market_lens_get_lens",
-    arguments: { persona: "aleabitoreddit", lens_type: "ticker", lens_id: "SIVE" },
-  }));
-  if (!siveLens.full_body || !Array.isArray(siveLens.evidence_tweet_ids)) {
-    throw new Error("market_lens_get_lens did not return Serenity SIVE full lens context");
-  }
-
-  const serenitySearch = parseTool(await send("tools/call", {
-    name: "market_lens_search_lenses",
-    arguments: { persona: "aleabitoreddit", query: "CPO SIVE", lens_types: ["sector", "ticker"], limit: 3 },
-  }));
-  if (!Array.isArray(serenitySearch.results) || serenitySearch.results.length < 1) {
-    throw new Error("market_lens_search_lenses did not return Serenity material results");
-  }
-
-  const search = parseTool(await send("tools/call", {
-    name: "market_lens_search_evidence",
-    arguments: { persona: "qinbafrank", query: "NVDA AI capex RPO 打脸条件", k: 3 },
-  }));
-  if (!Array.isArray(search.chunks)) {
-    throw new Error("market_lens_search_evidence did not return chunks array");
-  }
-
-  const stock = parseTool(await send("tools/call", {
-    name: "market_lens_stock_diagnosis",
-    arguments: {
-      persona: "qinbafrank",
-      question: "按所选 persona 的框架看 NVDA 这次回调应该如何归因？",
-      ticker: "NVDA",
-      evidence_limit: 3,
-      include_market_data: true,
-    },
-  }));
-  if (stock.workflow !== "stock_diagnosis" || !Array.isArray(stock.kol_chunks)) {
-    throw new Error("market_lens_stock_diagnosis did not return workflow context pack");
-  }
-
-  const market = parseTool(await send("tools/call", {
-    name: "market_lens_market_regime",
-    arguments: {
-      persona: "qinbafrank",
-      question: "按所选 persona 的框架判断当前市场行情。",
-      evidence_limit: 3,
-      include_market_data: true,
-    },
-  }));
-  if (market.workflow !== "market_regime" || !Array.isArray(market.kol_chunks)) {
-    throw new Error("market_lens_market_regime did not return workflow context pack");
-  }
-
-  console.log(JSON.stringify({
-    ok: true,
-    backend: status.adapter?.backend_url,
-    toolCount: toolNames.length,
-    tickerLensCount: lenses.count,
-    serenityTickerLensCount: serenityLenses.count,
-    materialSearchCount: materialSearch.count,
-    serenityMaterialSearchCount: serenitySearch.count,
-    liveEvidenceCount: search.count,
-    stockWorkflow: stock.workflow,
-    marketWorkflow: market.workflow,
-  }, null, 2));
   }
 } finally {
   child.kill();

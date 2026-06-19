@@ -12,7 +12,7 @@ import {
 import { getPrompt, PROMPTS } from "./prompts.js";
 import { callTool, TOOLS } from "./tools.js";
 
-const VERSION = "0.5.1";
+const VERSION = "0.6.0";
 
 const server = new Server(
   {
@@ -25,13 +25,12 @@ const server = new Server(
       prompts: {},
     },
     instructions: [
-      "TheMarketBrew MCP is a thin local adapter for TheMarketBrew's backend lens engine.",
-      "The local package does not include full persona methodology assets.",
-      "Use market_lens_* tools as the primary persona-neutral tool surface.",
-      "Do not assume one fixed persona for every query unless the user or environment explicitly pins one.",
-      "When the user has not named a persona, call market_lens_personas, inspect available personas and lens coverage, then pass the chosen persona explicitly to subsequent tools.",
-      "Material tools return distilled lens context; evidence tools return historical posts; workflow tools return composed backend context packs.",
-      "Set THEMARKETBREW_BACKEND_URL to the backend /api base URL. THEMARKETBREW_PERSONA is optional and should only be used to pin a client/workspace to one persona.",
+      "TheMarketBrew MCP is a thin adapter for the OKX-facing TheMarketBrew context service.",
+      "The local package does not include full persona methodology assets and does not require TheMarketBrew account login.",
+      "Use themarketbrew_discovery first, then themarketbrew_persona_context for methodology/evidence or themarketbrew_market_data for facts.",
+      "The tools return context and data only; the caller's agent writes the final answer with its own model.",
+      "Paid HTTP endpoints may return HTTP 402 when protected by OKX x402 middleware or reverse proxy.",
+      "Set THEMARKETBREW_BACKEND_URL or OKX_MCP_BACKEND_URL to the backend /api base URL.",
     ].join("\n"),
   },
 );

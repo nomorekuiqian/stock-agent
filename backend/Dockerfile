@@ -20,5 +20,6 @@ EXPOSE 8000
 # Default port (Railway overrides this via startCommand)
 ENV PORT=8000
 
-# Run the application
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Run the selected FastAPI entry point. Production defaults to app.main; the
+# OKX MCP service sets APP_MODULE=app.okx_main:app.
+CMD ["sh", "-c", "uvicorn ${APP_MODULE:-app.main:app} --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips '*'"]

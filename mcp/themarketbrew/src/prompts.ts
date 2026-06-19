@@ -8,20 +8,20 @@ type PromptDefinition = {
 export const PROMPTS: PromptDefinition[] = [
   {
     name: "themarketbrew-stock-diagnosis",
-    title: "Market Lens Stock Diagnosis",
-    description: "Ask the client agent to retrieve the relevant persona lenses/evidence and write a stock diagnosis.",
+    title: "TheMarketBrew Stock Diagnosis",
+    description: "Retrieve persona context and market data, then ask the caller's agent to write a stock diagnosis.",
     arguments: [
-      { name: "persona", description: "Optional persona username. If absent, choose one from market_lens_personas based on query and coverage.", required: false },
+      { name: "persona", description: "Optional persona username. If absent, backend selects by lens coverage.", required: false },
       { name: "ticker", description: "Ticker symbol, for example NVDA.", required: true },
       { name: "question", description: "Stock question to answer.", required: true },
     ],
   },
   {
     name: "themarketbrew-topic-research",
-    title: "Market Lens Topic Research",
-    description: "Ask the client agent to search distilled material and evidence before answering a topic question.",
+    title: "TheMarketBrew Topic Research",
+    description: "Retrieve persona context and optional market data for a topic question.",
     arguments: [
-      { name: "persona", description: "Optional persona username. If absent, choose one from market_lens_personas based on query and coverage.", required: false },
+      { name: "persona", description: "Optional persona username. If absent, backend selects by lens coverage.", required: false },
       { name: "question", description: "Topic, industry, rule, market pattern, or method question.", required: true },
     ],
   },
@@ -34,36 +34,27 @@ export function getPrompt(name: string, args: Record<string, string | undefined>
 
   if (name === "themarketbrew-stock-diagnosis") {
     return promptResponse([
-      persona
-        ? `Persona: ${persona}`
-        : "Persona: not specified. First call market_lens_personas, choose the best persona for this ticker/question based on methodology and lens coverage, then pass persona explicitly.",
+      persona ? `Persona: ${persona}` : "Persona: not specified. Let themarketbrew_persona_context select by lens coverage.",
       `Question: ${question}`,
       `Ticker: ${ticker}`,
       "",
-      "If any tool returns auth_required, call market_lens_login and ask the user to approve the TheMarketBrew account authorization, then poll market_lens_auth_status with device_code.",
-      "For current facts, call market_lens_get_brief first. Use market_lens_get_stock_data only when you need specific sections such as technical, forward_valuation, transcript, insider_trading, or press_releases.",
-      "Call market_lens_get_lens for the ticker lens if covered, and market_lens_search_lenses if the exact lens is unclear.",
-      "Call market_lens_search_evidence or market_lens_get_evidence_by_ids when direct historical evidence is needed.",
-      "Use market_lens_stock_diagnosis when you need a composed backend context pack with persona methodology, evidence, and data_context/news_context.",
-      "Write the final answer in Chinese unless the user requested English.",
-      "Separate distilled methodology, direct historical evidence, live/current facts, and inference.",
-      "Avoid direct trading commands and exact price targets.",
+      "Call themarketbrew_discovery if you have not already inspected available personas and data sections.",
+      "Call themarketbrew_persona_context with the ticker and question. It returns methodology, selected lenses, historical evidence, and answer discipline.",
+      "Call themarketbrew_market_data with data_type=brief or data_type=stock for current facts. Use stock_sections only when specific sections are needed.",
+      "Write the final answer with your own model. Separate methodology, direct historical evidence, live/current facts, and inference.",
+      "Do not impersonate a persona, issue direct trading commands, or give exact price targets.",
     ]);
   }
 
   if (name === "themarketbrew-topic-research") {
     return promptResponse([
-      persona
-        ? `Persona: ${persona}`
-        : "Persona: not specified. First call market_lens_personas, choose the best persona for this topic/question based on methodology and lens coverage, then pass persona explicitly.",
+      persona ? `Persona: ${persona}` : "Persona: not specified. Let themarketbrew_persona_context select by lens coverage.",
       `Question: ${question}`,
       "",
-      "If any tool returns auth_required, call market_lens_login and ask the user to approve the TheMarketBrew account authorization, then poll market_lens_auth_status with device_code.",
-      "For macro/current-market questions, use market_lens_get_market_data. For recent events, use market_lens_get_news.",
-      "Call market_lens_search_lenses to find relevant distilled material.",
-      "Then call market_lens_get_lens for the most relevant core/framework/macro/sector/ticker lens.",
-      "Use Evidence Map tweet IDs or market_lens_search_evidence only when direct historical posts are needed.",
-      "Write the final answer from returned context only; label methodology versus direct evidence.",
+      "Call themarketbrew_discovery if you have not already inspected available personas and data sections.",
+      "Call themarketbrew_persona_context for methodology, lens context, and historical evidence.",
+      "For macro/current-market questions, call themarketbrew_market_data with data_type=market. For recent events, use data_type=news.",
+      "Write the final answer from returned context only; label methodology versus direct evidence and current facts.",
     ]);
   }
 
@@ -75,7 +66,7 @@ export function getPrompt(name: string, args: Record<string, string | undefined>
 
 function promptResponse(lines: string[]) {
   return {
-    description: "Use TheMarketBrew MCP backend context.",
+    description: "Use TheMarketBrew OKX Context MCP backend context.",
     messages: [
       {
         role: "user" as const,
