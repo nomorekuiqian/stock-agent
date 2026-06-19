@@ -1,0 +1,16 @@
+[
+  {
+    "name": "TheMarketBrew Market Data Context",
+    "endpoint": "https://okx-mcp.themarketbrew.com/api/okx-mcp/market-data",
+    "service_type": "A2MCP",
+    "price": "0.03 USDT",
+    "description": "US stock, macro, calendar, report, and news data context for external agents."
+  },
+  {
+    "name": "TheMarketBrew Persona Evidence Context",
+    "endpoint": "https://okx-mcp.themarketbrew.com/api/okx-mcp/persona-context",
+    "service_type": "A2MCP",
+    "price": "0.05 USDT",
+    "description": "Persona methodology, selected lenses, and historical evidence context for external agents."
+  }
+]

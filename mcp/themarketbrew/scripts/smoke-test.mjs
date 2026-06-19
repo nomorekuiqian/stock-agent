@@ -56,53 +56,31 @@ try {
   await send("initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
-    clientInfo: { name: "themarketbrew-smoke-test", version: "0.5.0" },
+    clientInfo: { name: "themarketbrew-smoke-test", version: "0.6.0" },
   });
   notify("notifications/initialized");
 
   const toolList = await send("tools/list", {});
-  const toolNames = toolList.tools.map((tool) => tool.name);
+  const toolNames = toolList.tools.map((tool) => tool.name).sort();
   const required = [
-    "market_lens_status",
-    "market_lens_login",
-    "market_lens_auth_status",
-    "market_lens_logout",
-    "market_lens_data_catalog",
-    "market_lens_get_brief",
-    "market_lens_get_stock_data",
-    "market_lens_get_market_data",
-    "market_lens_get_news",
-    "market_lens_personas",
-    "market_lens_list_lenses",
-    "market_lens_get_lens",
-    "market_lens_search_lenses",
-    "market_lens_search_evidence",
-    "market_lens_get_evidence_by_ids",
-    "market_lens_build_context",
-    "market_lens_stock_diagnosis",
-    "market_lens_market_regime",
-    "market_lens_compare",
-    "market_lens_research_memo",
-  ];
-  for (const name of required) {
-    if (!toolNames.includes(name)) throw new Error(`${name} missing from tools/list`);
+    "themarketbrew_discovery",
+    "themarketbrew_market_data",
+    "themarketbrew_persona_context",
+  ].sort();
+  if (JSON.stringify(toolNames) !== JSON.stringify(required)) {
+    throw new Error(`Unexpected tools/list: ${JSON.stringify(toolNames)}`);
   }
   for (const name of toolNames) {
-    if (name.startsWith("frank_")) throw new Error(`Frank-specific tool still exposed: ${name}`);
-  }
-
-  const status = await send("tools/call", { name: "market_lens_status", arguments: {} });
-  const parsedStatus = JSON.parse(status.content[0].text);
-  if (typeof parsedStatus.adapter?.backend_url !== "string") {
-    throw new Error("market_lens_status did not return adapter backend_url");
+    if (name.startsWith("market_lens_") || name.startsWith("frank_")) {
+      throw new Error(`Legacy tool still exposed: ${name}`);
+    }
   }
 
   console.log(JSON.stringify({
     ok: true,
-    mode: "thin-adapter",
+    mode: "okx-context-adapter",
     toolCount: toolNames.length,
     tools: toolNames,
-    statusOk: parsedStatus.ok,
   }, null, 2));
 } finally {
   child.kill();

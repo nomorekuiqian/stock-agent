@@ -17,6 +17,7 @@ slowapi
 svix
 uvicorn
 fastmcp>=3.4,<4           # Market Lens MCP (Streamable HTTP), mounted at /frank/mcp/
+okxweb3-app-x402[evm]     # OKX Onchain OS x402 payment middleware for app.okx_main
 stripe
 tvscreener>=0.2.0
 pandas-ta>=0.4.71b

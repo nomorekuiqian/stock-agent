@@ -232,6 +232,10 @@ class TestNoCrossFeatureImports:
         ("kol_research", "agent_runtime"),
         ("kol_research", "quota"),       # KOL research chat consumes the same quota bucket as research endpoints
         ("kol_research", "vector"),      # KOL research MCP endpoints expose vector search over embedded KOL content
+        # OKX Context MCP is an adapter around the existing Market Lens
+        # material/data plane plus optional vector evidence retrieval.
+        ("okx_mcp", "kol_research"),
+        ("okx_mcp", "vector"),
         ("screener", "agent_runtime"),
         ("agent_runtime", "screener"),
         # Onboarding state lives on the subscriptions table (payment.db).

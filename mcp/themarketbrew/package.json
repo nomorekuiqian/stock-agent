@@ -1,7 +1,7 @@
 {
   "name": "themarketbrew",
-  "version": "0.5.1",
-  "description": "TheMarketBrew MCP adapter for backend persona lens context packs.",
+  "version": "0.6.0",
+  "description": "TheMarketBrew OKX Context MCP adapter for persona context and market data.",
   "type": "module",
   "bin": {
     "themarketbrew": "dist/index.js"
