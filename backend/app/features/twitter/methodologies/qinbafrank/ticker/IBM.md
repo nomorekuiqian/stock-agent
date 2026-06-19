@@ -40,7 +40,7 @@ IBM 在企业 AI 和量子计算的位置。
 - 若企业 AI 业务无显著增长 → 转型叙事证伪
 
 ## Evidence Map
-- 当前语料 内零散讨论
 
+- 当前语料 内零散讨论
 ## 与其他 skill 协同
 - `sector/ai-infrastructure.md` — 跨层敞口

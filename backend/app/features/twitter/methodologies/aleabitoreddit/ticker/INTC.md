@@ -64,9 +64,9 @@ INTC 出现在 2026-01-02 Strong Buy 列表 (id: 2007071108831338685).
 
 ## Evidence Map
 
-- "$INTC America's hope for foundry, national security" (id: 2042187668931616964)
+- "INTC assembling the Avengers" (id: 2067810292822929796, 2026-06-19)
+- "Trump announced Intel + Apple partnership; Trump hard carrying INTC" (id: 2067624913834549685, 2026-06-18)
 - "AAPL goes with $INTC for semi production" (id: 2053205192980721797, 2026-05-09)
 - "Intel CEO CPU Ratio 1:8 → 1:1, CPUs go brr" (id: 2048449289152778686, 2026-04-15)
+- "$INTC America's hope for foundry, national security" (id: 2042187668931616964)
 - "Strong Buy: $INTC" (id: 2007071108831338685, 2026-01-02)
-- "Trump announced Intel + Apple partnership; Trump hard carrying INTC" (id: 2067624913834549685, 2026-06-18)
-- "INTC assembling the Avengers" (id: 2067810292822929796, 2026-06-19)

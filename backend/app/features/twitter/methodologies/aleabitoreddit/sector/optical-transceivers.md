@@ -116,14 +116,14 @@ CPO 量产后, 部分 EML 需求会被 SIVE 的 CW DFB 取代. 但 LITE 仍然�
 
 ## Evidence Map
 
-- "$LITE thesis: hidden monopoly in AI, +316% YTD, might be 1000%+ by 2027" (id: 2003019490871869644, 2025-12-22)
-- "$AAOI ramping to 100K units/month for 800G, Q3 大幅产能增量" (id: 2052485912714752144, 2026-05-07)
-- "AAOI has end-to-end 800G/1.6T manufacturing in America" (id: 2058376970178847075, 2026-05-24)
-- "Lite uniquely because of role in GOOGL TPU v7, AMZN Trainium v3/4, NVDA Blackwell" (id: 1999240464420250042, 2025-12-11)
-- "$AAOI up 6-7x at $200+ from $30 last year" (id: 2054583956167877111, 2026-05-13)
-- "I cut some exposure in $LITE $COHR, rotated to $SIVE / Foci" (id: 2056558267896311996, 2026-05-19)
-- "$LITE is now over $1000" (id: 2053857864637436221, 2026-05-11)
-- "Optical players go through Sivers, leading CPO hyperscaler supply chains" (id: 2058374522353672558, 2026-05-24) — pluggable → CPO 过渡
-- "AMD scrambling for CW laser supply; AAOI / SIVE are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
-- "AAOI high conviction: scarce laser capacity for AMD / hyperscalers and US transceiver chain" (id: 2067071462360666165, 2026-06-17)
 - "AAOI / SIVE personal favorites; revenue capture can expand into modules / engines / ELS" (id: 2067542382523122001, 2026-06-18)
+- "AAOI high conviction: scarce laser capacity for AMD / hyperscalers and US transceiver chain" (id: 2067071462360666165, 2026-06-17)
+- "AMD scrambling for CW laser supply; AAOI / SIVE are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "AAOI has end-to-end 800G/1.6T manufacturing in America" (id: 2058376970178847075, 2026-05-24)
+- "Optical players go through Sivers, leading CPO hyperscaler supply chains" (id: 2058374522353672558, 2026-05-24) — pluggable → CPO 过渡
+- "I cut some exposure in $LITE $COHR, rotated to $SIVE / Foci" (id: 2056558267896311996, 2026-05-19)
+- "$AAOI up 6-7x at $200+ from $30 last year" (id: 2054583956167877111, 2026-05-13)
+- "$LITE is now over $1000" (id: 2053857864637436221, 2026-05-11)
+- "$AAOI ramping to 100K units/month for 800G, Q3 大幅产能增量" (id: 2052485912714752144, 2026-05-07)
+- "$LITE thesis: hidden monopoly in AI, +316% YTD, might be 1000%+ by 2027" (id: 2003019490871869644, 2025-12-22)
+- "Lite uniquely because of role in GOOGL TPU v7, AMZN Trainium v3/4, NVDA Blackwell" (id: 1999240464420250042, 2025-12-11)

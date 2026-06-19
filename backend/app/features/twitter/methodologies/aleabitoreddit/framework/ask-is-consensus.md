@@ -71,6 +71,6 @@ coverage: medium
 ## Evidence Map
 
 - SOI 被 Citi/欧洲媒体唱空后机构追认 (id: 2056594930232135705)
-- SIVE 瑞典媒体 hit piece + 西方机构买入 (id: 2052679583892426925)
 - LITE/COHR 部分轮到 SIVE/Foci (id: 2056558267896311996)
+- SIVE 瑞典媒体 hit piece + 西方机构买入 (id: 2052679583892426925)
 - "I talk more about things when they are underpriced" (corpus core slice)

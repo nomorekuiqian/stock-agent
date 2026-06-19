@@ -45,6 +45,6 @@ stance: avoid (F-tier)
 
 ## Evidence Map
 
-- "Tier F: $CRWV (估值贵)" (id: 1992181846134968633, 2025-11-22)
 - "CRWV: OpenAI ~25% concentration, $1.8B cash, $1.3B debt" (id: 1997034977524121633, 2025-12-05)
 - "Nebius is not Coreweave 2.0" (id: 1997034977524121633)
+- "Tier F: $CRWV (估值贵)" (id: 1992181846134968633, 2025-11-22)

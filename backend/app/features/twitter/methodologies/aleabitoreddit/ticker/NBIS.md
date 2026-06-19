@@ -147,12 +147,12 @@ NBIS 是她“同环只选最强”的典型案例。她不是把 Neocloud 分�
 
 ## Evidence Map
 
-- "$NBIS is the next Microsoft" (id: 1976370622633755115, 2025-10-09)
-- "PT $400 / $100B MC in 1Y" (id: 1981351114655346809, 2025-10-23)
-- "$2M+ exposure in $NBIS" (id: 1981981029029298374, 2025-10-25)
-- "Added $300K in call leaps at $122.9" (id: 1979201376115921139, 2025-10-17)
-- "Added $200k worth of $NBIS leaps at $98.8" (id: 1981009544546591207, 2025-10-22)
-- "Institutional ownership 38% -> 44.6%" (id: 1989608255371579717, 2025-11-15)
-- "Hedgeye shorting NBIS, but their thesis is wrong" (id: 1997034977524121633, 2025-12-05)
-- "$NBIS objectively better than $IREN, NVDA didn't fund IREN" (id: 2056745774760026410, 2026-05-19)
 - "NBIS at ATH while IREN is stuck with $6B ATM; debate settled" (id: 2067260268166713561, 2026-06-17)
+- "$NBIS objectively better than $IREN, NVDA didn't fund IREN" (id: 2056745774760026410, 2026-05-19)
+- "Hedgeye shorting NBIS, but their thesis is wrong" (id: 1997034977524121633, 2025-12-05)
+- "Institutional ownership 38% -> 44.6%" (id: 1989608255371579717, 2025-11-15)
+- "$2M+ exposure in $NBIS" (id: 1981981029029298374, 2025-10-25)
+- "PT $400 / $100B MC in 1Y" (id: 1981351114655346809, 2025-10-23)
+- "Added $200k worth of $NBIS leaps at $98.8" (id: 1981009544546591207, 2025-10-22)
+- "Added $300K in call leaps at $122.9" (id: 1979201376115921139, 2025-10-17)
+- "$NBIS is the next Microsoft" (id: 1976370622633755115, 2025-10-09)

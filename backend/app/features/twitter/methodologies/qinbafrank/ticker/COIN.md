@@ -102,22 +102,10 @@ COIN x402 是这条赛道的先发。
 3. **押注短期立法节奏** — 错。博主自己也不预测立法时间表。
 ## Evidence Map
 
-合规龙一定位：
-
-- 当前语料 内多条 — Coinbase 在美国市场地位
-
-AI × Crypto 基础设施：
-
-- `2019621023344382189` — "真实有价值创造的业务才能让代币经济正向循环"
-
-x402 + Base：
-
-- 当前语料 内多条 — x402 处理 5000 万笔 / Agentic Wallets
-
-监管节奏：
-
-- 清晰法案 / GENIUS / Project Crypto 多条
-
+- 【AI × Crypto 基础设施】 `2019621023344382189` — "真实有价值创造的业务才能让代币经济正向循环"
+- 【合规龙一定位】 当前语料 内多条 — Coinbase 在美国市场地位
+- 【x402 + Base】 当前语料 内多条 — x402 处理 5000 万笔 / Agentic Wallets
+- 【监管节奏】 清晰法案 / GENIUS / Project Crypto 多条
 ## 与其他 skill 协同
 
 - `sector/crypto-stablecoin-rwa.md` — 父级 / 监管 + 业务框架

@@ -117,13 +117,13 @@ coverage: high
 
 ## Evidence Map
 
-- "Hyperscaler Capex Funnel" + $1.5M into Neoclouds (id: 1972016308662513748, 2025-09-27) — Mag7 漏斗 master thesis
-- "Use this golden opportunity to build long positions" on 100% China tariff day (id: 1976771236215808119, 2025-10-10)
-- "94.1% rate cut odds, levels: NBIS $105-110, TSM $170-175..." (id: 1979087229038530782, 2025-10-17) — 降息加仓 levels
-- "AI is the largest national security issue and race in history" (id: 1978247373089358249, 2025-10-14)
-- "Why Michael Burry is Wrong" on GPU depreciation (id: 1988048592754589970, 2025-11-11)
-- "Worst deleveraging shock in recent history" (id: 1992667465785201142, 2025-11-23) — 但她依然没清仓
-- "$AXTI controls 40% of InP supply chain" (id: 2005654662616387783, 2025-12-29) — 上游物理咽喉
+- "AI capex to $3-4T annually by 2030 from $NVDA Jensen — you're not bullish enough" (id: 2058618801554604040, 2026-05-24)
 - "China export controlled Japan on upstream InP after my $AXTI post" (id: 2056940719013867708, 2026-05-20)
 - "US Gov / Japan should put Ulvac (6728) on export control list" (id: 2056939360222884144, 2026-05-20) — 地缘多头美方视角
-- "AI capex to $3-4T annually by 2030 from $NVDA Jensen — you're not bullish enough" (id: 2058618801554604040, 2026-05-24)
+- "$AXTI controls 40% of InP supply chain" (id: 2005654662616387783, 2025-12-29) — 上游物理咽喉
+- "Worst deleveraging shock in recent history" (id: 1992667465785201142, 2025-11-23) — 但她依然没清仓
+- "Why Michael Burry is Wrong" on GPU depreciation (id: 1988048592754589970, 2025-11-11)
+- "94.1% rate cut odds, levels: NBIS $105-110, TSM $170-175..." (id: 1979087229038530782, 2025-10-17) — 降息加仓 levels
+- "AI is the largest national security issue and race in history" (id: 1978247373089358249, 2025-10-14)
+- "Use this golden opportunity to build long positions" on 100% China tariff day (id: 1976771236215808119, 2025-10-10)
+- "Hyperscaler Capex Funnel" + $1.5M into Neoclouds (id: 1972016308662513748, 2025-09-27) — Mag7 漏斗 master thesis

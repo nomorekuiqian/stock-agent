@@ -94,7 +94,7 @@ coverage: high
 
 ## Evidence Map
 
-- "$SOI = $AXTI, $SIVE = $LITE" (id: 2050790690591048002) — analog 判断。
+- "SIVE is actually a chokepoint and partially a bottleneck" (id: 2058374522353672558) — 物理咽喉 / 产能瓶颈区分。
 - "$NBIS objectively better than $IREN" (id: 2056745774760026410) — 同环比较。
 - "$POET and $IREN ... Fake it Until you make it" (id: 2056171199512891790) — 资本结构 Veto。
-- "SIVE is actually a chokepoint and partially a bottleneck" (id: 2058374522353672558) — 物理咽喉 / 产能瓶颈区分。
+- "$SOI = $AXTI, $SIVE = $LITE" (id: 2050790690591048002) — analog 判断。

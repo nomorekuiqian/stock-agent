@@ -50,9 +50,9 @@ CRWV 是 NVDA / Mag4 之外的"第二渠道"AI 算力敞口，但资本结构脆
 2. **押注 IPO 后立即兑现** — 错。要看真实业务现金流。
 
 ## Evidence Map
-- 当前语料 内多条 — Mag4 加速 → 新云间接受益；部分新云资本结构裂缝信号
-- `2049807090001273014` — Mag4 capex 加速
 
+- `2049807090001273014` — Mag4 capex 加速
+- 当前语料 内多条 — Mag4 加速 → 新云间接受益；部分新云资本结构裂缝信号
 ## 与其他 skill 协同
 - `sector/ai-infrastructure.md` — neocloud 子章节
 - `core/operating-system.md` — 资本结构裂缝看空触发

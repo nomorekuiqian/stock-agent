@@ -50,7 +50,7 @@ last_updated: 2026-06-19
 
 ## Evidence Map
 
-- "$LPK up 80%, Glass Substrate supercycle, 2027 mass production" (id: 2052308880961810532, 2026-05-07)
+- "LPK glass substrate equipment selected by 80% of major global players" (id: 2067216066905088237, 2026-06-17)
 - "LPKF CEO bought shares off the market" (id: 2057761720710631573, 2026-05-22)
 - "European chokepoints: $ALRIB, $LPK, $IQE, $SOI" (id: 2057761720710631573)
-- "LPK glass substrate equipment selected by 80% of major global players" (id: 2067216066905088237, 2026-06-17)
+- "$LPK up 80%, Glass Substrate supercycle, 2027 mass production" (id: 2052308880961810532, 2026-05-07)

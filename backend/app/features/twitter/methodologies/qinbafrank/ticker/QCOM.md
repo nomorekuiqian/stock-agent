@@ -44,8 +44,8 @@ QCOM 是移动 + AI 端侧的核心，向数据中心 CPU 多元化。
 - 若端侧 AI 渗透停滞 → AI 移动叙事证伪
 
 ## Evidence Map
-- 当前语料 内零散讨论 — 移动 + 数据中心 CPU 多元化
 
+- 当前语料 内零散讨论 — 移动 + 数据中心 CPU 多元化
 ## 与其他 skill 协同
 - `sector/ai-infrastructure.md` — L1 关键组件
 - `sector/software-ai-disruption.md` — 端侧 AI 推理

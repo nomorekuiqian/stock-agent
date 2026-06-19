@@ -42,8 +42,8 @@ TIGR 与 FUTU 类似定位，海外华人 + 监管缝隙市场。
 - 若用户增长停滞 → 多产品矩阵证伪
 
 ## Evidence Map
-- 当前语料 内零散讨论 — TIGR / 老虎与 FUTU 比较
 
+- 当前语料 内零散讨论 — TIGR / 老虎与 FUTU 比较
 ## 与其他 skill 协同
 - `sector/fintech-brokerage.md` — 父级
 - `ticker/FUTU.md` — 直接对比

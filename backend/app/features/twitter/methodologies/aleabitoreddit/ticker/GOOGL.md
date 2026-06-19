@@ -45,7 +45,7 @@ sector: ai-infrastructure-mag7
 
 ## Evidence Map
 
-- "TPU v7 Ironwood Suppliers analysis" (id: 1995543748353347989, 2025-12-01)
 - "Google Project Suncatcher" (id: 1995865990341496999, 2025-12-02)
+- "TPU v7 Ironwood Suppliers analysis" (id: 1995543748353347989, 2025-12-01)
 - "GOOGL AI search drop $170 → $257" (id: 1980413318973333927, 2025-10-20)
 - "Strong Buy GOOGL" (multiple rates)

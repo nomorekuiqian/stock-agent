@@ -70,8 +70,8 @@ TPU 高速增长 → AVGO 间接受益。
 2. **押注 TPU vs GPU 短期份额** — 错。是混合架构格局。
 
 ## Evidence Map
-- `2023597321368547520` — "博通 ASIC、HBM、ARM、Bloom Energy 等正不成比例放大"
 
+- `2023597321368547520` — "博通 ASIC、HBM、ARM、Bloom Energy 等正不成比例放大"
 ## 与其他 skill 协同
 - `sector/ai-infrastructure.md` — L1 关键组件
 - `ticker/GOOGL.md` — TPU 制造合作

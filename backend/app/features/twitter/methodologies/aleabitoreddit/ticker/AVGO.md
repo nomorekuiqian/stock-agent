@@ -46,7 +46,7 @@ AVGO co-designs GOOGL TPU. TPU v7 ramp 是 AVGO 关键 catalyst.
 
 ## Evidence Map
 
-- "AVGO 'double beat' but dropped -11.64%, buying opportunity" (id: 1999575509462843833, 2025-12-12)
-- "AVGO co-designs GOOGL TPU" (id: 1995543748353347989, 2025-12-01)
 - "MRVL prime beneficiary of MAIA ramp" (id: 2006301094394335399, 2025-12-31)
+- "AVGO 'double beat' but dropped -11.64%, buying opportunity" (id: 1999575509462843833, 2025-12-12)
 - "AVGO/LITE/NBIS portfolio" (id: 1999575509462843833)
+- "AVGO co-designs GOOGL TPU" (id: 1995543748353347989, 2025-12-01)

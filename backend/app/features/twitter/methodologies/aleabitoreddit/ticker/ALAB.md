@@ -36,7 +36,7 @@ sector: photonics-and-cpo
 
 ## Evidence Map
 
-- "$ALAB at $143.4, PT $250 / 6M" (id: 1991452423186182524, 2025-11-20)
 - "5 high conviction multi-bagger: NBIS/RKLB/ALAB/CRCL/LITE" (id: 2002392267311739320, 2025-12-20)
-- "Strong Buy $ALAB $CRDO" (multiple ratings)
 - "I entered $ALAB because Mag7 funneling into them" (id: 1999240464420250042)
+- "$ALAB at $143.4, PT $250 / 6M" (id: 1991452423186182524, 2025-11-20)
+- "Strong Buy $ALAB $CRDO" (multiple ratings)

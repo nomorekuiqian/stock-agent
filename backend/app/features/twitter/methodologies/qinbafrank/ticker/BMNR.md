@@ -33,8 +33,8 @@ DAT 类标的（"借某某代币的微策略龙头名义"）— 见 [[MSTR]] 警
 - 同 MSTR
 
 ## Evidence Map
-- `1991514056356950529` — DAT 微策略警告（覆盖 BMNR 类标的）
 
+- `1991514056356950529` — DAT 微策略警告（覆盖 BMNR 类标的）
 ## 与其他 skill 协同
 - `sector/crypto-stablecoin-rwa.md` — 父级 / DAT 警告
 - `ticker/MSTR.md` — 同类标的对比

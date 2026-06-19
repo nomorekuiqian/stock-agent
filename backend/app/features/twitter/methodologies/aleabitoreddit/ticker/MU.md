@@ -75,8 +75,8 @@ GPU (NVDA) → HBM (MU / SK Hynix / Samsung) → ...
 
 ## Evidence Map
 
+- "Memory and photonics are top themes; MU / SNDK / EWY / SK Hynix / Samsung gained after bearish consensus" (id: 2067621883525394768, 2026-06-18)
+- "GPU (NVDA) → HBM (MU) → 电力 (IREN) → EML (LITE) ..." (id: 2047426124586893566, 2026-04-14)
 - "MU ($355B) + SK Hynix ($330B) + Samsung ($595B) — real chokepoint is $AXTI ($1B)" (id: 2008633673743298617, 2026-01-06)
 - "Strong Buy: ... $MU $TSM ..." (id: 2007071108831338685, 2026-01-02)
 - "Memory: Nanya $2408, SK Hynix $HXSCL, $MU" (id: 1985770241532838347, 2025-11-04)
-- "GPU (NVDA) → HBM (MU) → 电力 (IREN) → EML (LITE) ..." (id: 2047426124586893566, 2026-04-14)
-- "Memory and photonics are top themes; MU / SNDK / EWY / SK Hynix / Samsung gained after bearish consensus" (id: 2067621883525394768, 2026-06-18)

@@ -130,10 +130,10 @@ AEHR ~$49 提及, 她持续看好作为 HBM / AI 芯片 burn-in 测试供应商.
 
 ## Evidence Map
 
-- "Nvidia CEO: Memory Bottleneck is Severe" (id: 2008633673743298617, 2026-01-06)
-- "Nobody can convince me $SNDK isn't a meme stock" (id: 2052784100784922983, 2026-05-08)
-- "Big Tech funding SK Hynix" (id: 2053205192980721797, 2026-05-09)
-- "Memory: Nanya $2408, SK Hynix $HXSCL, $MU" (id: 1985770241532838347, 2025-11-04)
-- "Strong Buy: SK Hynix $HXSCL $SNAP Samsung Electronics" (id: 1998846813177262295, 2025-12-10)
-- "2D NAND 短缺" (id: 2053205192980721797, 2026-05-09)
 - "Memory and photonics are top themes; MU / SNDK / EWY / SK Hynix / Samsung gained after bearish consensus" (id: 2067621883525394768, 2026-06-18)
+- "Big Tech funding SK Hynix" (id: 2053205192980721797, 2026-05-09)
+- "2D NAND 短缺" (id: 2053205192980721797, 2026-05-09)
+- "Nobody can convince me $SNDK isn't a meme stock" (id: 2052784100784922983, 2026-05-08)
+- "Nvidia CEO: Memory Bottleneck is Severe" (id: 2008633673743298617, 2026-01-06)
+- "Strong Buy: SK Hynix $HXSCL $SNAP Samsung Electronics" (id: 1998846813177262295, 2025-12-10)
+- "Memory: Nanya $2408, SK Hynix $HXSCL, $MU" (id: 1985770241532838347, 2025-11-04)

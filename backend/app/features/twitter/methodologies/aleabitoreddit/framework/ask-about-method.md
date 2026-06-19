@@ -69,7 +69,7 @@ coverage: high
 
 ## Evidence Map
 
-- "trading unknown bottlenecks" — bio / self-positioning。
 - "Photonics is nuanced and using ChatGPT/Gemini makes you miss all of it" (id: 2058374522353672558)
-- "Citi called SOI hard to understand ... Nomura PT 250" (id: 2056594930232135705)
 - "AI capex spend expected to $3-4T annually by 2030" (id: 2058618801554604040)
+- "Citi called SOI hard to understand ... Nomura PT 250" (id: 2056594930232135705)
+- "trading unknown bottlenecks" — bio / self-positioning。

@@ -94,10 +94,9 @@ CPN 升级 / 不断拓展合作 = "深度合作 Coinbase / 贝莱德 / 支付场
 
 ## Evidence Map
 
-- 当前语料 内多条 Circle 业务讨论
 - `2019621023344382189` — 代币经济正向循环 / 真实有价值业务
+- 当前语料 内多条 Circle 业务讨论
 - 清晰法案 / GENIUS 多条立法节奏
-
 ## 与其他 skill 协同
 
 - `sector/crypto-stablecoin-rwa.md` — 父级 / 稳定币市场

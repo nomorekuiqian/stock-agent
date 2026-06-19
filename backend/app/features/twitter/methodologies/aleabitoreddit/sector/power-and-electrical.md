@@ -117,8 +117,8 @@ FLNC 拿到 2 个 hyperscaler 直接合同, 是少有的"超大规模云客户�
 
 - "Crowdsourcing #1 conviction Power Semi 10x, NVDA 推 800V HVDC, NVTS/WOLF" (id: 2058577885754163382, 2026-05-24)
 - "$HPS.A vertical line up 2-3% every day, 20 CAD from triple digit returns" (id: 2054592898042380788, 2026-05-13)
-- "$FLNC compelling at $3B, 2 hyperscaler deals + $5.6B backlog" (id: 2052435712126161008, 2026-05-07)
 - "$FLNC up over 50% now" (id: 2052744623366475916, 2026-05-08)
+- "Bottlenecks with multi-year visibility like $HPS.A or $LITE tend to perform better" (id: 2052784100784922983, 2026-05-08)
+- "$FLNC compelling at $3B, 2 hyperscaler deals + $5.6B backlog" (id: 2052435712126161008, 2026-05-07)
 - "Initiated small position in T1 Energy $TE $4.45" (id: 1980287888077312390, 2025-10-20)
 - "Speculative nuclear reactor stock run $NKLR $OKLO $SMR" (id: 1978434143043084737, 2025-10-15)
-- "Bottlenecks with multi-year visibility like $HPS.A or $LITE tend to perform better" (id: 2052784100784922983, 2026-05-08)

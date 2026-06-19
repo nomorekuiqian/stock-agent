@@ -73,9 +73,9 @@ NVDA 是漏斗起点, 她**不**在起点重仓.
 
 ## Evidence Map
 
-- "NVDA blowout Q3, dropped 12%, TPU threatens long-term" (id: 1994555219607523362, 2025-11-28)
-- "I entered ALAB, NBIS, TSM, LITE because Mag7 funneling into them" (id: 1999240464420250042, 2025-12-11)
-- "Memory Bottleneck is Severe — black, but real chokepoint is $AXTI" (id: 2008633673743298617, 2026-01-06)
 - "AI capex to $3-4T annually by 2030 from $NVDA Jensen — you're not bullish enough" (id: 2058618801554604040, 2026-05-24)
-- Multiple Friday Market Close ratings include NVDA in Buy not Strong Buy
 - "NVDA Vera Rubin cooling architecture shift" (id: 2053205192980721797, 2026-05-09) — 新瓶颈触发
+- "Memory Bottleneck is Severe — black, but real chokepoint is $AXTI" (id: 2008633673743298617, 2026-01-06)
+- "I entered ALAB, NBIS, TSM, LITE because Mag7 funneling into them" (id: 1999240464420250042, 2025-12-11)
+- "NVDA blowout Q3, dropped 12%, TPU threatens long-term" (id: 1994555219607523362, 2025-11-28)
+- Multiple Friday Market Close ratings include NVDA in Buy not Strong Buy

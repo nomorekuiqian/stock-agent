@@ -44,8 +44,8 @@ ON 是电源半导体的核心，受益于 AI 数据中心电力卡脖子。
 - 若数据中心电源订单停滞 → 电力受益叙事证伪
 
 ## Evidence Map
-- 当前语料 内多条 — 电源半导体 / 数据中心电力
 
+- 当前语料 内多条 — 电源半导体 / 数据中心电力
 ## 与其他 skill 协同
 - `sector/ai-infrastructure.md` — L1 / L3 电力子层
 - `sector/power-and-physical-ai.md` — 电力卡脖子

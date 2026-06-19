@@ -34,6 +34,6 @@ sector: neocloud
 
 ## Evidence Map
 
+- "$WULF $7B Anthropic deal, GOOGL backstop" (id: 2001265461963694140, 2025-12-17)
 - "Tier A: $WULF" (id: 1992181846134968633, 2025-11-22)
 - "$WULF $17B TCV, 520 MW" (id: 1988048592754589970, 2025-11-11)
-- "$WULF $7B Anthropic deal, GOOGL backstop" (id: 2001265461963694140, 2025-12-17)

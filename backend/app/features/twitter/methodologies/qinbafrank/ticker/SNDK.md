@@ -43,8 +43,8 @@ SNDK 是 NAND / 闪存 紧平衡的受益者。
 - 若 NAND ASP 连续两季度环比下跌 → 卖光逻辑证伪
 
 ## Evidence Map
+
 - `2049425737216872738` — "美光/闪迪等在 HBM/NAND 上的卖光逻辑高度一致"
 - `2016855220178006502` — "看看今晚闪存的财报会有多爆？"
-
 ## 与其他 skill 协同
 - `sector/semiconductor-memory-hbm.md` — 父级 / NAND 紧平衡

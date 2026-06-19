@@ -43,7 +43,7 @@ ASTS 在 Direct-to-Cell 卫星互联网赛道的位置，能不能成为太空�
 - 若卫星部署延期超 1 年 → 太空经济受益叙事削弱
 
 ## Evidence Map
-- 当前语料 内多条 — 太空经济赛道讨论
 
+- 当前语料 内多条 — 太空经济赛道讨论
 ## 与其他 skill 协同
 - `sector/defense-and-space.md` — 父级 / 太空经济

@@ -151,16 +151,16 @@ SIVE design-in 客户链 -> Win Semi 量产能力 -> forward revenue ramp / re-r
 
 ## Evidence Map
 
+- "AAOI / SIVE are personal favorites; revenue ramp mostly 2027 H1/H2" (id: 2067542382523122001, 2026-06-18)
+- "AMD large CW laser purchase agreements; independent Western capacity is SIVE / AAOI / Macom" (id: 2067206734427697196, 2026-06-17)
+- "AMD scrambling for CW laser supply; SIVE / AAOI are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "Mizuho: no CPO / 800V delays; InP DFB lasers remain focus" (id: 2067033934194696469, 2026-06-16)
+- "$SIVE as primary/sole source with JBL and Ayar/NVDA NVLink CPO ecosystem" (id: 2066498742942159288, 2026-06-15)
 - "SIVE is a chokepoint and partially a bottleneck" (id: 2058374522353672558, 2026-05-24)
-- "US/West now owns 42.18% of SIVE" (id: 2052679583892426925, 2026-05-08)
-- "Sivers customers: Lightmatter -> $4B, Lightelligence -> $10B, Ayar -> NVDA funded" (id: 2057084047466414107, 2026-05-20)
 - "For $SIVE to become the next $80B+ $LITE" (id: 2058060753933131949, 2026-05-23)
+- "Sivers customers: Lightmatter -> $4B, Lightelligence -> $10B, Ayar -> NVDA funded" (id: 2057084047466414107, 2026-05-20)
 - "Sivers nominating new board members with M&A backgrounds" (id: 2057059745429901334, 2026-05-20)
 - "MSCI listing inflow + NASDAQ listing + JBL news + M&A board" (id: 2057062953237823978, 2026-05-20)
 - "I'm cheering on $SIVE to become the next $LITE, not get bought out" (id: 2057063548115902967, 2026-05-20)
 - "Fab-lite with Win Semi as production scale" (id: 2054901944653656384, 2026-05-14)
-- "$SIVE as primary/sole source with JBL and Ayar/NVDA NVLink CPO ecosystem" (id: 2066498742942159288, 2026-06-15)
-- "AMD scrambling for CW laser supply; SIVE / AAOI are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
-- "Mizuho: no CPO / 800V delays; InP DFB lasers remain focus" (id: 2067033934194696469, 2026-06-16)
-- "AMD large CW laser purchase agreements; independent Western capacity is SIVE / AAOI / Macom" (id: 2067206734427697196, 2026-06-17)
-- "AAOI / SIVE are personal favorites; revenue ramp mostly 2027 H1/H2" (id: 2067542382523122001, 2026-06-18)
+- "US/West now owns 42.18% of SIVE" (id: 2052679583892426925, 2026-05-08)

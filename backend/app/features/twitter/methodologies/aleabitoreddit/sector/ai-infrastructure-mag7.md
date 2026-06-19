@@ -131,14 +131,14 @@ EML 激光独占: LITE
 
 ## Evidence Map
 
-- "Mag7 funneling revenue into $ALAB $NBIS $TSM $LITE" (id: 1999240464420250042, 2025-12-11)
-- "NVDA dropped 12% on TPU threat" (id: 1994555219607523362, 2025-11-28)
-- "$MRVL prime beneficiary of MAIA ramp, $10-12B revenue" (id: 2006301094394335399, 2025-12-31)
-- "$TSM is the center of Neocloud trade and AI Buildout" (id: 1978716322453492060, 2025-10-16)
-- "TPU v7 Ironwood Suppliers: AVGO, LITE, AMKR" (id: 1995543748353347989, 2025-12-01)
-- "META + their $14B deal with $CRWV, MSFT + $17B with $NBIS" (id: 1973693781888417816, 2025-10-02)
-- "AMD repricing as the next NVDA" (id: 1975987940473045058, 2025-10-08)
-- "Google Project Suncatcher → PL / RKLB" (id: 1995865990341496999, 2025-12-02)
+- "Trump announced Intel + Apple partnership; INTC Made-in-America foundry narrative continues" (id: 2067624913834549685, 2026-06-18)
 - "AI remains the most disruptive technology; capex / hyperscalers / neoclouds still drive the chain" (id: 2066868456457416871, 2026-06-16)
 - "AMD scrambling for CW laser supply; SIVE / AAOI are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
-- "Trump announced Intel + Apple partnership; INTC Made-in-America foundry narrative continues" (id: 2067624913834549685, 2026-06-18)
+- "$MRVL prime beneficiary of MAIA ramp, $10-12B revenue" (id: 2006301094394335399, 2025-12-31)
+- "Mag7 funneling revenue into $ALAB $NBIS $TSM $LITE" (id: 1999240464420250042, 2025-12-11)
+- "Google Project Suncatcher → PL / RKLB" (id: 1995865990341496999, 2025-12-02)
+- "TPU v7 Ironwood Suppliers: AVGO, LITE, AMKR" (id: 1995543748353347989, 2025-12-01)
+- "NVDA dropped 12% on TPU threat" (id: 1994555219607523362, 2025-11-28)
+- "$TSM is the center of Neocloud trade and AI Buildout" (id: 1978716322453492060, 2025-10-16)
+- "AMD repricing as the next NVDA" (id: 1975987940473045058, 2025-10-08)
+- "META + their $14B deal with $CRWV, MSFT + $17B with $NBIS" (id: 1973693781888417816, 2025-10-02)

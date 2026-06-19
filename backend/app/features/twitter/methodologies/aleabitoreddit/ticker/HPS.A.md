@@ -35,6 +35,6 @@ sector: power-and-electrical
 
 ## Evidence Map
 
-- "$HPS.A multi-year visibility bottleneck" (id: 2052784100784922983, 2026-05-08)
 - "$HPS.A vertical line 2-3% every day, 20 CAD from triple digit" (id: 2054592898042380788, 2026-05-13)
+- "$HPS.A multi-year visibility bottleneck" (id: 2052784100784922983, 2026-05-08)
 - "HPS.A 30 stock list" (id: 2042187668931616964)

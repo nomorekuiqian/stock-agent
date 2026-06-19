@@ -76,10 +76,10 @@ last_updated: 2026-06-19
 
 ## Evidence Map
 
-- "Sold out of $IREN, consolidated into $NBIS" (id: 1981981029029298374, 2025-10-25)
-- "$NBIS objectively better than $IREN, NVDA didn't fund IREN" (id: 2056745774760026410, 2026-05-19)
-- "$IREN secured $9.7B MSFT contract" (id: 1985334909108433014, 2025-11-03) — 合同披露
-- "Neocloud Tierlist: A 级 $CIFR, $WULF, $IREN" (id: 1992181846134968633, 2025-11-22)
-- "$POET and $IREN both won the Fake it Until you make it award" (id: 2056171199512891790, 2026-05-18)
-- "$IREN back down -34%" (id: 2056745774760026410, 2026-05-19)
 - "NBIS at ATH while IREN is stuck with $6B ATM; debate settled" (id: 2067260268166713561, 2026-06-17)
+- "$NBIS objectively better than $IREN, NVDA didn't fund IREN" (id: 2056745774760026410, 2026-05-19)
+- "$IREN back down -34%" (id: 2056745774760026410, 2026-05-19)
+- "$POET and $IREN both won the Fake it Until you make it award" (id: 2056171199512891790, 2026-05-18)
+- "Neocloud Tierlist: A 级 $CIFR, $WULF, $IREN" (id: 1992181846134968633, 2025-11-22)
+- "$IREN secured $9.7B MSFT contract" (id: 1985334909108433014, 2025-11-03) — 合同披露
+- "Sold out of $IREN, consolidated into $NBIS" (id: 1981981029029298374, 2025-10-25)

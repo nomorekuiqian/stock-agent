@@ -41,6 +41,6 @@ last_updated: 2026-06-19
 
 ## Evidence Map
 
+- "AEHR follow-up production order from major silicon photonics customer" (id: 2067267047781015579, 2026-06-17)
 - AEHR 频繁出现在 sector_framework + thesis 推文中 (49 mentions)
 - "AEHR Test Systems" 持续 ratings (id: 多处)
-- "AEHR follow-up production order from major silicon photonics customer" (id: 2067267047781015579, 2026-06-17)

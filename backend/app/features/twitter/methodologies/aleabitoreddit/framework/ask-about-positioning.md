@@ -71,7 +71,7 @@ coverage: high
 
 ## Evidence Map
 
-- "70%+ of my portfolio is unrealized, I haven't sold a single share" (id: 2055405163092066719)
 - "$NBIS objectively better than $IREN" (id: 2056745774760026410)
 - "I cut some exposure in LITE/COHR ... rotated to SIVE/Foci" (id: 2056558267896311996)
 - "$POET and $IREN ... Fake it Until you make it" (id: 2056171199512891790)
+- "70%+ of my portfolio is unrealized, I haven't sold a single share" (id: 2055405163092066719)

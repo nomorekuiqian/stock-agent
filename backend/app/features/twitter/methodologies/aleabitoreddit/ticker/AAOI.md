@@ -98,12 +98,12 @@ AAOI 的最新证据从"美国本土 800G/1.6T transceiver ramp"扩展到"AMD / 
 
 ## Evidence Map
 
-- "End-to-end 800G/1.6T manufacturing in America, premium valuation deserved" (id: 2058376970178847075, 2026-05-24)
-- "AAOI 100K units/month for 800G, Q3 大幅产能增量" (id: 2052485912714752144, 2026-05-07)
-- "$AAOI up 6-7x at $200+ from $30 last year" (id: 2054583956167877111, 2026-05-13)
-- "$AAOI up 25.18% since ER drop, +16.09% today" (id: 2053841684698636599, 2026-05-11)
-- "AAOI levered toward MSFT MAIA ramp and Amazon Trainium" (id: 2003259964526330053, 2025-12-23)
-- "Photonics big day: SIVE +31.3%, TSEM +23.1%, AAOI +20%" (id: 2054687492750889323, 2026-05-13)
-- "AMD scrambling for CW laser supply; AAOI / SIVE are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
-- "AAOI high conviction: scarce laser capacity for AMD / hyperscalers and US transceiver chain" (id: 2067071462360666165, 2026-06-17)
 - "AMD large CW laser purchase agreements include AAOI / SIVEF as likely guesses" (id: 2067626358940082653, 2026-06-18)
+- "AAOI high conviction: scarce laser capacity for AMD / hyperscalers and US transceiver chain" (id: 2067071462360666165, 2026-06-17)
+- "AMD scrambling for CW laser supply; AAOI / SIVE are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "End-to-end 800G/1.6T manufacturing in America, premium valuation deserved" (id: 2058376970178847075, 2026-05-24)
+- "$AAOI up 6-7x at $200+ from $30 last year" (id: 2054583956167877111, 2026-05-13)
+- "Photonics big day: SIVE +31.3%, TSEM +23.1%, AAOI +20%" (id: 2054687492750889323, 2026-05-13)
+- "$AAOI up 25.18% since ER drop, +16.09% today" (id: 2053841684698636599, 2026-05-11)
+- "AAOI 100K units/month for 800G, Q3 大幅产能增量" (id: 2052485912714752144, 2026-05-07)
+- "AAOI levered toward MSFT MAIA ramp and Amazon Trainium" (id: 2003259964526330053, 2025-12-23)

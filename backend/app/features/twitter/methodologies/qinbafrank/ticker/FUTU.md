@@ -48,8 +48,8 @@ last_updated: 2026-05-27
 - 把 FUTU 当 HOOD 中国版 — 错。监管环境不同。
 
 ## Evidence Map
-- 当前语料 内多条 — 富途加密接入 / 海外华人市场
 
+- 当前语料 内多条 — 富途加密接入 / 海外华人市场
 ## 与其他 skill 协同
 - `sector/fintech-brokerage.md` — 父级 / 多产品矩阵
 - `sector/crypto-stablecoin-rwa.md` — 加密接入

@@ -144,11 +144,11 @@ $LSCC, Esunny Robot 300024, $NOVT, $RR, $PDY, Hesai 2525, $SHA.DE
 
 ## Evidence Map
 
-- "Robotics may be the biggest product category of all time, $25T projection" (id: 2054696650539688271, 2026-05-13)
+- "$SIVE → $AEVA FMCW (CW DFB lasers) → LG Innotek → Boston Dynamics" (id: 2058644487224848654, 2026-05-24)
 - "China holds all the cards over humanoid mass production. Sovereign rare earths needed." (id: 2056891308934148253, 2026-05-20)
 - "US Gov / Japan should put Ulvac 6728 on export control list" (id: 2056939360222884144, 2026-05-20)
 - "Harmonic Drive 6324 as Western leader. I actually like Leader Drive more, cheaper for mass production. Maybe Sanhua for TSLA Optimus." (id: 2055116243582247014, 2026-05-15)
-- "$SIVE → $AEVA FMCW (CW DFB lasers) → LG Innotek → Boston Dynamics" (id: 2058644487224848654, 2026-05-24)
 - "Nextronics 8147 supplier to robotics supply chains like $AMZN" (id: 2054728301806256484, 2026-05-14)
+- "Robotics may be the biggest product category of all time, $25T projection" (id: 2054696650539688271, 2026-05-13)
 - Crowdsourced humanoid list (id: 2054335940026573222, 2026-05-12)
 - "Avride is one of 5 FSD lvl 4 US Robotaxi companies" (id: 1993657309986509242, 2025-11-26)

@@ -245,9 +245,9 @@ Serenity 几乎只做多,但她会轮动。合法下修信号包括:
 
 ## Evidence Map
 
-- "$NBIS objectively better than $IREN, NVDA didn't fund IREN" (id: 2056745774760026410, 2026-05-19) — 同环比较和资本结构。
-- "Bottlenecks with multi-year visibility like $HPS.A or $LITE tend to perform better" (id: 2052784100784922983, 2026-05-08) — 多年可见度。
-- "$POET and $IREN literally both won the Fake it Until you make it award" (id: 2056171199512891790, 2026-05-18) — 稀释/资本结构一票否决。
-- "Citi said SOI hard to understand at 40, two months later Nomura PT 250" (id: 2056594930232135705, 2026-05-19) — 机构反指。
 - "Photonics is nuanced and using ChatGPT/Gemini makes you miss all of it" (id: 2058374522353672558, 2026-05-24) — 工程深度与表面分析区别。
 - "AI capex spend expected to $3-4T annually by 2030" (id: 2058618801554604040, 2026-05-24) — master thesis。
+- "$NBIS objectively better than $IREN, NVDA didn't fund IREN" (id: 2056745774760026410, 2026-05-19) — 同环比较和资本结构。
+- "Citi said SOI hard to understand at 40, two months later Nomura PT 250" (id: 2056594930232135705, 2026-05-19) — 机构反指。
+- "$POET and $IREN literally both won the Fake it Until you make it award" (id: 2056171199512891790, 2026-05-18) — 稀释/资本结构一票否决。
+- "Bottlenecks with multi-year visibility like $HPS.A or $LITE tend to perform better" (id: 2052784100784922983, 2026-05-08) — 多年可见度。

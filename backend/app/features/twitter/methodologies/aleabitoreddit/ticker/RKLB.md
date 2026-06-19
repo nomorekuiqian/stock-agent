@@ -43,8 +43,8 @@ sector: defense-and-space
 
 ## Evidence Map
 
-- "$RKLB at $43, PT $500 / 5Y" (id: 1991452423186182524, 2025-11-20)
-- "$RKLB = $NBIS Avride thesis, SpaceX $800B → RKLB $26B" (id: 1997122660749529353, 2025-12-06)
 - "$RKLB $90M US Space Force contract" (id: 2057620897796878725, 2026-05-22)
-- "5 Years: $RKLB ($16 / $28)" (id: 1977495210063286491, 2025-10-12)
 - "5 high conviction multi-bagger: NBIS/RKLB/ALAB/CRCL/LITE" (id: 2002392267311739320, 2025-12-20)
+- "$RKLB = $NBIS Avride thesis, SpaceX $800B → RKLB $26B" (id: 1997122660749529353, 2025-12-06)
+- "$RKLB at $43, PT $500 / 5Y" (id: 1991452423186182524, 2025-11-20)
+- "5 Years: $RKLB ($16 / $28)" (id: 1977495210063286491, 2025-10-12)

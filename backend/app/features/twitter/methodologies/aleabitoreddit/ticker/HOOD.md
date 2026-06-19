@@ -46,7 +46,7 @@ sector: ai-infrastructure-mag7
 
 ## Evidence Map
 
+- "2026 themes: Money Movement → $HOOD" (id: 2006709693012467774, 2026-01-01)
+- "$HOOD Macro drop $40 → $28 → $135" (id: 1980413318973333927, 2025-10-20)
 - "$HOOD ($11.27 / $18) 5 Years" (id: 1977495210063286491, 2025-10-12)
 - "Bought $HOOD at $11.47, 1000% to $125B MC" (id: 1973799361332326443, 2025-10-02)
-- "$HOOD Macro drop $40 → $28 → $135" (id: 1980413318973333927, 2025-10-20)
-- "2026 themes: Money Movement → $HOOD" (id: 2006709693012467774, 2026-01-01)

@@ -47,7 +47,7 @@ META 财报后下跌是她典型的加仓信号.
 
 ## Evidence Map
 
+- "Fire Sale: $META · $NBIS · $IBIT" (id: 1985770241532838347, 2025-11-04)
 - "MINT: M = $META" (id: 1985175534133993567, 2025-11-03)
 - "Added 6 figures in Jan-Feb $META calls" (id: 1983895786590200266, 2025-10-30)
-- "Fire Sale: $META · $NBIS · $IBIT" (id: 1985770241532838347, 2025-11-04)
 - "$META capex flowing to Neoclouds" (multiple)

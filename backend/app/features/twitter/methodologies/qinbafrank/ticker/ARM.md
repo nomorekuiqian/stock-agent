@@ -70,8 +70,8 @@ AI 数据中心电力卡脖子 → ARM 节能架构溢价。
 2. **押注 ARM vs x86 短期份额** — 错。是渐进过程。
 
 ## Evidence Map
-- `2023597321368547520` — "关键看产业链上的'非英伟达受益者'—— 博通 ASIC、HBM、ARM、Bloom Energy 等正不成比例放大"
 
+- `2023597321368547520` — "关键看产业链上的'非英伟达受益者'—— 博通 ASIC、HBM、ARM、Bloom Energy 等正不成比例放大"
 ## 与其他 skill 协同
 - `sector/ai-infrastructure.md` — L1 关键组件
 - `sector/power-and-physical-ai.md` — 节能架构与电力卡脖子

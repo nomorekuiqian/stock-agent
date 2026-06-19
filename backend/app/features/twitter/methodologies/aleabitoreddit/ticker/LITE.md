@@ -81,10 +81,10 @@ CPO 量产后, 部分 EML 需求被 SIVE CW DFB 替代. 她部分轮出, 但仍�
 
 ## Evidence Map
 
-- "Hidden monopoly in AI, +316% YTD, 1000%+ by 2027" (id: 2003019490871869644, 2025-12-22)
-- "Lite uniquely role in GOOGL TPU v7, AMZN Trainium, NVDA Blackwell" (id: 1999240464420250042, 2025-12-11)
-- "$LITE over $1000" (id: 2053857864637436221, 2026-05-11)
 - "Cut some exposure in $LITE $COHR, rotated to $SIVE / Foci" (id: 2056558267896311996, 2026-05-19)
+- "$LITE over $1000" (id: 2053857864637436221, 2026-05-11)
 - "Bottlenecks with multi-year visibility like $HPS.A or $LITE" (id: 2052784100784922983, 2026-05-08)
+- "Hidden monopoly in AI, +316% YTD, 1000%+ by 2027" (id: 2003019490871869644, 2025-12-22)
 - "5 high conviction multi-bagger stocks for 2026: NBIS/RKLB/ALAB/CRCL/LITE" (id: 2002392267311739320, 2025-12-20)
+- "Lite uniquely role in GOOGL TPU v7, AMZN Trainium, NVDA Blackwell" (id: 1999240464420250042, 2025-12-11)
 - "Added $LITE shares at ~$335.91" (id: 1998057580472729941, 2025-12-08)

@@ -46,8 +46,8 @@ last_updated: 2026-06-19
 
 ## Evidence Map
 
-- "$ASML" 提及但无独立 thesis（18 条 bucket 证据，多数在 sector_framework / macro_view 列表中）
-- "ASML / TSM earnings = Good Outlook. Semis + capex go brrr." (id: 2045565771234021468, 2026-04-18) — 直接正向证据，但仍是行业 TLDR，不是独立 ASML thesis。
-- "TLDR of recent semi developments... $TSM pushing CoPoS" — ASML 被提及但作为客户链 anchor (id: 2053205192980721797, 2026-05-09)
-- "$AAOI earnings ... rotation upstream like: $ASML-type suppliers" (id: 2027480850397573567, 2026-02-27) — 方法论推断：她用 ASML-type suppliers 类比上游设备环节，不等于直接看多 ASML 本身。
 - "China / ASML smuggling issue mentioned as export-control marker, not a standalone thesis" (id: 2067795114211340290, 2026-06-19)
+- "TLDR of recent semi developments... $TSM pushing CoPoS" — ASML 被提及但作为客户链 anchor (id: 2053205192980721797, 2026-05-09)
+- "ASML / TSM earnings = Good Outlook. Semis + capex go brrr." (id: 2045565771234021468, 2026-04-18) — 直接正向证据，但仍是行业 TLDR，不是独立 ASML thesis。
+- "$AAOI earnings ... rotation upstream like: $ASML-type suppliers" (id: 2027480850397573567, 2026-02-27) — 方法论推断：她用 ASML-type suppliers 类比上游设备环节，不等于直接看多 ASML 本身。
+- "$ASML" 提及但无独立 thesis（18 条 bucket 证据，多数在 sector_framework / macro_view 列表中）

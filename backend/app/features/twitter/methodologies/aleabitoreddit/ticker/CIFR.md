@@ -36,6 +36,6 @@ sector: neocloud
 
 ## Evidence Map
 
+- "Tier A: $CIFR, $WULF, $IREN" (id: 1992181846134968633, 2025-11-22)
 - "$CIFR $5.5B AWS contract" (id: 1985334909108433014, 2025-11-03)
 - "Sold out of $CIFR 250%+ gain" (id: 1981981029029298374, 2025-10-25)
-- "Tier A: $CIFR, $WULF, $IREN" (id: 1992181846134968633, 2025-11-22)

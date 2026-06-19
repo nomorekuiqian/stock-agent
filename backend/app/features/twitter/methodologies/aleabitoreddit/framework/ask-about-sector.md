@@ -77,7 +77,7 @@ coverage: high
 
 ## Evidence Map
 
+- "AI capex spend expected to $3-4T annually by 2030" (id: 2058618801554604040)
+- "I cut some exposure in LITE/COHR ... rotated to SIVE/Foci" (id: 2056558267896311996)
 - "Photonics TAM goes from $14B -> $154B" (id: 2055822766600016238)
 - "CPO from $1B -> $91B TAM" (id: 2052296867653066978)
-- "I cut some exposure in LITE/COHR ... rotated to SIVE/Foci" (id: 2056558267896311996)
-- "AI capex spend expected to $3-4T annually by 2030" (id: 2058618801554604040)

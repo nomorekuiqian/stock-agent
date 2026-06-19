@@ -55,10 +55,10 @@ AMD 的新增证据不是 Serenity 对 AMD 本身升级成 high-conviction 单�
 
 ## Evidence Map
 
+- "AAOI + SIVEF likely guesses for AMD CW laser purchase agreements" (id: 2067626358940082653, 2026-06-18)
+- "AMD large CW laser purchase agreements; independent Western capacity is scarce" (id: 2067206734427697196, 2026-06-17)
+- "AMD scrambling for CW laser supply; SIVE / AAOI are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
+- "CPUs go brr (AMD, Intel, ARM)" (id: 2048449289152778686, 2026-04-15)
 - "$AMD repricing as next NVDA" (id: 1975987940473045058, 2025-10-08)
 - "Bought $AMD shares at $215, 1Y+ long position" (id: 1975929128114377050, 2025-10-08)
-- "CPUs go brr (AMD, Intel, ARM)" (id: 2048449289152778686, 2026-04-15)
 - "Buy: ... $AMD" (multiple)
-- "AMD scrambling for CW laser supply; SIVE / AAOI are obvious beneficiaries" (id: 2066707573139763211, 2026-06-16)
-- "AMD large CW laser purchase agreements; independent Western capacity is scarce" (id: 2067206734427697196, 2026-06-17)
-- "AAOI + SIVEF likely guesses for AMD CW laser purchase agreements" (id: 2067626358940082653, 2026-06-18)

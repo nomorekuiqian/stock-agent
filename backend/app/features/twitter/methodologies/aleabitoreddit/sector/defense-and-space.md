@@ -136,12 +136,12 @@ Mag7 进入太空 ramp 阶段 → RKLB / PL 接 Mag7 项目.
 
 ## Evidence Map
 
-- "$RKLB at $43, PT $500 / 5Y" (id: 1991452423186182524, 2025-11-20)
-- "$RKLB = $NBIS Avride, SpaceX $350B → $800B, RKLB from $26B 还有空间" (id: 1997122660749529353, 2025-12-06)
-- "$FLY $4.5B MC, mega moat, backstopped by government" (id: 1976057641999925300, 2025-10-08)
-- "Google Project Suncatcher → PL / RKLB" (id: 1995865990341496999, 2025-12-02)
+- "$SIVE in $YSS Golden Dome + $RTX defense supply chains, CHIPS Act funding" (id: 2058064950116130919, 2026-05-23)
+- "RKLB $90M US Space Force contract" (id: 2057620897796878725, 2026-05-22)
 - "AIRO drone $300m MC, fwd P/S 2.5 vs peer 30-40x" (id: 2008454507823591467, 2026-01-06)
 - "US has now invaded Venezuela → AVAV" (id: 2007387427820978510, 2026-01-03)
+- "$RKLB = $NBIS Avride, SpaceX $350B → $800B, RKLB from $26B 还有空间" (id: 1997122660749529353, 2025-12-06)
+- "Google Project Suncatcher → PL / RKLB" (id: 1995865990341496999, 2025-12-02)
+- "$RKLB at $43, PT $500 / 5Y" (id: 1991452423186182524, 2025-11-20)
 - "$ASTS ER drop $58 → $36 → $83" (id: 1980413318973333927, 2025-10-20) — case study
-- "RKLB $90M US Space Force contract" (id: 2057620897796878725, 2026-05-22)
-- "$SIVE in $YSS Golden Dome + $RTX defense supply chains, CHIPS Act funding" (id: 2058064950116130919, 2026-05-23)
+- "$FLY $4.5B MC, mega moat, backstopped by government" (id: 1976057641999925300, 2025-10-08)

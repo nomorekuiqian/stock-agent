@@ -75,7 +75,7 @@ coverage: high
 
 ## Evidence Map
 
-- Intel CEO CPU ratio 1:8 -> 1:1 类新闻解码 (corpus slice: macro/core)
-- DuPont / materials price change -> upstream derivative play (methodology-spec A10)
 - TSM COUPE / FAU bottleneck -> FOCI / Nextronics (id: 2054365028820881794)
 - Coherent CPO timing -> photonics chain (id: 2052278391928500502)
+- Intel CEO CPU ratio 1:8 -> 1:1 类新闻解码 (corpus slice: macro/core)
+- DuPont / materials price change -> upstream derivative play (methodology-spec A10)

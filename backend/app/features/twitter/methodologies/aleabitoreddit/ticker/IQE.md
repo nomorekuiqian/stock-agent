@@ -57,10 +57,10 @@ last_updated: 2026-06-15
 
 ## Evidence Map
 
-- "$IQE up 4x in 3 months, MTSI debt derisks long term" (id: 2053794972663754849, 2026-05-11)
-- "European quantum/optical/glass chokepoints: $ALRIB +8%, $LPK +3%, $IQE +5.68%, $SOI +4.98%" (id: 2057761720710631573, 2026-05-22)
-- "2026 themes: SiPh InP Bottleneck / $AXTI, $LITE, $GOOGL" (id: 2006709693012467774, 2026-01-01) — IQE 类同环
-- "VPEC new price hikes on Epiwafers... positive bottleneck read through on $IQE and Landmark" (id: 2065333919252418913, 2026-06-12)
-- "$IQE, $XFAB ... critical to western supply chains" (id: 2065337180478931454, 2026-06-12)
 - "China eased InP substrate exports... relieve mass production bottlenecks" (id: 2066340661633372452, 2026-06-15)
 - "$IQE and $TSEM sign a multi year InP epiwafer deal" (id: 2066421816793714938, 2026-06-15)
+- "VPEC new price hikes on Epiwafers... positive bottleneck read through on $IQE and Landmark" (id: 2065333919252418913, 2026-06-12)
+- "$IQE, $XFAB ... critical to western supply chains" (id: 2065337180478931454, 2026-06-12)
+- "European quantum/optical/glass chokepoints: $ALRIB +8%, $LPK +3%, $IQE +5.68%, $SOI +4.98%" (id: 2057761720710631573, 2026-05-22)
+- "$IQE up 4x in 3 months, MTSI debt derisks long term" (id: 2053794972663754849, 2026-05-11)
+- "2026 themes: SiPh InP Bottleneck / $AXTI, $LITE, $GOOGL" (id: 2006709693012467774, 2026-01-01) — IQE 类同环

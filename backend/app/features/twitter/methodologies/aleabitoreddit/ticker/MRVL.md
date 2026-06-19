@@ -67,7 +67,7 @@ MRVL Celestial 是定制光电整合芯片, 客户是 Sivers 的 CW DFB 激光�
 
 ## Evidence Map
 
+- "MRVL Celestial as SIVE's customer in CPO" (id: 2058060753933131949, 2026-05-23)
 - "$MRVL prime beneficiary of MAIA ramp, $10-12B revenue" (id: 2006301094394335399, 2025-12-31)
 - "An est. $18B+ flows to suppliers from Maia ASIC ramp. MRVL gets $8-12B as design lead" (id: 2003476197028852074, 2025-12-23)
-- "MRVL Celestial as SIVE's customer in CPO" (id: 2058060753933131949, 2026-05-23)
 - "Strong Buy: $ALAB · $CRDO · $TSM · $AMD · $FLNC · $TE Buy: ... $MRVL" (id: 1985770241532838347, 2025-11-04)

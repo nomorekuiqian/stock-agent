@@ -49,7 +49,7 @@ last_updated: 2026-05-27
 - 若民航交付持续低于预期 → 困境反转延后
 
 ## Evidence Map
-- 当前语料 内多条 — 波音 vs SpaceX 太空商业对比
 
+- 当前语料 内多条 — 波音 vs SpaceX 太空商业对比
 ## 与其他 skill 协同
 - `sector/defense-and-space.md` — 父级 / 国防 + 太空对比

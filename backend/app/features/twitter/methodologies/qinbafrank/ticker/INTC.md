@@ -75,8 +75,8 @@ CHIPS Act + 半导体自主可控 → 政府保护色彩。
 2. **押注短期 18A 量产** — 错。是中线节奏。
 
 ## Evidence Map
-- `2047870954932764715` — "Intel/AMD 服务器 CPU 交期已经拉到 6-12 周"
 
+- `2047870954932764715` — "Intel/AMD 服务器 CPU 交期已经拉到 6-12 周"
 ## 与其他 skill 协同
 - `sector/ai-infrastructure.md` — L1 CPU 双寡头
 - `ticker/AMD.md` — 双寡头共享紧缺

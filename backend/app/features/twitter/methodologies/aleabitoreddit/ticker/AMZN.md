@@ -46,5 +46,5 @@ AMZN 在 Friday Market Close 常出现在 Strong Buy. 2025-10-10 关税日她明
 
 - "AMZN new private placement with AlChip" (id: 2055182601158074769, 2026-05-15)
 - "AMZN $10B OpenAI funding" (id: 2001240032099885381, 2025-12-17)
-- "Bought $AMZN $217.8 (4% drop)" (id: 1976710335433523330, 2025-10-10)
 - "AVGO/LITE/NBIS portfolio for AI sector" (id: 1999575509462843833)
+- "Bought $AMZN $217.8 (4% drop)" (id: 1976710335433523330, 2025-10-10)

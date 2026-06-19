@@ -65,8 +65,8 @@ COHR 不像 LITE 专一 EML, 也不像 AAOI 美国本土制造 — 它是**全�
 
 ## Evidence Map
 
-- "Coherent CEO: CPO most important long-term growth opportunity" (id: 2052278391928500502, 2026-05-07)
 - "Cut some exposure in $LITE $COHR, rotated to $SIVE / Foci" (id: 2056558267896311996, 2026-05-19)
+- "Coherent CEO: CPO most important long-term growth opportunity" (id: 2052278391928500502, 2026-05-07)
 - "$COHR vertically integrated + captures optical cycle" (id: 2042187668931616964)
 - "AVGO/LITE/NBIS portfolio + $COHR for AI photonics" (id: 1999575509462843833, 2025-12-12)
 - "Strong Buy: ... $COHR" (id: 1998846813177262295, 2025-12-10)

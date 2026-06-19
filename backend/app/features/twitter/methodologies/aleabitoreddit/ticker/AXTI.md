@@ -130,10 +130,10 @@ AXTI 是她供应链方法论的典型案例: 先从 AI photonics 需求下沉�
 
 ## Evidence Map
 
-- "Bottleneck within a Bottleneck: Indium Phosphide" (id: 2005485130958430440, 2025-12-29)
-- "$AXTI CEO: We are 40% of the Indium Phosphide supply chain" (id: 2005654662616387783, 2025-12-29)
+- "Comparing Sumitomo InP substrates vs AXT is wrong" (id: 2058620094532718772, 2026-05-24)
 - "$700M -> $9.2B MC in 5 months, PT $150 $10 away" (id: 2058002991886844357, 2026-05-23)
 - "China export controlled Japan on InP after $AXTI post" (id: 2056940719013867708, 2026-05-20)
 - "AXT just became the monopoly of the InP substrates" (id: 2008582578186678307, 2026-01-06)
-- "Comparing Sumitomo InP substrates vs AXT is wrong" (id: 2058620094532718772, 2026-05-24)
+- "Bottleneck within a Bottleneck: Indium Phosphide" (id: 2005485130958430440, 2025-12-29)
+- "$AXTI CEO: We are 40% of the Indium Phosphide supply chain" (id: 2005654662616387783, 2025-12-29)
 - "InP Chokepoint: The Bottleneck of the AI Buildout" (id: 2004936335702753729, 2025-12-27)

@@ -71,7 +71,7 @@ coverage: high
 
 ## Evidence Map
 
-- SIVE / AXTI / AAOI / LITE / NBIS 等 high-conviction 语料见各 ticker。
 - "AI capex spend expected to $3-4T annually by 2030" (id: 2058618801554604040)
-- "Bottlenecks with multi-year visibility..." (id: 2052784100784922983)
 - "$NBIS objectively better than $IREN" (id: 2056745774760026410)
+- "Bottlenecks with multi-year visibility..." (id: 2052784100784922983)
+- SIVE / AXTI / AAOI / LITE / NBIS 等 high-conviction 语料见各 ticker。

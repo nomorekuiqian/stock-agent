@@ -68,8 +68,8 @@ sector: substrates
 
 ## Evidence Map
 
-- "$SOI = $AXTI (SiPh substrate)" analog (id: 2050790690591048002, 2026-04-21)
-- "Citi called my $SOI thesis hard to understand at €40, Nomura PT €250 2 months later" (id: 2056594930232135705, 2026-05-19)
-- "European analysts said nothing new about $SOI. Now SOI up few hundred percent" (id: 2052325056429384165, 2026-05-07)
-- "SOI from 40 → 61 → 53 → 171, healthy macro corrections" (id: 2054319443770221015, 2026-05-12)
 - "Stay exposed + own the keys: $AXTI / $SOI" (id: 2058618801554604040, 2026-05-24)
+- "Citi called my $SOI thesis hard to understand at €40, Nomura PT €250 2 months later" (id: 2056594930232135705, 2026-05-19)
+- "SOI from 40 → 61 → 53 → 171, healthy macro corrections" (id: 2054319443770221015, 2026-05-12)
+- "European analysts said nothing new about $SOI. Now SOI up few hundred percent" (id: 2052325056429384165, 2026-05-07)
+- "$SOI = $AXTI (SiPh substrate)" analog (id: 2050790690591048002, 2026-04-21)
