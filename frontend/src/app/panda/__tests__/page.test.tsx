@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PandaPage from '../page';
@@ -49,6 +49,7 @@ describe('/panda page', () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    mockSignOut.mockResolvedValue({ success: true });
     mockAuthState = {
       isLoading: false,
       user: { id: 'user-1', email: 'member@example.com' },
@@ -93,6 +94,48 @@ describe('/panda page', () => {
 
     expect(await screen.findByText('当前账号未开通')).toBeInTheDocument();
     expect(screen.queryByText('暂时无法验证访问权限')).not.toBeInTheDocument();
+  });
+
+  it('shows a focused Panda navbar after access is granted', async () => {
+    mockPandaMe.mockResolvedValue({
+      partner_id: 'panda',
+      persona_username: 'pandacircle',
+      has_access: true,
+      email: 'member@example.com',
+      grant: { email: 'member@example.com', email_normalized: 'member@example.com', status: 'active' },
+    });
+
+    render(<PandaPage />);
+
+    expect(await screen.findByText('Research Workspace')).toBeInTheDocument();
+    expect(screen.getByText('专属投研助手')).toBeInTheDocument();
+    expect(screen.getByText('member@example.com')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /退出登录/ })).toBeInTheDocument();
+  });
+
+  it('shows a re-login gate after signing out from the Panda workspace', async () => {
+    mockPandaMe.mockResolvedValue({
+      partner_id: 'panda',
+      persona_username: 'pandacircle',
+      has_access: true,
+      email: 'member@example.com',
+      grant: { email: 'member@example.com', email_normalized: 'member@example.com', status: 'active' },
+    });
+
+    render(<PandaPage />);
+
+    await screen.findByRole('button', { name: /退出登录/ });
+    await act(async () => {
+      screen.getByText('退出登录').click();
+    });
+
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
+    expect(await screen.findByRole('link', { name: '重新登录' })).toHaveAttribute(
+      'href',
+      '/login?redirect=%2Fpanda',
+    );
+    expect(screen.queryByText('Research Workspace')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '注册' })).not.toBeInTheDocument();
   });
 
   it('can retry access verification after a network failure', async () => {

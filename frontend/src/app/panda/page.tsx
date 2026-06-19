@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { LogIn, LogOut, RefreshCw, UserPlus } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, type User } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { ResearchWorkspace } from '@/app/research/page';
 
@@ -54,6 +54,104 @@ function PandaGateHeader({ title }: { title: string }) {
   );
 }
 
+function PandaTopNav({
+  user,
+  email,
+  isSigningOut,
+  signOutError,
+  onSignOut,
+}: {
+  user: User;
+  email: string | null;
+  isSigningOut: boolean;
+  signOutError: string | null;
+  onSignOut: () => void | Promise<void>;
+}) {
+  const displayEmail = email || user.email;
+  const displayName = user.name?.trim() || displayEmail.split('@')[0] || '当前账号';
+
+  return (
+    <header className="fixed inset-x-0 top-0 z-[70] h-16 border-b border-border bg-background/95 backdrop-blur">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Image
+            src={PANDA_AVATAR_SRC}
+            alt="潘大头像"
+            width={36}
+            height={36}
+            className="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
+            priority
+          />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-foreground">
+              潘大科技圈
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              专属投研助手
+            </div>
+          </div>
+        </div>
+
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="hidden min-w-0 text-right sm:block">
+            <div className="truncate text-xs font-medium text-foreground">
+              {displayName}
+            </div>
+            <div className="max-w-[220px] truncate text-xs text-muted-foreground">
+              {displayEmail}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void onSignOut()}
+            disabled={isSigningOut}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSigningOut ? (
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <LogOut className="h-3.5 w-3.5" aria-hidden />
+            )}
+            退出登录
+          </button>
+        </div>
+      </div>
+      {signOutError ? (
+        <div className="absolute right-3 top-full mt-2 rounded-md border border-destructive/30 bg-background px-3 py-2 text-xs text-destructive shadow-lg">
+          {signOutError}
+        </div>
+      ) : null}
+    </header>
+  );
+}
+
+function PandaBrandNav() {
+  return (
+    <header className="fixed inset-x-0 top-0 z-[70] h-16 border-b border-border bg-background/95 backdrop-blur">
+      <div className="mx-auto flex h-full max-w-7xl items-center px-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Image
+            src={PANDA_AVATAR_SRC}
+            alt="潘大头像"
+            width={36}
+            height={36}
+            className="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
+            priority
+          />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-foreground">
+              潘大科技圈
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              专属投研助手
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
 export default function PandaPage() {
   const { isLoading: authLoading, user, signOut } = useAuth();
   const [accessLoading, setAccessLoading] = useState(true);
@@ -62,12 +160,16 @@ export default function PandaPage() {
   const [accessError, setAccessError] = useState<string | null>(null);
   const [checkedUserId, setCheckedUserId] = useState<string | null>(null);
   const [accessCheckAttempt, setAccessCheckAttempt] = useState(0);
+  const [didSignOut, setDidSignOut] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
       return;
     }
+    if (didSignOut) return;
 
     let cancelled = false;
     api.communityPanda.me()
@@ -91,7 +193,7 @@ export default function PandaPage() {
     return () => {
       cancelled = true;
     };
-  }, [accessCheckAttempt, authLoading, user]);
+  }, [accessCheckAttempt, authLoading, didSignOut, user]);
 
   function retryAccessCheck() {
     setAccessLoading(true);
@@ -100,45 +202,72 @@ export default function PandaPage() {
     setAccessCheckAttempt((attempt) => attempt + 1);
   }
 
+  async function handleSignOut() {
+    setIsSigningOut(true);
+    setSignOutError(null);
+    const result = await signOut();
+    setIsSigningOut(false);
+    if (!result.success) {
+      setSignOutError(result.error || '退出登录失败，请稍后再试');
+      return;
+    }
+    setDidSignOut(true);
+    setHasAccess(false);
+    setAccessEmail(null);
+    setAccessError(null);
+    setCheckedUserId(null);
+  }
+
   if (authLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <RefreshCw className="h-4 w-4 animate-spin" aria-hidden />
-          正在检查登录状态
+      <main className="min-h-screen bg-background px-4 pb-8 pt-24">
+        <PandaBrandNav />
+        <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <RefreshCw className="h-4 w-4 animate-spin" aria-hidden />
+            正在检查登录状态
+          </div>
         </div>
       </main>
     );
   }
 
-  if (!user) {
+  if (didSignOut || !user) {
+    const reloginOnly = didSignOut;
     return (
-      <main className="min-h-screen bg-background px-4 py-8">
-        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-xl flex-col justify-center">
+      <main className="min-h-screen bg-background px-4 pb-8 pt-24">
+        <PandaBrandNav />
+        <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-xl flex-col justify-center">
           <div className="rounded-lg border border-border bg-card p-5">
-            <PandaGateHeader title={`欢迎使用 ${PANDA_PRODUCT_NAME}`} />
+            <PandaGateHeader title={reloginOnly ? '你已退出登录' : `欢迎使用 ${PANDA_PRODUCT_NAME}`} />
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              请使用你在潘大知识星球评论区填写的邮箱登录或注册。登录后系统会自动检查你的专属访问权限。
+              {reloginOnly
+                ? '重新登录后，系统会再次检查你的潘大科技圈专属访问权限。'
+                : '请使用你在潘大知识星球评论区填写的邮箱登录或注册。登录后系统会自动检查你的专属访问权限。'}
             </p>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <div className={reloginOnly ? 'mt-5' : 'mt-5 grid gap-2 sm:grid-cols-2'}>
               <a
                 href={LOGIN_URL}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <LogIn className="h-4 w-4" aria-hidden />
-                登录
+                {reloginOnly ? '重新登录' : '登录'}
               </a>
-              <a
-                href={SIGNUP_URL}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                <UserPlus className="h-4 w-4" aria-hidden />
-                注册
-              </a>
+              {!reloginOnly && (
+                <a
+                  href={SIGNUP_URL}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <UserPlus className="h-4 w-4" aria-hidden />
+                  注册
+                </a>
+              )}
             </div>
-            <p className="mt-4 text-xs leading-5 text-muted-foreground">
-              如果你已经在知识星球留下邮箱，但登录后仍显示未开通，请确认登录邮箱和评论区填写邮箱完全一致。
-            </p>
+            {!reloginOnly && (
+              <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                如果你已经在知识星球留下邮箱，但登录后仍显示未开通，请确认登录邮箱和评论区填写邮箱完全一致。
+              </p>
+            )}
           </div>
         </div>
       </main>
@@ -147,10 +276,19 @@ export default function PandaPage() {
 
   if (accessLoading || checkedUserId !== user.id) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <RefreshCw className="h-4 w-4 animate-spin" aria-hidden />
-          正在验证访问权限
+      <main className="min-h-screen bg-background px-4 pb-8 pt-24">
+        <PandaTopNav
+          user={user}
+          email={accessEmail}
+          isSigningOut={isSigningOut}
+          signOutError={signOutError}
+          onSignOut={handleSignOut}
+        />
+        <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <RefreshCw className="h-4 w-4 animate-spin" aria-hidden />
+            正在验证访问权限
+          </div>
         </div>
       </main>
     );
@@ -158,8 +296,15 @@ export default function PandaPage() {
 
   if (accessError) {
     return (
-      <main className="min-h-screen bg-background px-4 py-8">
-        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-xl flex-col justify-center">
+      <main className="min-h-screen bg-background px-4 pb-8 pt-24">
+        <PandaTopNav
+          user={user}
+          email={accessEmail}
+          isSigningOut={isSigningOut}
+          signOutError={signOutError}
+          onSignOut={handleSignOut}
+        />
+        <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-xl flex-col justify-center">
           <div className="rounded-lg border border-border bg-card p-5">
             <PandaGateHeader title="暂时无法验证访问权限" />
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -179,7 +324,7 @@ export default function PandaPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void signOut()}
+                onClick={() => void handleSignOut()}
                 className="inline-flex h-10 items-center gap-2 rounded-md border border-border px-3 text-sm text-foreground transition-colors hover:bg-muted"
               >
                 <LogOut className="h-4 w-4" aria-hidden />
@@ -194,8 +339,15 @@ export default function PandaPage() {
 
   if (!hasAccess) {
     return (
-      <main className="min-h-screen bg-background px-4 py-8">
-        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-xl flex-col justify-center">
+      <main className="min-h-screen bg-background px-4 pb-8 pt-24">
+        <PandaTopNav
+          user={user}
+          email={accessEmail}
+          isSigningOut={isSigningOut}
+          signOutError={signOutError}
+          onSignOut={handleSignOut}
+        />
+        <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-xl flex-col justify-center">
           <div className="rounded-lg border border-border bg-card p-5">
             <PandaGateHeader title="当前账号未开通" />
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -203,7 +355,7 @@ export default function PandaPage() {
             </p>
             <button
               type="button"
-              onClick={() => void signOut()}
+              onClick={() => void handleSignOut()}
               className="mt-5 inline-flex h-10 items-center gap-2 rounded-md border border-border px-3 text-sm text-foreground transition-colors hover:bg-muted"
             >
               <LogOut className="h-4 w-4" aria-hidden />
@@ -216,16 +368,24 @@ export default function PandaPage() {
   }
 
   return (
-    <ResearchWorkspace
-      variant="community_panda"
-      storageKey="panda_research_state"
-      conversationScope="community_panda"
-      defaultPersonaUsername="pandacircle"
-      lockedPersonaUsername="pandacircle"
-      personaScope="community_panda"
-      allowDefaultAssistant={false}
-      showPersonaUpsell={false}
-      useFullViewport
-    />
+    <>
+      <ResearchWorkspace
+        variant="community_panda"
+        storageKey="panda_research_state"
+        conversationScope="community_panda"
+        defaultPersonaUsername="pandacircle"
+        lockedPersonaUsername="pandacircle"
+        personaScope="community_panda"
+        allowDefaultAssistant={false}
+        showPersonaUpsell={false}
+      />
+      <PandaTopNav
+        user={user}
+        email={accessEmail}
+        isSigningOut={isSigningOut}
+        signOutError={signOutError}
+        onSignOut={handleSignOut}
+      />
+    </>
   );
 }
