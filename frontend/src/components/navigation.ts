@@ -92,6 +92,7 @@ export function getMainNavSections({
         { href: '/admin', label: '用户管理' },
         { href: '/admin/activity', label: '活跃对比' },
         { href: '/admin/flags', label: '灰度管理' },
+        { href: '/admin/panda', label: 'Panda 授权' },
         { href: '/admin/llm-usage', label: 'LLM 用量' },
         { href: '/admin/feedback', label: '用户反馈' },
         { href: '/email-test', label: '邮件预览' },

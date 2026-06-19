@@ -1132,6 +1132,170 @@ describe('api (post cache removal)', () => {
     });
   });
 
+  describe('kolResearch.personas', () => {
+    it('requests the research persona scope by default', async () => {
+      mockFetchOk({ personas: [] });
+
+      await api.kolResearch.personas();
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/kol_research/personas?scope=research');
+      expect(opts.headers.Authorization).toBe('Bearer fake-token');
+    });
+
+    it('passes custom persona scopes to the backend', async () => {
+      mockFetchOk({ personas: [] });
+
+      await api.kolResearch.personas('community_panda');
+
+      const [url] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/kol_research/personas?scope=community_panda');
+    });
+  });
+
+  describe('communityPanda', () => {
+    it('loads current Panda access status from the community endpoint', async () => {
+      const payload = { partner_id: 'panda', persona_username: 'pandacircle', has_access: true, email: 'a@example.com' };
+      mockFetchOk(payload);
+
+      const result = await api.communityPanda.me();
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/community/panda/me'),
+        expect.any(Object),
+      );
+      expect(result).toEqual(payload);
+    });
+
+    it('lists Panda conversations with trimmed search params', async () => {
+      mockFetchOk({ conversations: [], has_more: false });
+
+      await api.communityPanda.conversations.list({
+        limit: 10,
+        offset: 20,
+        search: '  NVDA thesis  ',
+      });
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/community/panda/conversations?');
+      expect(url).toContain('limit=10');
+      expect(url).toContain('offset=20');
+      expect(url).toContain('search=NVDA+thesis');
+      expect(opts.headers.Authorization).toBe('Bearer fake-token');
+    });
+
+    it('creates Panda conversations through the community facade', async () => {
+      mockFetchOk({ id: 'c1' });
+
+      await api.communityPanda.conversations.create({
+        id: 'c1',
+        title: 'Panda chat',
+        data: { messages: [] },
+        message_count: 2,
+      });
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/community/panda/conversations');
+      expect(opts.method).toBe('POST');
+      expect(JSON.parse(opts.body)).toEqual({
+        id: 'c1',
+        title: 'Panda chat',
+        data: { messages: [] },
+        message_count: 2,
+      });
+    });
+
+    it('pins Panda conversations through the scoped endpoint', async () => {
+      mockFetchOk({ success: true, id: 'c1', is_pinned: true, pinned_at: '2026-01-01T00:00:00Z' });
+
+      await api.communityPanda.conversations.pin('c1', true);
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/community/panda/conversations/c1/pin');
+      expect(opts.method).toBe('PATCH');
+      expect(JSON.parse(opts.body)).toEqual({ is_pinned: true });
+    });
+
+    it('forces pandacircle in Panda chat stream requests', async () => {
+      const encoder = new TextEncoder();
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => ({
+            read: vi.fn()
+              .mockResolvedValueOnce({
+                done: false,
+                value: encoder.encode('data: {"type":"final","data":{"message":"ok"}}\n\n'),
+              })
+              .mockResolvedValueOnce({ done: true, value: undefined }),
+          }),
+        },
+      });
+
+      const events: Array<{ type?: string }> = [];
+      await api.communityPanda.chatStream(
+        { message: 'hello', persona_username: 'qinbafrank' },
+        (event) => events.push(event),
+      );
+
+      const [_url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(JSON.parse(opts.body)).toMatchObject({
+        message: 'hello',
+        persona_username: 'pandacircle',
+      });
+      expect(events).toEqual([{ type: 'final', data: { message: 'ok' } }]);
+    });
+
+    it('dry-runs Panda grants through the admin community endpoint', async () => {
+      const payload = {
+        partner_id: 'panda',
+        total_input: 1,
+        valid_count: 1,
+        invalid: [],
+        duplicates: [],
+        existing_active: [],
+        existing_revoked: [],
+        to_create: ['a@example.com'],
+        to_reactivate: [],
+      };
+      mockFetchOk(payload);
+
+      const result = await api.adminPandaGrants.dryRun({ emails_text: 'a@example.com' });
+
+      const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/admin/community/panda/grants/dry-run');
+      expect(opts.method).toBe('POST');
+      expect(JSON.parse(opts.body)).toEqual({ emails_text: 'a@example.com' });
+      expect(result).toEqual(payload);
+    });
+
+    it('applies, lists, and revokes Panda admin grants through scoped endpoints', async () => {
+      mockFetchOk({ ok: true, dry_run: {}, created: 1, reactivated: 0, unchanged: 0 });
+      await api.adminPandaGrants.apply({ emails_text: 'a@example.com', notes: 'June batch' });
+      let [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/admin/community/panda/grants/apply');
+      expect(opts.method).toBe('POST');
+      expect(JSON.parse(opts.body)).toEqual({ emails_text: 'a@example.com', notes: 'June batch' });
+
+      mockFetchOk({ grants: [] });
+      await api.adminPandaGrants.list({ email: 'a@example.com', status: 'active', limit: 50, offset: 10 });
+      [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/admin/community/panda/grants?');
+      expect(url).toContain('email=a%40example.com');
+      expect(url).toContain('status=active');
+      expect(url).toContain('limit=50');
+      expect(url).toContain('offset=10');
+      expect(opts.headers.Authorization).toBe('Bearer fake-token');
+
+      mockFetchOk({ ok: true, record: null });
+      await api.adminPandaGrants.revoke('grant-1');
+      [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/admin/community/panda/grants/grant-1');
+      expect(opts.method).toBe('DELETE');
+    });
+  });
+
   describe('kolResearch.chatStream', () => {
     // Minimal SSE-style 200 response whose ReadableStream yields `lines` then ends.
     function streamOk(lines: string[]) {

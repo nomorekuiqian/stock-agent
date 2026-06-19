@@ -449,7 +449,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
 
     await page.goto('/login?redirect=%2Ftoday');
     await page.getByRole('button', { name: '注册' }).click();
-    await page.getByLabel('姓名').fill('Fresh User');
+    await page.getByLabel('微信名').fill('Fresh User');
     await page.getByLabel('邮箱').fill('fresh-user@example.com');
     await passwordInput(page).fill('Password123!');
     await page.getByRole('button', { name: '创建账户' }).click();
@@ -464,7 +464,7 @@ test.describe('Auth flows (/login, /verify-email)', () => {
 
     await page.goto('/login');
     await page.getByRole('button', { name: '注册' }).click();
-    await page.getByLabel('姓名').fill('Existing User');
+    await page.getByLabel('微信名').fill('Existing User');
     await page.getByLabel('邮箱').fill('existing@example.com');
     await passwordInput(page).fill('Password123!');
     await page.getByRole('button', { name: '创建账户' }).click();

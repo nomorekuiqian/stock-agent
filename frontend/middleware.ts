@@ -24,6 +24,7 @@ const PUBLIC_ROUTES = [
   '/research',
   '/twitter-digest',
   '/kol',
+  '/panda',
 ];
 
 const ACCESS_COOKIE = 'app_access_token';

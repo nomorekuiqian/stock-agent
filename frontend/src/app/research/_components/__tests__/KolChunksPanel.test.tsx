@@ -290,11 +290,12 @@ describe('zsxq evidence rendering', () => {
     const { container } = render(<KolChunksPanel chunks={[tweet]} />);
 
     expect(container.textContent).toContain('软件股预计下半年会跑赢大盘');
-    expect(container.textContent).toContain('original');
-    expect(container.textContent).toContain('keep');
     expect(container.textContent).toContain('在 X 查看原文');
     expect(container.textContent).not.toContain('Author:');
     expect(container.textContent).not.toContain('Date:');
+    expect(container.textContent).not.toContain('original');
+    expect(container.textContent).not.toContain('keep');
+    expect(container.textContent).not.toContain('#1');
     expect(container.textContent).not.toContain('Source ID');
     expect(container.textContent).not.toContain('Title:');
     expect(container.textContent).not.toContain('@JohnsonZ91127');

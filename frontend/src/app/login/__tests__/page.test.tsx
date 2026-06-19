@@ -72,7 +72,7 @@ describe('/login page', () => {
     render(<LoginPage />);
 
     expect(screen.getByRole('heading', { name: '创建账户' })).toBeInTheDocument();
-    expect(screen.getByLabelText('姓名')).toBeInTheDocument();
+    expect(screen.getByLabelText('微信名')).toBeInTheDocument();
   });
 
   it('redirects authenticated users to stored redirect and clears sessionStorage', async () => {
@@ -138,7 +138,7 @@ describe('/login page', () => {
     render(<LoginPage />);
 
     fireEvent.click(screen.getByRole('button', { name: '注册' }));
-    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Tester' } });
+    fireEvent.change(screen.getByLabelText('微信名'), { target: { value: 'Tester' } });
     fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'user@example.com' } });
     fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'Password123!' } });
     fireEvent.click(screen.getByRole('button', { name: '创建账户' }));
@@ -148,5 +148,32 @@ describe('/login page', () => {
     });
     expect(sessionStorage.getItem('pending_verification_email')).toBe('user@example.com');
     expect(sessionStorage.getItem('pending_verification_name')).toBe('Tester');
+  });
+
+  it('preserves explicit Panda redirect for sign-up verification', async () => {
+    mockSearchParams = new URLSearchParams('mode=signup&redirect=%2Fpanda');
+    mockSignUp.mockResolvedValue({
+      success: true,
+      requiresEmailVerification: true,
+      email: 'user@example.com',
+    });
+
+    render(<LoginPage />);
+
+    fireEvent.change(screen.getByLabelText('微信名'), { target: { value: 'Tester' } });
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'user@example.com' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'Password123!' } });
+    fireEvent.click(screen.getByRole('button', { name: '创建账户' }));
+
+    await waitFor(() => {
+      expect(mockSignUp).toHaveBeenCalledWith(
+        'user@example.com',
+        'Password123!',
+        'Tester',
+        '/panda',
+      );
+      expect(mockPush).toHaveBeenCalledWith('/verify-email?redirect=%2Fpanda&email=user%40example.com');
+    });
+    expect(sessionStorage.getItem('auth_redirect')).toBe('/panda');
   });
 });

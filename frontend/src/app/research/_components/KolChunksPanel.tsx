@@ -488,26 +488,6 @@ function tweetAvatarSrcFor(chunk: KolPersonaChunk): string {
   return avatarSrcFor(chunk.author_username) || PANDACIRCLE_AVATAR_SRC;
 }
 
-function tweetMetadataValue(chunk: KolPersonaChunk, key: string, label: string): string {
-  const metadata = chunk.metadata || {};
-  const value = metadata[key];
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim();
-  }
-  const match = (chunk.content || '').match(new RegExp(`^${label}\\s*[:：]\\s*([^\\n]+)`, 'im'));
-  return match?.[1]?.trim() || '';
-}
-
-function tweetBadgeValues(chunk: KolPersonaChunk): string[] {
-  const values = [
-    tweetMetadataValue(chunk, 'tweet_type', 'Tweet type'),
-    tweetMetadataValue(chunk, 'quality', 'Quality'),
-  ]
-    .map((value) => value.trim())
-    .filter((value) => value && !/^n\/a$/i.test(value));
-  return Array.from(new Set(values)).slice(0, 2);
-}
-
 function EvidenceCard({ chunk }: { chunk: KolPersonaChunk }) {
   if (isZsxqChunk(chunk)) {
     return <ZsxqCard chunk={chunk} />;
@@ -627,7 +607,6 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
 
   const avatar = tweetAvatarSrcFor(chunk);
   const timestamp = getChunkTimeLabel(chunk);
-  const badges = tweetBadgeValues(chunk);
 
   return (
     <li
@@ -662,17 +641,6 @@ function TweetCard({ chunk }: { chunk: KolPersonaChunk }) {
             {timestamp && (
               <span>{timestamp}</span>
             )}
-            {badges.map((badge) => (
-              <span
-                key={badge}
-                className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
-              >
-                {badge}
-              </span>
-            ))}
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-              #{chunk.citation_index}
-            </span>
           </div>
 
           {/* Tweet body — main text with auto-linkification */}

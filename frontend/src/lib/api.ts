@@ -1469,6 +1469,63 @@ export interface KolConversationSaveRequest {
   touch?: boolean;
 }
 
+export type KolPersonaScope = 'research' | 'community_panda' | 'all';
+
+export interface PandaAccessStatus {
+  partner_id: 'panda';
+  persona_username: 'pandacircle';
+  has_access: boolean;
+  email: string | null;
+  grant?: CommunityAccessGrant | null;
+}
+
+export interface CommunityAccessGrant {
+  id: string;
+  partner_id: string;
+  email: string;
+  email_normalized: string;
+  status: 'active' | 'revoked';
+  grant_source?: string | null;
+  granted_by?: string | null;
+  granted_at?: string | null;
+  revoked_at?: string | null;
+  user_id?: string | null;
+  first_seen_user_id?: string | null;
+  last_seen_at?: string | null;
+  notes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface PandaGrantDryRunRequest {
+  emails_text?: string;
+  emails?: string[];
+}
+
+export interface PandaGrantApplyRequest extends PandaGrantDryRunRequest {
+  notes?: string | null;
+}
+
+export interface PandaGrantDryRunResponse {
+  partner_id: 'panda';
+  total_input: number;
+  valid_count: number;
+  invalid: string[];
+  duplicates: string[];
+  existing_active: string[];
+  existing_revoked: string[];
+  to_create: string[];
+  to_reactivate: string[];
+}
+
+export interface PandaGrantApplyResponse {
+  ok: boolean;
+  dry_run: PandaGrantDryRunResponse;
+  created: number;
+  reactivated: number;
+  unchanged: number;
+}
+
 export type KolResearchStreamEvent =
   | { type: 'skill_activated'; skill_name: string; description: string }
   | { type: 'tool_call_start'; tool: string; description: string }
@@ -3210,9 +3267,10 @@ export const api = {
   },
 
   kolResearch: {
-    personas: async (): Promise<{ personas: KolPersonaSummary[] }> => {
+    personas: async (scope: KolPersonaScope = 'research'): Promise<{ personas: KolPersonaSummary[] }> => {
       const headers = await _authHeaders({});
-      const response = await fetch(`${API_BASE_URL}/kol_research/personas`, { headers });
+      const params = new URLSearchParams({ scope });
+      const response = await fetch(`${API_BASE_URL}/kol_research/personas?${params.toString()}`, { headers });
       if (!response.ok) {
         if (response.status === 403) return { personas: [] };
         await throwProtectedApiError(response, 'Failed to load personas');
@@ -3508,6 +3566,258 @@ export const api = {
         }
         return response.json();
       },
+    },
+  },
+
+  communityPanda: {
+    me: async (): Promise<PandaAccessStatus> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/community/panda/me`,
+        {},
+        'Failed to load Panda access',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to load Panda access');
+      }
+      return response.json();
+    },
+
+    chatStream: async (
+      req: KolResearchRequest,
+      onEvent: (event: KolResearchStreamEvent) => void,
+      signal?: AbortSignal,
+    ): Promise<void> => {
+      const scopedReq = { ...req, persona_username: 'pandacircle' };
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+      if (signal) {
+        signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+      const postStream = (authHeaders: Record<string, string>) =>
+        fetch(`${API_BASE_URL}/community/panda/chat/stream`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify(scopedReq),
+          signal: controller.signal,
+        });
+      try {
+        let response = await postStream(
+          await _authHeaders({ 'Content-Type': 'application/json' }, { required: true }),
+        );
+        if (response.status === 401) {
+          const newToken = await refreshSession();
+          if (newToken) {
+            response = await postStream({
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${newToken}`,
+            });
+          }
+        }
+        if (!response.ok) {
+          const detail = await readApiError(response, 'Panda Agent 暂时无法响应');
+          onEvent({
+            type: 'error',
+            code: response.status === 401 ? 'auth_error' : 'http_error',
+            status: response.status,
+            error: detail,
+            detail,
+          });
+          return;
+        }
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No response body');
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6)) as KolResearchStreamEvent;
+                onEvent(data);
+                if (data.type === 'tool_call_start' || data.type === 'skill_activated') {
+                  await new Promise(r => setTimeout(r, 0));
+                }
+              } catch { /* skip malformed events */ }
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          onEvent({ type: 'error', code: 'client_timeout', error: 'Panda Agent 响应超时，请再试一次' });
+        } else {
+          onEvent({
+            type: 'error',
+            code: 'network_error',
+            error: '连接后端失败，请确认本地后端还在运行。',
+            detail: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+
+    conversations: {
+      list: async (opts: { limit?: number; offset?: number; search?: string } = {}): Promise<{ conversations: ConversationSummary[]; has_more?: boolean }> => {
+        const params = new URLSearchParams();
+        if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+        if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+        if (opts.search?.trim()) params.set('search', opts.search.trim());
+        const qs = params.toString();
+        const response = await fetchProtected(
+          `${API_BASE_URL}/community/panda/conversations${qs ? `?${qs}` : ''}`,
+          {},
+          'Failed to fetch Panda conversations',
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to fetch Panda conversations');
+        }
+        return response.json();
+      },
+
+      get: async (id: string): Promise<Record<string, unknown>> => {
+        const response = await fetchProtected(
+          `${API_BASE_URL}/community/panda/conversations/${id}`,
+          {},
+          'Failed to fetch Panda conversation',
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to fetch Panda conversation');
+        }
+        return response.json();
+      },
+
+      create: async (req: Omit<KolConversationSaveRequest, 'persona_username'>): Promise<{ id: string }> => {
+        const response = await fetchProtected(
+          `${API_BASE_URL}/community/panda/conversations`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req),
+          },
+          'Failed to create Panda conversation',
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to create Panda conversation');
+        }
+        return response.json();
+      },
+
+      update: async (id: string, req: Omit<KolConversationSaveRequest, 'persona_username'>): Promise<{ success: boolean }> => {
+        const response = await fetchProtected(
+          `${API_BASE_URL}/community/panda/conversations/${id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req),
+          },
+          'Failed to update Panda conversation',
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to update Panda conversation');
+        }
+        return response.json();
+      },
+
+      pin: async (
+        id: string,
+        isPinned: boolean,
+      ): Promise<{ success: boolean; id: string; agent_id?: string; is_pinned: boolean; pinned_at: string | null; updated_at?: string }> => {
+        const response = await fetchProtected(
+          `${API_BASE_URL}/community/panda/conversations/${id}/pin`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_pinned: isPinned }),
+          },
+          'Failed to pin Panda conversation',
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to pin Panda conversation');
+        }
+        return response.json();
+      },
+
+      delete: async (id: string): Promise<{ success: boolean }> => {
+        const response = await fetchProtected(
+          `${API_BASE_URL}/community/panda/conversations/${id}`,
+          { method: 'DELETE' },
+          'Failed to delete Panda conversation',
+        );
+        if (!response.ok) {
+          await throwProtectedApiError(response, 'Failed to delete Panda conversation');
+        }
+        return response.json();
+      },
+    },
+  },
+
+  adminPandaGrants: {
+    dryRun: async (req: PandaGrantDryRunRequest): Promise<PandaGrantDryRunResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/admin/community/panda/grants/dry-run`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req),
+        },
+        'Failed to dry-run Panda grants',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to dry-run Panda grants');
+      }
+      return response.json();
+    },
+
+    apply: async (req: PandaGrantApplyRequest): Promise<PandaGrantApplyResponse> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/admin/community/panda/grants/apply`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req),
+        },
+        'Failed to apply Panda grants',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to apply Panda grants');
+      }
+      return response.json();
+    },
+
+    list: async (opts: { email?: string; status?: string; limit?: number; offset?: number } = {}): Promise<{ grants: CommunityAccessGrant[] }> => {
+      const params = new URLSearchParams();
+      if (opts.email) params.set('email', opts.email);
+      if (opts.status) params.set('status', opts.status);
+      if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+      if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+      const qs = params.toString();
+      const response = await fetchProtected(
+        `${API_BASE_URL}/admin/community/panda/grants${qs ? `?${qs}` : ''}`,
+        {},
+        'Failed to list Panda grants',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to list Panda grants');
+      }
+      return response.json();
+    },
+
+    revoke: async (grantId: string): Promise<{ ok: boolean; record: CommunityAccessGrant | null }> => {
+      const response = await fetchProtected(
+        `${API_BASE_URL}/admin/community/panda/grants/${grantId}`,
+        { method: 'DELETE' },
+        'Failed to revoke Panda grant',
+      );
+      if (!response.ok) {
+        await throwProtectedApiError(response, 'Failed to revoke Panda grant');
+      }
+      return response.json();
     },
   },
 

@@ -31,7 +31,7 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
   'password too short': '密码长度至少为6位',
   'network error': '网络连接失败，请检查网络',
   'too many requests': '请求过于频繁，请稍后再试',
-  'name is required': '请输入姓名',
+  'name is required': '请输入微信名',
   'cookie_sync_failed': '登录状态同步失败，请重试',
   'callback_failed': '登录回调失败，请重试',
   'no_auth_data': '未收到认证数据，请重试',
@@ -265,14 +265,14 @@ function LoginPageContent() {
           {isSignUp && (
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
-                姓名
+                微信名
               </label>
               <input
                 id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="你的姓名"
+                placeholder="你的微信名"
                 required
                 className="w-full px-4 py-3 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 outline-none transition-all duration-200"
               />

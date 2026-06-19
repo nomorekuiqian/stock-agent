@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useKolCockpitTickers } from '@/hooks/queries/use-kol-data';
-import type { KolCockpitTickerSummary } from '@/lib/api';
+import type { KolCockpitTickerSummary, KolPersonaScope } from '@/lib/api';
 import ChatInput from './ChatInput';
 import PersonaSelector, { type AgentKind } from './PersonaSelector';
 import { getPersonaDisplayLabel, getPersonaDisplayName } from '../_lib/personaDisplay';
@@ -346,6 +346,8 @@ interface WelcomeScreenProps {
   agentKind?: AgentKind;
   personaUsername?: string | null;
   onPersonaChange?: (next: { agentKind: AgentKind; personaUsername: string | null }) => void;
+  personaScope?: KolPersonaScope;
+  allowDefaultAssistant?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -361,6 +363,8 @@ export default function WelcomeScreen({
   agentKind = 'research',
   personaUsername = null,
   onPersonaChange,
+  personaScope = 'research',
+  allowDefaultAssistant = true,
 }: WelcomeScreenProps) {
   // Target mode = current prop-derived mode.
   // renderMode = which layer is currently *mounted*. During a swap we keep the
@@ -419,6 +423,8 @@ export default function WelcomeScreen({
               agentKind={agentKind}
               personaUsername={personaUsername}
               onPersonaChange={onPersonaChange}
+              personaScope={personaScope}
+              allowDefaultAssistant={allowDefaultAssistant}
               tickerChips={personaTickerChips}
             />
           ) : (
@@ -429,6 +435,8 @@ export default function WelcomeScreen({
               agentKind={agentKind}
               personaUsername={personaUsername}
               onPersonaChange={onPersonaChange}
+              personaScope={personaScope}
+              allowDefaultAssistant={allowDefaultAssistant}
             />
           )}
         </div>
@@ -442,11 +450,15 @@ function ComposerControls({
   agentKind,
   personaUsername,
   onPersonaChange,
+  personaScope,
+  allowDefaultAssistant,
 }: {
   personaSelectorEnabled: boolean;
   agentKind: AgentKind;
   personaUsername: string | null;
   onPersonaChange?: (next: { agentKind: AgentKind; personaUsername: string | null }) => void;
+  personaScope: KolPersonaScope;
+  allowDefaultAssistant: boolean;
 }) {
   if (!personaSelectorEnabled || !onPersonaChange) return null;
 
@@ -463,6 +475,8 @@ function ComposerControls({
         placement="top"
         align="left"
         variant="toolbar"
+        scope={personaScope}
+        allowDefaultAssistant={allowDefaultAssistant}
       />
       <div className="text-xs leading-5 text-muted-foreground">
         用这个切换分析框架
@@ -482,6 +496,8 @@ interface DefaultIntroProps {
   agentKind: AgentKind;
   personaUsername: string | null;
   onPersonaChange?: (next: { agentKind: AgentKind; personaUsername: string | null }) => void;
+  personaScope: KolPersonaScope;
+  allowDefaultAssistant: boolean;
 }
 
 function DefaultIntro({
@@ -491,6 +507,8 @@ function DefaultIntro({
   agentKind,
   personaUsername,
   onPersonaChange,
+  personaScope,
+  allowDefaultAssistant,
 }: DefaultIntroProps) {
   const [expandedId, setExpandedId] = useState<CardId | null>(null);
   const toggle = (id: CardId) =>
@@ -510,6 +528,8 @@ function DefaultIntro({
           agentKind={agentKind}
           personaUsername={personaUsername}
           onPersonaChange={onPersonaChange}
+          personaScope={personaScope}
+          allowDefaultAssistant={allowDefaultAssistant}
         />
         <ChatInput
           onSubmit={onSelect}
@@ -877,6 +897,8 @@ interface PersonaIntroProps {
   agentKind: AgentKind;
   personaUsername: string | null;
   onPersonaChange?: (next: { agentKind: AgentKind; personaUsername: string | null }) => void;
+  personaScope: KolPersonaScope;
+  allowDefaultAssistant: boolean;
 }
 
 function PersonaIntro({
@@ -888,6 +910,8 @@ function PersonaIntro({
   agentKind,
   personaUsername,
   onPersonaChange,
+  personaScope,
+  allowDefaultAssistant,
 }: PersonaIntroProps) {
   const avatarSrc = `/kol-avatars/${(personaUsername || persona.displayName).toLowerCase()}.png`;
   const personaLabel = getPersonaDisplayLabel(personaUsername, persona.displayName);
@@ -933,6 +957,8 @@ function PersonaIntro({
           agentKind={agentKind}
           personaUsername={personaUsername}
           onPersonaChange={onPersonaChange}
+          personaScope={personaScope}
+          allowDefaultAssistant={allowDefaultAssistant}
         />
         <ChatInput
           onSubmit={onSelect}

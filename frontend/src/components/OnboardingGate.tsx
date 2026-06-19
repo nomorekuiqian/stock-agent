@@ -20,6 +20,8 @@ import {
  *  - public marketing pages that don't require auth — middleware already
  *    lets these through without a cookie, so we mirror the list to avoid
  *    interrupting anonymous browsing if the user is logged in elsewhere.
+ *  - focused partner routes such as `/panda`, where the partner-specific
+ *    access gate owns the first-run experience.
  *
  * The status query is gated on `isAuthenticated` and skipped permanently
  * once this browser has seen completion for the current user. Gating is
@@ -39,6 +41,7 @@ const PUBLIC_PREFIXES = [
   '/email-test',
   '/webview-check',
   '/request-access',
+  '/panda',
 ];
 
 function isOnboardingExempt(pathname: string): boolean {

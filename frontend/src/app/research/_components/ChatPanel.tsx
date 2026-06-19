@@ -53,6 +53,8 @@ interface ChatPanelProps {
   personaUsername?: string | null;
   /** Current persisted conversation id, used to scope answer feedback. */
   conversationId?: string | null;
+  /** Partner-scoped pages can disable the main-site Max upsell. */
+  showPersonaUpsell?: boolean;
 }
 
 /**
@@ -75,6 +77,7 @@ export default function ChatPanel({
   citations,
   personaUsername,
   conversationId,
+  showPersonaUpsell = true,
 }: ChatPanelProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
@@ -218,7 +221,7 @@ export default function ChatPanel({
 
       {/* Input area */}
       <div className="shrink-0 px-3 sm:px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
-        {personaUsername && !isMax && (
+        {showPersonaUpsell && personaUsername && !isMax && (
           <div className="mb-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.05] px-3 py-2 text-xs text-muted-foreground">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">

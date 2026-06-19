@@ -9,12 +9,10 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { api } from '@/lib/api';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { marketTodayStr } from '@/lib/timezone';
-import { queryKeys } from '@/hooks/queries/query-keys';
 import { trackScreenerFilterUsed } from '@/lib/screener-analytics';
-import type { ConversationSummary, ResearchRequest, ResearchResult } from '@/lib/api';
+import type { ConversationSaveRequest, ConversationSummary, KolPersonaScope, ResearchRequest, ResearchResult } from '@/lib/api';
 import {
   researchReducer,
-  initialState,
   buildKolPersistedMessages,
   loadState,
   saveState,
@@ -63,6 +61,37 @@ const DESKTOP_HISTORY_QUERY = '(min-width: 1024px)';
 type ApiHistoryMessage = { role: 'user' | 'assistant'; content: string };
 type ConversationListPage = { conversations: ConversationSummary[]; has_more?: boolean };
 type ConversationListInfiniteData = InfiniteData<ConversationListPage, number>;
+type WorkspaceConversationApi = {
+  list: (opts?: { limit?: number; offset?: number; search?: string }) => Promise<ConversationListPage>;
+  get: (id: string) => Promise<Record<string, unknown>>;
+  create: (req: ConversationSaveRequest & Record<string, unknown>) => Promise<{ id: string }>;
+  update: (id: string, req: ConversationSaveRequest & Record<string, unknown>) => Promise<{ success: boolean }>;
+  pin: (
+    id: string,
+    isPinned: boolean,
+    agentId?: 'research_agent' | 'kol_research_agent',
+  ) => Promise<{
+    success: boolean;
+    id: string;
+    agent_id?: string;
+    is_pinned: boolean;
+    pinned_at: string | null;
+    updated_at?: string;
+  }>;
+  delete: (id: string) => Promise<{ success: boolean }>;
+};
+type WorkspaceKolChatStream = typeof api.kolResearch.chatStream;
+export interface ResearchWorkspaceProps {
+  variant?: 'research' | 'community_panda';
+  storageKey?: string;
+  conversationScope?: string;
+  defaultPersonaUsername?: string | null;
+  lockedPersonaUsername?: string | null;
+  personaScope?: KolPersonaScope;
+  allowDefaultAssistant?: boolean;
+  showPersonaUpsell?: boolean;
+  useFullViewport?: boolean;
+}
 type StoredConversationList = {
   updatedAt: number;
   data: ConversationListInfiniteData;
@@ -72,14 +101,14 @@ function isDesktopViewport(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(DESKTOP_HISTORY_QUERY).matches;
 }
 
-function getConversationStorageKey(userId: string): string {
-  return `research_conversations_cache_v1:${userId}`;
+function getConversationStorageKey(userId: string, scope = 'research'): string {
+  return `research_conversations_cache_v1:${scope}:${userId}`;
 }
 
-function readStoredConversations(userId: string): StoredConversationList | undefined {
+function readStoredConversations(userId: string, scope = 'research'): StoredConversationList | undefined {
   if (typeof window === 'undefined') return undefined;
   try {
-    const raw = localStorage.getItem(getConversationStorageKey(userId));
+    const raw = localStorage.getItem(getConversationStorageKey(userId, scope));
     if (!raw) return undefined;
     const parsed = JSON.parse(raw) as Partial<StoredConversationList>;
     if (
@@ -98,11 +127,11 @@ function readStoredConversations(userId: string): StoredConversationList | undef
   }
 }
 
-function writeStoredConversations(userId: string, data: ConversationListInfiniteData): void {
+function writeStoredConversations(userId: string, data: ConversationListInfiniteData, scope = 'research'): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(
-      getConversationStorageKey(userId),
+      getConversationStorageKey(userId, scope),
       JSON.stringify({ updatedAt: Date.now(), data }),
     );
   } catch {
@@ -110,10 +139,10 @@ function writeStoredConversations(userId: string, data: ConversationListInfinite
   }
 }
 
-function removeStoredConversations(userId: string): void {
+function removeStoredConversations(userId: string, scope = 'research'): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(getConversationStorageKey(userId));
+    localStorage.removeItem(getConversationStorageKey(userId, scope));
   } catch {
     // Browser storage can be unavailable; React Query refetch still handles recovery.
   }
@@ -272,14 +301,45 @@ function getPanelContentSignature(
 // Content
 // ---------------------------------------------------------------------------
 
-function ScreenerContent() {
+export function ResearchWorkspace({
+  variant = 'research',
+  storageKey = STORAGE_KEY,
+  conversationScope = 'research',
+  defaultPersonaUsername = null,
+  lockedPersonaUsername = null,
+  personaScope = 'research',
+  allowDefaultAssistant = true,
+  showPersonaUpsell = true,
+  useFullViewport = false,
+}: ResearchWorkspaceProps = {}) {
   const router = useRouter();
   const { isLoading: authLoading, signOut, user } = useAuth();
   const { isPro, isMax, isLoading: subLoading } = useSubscription();
   const queryClient = useQueryClient();
   const userId = user?.id ?? null;
   const userTier: 'max' | 'pro' | null = isMax ? 'max' : isPro ? 'pro' : null;
-  const [state, dispatch] = useReducer(researchReducer, initialState, loadState);
+  const [state, dispatch] = useReducer(
+    researchReducer,
+    undefined,
+    () => loadState(storageKey, defaultPersonaUsername ? { personaUsername: defaultPersonaUsername } : {}),
+  );
+  const isCommunityPanda = variant === 'community_panda';
+  const quotaEnabled = !isCommunityPanda;
+  const conversationApi = (
+    isCommunityPanda ? api.communityPanda.conversations : api.research.conversations
+  ) as WorkspaceConversationApi;
+  const kolConversationApi = (
+    isCommunityPanda ? api.communityPanda.conversations : api.kolResearch.conversations
+  ) as WorkspaceConversationApi;
+  const kolChatStream = (
+    isCommunityPanda ? api.communityPanda.chatStream : api.kolResearch.chatStream
+  ) as WorkspaceKolChatStream;
+  const shellFrameClass = useFullViewport
+    ? 'research-typography fixed inset-0 bg-background z-10 flex'
+    : 'research-typography fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex';
+  const shellChatFrameClass = useFullViewport
+    ? 'research-typography fixed inset-0 flex flex-col bg-background z-10'
+    : 'research-typography fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10';
   const [mobileTab, setMobileTab] = useState<'chat' | 'results'>('chat');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [conversationSearchOpen, setConversationSearchOpen] = useState(false);
@@ -293,7 +353,7 @@ function ScreenerContent() {
   // drop personaUsername back to null, and the next message on a KOL
   // conversation would be routed through the research save path — quietly
   // overwriting the conversation's kol_chunks / persona_username on backend.
-  const personaUsername = state.personaUsername;
+  const personaUsername = lockedPersonaUsername ?? state.personaUsername;
   const agentKind: AgentKind = personaUsername ? 'kol_research' : 'research';
   // KOL citation chunks now live in reducer state (state.kolChunks) so they
   // survive sessionStorage rehydration and LOAD_CONVERSATION. The cast is
@@ -354,22 +414,25 @@ function ScreenerContent() {
   const conversationListNetworkSuccessUserRef = useRef<string | null>(null);
   const conversationUserId = userId ?? 'anonymous';
   const conversationListQueryKey = useMemo(
-    () => queryKeys.research.conversations(conversationUserId, CONVERSATIONS_PAGE_SIZE),
-    [conversationUserId],
+    () => ['research', 'conversations', conversationScope, conversationUserId, CONVERSATIONS_PAGE_SIZE] as const,
+    [conversationScope, conversationUserId],
   );
   const conversationSearchQueryKey = useMemo(
-    () => queryKeys.research.conversations(
+    () => [
+      'research',
+      'conversations',
+      conversationScope,
       conversationUserId,
       CONVERSATION_SEARCH_PAGE_SIZE,
       debouncedConversationSearch,
-    ),
-    [conversationUserId, debouncedConversationSearch],
+    ] as const,
+    [conversationScope, conversationUserId, debouncedConversationSearch],
   );
   const shouldLoadConversations = !authLoading && !!userId && (state.phase === 'welcome' || historyOpen || conversationSearchOpen);
   const shouldSearchConversations = !authLoading && !!userId && conversationSearchOpen && !!debouncedConversationSearch;
   const storedConversationList = useMemo(
-    () => (userId ? readStoredConversations(userId) : undefined),
-    [userId],
+    () => (userId ? readStoredConversations(userId, conversationScope) : undefined),
+    [conversationScope, userId],
   );
   const conversationsQuery = useInfiniteQuery<
     ConversationListPage,
@@ -380,7 +443,7 @@ function ScreenerContent() {
   >({
     queryKey: conversationListQueryKey,
     queryFn: async ({ pageParam }) => {
-      const page = await api.research.conversations.list({
+      const page = await conversationApi.list({
         limit: CONVERSATIONS_PAGE_SIZE,
         offset: pageParam,
       });
@@ -413,7 +476,7 @@ function ScreenerContent() {
     number
   >({
     queryKey: conversationSearchQueryKey,
-    queryFn: ({ pageParam }) => api.research.conversations.list({
+    queryFn: ({ pageParam }) => conversationApi.list({
       limit: CONVERSATION_SEARCH_PAGE_SIZE,
       offset: pageParam,
       search: debouncedConversationSearch,
@@ -470,6 +533,12 @@ function ScreenerContent() {
     latestStateRef.current = state;
   }, [state]);
 
+  useEffect(() => {
+    if (!lockedPersonaUsername) return;
+    if (state.personaUsername === lockedPersonaUsername) return;
+    dispatch({ type: 'SET_PERSONA', personaUsername: lockedPersonaUsername });
+  }, [lockedPersonaUsername, state.personaUsername]);
+
   // Anonymous visitors can browse the research desk, but persisted chat state
   // belongs to the signed-in user who created it. Clear restored conversations
   // before rendering the anonymous experience so signing out does not expose
@@ -503,7 +572,7 @@ function ScreenerContent() {
     const navType = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type;
     if (navType === 'reload') {
       try {
-        const raw = sessionStorage.getItem(STORAGE_KEY);
+        const raw = sessionStorage.getItem(storageKey);
         if (raw) {
           const saved = JSON.parse(raw) as { phase?: string; contextEntryKey?: string };
           if (saved.phase === 'chat' && saved.contextEntryKey === contextKey) {
@@ -605,7 +674,7 @@ function ScreenerContent() {
       });
       pendingSeed.current = '帮我看看今天我的持仓情况';
     }
-  }, [searchParams, dispatch]);
+  }, [searchParams, storageKey, dispatch]);
 
   // KOL persona URL entry — /research?agent=kol&persona=qinbafrank&q=...
   // Legacy symbol-only links are converted into a default ticker question.
@@ -645,6 +714,10 @@ function ScreenerContent() {
     }
 
     if (agentParam !== 'kol' || !personaParam) return;
+    if (personaParam.toLowerCase() === 'pandacircle' && !isCommunityPanda) {
+      router.replace('/panda');
+      return;
+    }
 
     // Seed gate fires once per (persona, q) tuple — prevents the same
     // starter URL from RESET-ing the conversation again if the user
@@ -702,12 +775,16 @@ function ScreenerContent() {
       pendingSeed.current = null;
       handleSendRef.current?.(msg);
     }, 250);
-  }, [searchParams, state.phase, state.personaUsername, state.messages, userId]);
+  }, [isCommunityPanda, router, searchParams, state.phase, state.personaUsername, state.messages, userId]);
 
   const handlePersonaChange = useCallback((next: {
     agentKind: AgentKind;
     personaUsername: string | null;
   }) => {
+    if (lockedPersonaUsername) {
+      dispatch({ type: 'SET_PERSONA', personaUsername: lockedPersonaUsername });
+      return;
+    }
     manualPersonaUrlOverride.current = next;
     dispatch({ type: 'SWITCH_PERSONA', personaUsername: next.personaUsername });
 
@@ -723,9 +800,16 @@ function ScreenerContent() {
     }
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : (pathname || '/research'), { scroll: false });
-  }, [pathname, router, searchParams]);
+  }, [lockedPersonaUsername, pathname, router, searchParams]);
 
   const syncUrlToLoadedConversation = useCallback((loadedPersona: string | null) => {
+    if (lockedPersonaUsername) {
+      manualPersonaUrlOverride.current = {
+        agentKind: 'kol_research',
+        personaUsername: lockedPersonaUsername,
+      };
+      return;
+    }
     const nextOverride: { agentKind: AgentKind; personaUsername: string | null } = loadedPersona
       ? { agentKind: 'kol_research', personaUsername: loadedPersona }
       : { agentKind: 'research', personaUsername: null };
@@ -749,12 +833,12 @@ function ScreenerContent() {
     if (nextPath !== currentPath) {
       router.replace(nextPath, { scroll: false });
     }
-  }, [pathname, router, searchParams]);
+  }, [lockedPersonaUsername, pathname, router, searchParams]);
 
   // Persist state to sessionStorage on change
   useEffect(() => {
-    saveState(state);
-  }, [state]);
+    saveState(state, storageKey);
+  }, [state, storageKey]);
 
   // Phase 1 reconciliation: on initial mount, if sessionStorage rehydrated a
   // conversation, double-check the runtime to pick up any new messages that
@@ -771,7 +855,7 @@ function ScreenerContent() {
     if (state.isLoading) return; // mid-turn — don't yank the rug
     runtimeReconciledRef.current = true;
     const inferredAgentId: 'research_agent' | 'kol_research_agent' =
-      state.personaUsername ? 'kol_research_agent' : 'research_agent';
+      personaUsername ? 'kol_research_agent' : 'research_agent';
     api.agentRuntime
       .getSession(cid, inferredAgentId)
       .then((rt) => {
@@ -826,7 +910,7 @@ function ScreenerContent() {
             activeContent: (uiState?.active_content as LoadConversationData['activeContent']) ?? state.activeContent,
             contentStack: (Array.isArray(uiState?.content_stack) ? uiState!.content_stack : state.contentStack) as LoadConversationData['contentStack'],
             kolChunks: state.kolChunks,
-            personaUsername: state.personaUsername,
+            personaUsername,
           },
         });
       })
@@ -844,8 +928,9 @@ function ScreenerContent() {
     if (!userId || !conversationsQuery.data) return;
     if (conversationListNetworkSuccessUserRef.current !== userId) return;
     if (storedConversationList && !conversationsQuery.isFetchedAfterMount) return;
-    writeStoredConversations(userId, conversationsQuery.data);
+    writeStoredConversations(userId, conversationsQuery.data, conversationScope);
   }, [
+    conversationScope,
     userId,
     conversationsQuery.data,
     conversationsQuery.dataUpdatedAt,
@@ -869,9 +954,9 @@ function ScreenerContent() {
   ]);
 
   const handleRetryConversations = useCallback(() => {
-    if (userId) removeStoredConversations(userId);
+    if (userId) removeStoredConversations(userId, conversationScope);
     void conversationsQuery.refetch();
-  }, [conversationsQuery, userId]);
+  }, [conversationScope, conversationsQuery, userId]);
 
   const handleRetryConversationSearch = useCallback(() => {
     void searchConversationsQuery.refetch();
@@ -899,6 +984,10 @@ function ScreenerContent() {
   // with the wrong free-account quota. Anonymous visitors can browse the page
   // but cannot send, so quota UI stays hidden until login.
   useEffect(() => {
+    if (!quotaEnabled) {
+      setQuota(null);
+      return;
+    }
     if (authLoading || subLoading) return;
     if (!userId) {
       setQuota(null);
@@ -914,7 +1003,7 @@ function ScreenerContent() {
       }
     });
     return () => { cancelled = true; };
-  }, [state.messages.length, authLoading, subLoading, userId]);
+  }, [quotaEnabled, state.messages.length, authLoading, subLoading, userId]);
 
   // Reset scroll position when transitioning from welcome to chat
   useEffect(() => {
@@ -1032,7 +1121,7 @@ function ScreenerContent() {
 
   const updateConversationSummaryInLoadedCaches = useCallback((summary: ConversationSummary) => {
     queryClient.setQueriesData<ConversationListInfiniteData>(
-      { queryKey: ['research', 'conversations', conversationUserId], exact: false },
+      { queryKey: ['research', 'conversations', conversationScope, conversationUserId], exact: false },
       (old) => {
         if (!old) return old;
         let found = false;
@@ -1047,7 +1136,7 @@ function ScreenerContent() {
         return found ? { ...old, pages } : old;
       },
     );
-  }, [conversationUserId, queryClient]);
+  }, [conversationScope, conversationUserId, queryClient]);
 
   const removeConversationSummary = useCallback((conversationId: string) => {
     queryClient.setQueryData<ConversationListInfiniteData>(conversationListQueryKey, (old) => {
@@ -1075,7 +1164,7 @@ function ScreenerContent() {
     setSaveStatus('saving');
     try {
       if (!convId) {
-        const created = await api.research.conversations.create({
+        const created = await conversationApi.create({
           id: createId,
           title,
           data,
@@ -1092,7 +1181,7 @@ function ScreenerContent() {
           });
         }
       } else {
-        await api.research.conversations.update(convId, {
+        await conversationApi.update(convId, {
           title,
           data,
           message_count: messageCount,
@@ -1111,7 +1200,7 @@ function ScreenerContent() {
     } catch {
       setSaveStatus('idle');
     }
-  }, [upsertConversationSummary]);
+  }, [conversationApi, upsertConversationSummary]);
 
   // Persist panel state to backend when user navigates the right panel
   // (catches navigation that happens between or after chat messages)
@@ -1349,7 +1438,7 @@ function ScreenerContent() {
       const controller = new AbortController();
       abortRef.current = controller;
 
-      await api.kolResearch.chatStream(
+      await kolChatStream(
         {
           message,
           history: SEND_RUNTIME_HISTORY ? history : undefined,
@@ -1509,7 +1598,7 @@ function ScreenerContent() {
           convData.active_content = latestState.activeContent;
         }
         if (isFirstTurn) {
-          const created = await api.kolResearch.conversations.create({
+          const created = await kolConversationApi.create({
             id: conversationIdForTurn,
             title: finalTitle,
             data: convData,
@@ -1527,7 +1616,7 @@ function ScreenerContent() {
             });
           }
         } else if (latestState.conversationId) {
-          await api.kolResearch.conversations.update(latestState.conversationId, {
+          await kolConversationApi.update(latestState.conversationId, {
             title: finalTitle,
             data: convData,
             message_count: allMessages.length,
@@ -1554,7 +1643,7 @@ function ScreenerContent() {
           : 'AI 助手暂时无法响应',
       });
     }
-  }, [buildActiveContext, state.messages, personaUsername, upsertConversationSummary]);
+  }, [buildActiveContext, kolChatStream, kolConversationApi, state.messages, personaUsername, upsertConversationSummary]);
 
   const handleSend = useCallback(async (message: string) => {
     if (!userId) {
@@ -1865,7 +1954,7 @@ function ScreenerContent() {
     const savedKolChunks = (data.kol_chunks as Record<string, unknown>[] | undefined) ?? [];
     // Restore persona via the LOAD_CONVERSATION dispatch (single source of
     // truth, persisted via sessionStorage). agentKind is derived from this.
-    const savedPersona = (data.persona_username as string | undefined) ?? null;
+    const savedPersona = lockedPersonaUsername ?? (data.persona_username as string | undefined) ?? null;
     syncUrlToLoadedConversation(savedPersona);
     dispatch({
       type: 'LOAD_CONVERSATION',
@@ -1894,7 +1983,7 @@ function ScreenerContent() {
         dataKeys: conv.data ? Object.keys(conv.data) : [],
       });
     }
-  }, [syncUrlToLoadedConversation]);
+  }, [lockedPersonaUsername, syncUrlToLoadedConversation]);
 
   const handleLoadConversation = useCallback(async (conversationId: string) => {
     if (pendingSeedTimerRef.current) clearTimeout(pendingSeedTimerRef.current);
@@ -1977,7 +2066,7 @@ function ScreenerContent() {
     try {
       let picker: Record<string, unknown> | null = null;
       try {
-        picker = await api.research.conversations.get(conversationId);
+        picker = await conversationApi.get(conversationId);
       } catch {
         picker = null;
       }
@@ -2045,7 +2134,7 @@ function ScreenerContent() {
     } finally {
       loadingConversationRef.current = false;
     }
-  }, [conversations, loadConversationData, syncUrlToLoadedConversation]);
+  }, [conversationApi, conversations, loadConversationData, syncUrlToLoadedConversation]);
 
   const handleRenameConversation = useCallback(async (conversationId: string, title: string) => {
     const nextTitle = title.trim().slice(0, 50);
@@ -2056,6 +2145,7 @@ function ScreenerContent() {
     let conversation: Record<string, unknown> | undefined = convCache.current.get(conversationId);
 
     if (conversationId === activeState.conversationId) {
+      const activePersonaUsername = lockedPersonaUsername ?? activeState.personaUsername;
       const data = buildConversationData(
         activeState.messages,
         {
@@ -2068,10 +2158,10 @@ function ScreenerContent() {
         activeState.funnelSteps,
         activeState.activeContent,
         activeState.contentStack,
-        activeState.personaUsername
+        activePersonaUsername
           ? {
               kolChunks: activeState.kolChunks,
-              personaUsername: activeState.personaUsername,
+              personaUsername: activePersonaUsername,
             }
           : undefined,
       );
@@ -2084,7 +2174,7 @@ function ScreenerContent() {
     }
 
     if (!conversation) {
-      conversation = await api.research.conversations.get(conversationId);
+      conversation = await conversationApi.get(conversationId);
     }
 
     const data = (
@@ -2099,14 +2189,14 @@ function ScreenerContent() {
       : Array.isArray(data.messages)
         ? data.messages.length
         : summary?.message_count ?? 0;
-    const persona = typeof data.persona_username === 'string' && data.persona_username
+    const persona = lockedPersonaUsername || (typeof data.persona_username === 'string' && data.persona_username
       ? data.persona_username
-      : null;
+      : null);
 
     setSaveStatus('saving');
     try {
       if (persona) {
-        await api.kolResearch.conversations.update(conversationId, {
+        await kolConversationApi.update(conversationId, {
           title: nextTitle,
           data,
           message_count: messageCount,
@@ -2114,7 +2204,7 @@ function ScreenerContent() {
           touch: false,
         });
       } else {
-        await api.research.conversations.update(conversationId, {
+        await conversationApi.update(conversationId, {
           title: nextTitle,
           data,
           message_count: messageCount,
@@ -2148,7 +2238,7 @@ function ScreenerContent() {
         pinned_at: summary?.pinned_at ?? null,
       });
       void queryClient.invalidateQueries({
-        queryKey: ['research', 'conversations', conversationUserId],
+        queryKey: ['research', 'conversations', conversationScope, conversationUserId],
         exact: false,
       });
       setSaveStatus('saved');
@@ -2159,8 +2249,12 @@ function ScreenerContent() {
     }
   }, [
     buildConversationData,
+    conversationApi,
+    conversationScope,
     conversationUserId,
     conversations,
+    kolConversationApi,
+    lockedPersonaUsername,
     queryClient,
     updateConversationSummaryInLoadedCaches,
     upsertConversationSummary,
@@ -2170,7 +2264,7 @@ function ScreenerContent() {
     const summary = conversations.find((conv) => conv.id === conversationId);
     if (!summary) return;
 
-    const result = await api.research.conversations.pin(
+    const result = await conversationApi.pin(
       conversationId,
       nextPinned,
       summary.agent_id,
@@ -2196,25 +2290,28 @@ function ScreenerContent() {
     }
     updateConversationSummaryInLoadedCaches(updatedSummary);
     void queryClient.invalidateQueries({
-      queryKey: ['research', 'conversations', conversationUserId],
-      exact: false,
-    });
-  }, [conversationUserId, conversations, queryClient, updateConversationSummaryInLoadedCaches]);
+        queryKey: ['research', 'conversations', conversationScope, conversationUserId],
+        exact: false,
+      });
+  }, [conversationApi, conversationScope, conversationUserId, conversations, queryClient, updateConversationSummaryInLoadedCaches]);
 
   // Delete a conversation
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
     try {
-      await api.research.conversations.delete(conversationId);
+      await conversationApi.delete(conversationId);
       convCache.current.delete(conversationId);
       removeConversationSummary(conversationId);
       // If the deleted conversation is currently active, reset to a clean state
       if (conversationId === state.conversationId) {
         dispatch({ type: 'RESET' });
+        if (lockedPersonaUsername) {
+          dispatch({ type: 'SET_PERSONA', personaUsername: lockedPersonaUsername });
+        }
       }
     } catch {
       // Ignore delete failures
     }
-  }, [removeConversationSummary, state.conversationId]);
+  }, [conversationApi, lockedPersonaUsername, removeConversationSummary, state.conversationId]);
 
   const handleOpenConversationSearch = useCallback(() => {
     if (!userId) {
@@ -2248,9 +2345,12 @@ function ScreenerContent() {
 
   const handleSidebarNewChat = useCallback(() => {
     dispatch({ type: 'RESET' });
+    if (lockedPersonaUsername) {
+      dispatch({ type: 'SET_PERSONA', personaUsername: lockedPersonaUsername });
+    }
     setMobileTab('chat');
     closeHistoryOnNarrowScreen();
-  }, [closeHistoryOnNarrowScreen]);
+  }, [closeHistoryOnNarrowScreen, lockedPersonaUsername]);
 
   const handleSidebarSearchOpen = useCallback(() => {
     closeHistoryOnNarrowScreen();
@@ -2392,7 +2492,7 @@ function ScreenerContent() {
   // Welcome phase — same sidebar as chat phase
   if (state.phase === 'welcome') {
     return (
-      <div className="research-typography fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex">
+      <div className={shellFrameClass}>
         {mobileHistoryDrawer}
         {/* Shared sidebar */}
         <div
@@ -2471,6 +2571,8 @@ function ScreenerContent() {
               agentKind={agentKind}
               personaUsername={personaUsername}
               onPersonaChange={handlePersonaChange}
+              personaScope={personaScope}
+              allowDefaultAssistant={allowDefaultAssistant}
             />
           </div>
         </div>
@@ -2480,7 +2582,7 @@ function ScreenerContent() {
 
   // Chat phase - split layout
   return (
-    <div className="research-typography fixed inset-x-0 top-16 bottom-0 flex flex-col bg-background z-10">
+    <div className={shellChatFrameClass}>
       {mobileHistoryDrawer}
       {conversationSearchDialog}
       {/* Mobile tab switch */}
@@ -2578,6 +2680,7 @@ function ScreenerContent() {
                   ? `按 ${getPersonaDisplayLabel(personaUsername || 'qinbafrank')} 方法论提问...`
                   : undefined
               }
+              showPersonaUpsell={showPersonaUpsell}
             />
           </div>
         </div>
@@ -2626,7 +2729,7 @@ function ScreenerContent() {
 export default function ScreenerPage() {
   return (
     <Suspense>
-      <ScreenerContent />
+      <ResearchWorkspace />
     </Suspense>
   );
 }

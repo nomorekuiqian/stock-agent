@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Check, ChevronDown, Glasses } from "lucide-react";
 import { api } from "@/lib/api";
-import type { KolPersonaSummary } from "@/lib/api";
+import type { KolPersonaScope, KolPersonaSummary } from "@/lib/api";
 import { getPersonaDisplayLabel } from "../_lib/personaDisplay";
 
 export type AgentKind = "research" | "kol_research";
@@ -23,6 +23,10 @@ interface PersonaSelectorProps {
   align?: "left" | "right";
   /** Compact mode fits composer toolbars above the input. */
   variant?: "toolbar" | "default";
+  /** Page scope controls which personas are available in this selector. */
+  scope?: KolPersonaScope;
+  /** Partner-scoped pages can remove the neutral default assistant option. */
+  allowDefaultAssistant?: boolean;
 }
 
 const FALLBACK_PERSONAS: KolPersonaSummary[] = [
@@ -41,6 +45,7 @@ const FALLBACK_PERSONAS: KolPersonaSummary[] = [
     last_indexed_at: null,
   },
 ];
+const EMPTY_PERSONAS: KolPersonaSummary[] = [];
 
 function PersonaAvatar({
   username,
@@ -104,33 +109,36 @@ export default function PersonaSelector({
   placement = "bottom",
   align = "left",
   variant = "default",
+  scope = "research",
+  allowDefaultAssistant = true,
 }: PersonaSelectorProps) {
   const [open, setOpen] = useState(false);
   const [personas, setPersonas] = useState<KolPersonaSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const fallbackPersonas = scope === "research" ? FALLBACK_PERSONAS : EMPTY_PERSONAS;
 
   // Load personas once the popover is opened for the first time.
   useEffect(() => {
     if (!open || loaded) return;
     let cancelled = false;
     api.kolResearch
-      .personas()
+      .personas(scope)
       .then((res) => {
         if (cancelled) return;
-        setPersonas(res.personas?.length ? res.personas : FALLBACK_PERSONAS);
+        setPersonas(res.personas?.length ? res.personas : fallbackPersonas);
         setLoaded(true);
       })
       .catch(() => {
         if (cancelled) return;
-        setPersonas(FALLBACK_PERSONAS);
+        setPersonas(fallbackPersonas);
         setLoaded(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [open, loaded]);
+  }, [fallbackPersonas, open, loaded, scope]);
 
   // Close on outside click.
   useEffect(() => {
@@ -166,6 +174,7 @@ export default function PersonaSelector({
   };
 
   const handlePickResearch = () => {
+    if (!allowDefaultAssistant) return;
     if (agentKind === "research") {
       setOpen(false);
       return;
@@ -188,7 +197,7 @@ export default function PersonaSelector({
   const activePersona = personas.find((p) => p.username === personaUsername);
   const activeLabel = active
     ? getPersonaDisplayLabel(personaUsername, activePersona?.display_name)
-    : "默认助手";
+    : allowDefaultAssistant ? "默认助手" : "选择助手";
   const popoverAlignClass =
     align === "right" ? "left-0 sm:left-auto sm:right-0" : "left-0";
   const isToolbar = variant === "toolbar";
@@ -245,23 +254,25 @@ export default function PersonaSelector({
               选择助手视角
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handlePickResearch}
-            role="menuitemradio"
-            aria-checked={!active}
-            className={`${rowClass} ${!active ? selectedRowClass : "text-foreground"}`}
-          >
-            <DefaultAssistantAvatar className="group-hover/persona:scale-105" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">默认投研助手</span>
-                {!active && (
-                  <Check className="h-3.5 w-3.5 text-primary" aria-hidden />
-                )}
+          {allowDefaultAssistant && (
+            <button
+              type="button"
+              onClick={handlePickResearch}
+              role="menuitemradio"
+              aria-checked={!active}
+              className={`${rowClass} ${!active ? selectedRowClass : "text-foreground"}`}
+            >
+              <DefaultAssistantAvatar className="group-hover/persona:scale-105" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">默认投研助手</span>
+                  {!active && (
+                    <Check className="h-3.5 w-3.5 text-primary" aria-hidden />
+                  )}
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
+          )}
           {!loaded && (
             <div className="px-3 py-3 text-xs text-muted-foreground/70">
               加载中...

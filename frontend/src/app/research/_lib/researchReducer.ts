@@ -163,23 +163,26 @@ export function nextMsgId(): string {
 /** Keys to exclude from sessionStorage. */
 const TRANSIENT_KEYS = new Set<string>();
 
-export function saveState(state: ResearchState): void {
+export function saveState(state: ResearchState, storageKey: string = STORAGE_KEY): void {
   try {
     const filtered: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(state)) {
       if (!TRANSIENT_KEYS.has(k)) filtered[k] = v;
     }
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    sessionStorage.setItem(storageKey, JSON.stringify(filtered));
   } catch {
     // sessionStorage full or unavailable - silently ignore
   }
 }
 
-export function loadState(): ResearchState {
-  if (typeof window === 'undefined') return initialState;
+export function loadState(
+  storageKey: string = STORAGE_KEY,
+  overrides: Partial<ResearchState> = {},
+): ResearchState {
+  if (typeof window === 'undefined') return { ...initialState, ...overrides };
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return initialState;
+    const raw = sessionStorage.getItem(storageKey);
+    if (!raw) return { ...initialState, ...overrides };
     const saved = JSON.parse(raw) as Partial<ResearchState>;
     // Migrate old {label,value} options to plain strings. Also force-clear any
     // residual `streaming: true` from a tab that was unmounted mid-SSE — without
@@ -196,15 +199,17 @@ export function loadState(): ResearchState {
     }
     return {
       ...initialState,
+      ...overrides,
       ...saved,
       isLoading: false,
       error: null,
       // Ensure content fields have valid defaults (old sessions won't have them)
-      activeContent: saved.activeContent ?? SCREENER_CONTENT,
-      contentStack: saved.contentStack ?? [],
+      activeContent: saved.activeContent ?? overrides.activeContent ?? SCREENER_CONTENT,
+      contentStack: saved.contentStack ?? overrides.contentStack ?? [],
+      personaUsername: saved.personaUsername ?? overrides.personaUsername ?? null,
     };
   } catch {
-    return initialState;
+    return { ...initialState, ...overrides };
   }
 }
 
