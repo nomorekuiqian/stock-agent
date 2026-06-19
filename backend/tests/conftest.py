@@ -140,6 +140,10 @@ DB_WRITE_FUNCTIONS = [
     # Feature flags admin
     ("app.features.flags.db", "upsert_assignment"),
     ("app.features.flags.db", "delete_assignment"),
+    # Community access grants
+    ("app.features.community_access.db", "bulk_upsert_grants"),
+    ("app.features.community_access.db", "revoke_grant"),
+    ("app.features.community_access.db", "mark_grant_seen"),
     # Agent runtime durable session writes
     ("app.features.agent_runtime.db", "append_entries"),
     ("app.features.agent_runtime.db", "update_message_feedback"),

@@ -24,7 +24,7 @@ import re
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -133,6 +133,13 @@ _FLAG_GATED_PERSONAS: dict[str, str] = {
     "pandacircle": "pandacircle_persona",
 }
 
+_COMMUNITY_ONLY_PERSONAS = {"pandacircle"}
+_PERSONA_SCOPES: dict[str, set[str] | None] = {
+    "research": None,  # all non-community personas
+    "community_panda": {"pandacircle"},
+    "all": None,
+}
+
 
 async def _caller_flags(user_info: dict) -> set[str]:
     """Best-effort flag fetch. On failure return an empty set so gated personas
@@ -150,6 +157,9 @@ def _persona_required_flag(persona_username: str | None) -> str | None:
 
 async def _ensure_persona_allowed(req_persona: str | None, user_info: dict) -> None:
     """Raise 403 if the requested persona is flag-gated and the caller lacks it."""
+    persona = (req_persona or DEFAULT_PERSONA).lower()
+    if persona in _COMMUNITY_ONLY_PERSONAS:
+        raise HTTPException(status_code=403, detail="该助手请从专属社群入口使用")
     required = _persona_required_flag(req_persona)
     if required and required not in await _caller_flags(user_info):
         raise HTTPException(status_code=403, detail="该助手暂未对你的账号开放")
@@ -163,14 +173,28 @@ async def _ensure_persona_allowed(req_persona: str | None, user_info: dict) -> N
 @router.get("/personas")
 async def list_kol_personas(
     user_info: dict = Depends(require_kol_research_flag),
+    scope: str = Query(
+        default="research",
+        description="Page scope for persona availability: research, community_panda, all.",
+    ),
 ):
-    """Return personas available to this caller. Flag-gated personas (e.g.
-    pandacircle) are only listed when the caller holds the required flag."""
+    """Return personas available to this caller for one page scope.
+
+    The default `/research` scope intentionally hides community-only personas
+    such as Panda. Partner pages can request their own scope, but chat access is
+    still enforced by the corresponding partner facade endpoint.
+    """
+    scope_key = scope if scope in _PERSONA_SCOPES else "research"
     flags = await _caller_flags(user_info)
     personas = []
     for p in list_personas():
+        if scope_key == "research" and p.username in _COMMUNITY_ONLY_PERSONAS:
+            continue
+        allowed_scope = _PERSONA_SCOPES.get(scope_key)
+        if allowed_scope is not None and p.username not in allowed_scope:
+            continue
         required = _FLAG_GATED_PERSONAS.get(p.username)
-        if required and required not in flags:
+        if required and required not in flags and scope_key != "community_panda":
             continue
         personas.append(p)
     return {"personas": [p.model_dump() for p in personas]}

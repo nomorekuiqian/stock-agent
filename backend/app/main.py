@@ -177,6 +177,8 @@ from app.features.onboarding.router import router as onboarding_router
 from app.features.agent_runtime.router import router as agent_runtime_router
 from app.features.webhooks.resend_router import router as resend_webhook_router
 from app.features.watchlist_monitor.router import router as watchlist_monitor_router
+from app.features.community_access.router import router as community_access_router
+from app.features.community_access.router import admin_router as community_access_admin_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -210,6 +212,8 @@ app.include_router(portfolio_health_router)
 app.include_router(memory_router)
 app.include_router(flags_router)
 app.include_router(flags_admin_router)
+app.include_router(community_access_router)
+app.include_router(community_access_admin_router)
 app.include_router(onboarding_router)
 app.include_router(resend_webhook_router)
 app.include_router(watchlist_monitor_router)
