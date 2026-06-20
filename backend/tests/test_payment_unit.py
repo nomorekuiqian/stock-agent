@@ -10,7 +10,10 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import stripe
 from fastapi.testclient import TestClient
+
+from app.core.config import STRIPE_SECRET_KEY
 
 
 # ---------------------------------------------------------------------------
@@ -1066,7 +1069,9 @@ class TestWebhookHandler:
             result = await stripe_webhook(mock_request)
 
             assert result == {"received": True}
-            mock_retrieve.assert_called_once_with("sub_abc", expand=["items.data.price"])
+            mock_retrieve.assert_called_once_with(
+                "sub_abc", expand=["items.data.price"], api_key=STRIPE_SECRET_KEY
+            )
             mock_upsert.assert_called_once()
             call_kwargs = mock_upsert.call_args[1]
             assert call_kwargs["user_id"] == "user-123"
@@ -1081,6 +1086,7 @@ class TestWebhookHandler:
                 customer_email=None,
                 allow_empty=False,
                 source="checkout.session.completed",
+                api_key=STRIPE_SECRET_KEY,
             )
 
     @pytest.mark.asyncio
@@ -1176,6 +1182,7 @@ class TestWebhookHandler:
                 customer_email=None,
                 allow_empty=False,
                 source="customer.subscription.updated",
+                api_key=STRIPE_SECRET_KEY,
             )
 
     @pytest.mark.asyncio
@@ -1329,7 +1336,62 @@ class TestWebhookHandler:
                 user_id="user-123",
                 allow_empty=True,
                 source="customer.subscription.deleted",
+                api_key=STRIPE_SECRET_KEY,
             )
+
+    @pytest.mark.asyncio
+    async def test_subscription_deleted_legacy_account_uses_legacy_key(self):
+        """A legacy-account deletion verifies with the legacy signing secret and
+        routes downstream Stripe calls through the legacy API key, so a legacy
+        subscriber's cancellation still downgrades them locally."""
+        from app.features.payment import router as payment_router
+        from app.features.payment.router import stripe_webhook
+
+        event = self._make_event("customer.subscription.deleted", {
+            "metadata": {"user_id": "user-123"},
+            "id": "sub_deleted",
+            "customer": "cus_legacy",
+        })
+
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b"payload"
+        mock_request.headers = {"stripe-signature": "sig"}
+
+        mock_active_subs = MagicMock()
+        mock_active_subs.data = []  # no active subs on the legacy account
+
+        def construct_side_effect(payload, sig_header, secret):
+            # Primary secret rejects the legacy-signed event; legacy secret verifies.
+            if secret == "whsec_legacy_test":
+                return event
+            raise stripe.SignatureVerificationError("bad sig", sig_header)
+
+        with patch.object(payment_router, "STRIPE_LEGACY_WEBHOOK_SECRET", "whsec_legacy_test"), \
+             patch.object(payment_router, "STRIPE_LEGACY_SECRET_KEY", "sk_live_legacy_test"), \
+             patch("app.features.payment.router.stripe.Webhook.construct_event", side_effect=construct_side_effect), \
+             patch("app.features.payment.router.get_subscription", new_callable=AsyncMock, return_value={"stripe_subscription_id": "sub_deleted"}), \
+             patch("app.features.payment.router.stripe.Subscription.list", return_value=mock_active_subs) as mock_list, \
+             patch("app.features.payment.router.upsert_subscription", new_callable=AsyncMock) as mock_upsert, \
+             patch(
+                 "app.features.payment.router.sync_entitlements_from_stripe",
+                 new_callable=AsyncMock,
+                 return_value={"synced": True},
+             ) as mock_sync:
+
+            result = await stripe_webhook(mock_request)
+
+        assert result == {"received": True}
+        # Looked up active subs on the legacy account, then downgraded to free.
+        assert mock_list.call_args.kwargs["api_key"] == "sk_live_legacy_test"
+        assert mock_upsert.call_args.kwargs["plan"] == "free"
+        assert mock_upsert.call_args.kwargs["status"] == "canceled"
+        mock_sync.assert_awaited_once_with(
+            "cus_legacy",
+            user_id="user-123",
+            allow_empty=True,
+            source="customer.subscription.deleted",
+            api_key="sk_live_legacy_test",
+        )
 
     @pytest.mark.asyncio
     async def test_subscription_deleted_preserves_trialing_replacement_sub(self):

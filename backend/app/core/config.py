@@ -34,6 +34,11 @@ STRIPE_MIGRATION_DESTINATION_SECRET_KEY = os.getenv(
     STRIPE_SECRET_KEY,
 )
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+# Signing secret for the legacy Stripe account's webhook endpoint. Set during
+# the account migration so the webhook handler can verify and process events
+# coming from the legacy account (the 47 pre-migration subscriptions still live
+# there). Empty when no legacy account is configured.
+STRIPE_LEGACY_WEBHOOK_SECRET = os.getenv("STRIPE_LEGACY_WEBHOOK_SECRET", "")
 STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "")
 STRIPE_MAX_PRICE_ID = os.getenv("STRIPE_MAX_PRICE_ID", "")
 STRIPE_MIGRATION_DESTINATION_MAX_PRICE_ID = os.getenv(

@@ -426,8 +426,14 @@ async def sync_subscription_from_stripe(
     stripe_migration_state: str | None = None,
     stripe_migrated_at: str | None = None,
     source: str = "unknown",
+    api_key: str | None = None,
 ) -> dict:
-    """Refresh local subscription state from Stripe Subscription + catalog."""
+    """Refresh local subscription state from Stripe Subscription + catalog.
+
+    ``api_key`` selects the Stripe account for the downstream entitlement
+    reconciliation; pass the legacy account key when handling a legacy-account
+    webhook event so entitlements are read from the correct account.
+    """
     sub_record = await get_subscription(user_id)
     if sub_record and sub_record.get("is_lifetime"):
         logger.info("subscription sync skipped for lifetime user %s source=%s", user_id, source)
@@ -556,6 +562,7 @@ async def sync_subscription_from_stripe(
                 customer_email=customer_email,
                 allow_empty=False,
                 source=source,
+                api_key=api_key,
             )
         except Exception as e:
             logger.warning(
@@ -890,10 +897,16 @@ def _normalize_entitlements(raw_feature_keys: list[str]) -> tuple[str, str, list
     return "free", "canceled", []
 
 
-async def _list_active_entitlements(customer_id: str) -> list:
-    """Return all active entitlements for a Stripe customer."""
+async def _list_active_entitlements(customer_id: str, *, api_key: str | None = None) -> list:
+    """Return all active entitlements for a Stripe customer.
+
+    ``api_key`` overrides the account the lookup runs against; pass the legacy
+    account key when reconciling entitlements for a legacy-account customer.
+    """
     entitlements: list = []
-    params = {"customer": customer_id, "limit": 100}
+    params: dict = {"customer": customer_id, "limit": 100}
+    if api_key:
+        params["api_key"] = api_key
 
     while True:
         response = await asyncio.to_thread(
@@ -924,8 +937,13 @@ async def sync_entitlements_from_stripe(
     customer_email: str | None = None,
     allow_empty: bool = True,
     source: str = "unknown",
+    api_key: str | None = None,
 ) -> dict:
     """Reconcile Stripe Active Entitlements into ``subscriptions``.
+
+    ``api_key`` selects the Stripe account to read entitlements/customer from;
+    pass the legacy account key for legacy-account customers (defaults to the
+    primary account key configured globally).
 
     ``allow_empty=False`` is for compensating calls from checkout/subscription
     events where Stripe may not have materialized entitlements yet. The
@@ -950,7 +968,7 @@ async def sync_entitlements_from_stripe(
         logger.info("entitlement sync skipped for lifetime user %s source=%s", user_id, source)
         return {"synced": False, "reason": "lifetime"}
 
-    entitlements = await _list_active_entitlements(customer_id)
+    entitlements = await _list_active_entitlements(customer_id, api_key=api_key)
     raw_feature_keys = sorted({
         key for key in (
             _extract_entitlement_lookup_key(ent) for ent in entitlements
@@ -983,7 +1001,10 @@ async def sync_entitlements_from_stripe(
 
         email = customer_email
         if not email:
-            customer = await asyncio.to_thread(stripe.Customer.retrieve, customer_id)
+            retrieve_kwargs = {"api_key": api_key} if api_key else {}
+            customer = await asyncio.to_thread(
+                stripe.Customer.retrieve, customer_id, **retrieve_kwargs
+            )
             email = (_to_dict(customer) or {}).get("email")
         if email:
             fresh_sub = await get_subscription(user_id)

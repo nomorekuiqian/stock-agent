@@ -12,6 +12,8 @@ from fastapi.responses import JSONResponse
 import stripe
 
 from app.core.config import (
+    STRIPE_LEGACY_SECRET_KEY,
+    STRIPE_LEGACY_WEBHOOK_SECRET,
     STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET,
 )
@@ -28,6 +30,8 @@ from app.features.payment.models import (
 )
 from app.core.logging import get_logger
 from app.features.payment.service import (
+    LEGACY_STRIPE_ACCOUNT_REF,
+    PRIMARY_STRIPE_ACCOUNT_REF,
     cancel_subscription_at_period_end,
     complete_checkout_session,
     create_checkout_session,
@@ -376,15 +380,38 @@ async def api_reconcile_expired_grants(
 
 @router.post("/webhook")
 async def stripe_webhook(request: Request):
-    """Handle Stripe webhook events."""
+    """Handle Stripe webhook events.
+
+    Verifies the signature against the primary account first, then the legacy
+    account (dual-account support during the Stripe account migration). The
+    signing secret that verifies identifies which account sent the event, so
+    downstream Stripe API calls use the matching account key. Without this the
+    legacy account's events fail verification and never sync (e.g. a legacy
+    subscriber's cancellation would never downgrade them locally).
+    """
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
-    try:
-        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.SignatureVerificationError:
+    webhook_accounts = [
+        (PRIMARY_STRIPE_ACCOUNT_REF, STRIPE_WEBHOOK_SECRET, STRIPE_SECRET_KEY),
+        (LEGACY_STRIPE_ACCOUNT_REF, STRIPE_LEGACY_WEBHOOK_SECRET, STRIPE_LEGACY_SECRET_KEY),
+    ]
+    event = None
+    event_account_ref = PRIMARY_STRIPE_ACCOUNT_REF
+    event_api_key = STRIPE_SECRET_KEY
+    for account_ref, secret, api_key in webhook_accounts:
+        if not secret:
+            continue
+        try:
+            event = stripe.Webhook.construct_event(payload, sig_header, secret)
+            event_account_ref = account_ref
+            event_api_key = api_key
+            break
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid payload")
+        except stripe.SignatureVerificationError:
+            continue
+    if event is None:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_type = event["type"]
@@ -392,7 +419,7 @@ async def stripe_webhook(request: Request):
     # Stripe SDK v15 StripeObject no longer has .get() — convert to dict
     if hasattr(obj, "to_dict"):
         obj = obj.to_dict()
-    logger.info("Webhook received: %s", event_type)
+    logger.info("Webhook received: %s (account=%s)", event_type, event_account_ref)
 
     if event_type == "checkout.session.completed":
         # CRITICAL: no try/except - let failures propagate so Stripe retries
@@ -414,6 +441,7 @@ async def stripe_webhook(request: Request):
                 stripe.Subscription.retrieve,
                 sub_id,
                 expand=["items.data.price"],
+                api_key=event_api_key,
             )
             result = await sync_subscription_from_stripe(
                 user_id=user_id,
@@ -421,6 +449,8 @@ async def stripe_webhook(request: Request):
                 subscription_id=sub_id,
                 stripe_subscription=stripe_sub,
                 source="checkout.session.completed",
+                stripe_account_ref=event_account_ref,
+                api_key=event_api_key,
             )
             plan = result.get("plan", _resolve_plan_from_subscription(stripe_sub))
             logger.info("Subscription activated for user %s (plan=%s)", user_id, plan)
@@ -452,6 +482,8 @@ async def stripe_webhook(request: Request):
                     subscription_id=obj.get("id"),
                     stripe_subscription=obj,
                     source="customer.subscription.updated",
+                    stripe_account_ref=event_account_ref,
+                    api_key=event_api_key,
                 )
                 logger.info(
                     "Subscription identity updated for user %s: status=%s plan=%s",
@@ -486,6 +518,7 @@ async def stripe_webhook(request: Request):
                         active_subs = await asyncio.to_thread(
                             stripe.Subscription.list,
                             customer=customer_id, status="all", limit=10,
+                            api_key=event_api_key,
                         )
                         active_candidates = [
                             sub for sub in active_subs.data
@@ -538,6 +571,7 @@ async def stripe_webhook(request: Request):
                             user_id=user_id,
                             allow_empty=True,
                             source="customer.subscription.deleted",
+                            api_key=event_api_key,
                         )
                         synced = bool(result.get("synced"))
                 except Exception as entitlement_err:
@@ -549,7 +583,8 @@ async def stripe_webhook(request: Request):
                     try:
                         if customer_id:
                             customer = await asyncio.to_thread(
-                                stripe.Customer.retrieve, customer_id
+                                stripe.Customer.retrieve, customer_id,
+                                api_key=event_api_key,
                             )
                             email = _to_dict(customer).get("email")
                             if email:
@@ -582,6 +617,7 @@ async def stripe_webhook(request: Request):
                 customer_id,
                 allow_empty=True,
                 source="entitlements.active_entitlement_summary.updated",
+                api_key=event_api_key,
             )
         except Exception as e:
             logger.error(
