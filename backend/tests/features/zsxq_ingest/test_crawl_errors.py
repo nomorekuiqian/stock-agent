@@ -291,6 +291,95 @@ class TestFetchFullComments:
 
         assert result == []
 
+    def test_comment_page_retries_on_1059_then_returns_full(self):
+        """
+        A comment-page fetch that returns code 1059 once should be retried
+        (monkeypatched _sleep captures the wait) and ultimately return the
+        full comment set from the successful second attempt.
+        """
+        client = _make_client()
+        sleep_calls: list[float] = []
+        client._sleep = lambda s: sleep_calls.append(s)
+
+        page1_comments = [
+            {"comment_id": i, "create_time": f"2025-07-03T10:{i:02d}:00.000+0800"}
+            for i in range(5)
+        ]
+
+        call_count = {"n": 0}
+
+        def fake_get(url, *, headers, params, timeout):
+            req = httpx.Request("GET", url)
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                # First attempt: anti-crawl retryable code 1059
+                return httpx.Response(
+                    200,
+                    json={"succeeded": False, "code": 1059, "error": "anti-crawl"},
+                    request=req,
+                )
+            else:
+                # Second attempt: success with 5 comments (< 30 → last page)
+                return httpx.Response(
+                    200,
+                    json={"succeeded": True, "resp_data": {"comments": page1_comments}},
+                    request=req,
+                )
+
+        topic = {"topic_id": 202, "comments_count": 5, "show_comments": []}
+        # Override comments_count so fetch is triggered (must be > 8)
+        topic["comments_count"] = 9
+        with patch.object(client._http, "get", side_effect=fake_get):
+            result = client.fetch_full_comments(topic)
+
+        # Should have retried — at least 2 HTTP calls
+        assert call_count["n"] == 2, f"Expected 2 HTTP calls, got {call_count['n']}"
+        # Sleep was called at least once (backoff between attempts)
+        assert len(sleep_calls) >= 1, f"Expected at least 1 sleep call, got {sleep_calls}"
+        # Full comment set returned
+        assert len(result) == 5
+        assert result[0]["comment_id"] == 0
+
+    def test_comment_page_non_retryable_failure_returns_partial(self):
+        """
+        A non-retryable API error (e.g. code 9999) on the second comment page
+        should return what was already collected (partial), without raising.
+        This confirms 1059-retry path doesn't break the existing partial-return behavior.
+        """
+        client = _make_client()
+        client._sleep = lambda s: None
+
+        page1_comments = [
+            {"comment_id": i, "create_time": f"2025-07-03T10:{i:02d}:00.000+0800"}
+            for i in range(30)
+        ]
+        call_count = {"n": 0}
+
+        def fake_get(url, *, headers, params, timeout):
+            req = httpx.Request("GET", url)
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return httpx.Response(
+                    200,
+                    json={"succeeded": True, "resp_data": {"comments": page1_comments}},
+                    request=req,
+                )
+            else:
+                # Non-retryable error on page 2
+                return httpx.Response(
+                    200,
+                    json={"succeeded": False, "code": 9999, "error": "permanent failure"},
+                    request=req,
+                )
+
+        topic = {"topic_id": 203, "comments_count": 50, "show_comments": []}
+        with patch.object(client._http, "get", side_effect=fake_get):
+            result = client.fetch_full_comments(topic)
+
+        # Returns partial (30 from page 1) without raising
+        assert len(result) == 30
+        assert result[0]["comment_id"] == 0
+
 
 # ---------------------------------------------------------------------------
 # download_binaries
