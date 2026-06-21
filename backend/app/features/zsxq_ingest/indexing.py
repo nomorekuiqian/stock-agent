@@ -9,7 +9,7 @@ Public API:
     prepare_records(records, *, min_chars, persona_key, persona_name)
         -> (list[PreparedRecord], Counter[str])
     audit_distribution(records, prepared, drop_reasons) -> dict
-    index_prepared(rec, *, force) -> VectorIndexResponse   (async)
+    index_prepared(rec, *, force, source_type) -> VectorIndexResponse   (async)
 
 Internal helpers (_eligible, extract_tickers, etc.) are also exported so the
 CLI can import them directly if needed, but callers should prefer the public API.
@@ -19,8 +19,12 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
+
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -75,7 +79,7 @@ def _get_ticker_aliases() -> dict[str, list[str]]:
 
         aliases: dict[str, list[str]] = {k: list(v) for k, v in TICKER_ALIASES.items()}
     except Exception as exc:  # noqa: BLE001 - degrade to fallback dict
-        print("WARN", {"ticker_aliases_import_failed": str(exc)[:200]})
+        logger.warning("ticker_aliases_import_failed: %s", str(exc)[:200])
         aliases = {k: list(v) for k, v in _FALLBACK_TICKER_ALIASES.items()}
     for ticker, names in _CRYPTO_TICKER_ALIASES.items():
         aliases.setdefault(ticker, names)
@@ -234,7 +238,7 @@ def prepare_records(
     min_chars: int = 0,
     persona_key: str = DEFAULT_PERSONA_KEY,
     persona_name: str = DEFAULT_PERSONA_NAME,
-) -> tuple[list[PreparedRecord], Counter]:
+) -> tuple[list[PreparedRecord], Counter[str]]:
     """Filter and enrich eligible records.
 
     Returns a tuple of (prepared_records, drop_reasons_counter).
