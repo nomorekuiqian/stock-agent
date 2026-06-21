@@ -1,0 +1,104 @@
+{
+  "topic_id": 22255848258448881,
+  "topic_uid": "22255848258448881",
+  "group": {
+    "group_id": 15554581218512,
+    "name": "潘大的科技交流圈",
+    "type": "pay",
+    "background_url": "https://images.zsxq.com/FlB7WyHE39FVdzxU6xj_5VtPqZlu"
+  },
+  "type": "talk",
+  "talk": {
+    "owner": {
+      "user_id": 88214152181182,
+      "name": "bewater",
+      "alias": "金属能源行业研究员bewater",
+      "avatar_url": "https://images.zsxq.com/Fr7Ge8a2qfBbd3-ImW16QxRIQb9S",
+      "description": "金属能源研究员",
+      "location": "天津"
+    },
+    "text": "看好 <e type=\"hashtag\" hid=\"1\" title=\"%23AI%23\" /> 和光模块赛道。详见 <e type=\"web_url\" href=\"https%3A%2F%2Fx.com\" title=\"X\" /> 的分析。\n<e type=\"text_bold\" title=\"%E6%A0%B8%E5%BF%83%E8%A7%82%E7%82%B9%EF%BC%9A\" /> 磷化铟是光通信命门。<e type=\"hashtag\" hid=\"2\" title=\"%23AI%E7%A1%AC%E4%BB%B6%23\" />",
+    "images": [
+      {
+        "image_id": 4848545552545558,
+        "type": "png",
+        "thumbnail": {
+          "url": "https://images.zsxq.com/thumb_FmVLw5RrxxpTMqJlnDcbHzEgNmwt",
+          "width": 750,
+          "height": 1346
+        },
+        "large": {
+          "url": "https://images.zsxq.com/large_FmVLw5RrxxpTMqJlnDcbHzEgNmwt",
+          "width": 687,
+          "height": 1233
+        },
+        "original": {
+          "url": "https://images.zsxq.com/FmVLw5RrxxpTMqJlnDcbHzEgNmwt",
+          "width": 687,
+          "height": 1233,
+          "size": 55000
+        }
+      }
+    ],
+    "files": [
+      {
+        "file_id": 212452824145451,
+        "name": "mcs2026-indium.pdf",
+        "hash": "43782a8086bf24da5a60e81e690c4a6f9c54c489fd276aacbf79f23945f1be05",
+        "size": 134495,
+        "duration": 0,
+        "download_count": 16,
+        "create_time": "2026-05-12T17:30:08.872+0800"
+      }
+    ]
+  },
+  "show_comments": [
+    {
+      "comment_id": 2852182282422551,
+      "create_time": "2026-05-14T13:04:03.964+0800",
+      "owner": {
+        "user_id": 185581828118142,
+        "name": "Darson",
+        "location": "广东"
+      },
+      "text": "中国是全球最大的铟生产国，请问有什么高见？",
+      "likes_count": 1,
+      "rewards_count": 0,
+      "sticky": false,
+      "replies_count": 1
+    },
+    {
+      "comment_id": 2852182425225181,
+      "parent_comment_id": 2852182282422551,
+      "create_time": "2026-05-14T14:29:22.172+0800",
+      "owner": {
+        "user_id": 88214152181182,
+        "name": "bewater",
+        "location": "天津"
+      },
+      "text": "长期看原料端供给不足，铟和磷化铟衬底生产相关的股票是核心的铲子。",
+      "likes_count": 1,
+      "rewards_count": 0,
+      "sticky": false,
+      "repliee": {
+        "user_id": 185581828118142,
+        "name": "Darson"
+      }
+    }
+  ],
+  "likes_count": 7,
+  "tourist_likes_count": 0,
+  "rewards_count": 0,
+  "comments_count": 4,
+  "reading_count": 1,
+  "readers_count": 286,
+  "digested": true,
+  "sticky": false,
+  "create_time": "2026-05-12T17:26:59.762+0800",
+  "user_specific": {
+    "liked": false,
+    "liked_emojis": [],
+    "subscribed": false
+  },
+  "title": "AI的物理尽头是稀缺金属,为什..."
+}
