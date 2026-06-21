@@ -90,6 +90,8 @@ async def run(args: argparse.Namespace) -> None:
         prepared = prepared[: args.limit]
 
     # --- distribution report (always printed) ---
+    # Note: indexing.audit_distribution() is the structured equivalent used by the async pipeline.
+    # The inline prints below are intentionally kept as a separate, legacy output contract.
     print("INPUT", {"path": str(args.input), "total": len(records),
                     "selected": len(prepared), "dropped": dict(drop_reasons)})
     print("CONTENT_TYPE", dict(Counter(p.content_type for p in prepared)))
