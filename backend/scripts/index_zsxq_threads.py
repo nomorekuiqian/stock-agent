@@ -101,7 +101,7 @@ async def run(args: argparse.Namespace) -> None:
           {"with_ticker": with_ticker, "ratio": round(with_ticker / max(1, len(prepared)), 2)})
     print("TOP_TICKERS", dict(Counter(t for p in prepared for t in p.tickers).most_common(15)))
     print("CHUNKING", {"docs": len(prepared),
-                       "multi_chunk_docs(>3200chars)": sum(1 for p in prepared if len(p.content) > 3200)})
+                       "multi_chunk_docs(>3200chars)": sum(1 for p in prepared if len(p.body) > 3200)})
 
     if args.dry_run:
         for prep in prepared[:4]:
@@ -115,7 +115,7 @@ async def run(args: argparse.Namespace) -> None:
     indexed = skipped = failed = 0
     for i, prep in enumerate(prepared, 1):
         try:
-            resp = await indexing.index_prepared(prep, force=args.force)
+            resp = await indexing.index_prepared(prep, force=args.force, source_type=args.source_type)
         except Exception as exc:  # noqa: BLE001 - keep the batch moving
             failed += 1
             print("ERROR", {"source_id": prep.source_id, "error": str(exc)[:300]}, flush=True)
