@@ -216,12 +216,15 @@ class ZsxqClient:
         self._sleep(delay)
 
     def _maybe_long_delay(self) -> None:
-        """Trigger a long sleep every long_delay_interval pages.
+        """Increment page count and trigger a long sleep every long_delay_interval pages.
+
+        Owns the _page_count increment so iter_topics doesn't need to manage it.
 
         Ported from ZSXQInteractiveCrawler.check_page_long_delay():
             - Default long sleep range: 180–300s (3–5 minutes)
             - Triggered on page_count % long_delay_interval == 0
         """
+        self._page_count += 1
         if self._page_count % self.long_delay_interval == 0:
             lo, hi = self.long_delay_range
             delay = random.uniform(lo, hi)
@@ -232,6 +235,62 @@ class ZsxqClient:
                 self.long_delay_interval,
             )
             self._sleep(delay)
+
+    # ------------------------------------------------------------------
+    # Shared fetch-with-retry helper
+    # ------------------------------------------------------------------
+
+    def _fetch_with_retry(self, url: str, params: dict) -> dict:
+        """
+        GET `url` with `params`, run _handle_response, and retry on
+        ZsxqRetryableError (code 1059) up to _GLOBAL_MAX_RETRIES times
+        using the stepped _retry_wait backoff.
+
+        Behaviour:
+        - ZsxqAuthError  → propagates immediately (no retry)
+        - ZsxqRateLimitError (429) → one backoff sleep then re-raises
+        - ZsxqRetryableError (1059) → retried up to _GLOBAL_MAX_RETRIES
+        - ZsxqApiError   → propagates immediately (no retry)
+
+        Returns the resp_data dict on success.
+        """
+        last_exc: Optional[Exception] = None
+        for attempt in range(_GLOBAL_MAX_RETRIES):
+            try:
+                logger.debug("_fetch_with_retry attempt=%d url=%s", attempt, url)
+                resp = self._http.get(url, headers=self._headers(), params=params, timeout=10)
+                return self._handle_response(resp)
+
+            except ZsxqAuthError:
+                raise
+
+            except ZsxqRateLimitError:
+                wait = _retry_wait(attempt)
+                logger.warning("429 rate-limit on attempt %d, sleeping %ds", attempt, wait)
+                self._sleep(wait)
+                raise
+
+            except ZsxqRetryableError as exc:
+                wait = _retry_wait(attempt)
+                logger.warning(
+                    "retryable code=%d attempt=%d/%d, sleeping %ds",
+                    exc.code,
+                    attempt + 1,
+                    _GLOBAL_MAX_RETRIES,
+                    wait,
+                )
+                if attempt < _GLOBAL_MAX_RETRIES - 1:
+                    self._sleep(wait)
+                    last_exc = exc
+                    continue
+                raise
+
+            except ZsxqApiError:
+                raise
+
+        if last_exc:
+            raise last_exc
+        raise ZsxqApiError(-1, "Max retries exhausted")
 
     # ------------------------------------------------------------------
     # Response handling (the error split)
@@ -300,10 +359,7 @@ class ZsxqClient:
         count: int = 20,
     ) -> dict:
         """
-        Fetch one page of topics. Retries on ZsxqRetryableError (code 1059)
-        up to GLOBAL_MAX_RETRIES times using the stepped backoff from
-        zsxq_retry.retry_wait_seconds. ZsxqAuthError propagates immediately
-        — no retry.
+        Fetch one page of topics via the shared _fetch_with_retry helper.
 
         Returns the resp_data dict (contains "topics" list).
         """
@@ -311,54 +367,8 @@ class ZsxqClient:
         params: dict = {"scope": scope, "count": str(count)}
         if end_time is not None:
             params["end_time"] = end_time
-
-        last_exc: Optional[Exception] = None
-        for attempt in range(_GLOBAL_MAX_RETRIES):
-            try:
-                logger.debug(
-                    "_fetch_topics_page attempt=%d scope=%s end_time=%s",
-                    attempt,
-                    scope,
-                    end_time,
-                )
-                resp = self._http.get(url, headers=self._headers(), params=params, timeout=10)
-                return self._handle_response(resp)
-
-            except ZsxqAuthError:
-                # Auth errors propagate immediately — no retry
-                raise
-
-            except ZsxqRateLimitError:
-                # 429: caller should handle; propagate after backoff
-                wait = _retry_wait(attempt)
-                logger.warning("429 rate-limit on attempt %d, sleeping %ds", attempt, wait)
-                self._sleep(wait)
-                last_exc = ZsxqRateLimitError()
-                # propagate after single wait so the caller (iter_topics) can decide
-                raise
-
-            except ZsxqRetryableError as exc:
-                wait = _retry_wait(attempt)
-                logger.warning(
-                    "retryable code=%d attempt=%d/%d, sleeping %ds",
-                    exc.code,
-                    attempt + 1,
-                    _GLOBAL_MAX_RETRIES,
-                    wait,
-                )
-                if attempt < _GLOBAL_MAX_RETRIES - 1:
-                    self._sleep(wait)
-                    last_exc = exc
-                    continue
-                raise
-
-            except ZsxqApiError:
-                raise
-
-        # Should not reach here normally
-        if last_exc:
-            raise last_exc
-        raise ZsxqApiError(-1, "Max retries exhausted")
+        logger.debug("_fetch_topics_page scope=%s end_time=%s", scope, end_time)
+        return self._fetch_with_retry(url, params)
 
     # ------------------------------------------------------------------
     # Topic iteration (cursor pagination + incremental stop)
@@ -427,10 +437,8 @@ class ZsxqClient:
             # Per-page delay
             self._smart_delay()
 
-            # Track page count and possibly trigger long sleep
-            self._page_count += 1
-            if self._page_count % self.long_delay_interval == 0:
-                self._maybe_long_delay()
+            # Increment page count and possibly trigger long sleep
+            self._maybe_long_delay()
 
     # ------------------------------------------------------------------
     # Comments (full list when > 8)
@@ -481,27 +489,8 @@ class ZsxqClient:
                 params["begin_time"] = begin_time
 
             try:
-                resp = self._http.get(url, headers=self._headers(), params=params, timeout=30)
-                if resp.status_code != 200:
-                    logger.warning(
-                        "fetch_full_comments: topic %s page %d HTTP %d — stopping",
-                        topic_id,
-                        page,
-                        resp.status_code,
-                    )
-                    break
-
-                data = resp.json()
-                if not data.get("succeeded"):
-                    logger.warning(
-                        "fetch_full_comments: topic %s page %d API error code=%s — stopping",
-                        topic_id,
-                        page,
-                        data.get("code"),
-                    )
-                    break
-
-                comments: List[dict] = data.get("resp_data", {}).get("comments", [])
+                resp_data = self._fetch_with_retry(url, params)
+                comments: List[dict] = resp_data.get("comments", [])
                 if not comments:
                     logger.debug(
                         "fetch_full_comments: topic %s page %d empty — done", topic_id, page
