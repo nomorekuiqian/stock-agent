@@ -220,6 +220,7 @@ class PreparedRecord:
     title: str
     url: str | None
     content: str
+    body: str
     content_type: str
     tickers: list[str]
     report_date: str | None
@@ -261,6 +262,7 @@ def prepare_records(
             title=_clean_title(rec, body),
             url=rec.get("url"),
             content=content,
+            body=body,
             content_type=ctype,
             tickers=tickers,
             report_date=date if len(date) == 10 else None,
@@ -284,18 +286,18 @@ def audit_distribution(
         "content_type": dict(Counter(p.content_type for p in prepared)),
         "ticker_coverage": round(with_ticker / max(1, len(prepared)), 2),
         "top_tickers": dict(Counter(t for p in prepared for t in p.tickers).most_common(15)),
-        "multi_chunk_docs": sum(1 for p in prepared if len(p.content) > 3200),
+        "multi_chunk_docs": sum(1 for p in prepared if len(p.body) > 3200),
     }
 
 
-async def index_prepared(rec: PreparedRecord, *, force: bool = False):
+async def index_prepared(rec: PreparedRecord, *, force: bool = False, source_type: str = DEFAULT_SOURCE_TYPE):
     """Index a single PreparedRecord via the generic vector pipeline."""
     from app.features.vector.models import VectorDocumentInput, VectorIndexRequest
     from app.features.vector.service import index_document
 
     return await index_document(VectorIndexRequest(
         document=VectorDocumentInput(
-            source_type=DEFAULT_SOURCE_TYPE,
+            source_type=source_type,
             source_id=rec.source_id,
             title=rec.title,
             url=rec.url,
