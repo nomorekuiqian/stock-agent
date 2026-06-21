@@ -1,0 +1,70 @@
+{
+  "topic_id": 22255845181542441,
+  "topic_uid": "22255845181542441",
+  "group": {
+    "group_id": 15554581218512,
+    "name": "潘大的科技交流圈",
+    "type": "pay",
+    "background_url": "https://images.zsxq.com/FlB7WyHE39FVdzxU6xj_5VtPqZlu"
+  },
+  "type": "talk",
+  "talk": {
+    "owner": {
+      "user_id": 15555428815112,
+      "name": "潘驴邓晓闲缺一",
+      "avatar_url": "https://images.zsxq.com/FjIickXnLne4GoU24cTYgtO0nHAH",
+      "description": "15 年美股经验，专攻科技股和景气赛道",
+      "location": "广东"
+    },
+    "text": "我们团队发布的索尔思最新估值表分析，从多个维度分析了索尔斯的估值",
+    "images": [
+      {
+        "image_id": 2858258111854511,
+        "type": "png",
+        "thumbnail": {
+          "url": "https://images.zsxq.com/thumb_FsdslQjWGeCVv0KWa5javnwWlFqQ",
+          "width": 750,
+          "height": 409
+        },
+        "large": {
+          "url": "https://images.zsxq.com/large_FsdslQjWGeCVv0KWa5javnwWlFqQ",
+          "width": 800,
+          "height": 437
+        },
+        "original": {
+          "url": "https://images.zsxq.com/FsdslQjWGeCVv0KWa5javnwWlFqQ",
+          "width": 1545,
+          "height": 843,
+          "size": 79578
+        }
+      }
+    ],
+    "files": [
+      {
+        "file_id": 812452518858412,
+        "name": "索尔思估值计算表.xlsx",
+        "hash": "014bacdcc7b3714aa3c01032c27fc6c721daffa598f83f24efcee0c69738c0c3",
+        "size": 26693,
+        "duration": 0,
+        "download_count": 22,
+        "create_time": "2026-05-11T14:19:12.373+0800"
+      }
+    ]
+  },
+  "annotation": "<e type=\"hashtag\" hid=\"28221854242851\" title=\"%23%E3%80%90A%E8%82%A1%E3%80%91%E7%A7%91%E6%8A%80%E8%82%A1%23\" />",
+  "likes_count": 0,
+  "tourist_likes_count": 0,
+  "rewards_count": 0,
+  "comments_count": 0,
+  "reading_count": 1,
+  "readers_count": 171,
+  "digested": false,
+  "sticky": false,
+  "create_time": "2026-05-11T14:20:36.094+0800",
+  "user_specific": {
+    "liked": false,
+    "liked_emojis": [],
+    "subscribed": false
+  },
+  "title": "我们团队发布的索尔思最新估值表..."
+}
