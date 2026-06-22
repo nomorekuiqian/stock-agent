@@ -387,14 +387,20 @@ class TestFetchFullComments:
 
 class TestDownloadBinaries:
     def _make_topic_with_files(self, n_files: int) -> dict:
+        # Real zsxq payload shape: files live under talk.files (no top-level
+        # "attachments" field).
         return {
             "topic_id": 999,
             "create_time": "2025-07-03T10:00:00.000+0800",
             "comments_count": 0,
-            "attachments": [
-                {"type": "file", "file": {"file_id": f"file_{i}", "name": f"doc_{i}.pdf", "download_url": None}}
-                for i in range(n_files)
-            ],
+            "talk": {
+                "owner": {"user_id": 1, "name": "x"},
+                "text": "t",
+                "files": [
+                    {"file_id": f"file_{i}", "name": f"doc_{i}.pdf"}
+                    for i in range(n_files)
+                ],
+            },
         }
 
     def test_success_counted(self):

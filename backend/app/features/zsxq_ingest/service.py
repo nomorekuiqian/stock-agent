@@ -5,12 +5,12 @@ Phase 4: crawl → archive → normalize → audit/gate → index → smoke → 
 Rate-limit cooldown choice
 --------------------------
 When ``ZsxqRateLimitError`` is raised during crawl we sleep for ``_RATE_LIMIT_COOLDOWN``
-seconds (default 600 s / 10 min) and then *continue* (retry the same page via
-``iter_topics`` which will re-fetch from the current cursor position on the next
-loop iteration).  If a *second* consecutive rate-limit is hit we abort the run
-as ``failed`` to avoid an infinite loop.  This is a "one free cooldown" policy:
-safe enough for a scheduled cron job, simple to reason about in tests (the
-injectable ``_sleep_fn`` can be swapped without touching business logic).
+seconds (default 600 s / 10 min) and then restart the crawl iterator.  A per-run
+*total* budget (``_MAX_RATE_LIMIT_RETRIES``) bounds how many times we do this; once
+exhausted the run aborts as ``failed``.  The counter is NOT reset on intervening
+successful topics, so a page that keeps rate-limiting cannot loop forever.  A mid-run
+restart may re-process already-archived topics — idempotent via ledger upsert + index
+content_hash dedup.  The injectable ``_sleep_fn`` lets tests avoid real sleeps.
 """
 
 from __future__ import annotations
@@ -50,6 +50,10 @@ _FROM_EMAIL = "TheMarketBrew <daily@themarketbrew.com>"
 
 # Rate-limit cooldown in seconds (injectable via module attribute for tests)
 _RATE_LIMIT_COOLDOWN: float = 600.0
+
+# Max TOTAL rate-limit retries per run. NOT reset on success → guarantees the
+# crawl loop terminates even if a page is persistently throttled.
+_MAX_RATE_LIMIT_RETRIES: int = 2
 
 # Injectable sleep function — tests replace this to avoid real sleeps
 _sleep_fn = asyncio.sleep
@@ -195,7 +199,7 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
     newest_create_time: str | None = None
     newest_topic_id: str | None = None
 
-    consecutive_rate_limits = 0
+    rate_limit_retries = 0
 
     topic_iter = client.iter_topics(stop_create_time=stop, full=full)
 
@@ -217,28 +221,32 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
             )
             return {"status": "auth_failed", "error": str(e)}
         except ZsxqRateLimitError as e:
-            consecutive_rate_limits += 1
+            rate_limit_retries += 1
             logger.warning(
-                "run_ingest: ZsxqRateLimitError #%d run_id=%s — sleeping %ss",
-                consecutive_rate_limits,
+                "run_ingest: ZsxqRateLimitError #%d/%d run_id=%s — sleeping %ss",
+                rate_limit_retries,
+                _MAX_RATE_LIMIT_RETRIES,
                 run_id,
                 _RATE_LIMIT_COOLDOWN,
             )
-            if consecutive_rate_limits >= 2:
-                # Two consecutive rate limits — abort to avoid infinite loop
+            if rate_limit_retries > _MAX_RATE_LIMIT_RETRIES:
+                # Total per-run budget exhausted — abort. The counter is never
+                # reset, so a persistently throttled page cannot loop forever.
                 logger.error(
-                    "run_ingest: 2 consecutive rate limits — aborting run_id=%s", run_id
+                    "run_ingest: rate-limit budget (%d) exhausted — aborting run_id=%s",
+                    _MAX_RATE_LIMIT_RETRIES,
+                    run_id,
                 )
                 await _db.update_run(
                     run_id,
                     status="failed",
-                    error_message="rate limit: %s" % e,
+                    error_message="rate limit budget exhausted: %s" % e,
                 )
                 return {"status": "failed", "error": "rate_limit_abort"}
             await _sleep_fn(_RATE_LIMIT_COOLDOWN)
-            # Re-create the iterator from scratch (cursor state is lost on a re-raise)
-            # Simple approach: restart from the same stop position; already-crawled
-            # topics will be upserted (idempotent).
+            # Restart the iterator (generator cursor is lost on re-raise). Already-
+            # crawled topics may be re-processed — idempotent via ledger upsert +
+            # index content_hash dedup. Bounded by the budget above.
             topic_iter = client.iter_topics(stop_create_time=stop, full=full)
             continue
         except Exception as e:  # noqa: BLE001
@@ -246,7 +254,8 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
             await _db.update_run(run_id, status="failed", error_message=str(e))
             return {"status": "failed", "error": str(e)}
 
-        consecutive_rate_limits = 0  # reset on success
+        # NOTE: rate_limit_retries is intentionally NOT reset here — it is a
+        # total per-run budget so a persistently throttled crawl always ends.
 
         tid = str(topic.get("topic_id", ""))
         create_time = topic.get("create_time")
@@ -289,7 +298,8 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
         dl_failed = 0
         binary_storage_keys: list[str] = []
 
-        if topic.get("attachments"):
+        _bin_talk = topic.get("talk") or {}
+        if _bin_talk.get("files") or _bin_talk.get("images"):
             # Collect bytes synchronously (no event loop inside save_fn)
             _collected_binaries: list[tuple[str, bytes]] = []
 
@@ -541,23 +551,36 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
             from app.features.vector.service import search as vector_search
             from app.features.vector.models import VectorSearchRequest, VectorSearchFilters
 
+            # Use a real indexed doc's text as the query so it should self-retrieve,
+            # filtered to the zsxq_thread corpus with a low threshold. Then verify
+            # the sampled ids actually come back — searching all data (the previous
+            # bug) could pass on unrelated chunks.
+            probe = next((p for p in prepared if p.source_id in smoke_ids), None)
+            query_text = (probe.title or probe.content[:200]) if probe else "知识星球"
             req = VectorSearchRequest(
-                query="知识星球",
-                k=len(smoke_ids),
-                filters=VectorSearchFilters(
-                    source_type="zsxq_thread",
-                    source_ids=smoke_ids,
-                ),
+                query=query_text,
+                top_k=50,
+                threshold=0.0,
+                filters=VectorSearchFilters(source_types=["zsxq_thread"]),
             )
-            results = await vector_search(req)
-            if not results:
+            resp = await vector_search(req)
+            returned_ids = {r.source_id for r in (resp.results or [])}
+            found = returned_ids & set(smoke_ids)
+            if not found:
                 logger.warning(
-                    "run_ingest: smoke check returned 0 results run_id=%s", run_id
+                    "run_ingest: smoke found none of %d sampled ids "
+                    "(%d zsxq_thread results) run_id=%s",
+                    len(smoke_ids), len(returned_ids), run_id,
                 )
                 smoke_ok = False
+            else:
+                logger.info(
+                    "run_ingest: smoke ok — %d/%d sampled ids retrievable run_id=%s",
+                    len(found), len(smoke_ids), run_id,
+                )
         except Exception as exc:  # noqa: BLE001
             logger.warning("run_ingest: smoke check failed run_id=%s: %s", run_id, exc)
-            # Smoke failure is non-fatal — we still mark "degraded" below
+            smoke_ok = False  # treat smoke errors as degraded, not success
 
     final_status = "done" if smoke_ok else "degraded"
 
