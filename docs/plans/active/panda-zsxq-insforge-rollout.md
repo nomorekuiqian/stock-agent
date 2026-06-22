@@ -4,6 +4,12 @@
 > CLI：`insforge` v0.1.49，已登录 `F0rge1cE <xuxueyang1994@outlook.com>`，**项目当前未 link**。
 > 所有步骤均可回滚；高风险步骤（S4 重部署 cron-trigger、S8 全量爬）单独标注。
 
+## 更新（2026-06-21 设计 revisit 后）
+- **存量幂等已验证**：生产库已有 748 个 `zsxq_thread` doc；本 pipeline 对 5/5 已入库 topic 的 `content_hash` 与库内一致 → 重跑/全量 backfill 对存量 **skip 不重复**（S8 实际只会新增增量 topic）。
+- **S2 表结构不变**：LLM-enrich 扩展采用 **metadata 约定**（`enrichment_version`/`enrichment_status`，写进 vector metadata jsonb，不进 content、不改 content_hash），**不新增表列**。4 张运维表 SQL 维持原样。
+- **已加 `limit` 参数**：`/api/zsxq/ingest?limit=N` 可做受控小批量首跑（尊重「不可大量爬」）。S8 先用小 `limit` 验证，再考虑全量。
+- 检查点 = `zsxq_ingest_state`(游标) + `zsxq_thread_ledger`(逐 topic stage) + `content_hash`(skip)，与 `threads.jsonl` 无关；raw + normalized 双 archive 都留。
+
 ## 依赖关系
 
 ```
