@@ -375,6 +375,13 @@ class TestRunIngestGateBlock:
 # Smoke returns empty → degraded
 # ---------------------------------------------------------------------------
 
+def _fake_search_resp(source_ids):
+    """Build a fake VectorSearchResponse-like object (has .results with .source_id)."""
+    resp = MagicMock()
+    resp.results = [MagicMock(source_id=sid) for sid in source_ids]
+    return resp
+
+
 class TestRunIngestSmokeDegraded:
     @pytest.mark.asyncio
     async def test_smoke_empty_results_degraded(self):
@@ -396,8 +403,8 @@ class TestRunIngestSmokeDegraded:
             patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
             patch("app.features.zsxq_ingest.service.index_prepared", new_callable=AsyncMock, return_value=_FakeIndexResponse()),
             patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
-            # Smoke: empty results
-            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=[]),
+            # Smoke: search returns no matching zsxq_thread results → degraded
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp([])),
             patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
             patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
         ):
@@ -504,8 +511,9 @@ class TestRateLimitCooldown:
         assert result["status"] in ("done", "degraded")
 
     @pytest.mark.asyncio
-    async def test_two_consecutive_rate_limits_aborts(self):
-        """Two consecutive ZsxqRateLimitErrors → run aborted as 'failed'."""
+    async def test_persistent_rate_limit_exhausts_budget_and_aborts(self):
+        """A page that always rate-limits exhausts the per-run budget and aborts
+        as 'failed' — it must terminate (no infinite loop)."""
         call_count = 0
 
         def _iter_factory(**kwargs):
@@ -542,8 +550,9 @@ class TestRateLimitCooldown:
 
         assert result["status"] == "failed"
         assert mock_update_run.call_args[1]["status"] == "failed"
-        # Exactly one sleep (after first rate limit; second → abort without sleeping)
-        assert len(slept) == 1
+        # Bounded budget: sleeps _MAX_RATE_LIMIT_RETRIES times, then the next
+        # rate-limit exhausts the budget and aborts without sleeping again.
+        assert len(slept) == svc._MAX_RATE_LIMIT_RETRIES
 
 
 # ---------------------------------------------------------------------------
@@ -568,10 +577,10 @@ class TestBinaryUploadAsyncSafe:
             "comments_count": 0,
             "likes_count": 1,
             "digested": False,
-            "attachments": [{"type": "file", "file": {"file_id": "f1", "name": "a.pdf"}}],
             "talk": {
                 "owner": {"user_id": 15555428815112, "name": "潘大"},
                 "text": "带附件的动态",
+                "files": [{"file_id": "f1", "name": "a.pdf"}],
             },
         }
 
@@ -616,7 +625,7 @@ class TestBinaryUploadAsyncSafe:
             patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
             patch("app.features.zsxq_ingest.service.index_prepared", new_callable=AsyncMock, return_value=_FakeIndexResponse()),
             patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
-            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=[MagicMock()]),
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp(["222"])),
             patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
             patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
         ):

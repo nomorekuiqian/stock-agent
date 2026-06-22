@@ -19,12 +19,27 @@ router = APIRouter(prefix="/api/zsxq", tags=["zsxq-ingest"])
 GROUP = "15554581218512"
 
 
+def _run_ingest_bg(group_id: str, full: bool, run_id: str) -> None:
+    """Sync wrapper scheduled as a BackgroundTask.
+
+    FastAPI runs *sync* background tasks in a threadpool, so the blocking
+    crawler inside ``run_ingest`` (``httpx.Client`` + ``time.sleep`` anti-ban
+    delays of seconds-to-minutes) cannot stall the API event loop. ``asyncio.run``
+    gives this worker thread its own loop for the async db/index calls.
+    """
+    import asyncio
+
+    asyncio.run(service.run_ingest(group_id, full=full, run_id=run_id))
+
+
 @router.post("/ingest", dependencies=[Depends(verify_cron_secret)])
 async def ingest(background_tasks: BackgroundTasks, full: bool = False):
     """Trigger a zsxq ingest run (incremental by default, full when ``?full=true``)."""
     run = await db.create_run(GROUP, "full" if full else "incremental")
     run_id = run["run_id"]
-    background_tasks.add_task(service.run_ingest, GROUP, full=full, run_id=run_id)
+    # Schedule the SYNC wrapper (threadpooled) — NOT the async coroutine directly,
+    # which would run the blocking crawl on the event loop and freeze the worker.
+    background_tasks.add_task(_run_ingest_bg, GROUP, full, run_id)
     logger.info("zsxq ingest accepted: run_id=%s full=%s", run_id, full)
     return {"success": True, "accepted": True, "run_id": run_id}
 

@@ -563,7 +563,17 @@ class ZsxqClient:
         -------
         (downloaded_count, failed_count)
         """
-        attachments: List[dict] = topic.get("attachments", [])
+        # Real zsxq payloads have NO top-level "attachments" field — files live
+        # at talk.files and images at talk.images (matches normalize.py). Adapt
+        # them into the internal attachment shape this loop already consumes.
+        talk = topic.get("talk") or {}
+        files = talk.get("files") or topic.get("files") or []
+        images = talk.get("images") or topic.get("images") or []
+        attachments: List[dict] = [{"type": "file", "file": f} for f in files]
+        attachments += [
+            {"type": "image", "original": (img.get("original") or img.get("large") or img.get("thumbnail") or {})}
+            for img in images
+        ]
         if not attachments:
             return 0, 0
 
