@@ -34,6 +34,14 @@
 
 **两类"认证级"失败都需走刷新流程**（来自现有 crawler 实测）：HTTP `401`（cookie 过期）与 API `code=14210`（**会员/订阅过期**，星球付费成员身份失效）。两者都让本账号失去成员视图，必须邮件通知管理员（401→换 cookie；14210→续费成员身份）。
 
+## 2.1 实代码 live 验证（2026-06-21，2 次只读请求，未写 Insforge）
+
+用提供的测试 cookie 跑真实 `iter_topics`（生产代码路径，单页）验证：
+- ✅ cookie 爬路径对 panda 群组可用（官方 API 被禁，cookie 内部接口返回内容）。
+- ✅ 真实 topic 形状与 `crawl.py`/`normalize.py` 一致：`talk.{owner,text,images}`、无顶层 `hashtags`、标签来自 `<e type="hashtag">`。
+- ✅ `creator_ids` 修复有效：非群主作者（如「超」`824454248122`）正确判为 `creator` 并入选（未被当作 member 丢弃）。
+- ✅ normalize→indexing 产出正确：`author_username=pandacircle` pin + 真实 `source_author`，eligible 子集 prepared。
+
 ## 3. 目标与不变量
 
 **目标**：把 1→2→3 做成可重复、可审计、可回滚的自动化 pipeline，定时执行；Insforge 承载 infra（cron / 文件存储 / pgvector / 表 / 邮件触发），计算在现有 Railway Python 后端。
