@@ -10,6 +10,13 @@
 - **已加 `limit` 参数**：`/api/zsxq/ingest?limit=N` 可做受控小批量首跑（尊重「不可大量爬」）。S8 先用小 `limit` 验证，再考虑全量。
 - 检查点 = `zsxq_ingest_state`(游标) + `zsxq_thread_ledger`(逐 topic stage) + `content_hash`(skip)，与 `threads.jsonl` 无关；raw + normalized 双 archive 都留。
 
+## 执行状态（live）
+- ✅ **S0** link — 主仓已链接 `stock-agent` / `9wmhxyi4`（2026-06-21）。
+- ✅ **S1** bucket — `zsxq-archive`（private）已建。
+- ✅ **S2** 迁移 — 4 表已建并验证（全空，0 行）；schema 备份 `/tmp/insforge-schema-backup-20260621-183959.sql`。
+- ⏳ **S3** 待批准：部署 `zsxq-ingest-store` edge function。
+- ⏳ S4（⚠️ cron-trigger 重部署）/ S5 / S6 / S7 / S8（⚠️ live 爬）待批准。
+
 ## 依赖关系
 
 ```
