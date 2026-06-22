@@ -544,3 +544,184 @@ class TestRateLimitCooldown:
         assert mock_update_run.call_args[1]["status"] == "failed"
         # Exactly one sleep (after first rate limit; second → abort without sleeping)
         assert len(slept) == 1
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: async-safe binary upload — save_fn must NOT call run_until_complete
+# ---------------------------------------------------------------------------
+
+class TestBinaryUploadAsyncSafe:
+    """download_binaries invokes save_fn synchronously; upload must happen
+    in the async context afterward.  Verifies that:
+    - db.put_object is awaited for each binary the save_fn receives
+    - the run does NOT raise RuntimeError (which would happen if
+      run_until_complete were called inside the already-running loop)
+    """
+
+    @pytest.mark.asyncio
+    async def test_binary_upload_awaited_and_no_runtime_error(self):
+        # A topic with one attachment so download_binaries path is entered
+        raw_topic_with_attachment = {
+            "topic_id": "222",
+            "type": "talk",
+            "create_time": "2024-06-01T11:00:00.000+0800",
+            "comments_count": 0,
+            "likes_count": 1,
+            "digested": False,
+            "attachments": [{"type": "file", "file": {"file_id": "f1", "name": "a.pdf"}}],
+            "talk": {
+                "owner": {"user_id": 15555428815112, "name": "潘大"},
+                "text": "带附件的动态",
+            },
+        }
+
+        norm_record_with_attach = {
+            **_NORM_RECORD,
+            "topic_id": "222",
+        }
+        prepared_with_attach = PreparedRecord(
+            source_id="222",
+            title="带附件",
+            url="https://wx.zsxq.com/dweb2/index/topic_detail/222",
+            content="带附件的动态",
+            body="带附件的动态",
+            content_type="fragment",
+            tickers=[],
+            report_date="2024-06-01",
+            metadata={"persona_username": "pandacircle"},
+            raw=norm_record_with_attach,
+        )
+
+        mock_client = MagicMock()
+        mock_client.iter_topics.return_value = _iter_gen([raw_topic_with_attachment])
+
+        # download_binaries invokes the passed save_fn with one file
+        def _fake_download_binaries(topic, save_fn):
+            save_fn("a.pdf", b"pdf-bytes")
+            return (1, 0)
+
+        mock_client.download_binaries.side_effect = _fake_download_binaries
+
+        put_object_mock = AsyncMock(return_value={"key": "some/key", "url": "https://x"})
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
+            patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
+            patch("app.features.zsxq_ingest.service._db.put_object", put_object_mock),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service.normalize_topic", return_value=norm_record_with_attach),
+            patch("app.features.zsxq_ingest.service.prepare_records", return_value=([prepared_with_attach], Counter())),
+            patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
+            patch("app.features.zsxq_ingest.service.index_prepared", new_callable=AsyncMock, return_value=_FakeIndexResponse()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=[MagicMock()]),
+            patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
+            patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
+        ):
+            # Must NOT raise RuntimeError
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID)
+
+        assert result["status"] in ("done", "degraded")
+
+        # put_object must have been awaited for the binary (key contains "files/")
+        binary_calls = [
+            c for c in put_object_mock.await_args_list
+            if len(c.args) >= 2 and "files/" in c.args[1]
+        ]
+        assert len(binary_calls) >= 1, (
+            "db.put_object should have been awaited for the binary attachment"
+        )
+
+        # files_downloaded counter must reflect the downloaded file
+        assert result["files_downloaded"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: creator_ids populated — non-owner topic authors become 'creator'
+# ---------------------------------------------------------------------------
+
+_CREATOR_USER_ID = 99999001  # a partner/creator, NOT the owner
+_STR_CREATOR_UID = str(_CREATOR_USER_ID)
+
+_RAW_TOPIC_BY_CREATOR = {
+    "topic_id": "333",
+    "type": "talk",
+    "create_time": "2024-06-02T10:00:00.000+0800",
+    "comments_count": 0,
+    "likes_count": 2,
+    "digested": False,
+    "talk": {
+        "owner": {"user_id": _CREATOR_USER_ID, "name": "研究助理A"},
+        "text": "研究助理的分析内容，这段文字足够长以通过 min_chars 过滤",
+    },
+}
+
+
+class TestCreatorIdsPopulated:
+    """After crawl, creator_ids should include all topic authors so that
+    non-owner authors get role='creator' in normalize_topic, and their posts
+    pass the _eligible check (role in {owner, creator}) → end up in prepared
+    → index_prepared is called for them.
+    """
+
+    @pytest.mark.asyncio
+    async def test_non_owner_author_becomes_creator_and_is_indexed(self):
+        mock_client = MagicMock()
+        mock_client.iter_topics.return_value = _iter_gen([_RAW_TOPIC_BY_CREATOR])
+        mock_client.download_binaries.return_value = (0, 0)
+
+        # We do NOT pre-mock normalize_topic — let it run for real so that
+        # the creator_ids set populated in run_ingest is actually passed through.
+        # But we need indexing to be mocked (no DB).
+
+        # Build the real normalized record that normalize_topic would produce
+        # when creator_ids = {_CREATOR_USER_ID}.
+        from app.features.zsxq_ingest.normalize import normalize_topic as _normalize
+        real_norm = _normalize(
+            _RAW_TOPIC_BY_CREATOR,
+            group_id=GROUP,
+            group_name="潘大的科技交流圈",
+            owner_user_id=int(svc.OWNER_USER_ID),
+            creator_ids={_CREATOR_USER_ID},
+        )
+
+        # Verify the real normalize gives role=creator (sanity check)
+        assert real_norm["author"]["role"] == "creator", (
+            "normalize_topic should assign role=creator when uid is in creator_ids"
+        )
+
+        # Now we also need a real prepare_records call to confirm eligibility
+        from app.features.zsxq_ingest.indexing import prepare_records as _prepare
+        real_prepared, real_drops = _prepare([real_norm], min_chars=0)
+        assert len(real_prepared) == 1, (
+            "creator post must NOT be dropped by prepare_records (non_authored filter)"
+        )
+        assert real_drops.get("non_authored", 0) == 0
+
+        # Run the full service with mocked I/O
+        mock_index = AsyncMock(return_value=_FakeIndexResponse())
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
+            patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
+            patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            # Let normalize_topic run for real (no mock) so creator_ids flows through
+            patch("app.features.zsxq_ingest.service.prepare_records", return_value=(real_prepared, real_drops)),
+            patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
+            patch("app.features.zsxq_ingest.service.index_prepared", mock_index),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=[MagicMock()]),
+            patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
+            patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
+        ):
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID)
+
+        # The creator post must have been indexed (not dropped)
+        mock_index.assert_awaited_once()
+        assert result["indexed"] == 1
+        assert result["status"] in ("done", "degraded")

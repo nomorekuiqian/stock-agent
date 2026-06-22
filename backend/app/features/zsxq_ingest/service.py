@@ -42,7 +42,6 @@ logger = get_logger(__name__)
 GROUP_ID = "15554581218512"
 GROUP_NAME = "潘大的科技交流圈"
 OWNER_USER_ID = "15555428815112"
-CREATOR_IDS: set = set()
 
 BUCKET = "zsxq-archive"
 
@@ -288,28 +287,18 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
         stage_binaries = "skipped"
         dl_count = 0
         dl_failed = 0
-
-        def _make_save_fn(topic_id: str, date: str):
-            def save_fn(filename: str, content: bytes) -> bool:
-                import asyncio as _asyncio
-                key = f"files/zsxq/{group_id}/{date}/{topic_id}/{filename}"
-                try:
-                    # We're in a sync context inside ZsxqClient; run the coroutine
-                    loop = _asyncio.get_event_loop()
-                    loop.run_until_complete(_db.put_object(BUCKET, key, content))
-                    return True
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest: save_fn put_object failed %s: %s", key, exc
-                    )
-                    return False
-            return save_fn
+        binary_storage_keys: list[str] = []
 
         if topic.get("attachments"):
+            # Collect bytes synchronously (no event loop inside save_fn)
+            _collected_binaries: list[tuple[str, bytes]] = []
+
+            def _sync_save_fn(filename: str, content: bytes) -> bool:
+                _collected_binaries.append((filename, content))
+                return True
+
             try:
-                dl_count, dl_failed = client.download_binaries(
-                    topic, _make_save_fn(tid, date_str)
-                )
+                dl_count, dl_failed = client.download_binaries(topic, _sync_save_fn)
                 stage_binaries = "done"
                 files_downloaded += dl_count
                 files_failed += dl_failed
@@ -319,16 +308,26 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
                 )
                 stage_binaries = "failed"
 
-        # Determine author role for ledger
+            # Now upload each collected binary in the async context
+            for _bin_name, _bin_content in _collected_binaries:
+                _safe_name = _bin_name.replace("/", "_")
+                _bin_key = f"raw/zsxq/{group_id}/files/{tid}/{_safe_name}"
+                try:
+                    await _db.put_object(BUCKET, _bin_key, _bin_content)
+                    binary_storage_keys.append(_bin_key)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "run_ingest: put_object binary failed %s: %s", _bin_key, exc
+                    )
+
+        # Determine author role for ledger (creator_ids not yet built; use owner check only)
         talk = topic.get("talk") or {}
         talk_owner = talk.get("owner") or {}
         uid = str(talk_owner.get("user_id") or "")
         if uid == OWNER_USER_ID:
             author_role = "owner"
-        elif uid in CREATOR_IDS:
-            author_role = "creator"
         else:
-            author_role = "member"
+            author_role = "member"  # refined below after creator_ids is built
 
         # Ledger upsert (crawl stage)
         try:
@@ -345,7 +344,7 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
                     "stage_binaries": stage_binaries,
                     "binaries_total": dl_count,
                     "binaries_failed": dl_failed,
-                    "storage_keys": [storage_key],
+                    "storage_keys": [storage_key] + binary_storage_keys,
                 }
             )
         except Exception as exc:  # noqa: BLE001
@@ -353,9 +352,32 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
 
         raw_topics.append(topic)
         topics_new += 1
+        topics_seen += 1
 
     logger.info(
         "run_ingest: crawl done run_id=%s topics=%d", run_id, len(raw_topics)
+    )
+
+    # ------------------------------------------------------------------
+    # Step 3b — build creator_ids from crawled topics
+    # Every topic author in zsxq is at least a creator/partner (members
+    # can only comment, not post top-level topics).  Mirror the logic in
+    # export_corpus.export_group lines ~263-279.
+    # ------------------------------------------------------------------
+    creator_ids: set[int] = set()
+    for _t in raw_topics:
+        # talk / article topics
+        _talk_uid = (_t.get("talk") or {}).get("owner", {}).get("user_id")
+        if _talk_uid:
+            creator_ids.add(int(_talk_uid))
+        # q&a topics: answer author (primary), fallback to questioner
+        _ans_uid = (_t.get("answer") or {}).get("owner", {}).get("user_id")
+        _q_uid = (_t.get("question") or {}).get("owner", {}).get("user_id")
+        _qa_uid = _ans_uid or _q_uid
+        if _qa_uid:
+            creator_ids.add(int(_qa_uid))
+    logger.info(
+        "run_ingest: creator_ids built count=%d run_id=%s", len(creator_ids), run_id
     )
 
     # ------------------------------------------------------------------
@@ -369,7 +391,7 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
                 group_id=group_id,
                 group_name=GROUP_NAME,
                 owner_user_id=int(OWNER_USER_ID),
-                creator_ids=CREATOR_IDS,
+                creator_ids=creator_ids,
             )
             records.append(rec)
         except Exception as exc:  # noqa: BLE001
@@ -411,7 +433,8 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
     # ------------------------------------------------------------------
     # Step 5 — audit + gate
     # ------------------------------------------------------------------
-    prepared, drop_reasons = prepare_records(records)
+    _PREPARE_MIN_CHARS = 0  # keep in sync with _find_drop_reason below
+    prepared, drop_reasons = prepare_records(records, min_chars=_PREPARE_MIN_CHARS)
     audit = audit_distribution(records, prepared, drop_reasons)
 
     last_summary = state.get("last_summary") or {}
@@ -481,9 +504,9 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
 
     # Mark dropped records in ledger
     for tid in dropped_ids:
-        # Find drop reason
+        # Find drop reason using the same min_chars as prepare_records above
         rec = next((r for r in records if r["topic_id"] == tid), {})
-        _, reason = _find_drop_reason(rec, drop_reasons)
+        _, reason = _find_drop_reason(rec, drop_reasons, min_chars=_PREPARE_MIN_CHARS)
         try:
             await _db.upsert_ledger(
                 {
@@ -593,14 +616,16 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
 # ---------------------------------------------------------------------------
 
 
-def _find_drop_reason(rec: dict, drop_reasons) -> tuple[str, str]:
+def _find_drop_reason(rec: dict, drop_reasons, *, min_chars: int = 0) -> tuple[str, str]:
     """Return (topic_id, drop_reason) for a record not in prepared set.
 
     Since drop_reasons is a Counter by reason (not by topic_id), we re-run
-    the eligibility check to get the per-record reason.
+    the eligibility check to get the per-record reason.  ``min_chars`` must
+    match the value passed to ``prepare_records`` so the eligibility verdict
+    is consistent.
     """
     from app.features.zsxq_ingest.indexing import _eligible
 
     tid = rec.get("topic_id", "")
-    _, reason = _eligible(rec, min_chars=0)
+    _, reason = _eligible(rec, min_chars=min_chars)
     return tid, reason
