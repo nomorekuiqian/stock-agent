@@ -34,6 +34,10 @@ DEFAULT_SOURCE_TYPE = "zsxq_thread"
 DEFAULT_PERSONA_KEY = "pandacircle"
 DEFAULT_PERSONA_NAME = "潘大的科技交流圈"
 
+# Enrichment provenance tag written to metadata. v1 is deterministic Tier-0;
+# a future LLM-enrich tier would bump this (e.g. "llm-v2") + flip status.
+ENRICHMENT_VERSION = "tier0-v1"
+
 # Compact fallback used only if the maintained cockpit dict cannot be imported.
 _FALLBACK_TICKER_ALIASES: dict[str, list[str]] = {
     "NVDA": ["英伟达", "Nvidia", "NVDA"],
@@ -166,6 +170,13 @@ def _metadata(
         "digested": bool(rec.get("digested")),
         "likes_count": rec.get("likes_count") or 0,
         "group_name": rec.get("group_name"),
+        # Enrichment provenance (extensibility hook): lets a future LLM-enrich
+        # tier distinguish/re-process Tier-0 docs. Metadata-only — NOT part of
+        # the embedded content, so adding it does not change content_hash
+        # (existing docs stay idempotent on reindex). Mirrors kol_tweet's
+        # canonical_status convention.
+        "enrichment_version": ENRICHMENT_VERSION,
+        "enrichment_status": "deterministic",
     }
     return {k: v for k, v in md.items() if v not in (None, "", [])}
 

@@ -65,3 +65,14 @@ def test_audit_distribution_keys_and_values():
     assert "ticker_coverage" in result
     # NVDA is in the record, so ticker_coverage should be 1.0
     assert result["ticker_coverage"] == 1.0
+
+
+def test_enrichment_provenance_in_metadata_not_content():
+    """enrichment_version/status are metadata-only — must NOT appear in the
+    embedded content, so content_hash (and thus idempotency) is unaffected."""
+    prepared, _drop = indexing.prepare_records([OWNER_QA], min_chars=0)
+    rec = prepared[0]
+    assert rec.metadata["enrichment_version"] == "tier0-v1"
+    assert rec.metadata["enrichment_status"] == "deterministic"
+    assert "enrichment_version" not in rec.content
+    assert "tier0-v1" not in rec.content

@@ -42,6 +42,14 @@
 - ✅ `creator_ids` 修复有效：非群主作者（如「超」`824454248122`）正确判为 `creator` 并入选（未被当作 member 丢弃）。
 - ✅ normalize→indexing 产出正确：`author_username=pandacircle` pin + 真实 `source_author`，eligible 子集 prepared。
 
+## 2.2 存量内容 + 幂等性验证（2026-06-21，只读）
+
+Insforge 生产库**已有 748 个 `zsxq_thread` document / 880 chunk**（前工程师手动 `index_zsxq_threads.py` 入的 PoC；`embedding_model=openai/text-embedding-3-small`）。其 metadata 与本 pipeline 的 `indexing.py` **完全一致**（`author_username=pandacircle`、`source_author_username=<真实子作者>`、`content_type/topic_type/author_role/tickers`）。
+
+**幂等性已对真实数据验证（5/5）**：对已入库的 5 个 topic，用本 pipeline（raw JSON → `normalize.py` → `indexing.py`）本地计算的 `content_hash` 与库内存量 `content_hash` **逐一字节相同**。结论：raw-JSON 归一化路径与旧 SQLite(`export_corpus.py`) 路径产出**逐字节一致的 embedded content** → **重跑存量 748 会 skip，不产生重复**。`content_hash` 即 vector 层的去重/检查点。
+
+**对比 Twitter/X(`kol_tweet`) pipeline**：两者最终共用通用 vector 层（不同 `source_type`，无冲突），`pandacircle` 同时检索两个 corpus。差异：X 用稳定服务 API key，zsxq 用会过期的成员 cookie（→ 邮件刷新）；X 有 `kol_tweets` 领域表（可查询、LLM enrich 字段 canonical_*），zsxq **无领域表**（raw+normalized 存 bucket → 直接进 vector，`threads.jsonl` 为 source of truth，4 张表仅运维用）；X 做 LLM enrich，zsxq v1 仅 Tier-0。
+
 ## 3. 目标与不变量
 
 **目标**：把 1→2→3 做成可重复、可审计、可回滚的自动化 pipeline，定时执行；Insforge 承载 infra（cron / 文件存储 / pgvector / 表 / 邮件触发），计算在现有 Railway Python 后端。
@@ -205,12 +213,17 @@ zsxq_thread_ledger (
 | 二进制下载失败 | 不阻断主流程；记录失败 URL，可重试 |
 | smoke test 无结果 | 标记 degraded，不报告成功 |
 
-## 10. 幂等 / 回滚
+## 10. 幂等 / 检查点 / 回滚
 
-- `index_document()` 的 `(source_type, source_id, content_hash)` 唯一约束保证重跑不产生重复 chunk。
-- 正文/enrichment 头变更 → 新 content_hash → 新 document；旧 hash 版本可能残留。
-- **回滚/内容修正**：按 `(source_type=zsxq_thread, source_id=topic_id)` 删旧版本再重建（v1 提供手动脚本/endpoint，不定时跑）。
-- v1 仅增量，编辑/删除不自动传播，需手动 `full=true` 全量重爬 + reconcile。
+- `index_document()` 的 `(source_type, source_id, content_hash)` 唯一约束保证重跑不产生重复 chunk。**已对存量 748 验证 5/5 hash 一致**（§2.2）——重跑 skip。
+- **检查点是三层，与 `threads.jsonl` 无关**（`threads.jsonl` 只是每次 run 的归一化快照，存 bucket 供审计/replay，不是状态源）：
+  1. `zsxq_ingest_state.last_seen_create_time` —— 增量游标（从哪继续爬）。
+  2. `zsxq_thread_ledger` —— 逐 topic stage 状态（中途崩溃后据此续跑）。
+  3. vector 层 `content_hash` —— 已入库即 skip。
+- **原文双archive**：raw API JSON（`raw/zsxq/...`，最高保真、可 replay/重归一化）与归一化 `threads.jsonl` 都保留 —— 比 X（只有 `kol_tweets`）更稳，且为未来 LLM re-enrich 留出「无需重爬即可重处理」的源。
+- **LLM enrich 扩展位**：metadata 写 `enrichment_version`（v1=`tier0-v1`）+ `enrichment_status`（v1=`deterministic`），均为 **metadata-only、不进 embedded content**（故不改 content_hash、不破坏存量幂等）。未来 LLM tier 只需 bump version/flip status；新增结构化字段直接进 `metadata` jsonb（无需改表，类比 X 的 `canonical_*`）。存量 748 在 force 重建或 metadata backfill 前不带该键（向后兼容）。
+- **re-enrich 的代价**：若未来 LLM enrich 改动 embedded content → 新 content_hash → 需按 `(source_type, source_id)` 删旧再 re-embed（`delete_vector_source` 已具备）。这是「baked-into-content 提升 recall」的已知取舍。
+- **回滚/内容修正**：`delete_vector_source("zsxq_thread", topic_id)` 删旧版本再重建。v1 仅增量，编辑/删除不自动传播，需手动 `full=true` 全量重爬 + reconcile。
 
 ## 11. Insforge infra 落地（用 insforge-cli skill）
 
