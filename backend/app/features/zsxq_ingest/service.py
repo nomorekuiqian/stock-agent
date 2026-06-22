@@ -141,7 +141,9 @@ async def _notify_auth_failure(group_id: str, kind: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[str, Any]:
+async def run_ingest(
+    group_id: str, *, full: bool = False, run_id: str, limit: int | None = None
+) -> dict[str, Any]:
     """Orchestrate a full or incremental ingest for *group_id*.
 
     Parameters
@@ -152,6 +154,9 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
         If True, ignore the incremental cursor and crawl all topics.
     run_id:
         Pre-created run ID from ``db.create_run``.
+    limit:
+        If set, stop crawling after this many topics. Used for a small,
+        controlled first run (avoids a bulk crawl during validation).
 
     Returns
     -------
@@ -363,6 +368,12 @@ async def run_ingest(group_id: str, *, full: bool = False, run_id: str) -> dict[
         raw_topics.append(topic)
         topics_new += 1
         topics_seen += 1
+
+        if limit and len(raw_topics) >= limit:
+            logger.info(
+                "run_ingest: hit limit=%d — stopping crawl run_id=%s", limit, run_id
+            )
+            break
 
     logger.info(
         "run_ingest: crawl done run_id=%s topics=%d", run_id, len(raw_topics)
