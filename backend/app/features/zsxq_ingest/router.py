@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/zsxq", tags=["zsxq-ingest"])
 GROUP = "15554581218512"
 
 
-def _run_ingest_bg(group_id: str, full: bool, run_id: str) -> None:
+def _run_ingest_bg(group_id: str, full: bool, run_id: str, limit: int | None) -> None:
     """Sync wrapper scheduled as a BackgroundTask.
 
     FastAPI runs *sync* background tasks in a threadpool, so the blocking
@@ -29,19 +29,24 @@ def _run_ingest_bg(group_id: str, full: bool, run_id: str) -> None:
     """
     import asyncio
 
-    asyncio.run(service.run_ingest(group_id, full=full, run_id=run_id))
+    asyncio.run(service.run_ingest(group_id, full=full, run_id=run_id, limit=limit))
 
 
 @router.post("/ingest", dependencies=[Depends(verify_cron_secret)])
-async def ingest(background_tasks: BackgroundTasks, full: bool = False):
-    """Trigger a zsxq ingest run (incremental by default, full when ``?full=true``)."""
+async def ingest(background_tasks: BackgroundTasks, full: bool = False, limit: int | None = None):
+    """Trigger a zsxq ingest run.
+
+    - ``full=true`` ignores the incremental cursor and crawls from the top.
+    - ``limit=N`` stops after N crawled topics — use for a small, controlled
+      first run (respects rate limits / avoids a bulk crawl during validation).
+    """
     run = await db.create_run(GROUP, "full" if full else "incremental")
     run_id = run["run_id"]
     # Schedule the SYNC wrapper (threadpooled) — NOT the async coroutine directly,
     # which would run the blocking crawl on the event loop and freeze the worker.
-    background_tasks.add_task(_run_ingest_bg, GROUP, full, run_id)
-    logger.info("zsxq ingest accepted: run_id=%s full=%s", run_id, full)
-    return {"success": True, "accepted": True, "run_id": run_id}
+    background_tasks.add_task(_run_ingest_bg, GROUP, full, run_id, limit)
+    logger.info("zsxq ingest accepted: run_id=%s full=%s limit=%s", run_id, full, limit)
+    return {"success": True, "accepted": True, "run_id": run_id, "limit": limit}
 
 
 @router.get("/runs/{run_id}", dependencies=[Depends(verify_cron_secret)])

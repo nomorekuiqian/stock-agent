@@ -734,3 +734,46 @@ class TestCreatorIdsPopulated:
         mock_index.assert_awaited_once()
         assert result["indexed"] == 1
         assert result["status"] in ("done", "degraded")
+
+
+# ---------------------------------------------------------------------------
+# limit param — controlled small first run (no bulk crawl)
+# ---------------------------------------------------------------------------
+
+class TestLimitParam:
+    @pytest.mark.asyncio
+    async def test_limit_stops_crawl_after_n_topics(self):
+        """limit=1 over a 3-topic stream → only 1 topic crawled/archived."""
+        topics = [
+            {**_RAW_TOPIC, "topic_id": "t1", "create_time": "2024-06-03T10:00:00.000+0800"},
+            {**_RAW_TOPIC, "topic_id": "t2", "create_time": "2024-06-02T10:00:00.000+0800"},
+            {**_RAW_TOPIC, "topic_id": "t3", "create_time": "2024-06-01T10:00:00.000+0800"},
+        ]
+        mock_client = MagicMock()
+        mock_client.iter_topics.return_value = _iter_gen(topics)
+        mock_client.download_binaries.return_value = (0, 0)
+
+        put_object_mock = AsyncMock(return_value={"key": "k", "url": "u"})
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
+            patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
+            patch("app.features.zsxq_ingest.service._db.put_object", put_object_mock),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service.normalize_topic", return_value=_NORM_RECORD),
+            patch("app.features.zsxq_ingest.service.prepare_records", return_value=([_PREPARED], Counter())),
+            patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
+            patch("app.features.zsxq_ingest.service.index_prepared", new_callable=AsyncMock, return_value=_FakeIndexResponse()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp(["111"])),
+            patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
+            patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
+        ):
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID, limit=1)
+
+        # Only one topic processed despite three being available
+        assert result["topics_crawled"] == 1
+        raw_calls = [c for c in put_object_mock.await_args_list if len(c.args) >= 2 and "topic-" in c.args[1]]
+        assert len(raw_calls) == 1
