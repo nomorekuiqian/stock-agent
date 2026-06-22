@@ -215,6 +215,23 @@ const JOBS = {
       },
     }],
   },
+  zsxq_panda_ingestion: {
+    description: "Crawl + normalize + index Panda 知识星球 (incremental); runs async, progress in zsxq_ingest_runs/zsxq_thread_ledger",
+    steps: [{
+      name: "zsxq_panda_ingestion",
+      path: "/api/zsxq/ingest",
+      body: { full: false },
+      // Short timeout: the endpoint returns accepted:true immediately and the
+      // crawl (deliberately slow: per-page delay + 3-5min long sleeps) runs in
+      // the background. Status lives in the runs/ledger tables, not this response.
+      timeoutMs: 30000,
+      validate: function(body) {
+        if (!body || body.success !== true) return "success=false";
+        if (body.accepted !== true) return "accepted=false";
+        return null;
+      },
+    }],
+  },
 };
 
 function validateSuccessField(body) {
