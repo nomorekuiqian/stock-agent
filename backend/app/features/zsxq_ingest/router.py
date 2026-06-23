@@ -29,7 +29,17 @@ def _run_ingest_bg(group_id: str, full: bool, run_id: str, limit: int | None) ->
     """
     import asyncio
 
-    asyncio.run(service.run_ingest(group_id, full=full, run_id=run_id, limit=limit))
+    from app.core.database import get_insforge_service
+
+    async def _main() -> None:
+        try:
+            await service.run_ingest(group_id, full=full, run_id=run_id, limit=limit)
+        finally:
+            # Release the httpx client bound to THIS one-off loop so it isn't
+            # left lingering bound to a dead loop after asyncio.run returns.
+            await get_insforge_service().aclose_current_loop()
+
+    asyncio.run(_main())
 
 
 @router.post("/ingest", dependencies=[Depends(verify_cron_secret)])
