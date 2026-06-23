@@ -426,3 +426,69 @@ def test_internal_headers_without_secret(monkeypatch):
     monkeypatch.setattr(db_mod, "EDGE_FUNCTION_SECRET", "")
     headers = db_mod.internal_headers()
     assert headers is None
+
+
+# ---------------------------------------------------------------------------
+# upload_binary — direct storage REST PUT (no base64; handles large files)
+# ---------------------------------------------------------------------------
+
+class _FakeResp:
+    def __init__(self, status_code=200, json_data=None, text=""):
+        self.status_code = status_code
+        self._json = json_data or {}
+        self.text = text
+
+    def json(self):
+        return self._json
+
+
+class _FakeAsyncClient:
+    """Async-context-manager stand-in for httpx.AsyncClient."""
+    captured: dict = {}
+
+    def __init__(self, *a, **k):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def put(self, url, headers=None, files=None):
+        _FakeAsyncClient.captured = {"url": url, "headers": headers, "files": files}
+        return _FakeResp(200, {"url": "https://cdn/x"})
+
+
+@pytest.mark.asyncio
+async def test_upload_binary_direct_put_no_base64(monkeypatch):
+    monkeypatch.setattr(zsxq_db.httpx, "AsyncClient", _FakeAsyncClient)
+    monkeypatch.setattr(zsxq_db, "INSFORGE_BASE_URL", "https://host")
+    # API_KEY is preferred over SERVICE_KEY (verified live as the storage credential)
+    monkeypatch.setattr(zsxq_db, "INSFORGE_API_KEY", "api-key")
+    monkeypatch.setattr(zsxq_db, "INSFORGE_SERVICE_KEY", "svc-key")
+
+    big = b"%PDF-1.7" + b"x" * 5_000_000  # 5MB — impossible via base64-in-JSON
+    res = await zsxq_db.upload_binary(
+        "zsxq-archive", "raw/zsxq/g/files/t/a.pdf", big, content_type="application/pdf"
+    )
+
+    cap = _FakeAsyncClient.captured
+    assert res["key"] == "raw/zsxq/g/files/t/a.pdf"
+    assert "/api/storage/buckets/zsxq-archive/objects/" in cap["url"]
+    assert cap["headers"]["Authorization"] == "Bearer api-key"
+    # Raw bytes passed straight through (multipart) — NOT base64-encoded.
+    assert cap["files"]["file"][1] is big
+    assert cap["files"]["file"][2] == "application/pdf"
+
+
+@pytest.mark.asyncio
+async def test_upload_binary_raises_on_non_2xx(monkeypatch):
+    class _ErrClient(_FakeAsyncClient):
+        async def put(self, url, headers=None, files=None):
+            return _FakeResp(500, text="boom")
+
+    monkeypatch.setattr(zsxq_db.httpx, "AsyncClient", _ErrClient)
+    monkeypatch.setattr(zsxq_db, "INSFORGE_SERVICE_KEY", "svc-key")
+    with pytest.raises(RuntimeError):
+        await zsxq_db.upload_binary("b", "k", b"x")
