@@ -1334,6 +1334,7 @@ async def answer_kol_research(
         agent_id=APP_NAME,
     )
     turn_ctx.__enter__()
+    turn_started_at = time.monotonic()
 
     try:
         await _preload_recent_reports()
@@ -1382,12 +1383,14 @@ async def answer_kol_research(
             tool_calls=tool_log,
         )
         text = append_data_coverage_warning(text, missing_data)
+        latency_ms = int((time.monotonic() - turn_started_at) * 1000)
         await get_agent_runtime().complete_turn(
             runtime_turn,
             assistant_text=text,
             metadata={
                 "agent_kind": "kol_research",
                 "persona_username": persona_username,
+                "latency_ms": latency_ms,
             },
         )
         unary_events: list[dict[str, Any]] = [
@@ -1510,6 +1513,7 @@ async def stream_kol_research(
         "yes" if content_context else "no",
     )
     stream_started_at = time.time()
+    stream_started_at_monotonic = time.monotonic()
     runtime_turn: AgentRuntimeTurn | None = None
     completed_normally = False
 
@@ -1716,12 +1720,14 @@ async def stream_kol_research(
             tool_calls=tool_log,
         )
         final_text = append_data_coverage_warning(final_text, missing_data)
+        latency_ms = int((time.monotonic() - stream_started_at_monotonic) * 1000)
         await get_agent_runtime().complete_turn(
             runtime_turn,
             assistant_text=final_text,
             metadata={
                 "agent_kind": "kol_research",
                 "persona_username": persona_username,
+                "latency_ms": latency_ms,
             },
         )
         stream_events: list[dict[str, Any]] = [

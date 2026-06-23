@@ -377,7 +377,7 @@ async def test_runtime_complete_turn_writes_idempotent_turn_events(monkeypatch):
     await runtime.complete_turn(
         turn=type("Turn", (), {"request": request, "session": session})(),
         assistant_text="回答",
-        metadata={"agent_kind": "research"},
+        metadata={"agent_kind": "research", "latency_ms": 1234},
     )
 
     assert calls
@@ -388,6 +388,7 @@ async def test_runtime_complete_turn_writes_idempotent_turn_events(monkeypatch):
     assert events[1]["event_type"] == "assistant_message"
     assert events[1]["turn_id"] == "turn-1"
     assert events[1]["client_event_id"] == "turn-1:assistant_message"
+    assert events[1]["payload"]["latency_ms"] == 1234
 
 
 @pytest.mark.asyncio

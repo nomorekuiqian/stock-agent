@@ -71,8 +71,8 @@ module.exports = async function(request) {
     }
 
     if (request.method === "GET" && action === "summary") {
-      const daysRaw = Number.parseInt(url.searchParams.get("days") || "60", 10);
-      const days = Number.isFinite(daysRaw) ? Math.min(Math.max(daysRaw, 1), 90) : 60;
+      const daysRaw = Number.parseInt(url.searchParams.get("days") || "30", 10);
+      const days = Number.isFinite(daysRaw) ? Math.min(Math.max(daysRaw, 1), 90) : 30;
       const startDate = url.searchParams.get("start_date") || "";
       const endDate = url.searchParams.get("end_date") || "";
       const hasRange = Boolean(startDate && endDate);
