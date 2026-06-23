@@ -8,17 +8,20 @@ consistent with the pattern in app/features/vector/db.py.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from typing import Any
 from urllib.parse import quote
 
-import httpx
+import boto3
+from botocore.config import Config as _BotoConfig
 
 from app.core.config import (
     EDGE_FUNCTION_SECRET,
-    INSFORGE_API_KEY,
     INSFORGE_BASE_URL,
-    INSFORGE_SERVICE_KEY,
+    INSFORGE_S3_ACCESS_KEY_ID,
+    INSFORGE_S3_REGION,
+    INSFORGE_S3_SECRET_ACCESS_KEY,
 )
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
@@ -26,6 +29,32 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 _FUNCTION_NAME = "zsxq-ingest-store"
+
+
+def _s3_endpoint() -> str:
+    """InsForge S3-compatible gateway endpoint (lives at /storage/v1/s3)."""
+    return f"{(INSFORGE_BASE_URL or '').rstrip('/')}/storage/v1/s3"
+
+
+def _make_s3_client(timeout: float):
+    """Build a path-style S3 client for the InsForge S3 gateway.
+
+    Uses a LEAST-PRIVILEGE S3 access key (storage only) — NOT the full-admin
+    project API key. Path-style addressing is mandatory for the gateway.
+    """
+    return boto3.client(
+        "s3",
+        region_name=INSFORGE_S3_REGION,
+        endpoint_url=_s3_endpoint(),
+        aws_access_key_id=INSFORGE_S3_ACCESS_KEY_ID,
+        aws_secret_access_key=INSFORGE_S3_SECRET_ACCESS_KEY,
+        config=_BotoConfig(
+            s3={"addressing_style": "path"},
+            connect_timeout=20,
+            read_timeout=timeout,
+            retries={"max_attempts": 2},
+        ),
+    )
 
 
 async def upload_binary(
@@ -36,35 +65,27 @@ async def upload_binary(
     content_type: str = "application/octet-stream",
     timeout: float = 120.0,
 ) -> dict[str, Any]:
-    """Upload a binary object DIRECTLY to Insforge storage (no base64, any size).
+    """Upload a binary object to Insforge storage via the S3-compatible gateway.
 
-    Uses the storage REST API ``PUT /api/storage/buckets/{bucket}/objects/{key}``
-    with a multipart ``file`` field and the SERVICE key — the same shape the
-    ``insforge storage upload`` CLI uses. This is the path for binaries/large
-    files; the edge-function ``put_object`` (base64-in-JSON) cannot carry large
-    payloads. Returns ``{"key", "url"}``.
+    Signs with a LEAST-PRIVILEGE S3 access key (storage only) instead of the
+    full-admin project API key — a leaked key can read/write storage but cannot
+    touch DB/auth/payments. boto3 is sync, so the ``put_object`` runs in a worker
+    thread to avoid blocking the event loop. Returns ``{"key", "url"}``.
     """
-    base = (INSFORGE_BASE_URL or "").rstrip("/")
-    url = f"{base}/api/storage/buckets/{quote(bucket, safe='')}/objects/{quote(key, safe='')}"
-    filename = key.rsplit("/", 1)[-1] or "file"
-    # Storage REST accepts the project API key (what the CLI uses); fall back to
-    # the service-role key. Verified live that API_KEY works for uploads.
-    auth_key = INSFORGE_API_KEY or INSFORGE_SERVICE_KEY
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        resp = await client.put(
-            url,
-            headers={"Authorization": f"Bearer {auth_key}"},
-            files={"file": (filename, content, content_type)},
-        )
-    if resp.status_code not in (200, 201):
+    if not (INSFORGE_S3_ACCESS_KEY_ID and INSFORGE_S3_SECRET_ACCESS_KEY):
         raise RuntimeError(
-            "upload_binary failed: HTTP %s %s" % (resp.status_code, resp.text[:300])
+            "upload_binary: no S3 storage credential configured "
+            "(set INSFORGE_S3_ACCESS_KEY_ID / INSFORGE_S3_SECRET_ACCESS_KEY)"
         )
-    try:
-        data = resp.json()
-    except Exception:  # noqa: BLE001
-        data = {}
-    url_out = data.get("url") if isinstance(data, dict) else None
+
+    def _put() -> None:
+        client = _make_s3_client(timeout)
+        client.put_object(
+            Bucket=bucket, Key=key, Body=content, ContentType=content_type
+        )
+
+    await asyncio.to_thread(_put)
+    url_out = f"{_s3_endpoint()}/{bucket}/{quote(key, safe='/')}"
     return {"key": key, "url": url_out}
 
 

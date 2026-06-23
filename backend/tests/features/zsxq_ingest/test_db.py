@@ -432,63 +432,85 @@ def test_internal_headers_without_secret(monkeypatch):
 # upload_binary — direct storage REST PUT (no base64; handles large files)
 # ---------------------------------------------------------------------------
 
-class _FakeResp:
-    def __init__(self, status_code=200, json_data=None, text=""):
-        self.status_code = status_code
-        self._json = json_data or {}
-        self.text = text
+class _FakeS3Client:
+    """Records put_object calls; stand-in for a boto3 S3 client."""
 
-    def json(self):
-        return self._json
+    def __init__(self):
+        self.put_calls: list[dict] = []
+        self.put_error: Exception | None = None
+
+    def put_object(self, **kwargs):
+        if self.put_error:
+            raise self.put_error
+        self.put_calls.append(kwargs)
+        return {"ETag": '"abc123"'}
 
 
-class _FakeAsyncClient:
-    """Async-context-manager stand-in for httpx.AsyncClient."""
+def _patch_boto(monkeypatch, fake):
+    """Patch boto3.client to capture creation kwargs and return *fake*."""
     captured: dict = {}
 
-    def __init__(self, *a, **k):
-        pass
+    def _client(service_name, **kwargs):
+        captured["service"] = service_name
+        captured["kwargs"] = kwargs
+        return fake
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *a):
-        return False
-
-    async def put(self, url, headers=None, files=None):
-        _FakeAsyncClient.captured = {"url": url, "headers": headers, "files": files}
-        return _FakeResp(200, {"url": "https://cdn/x"})
+    monkeypatch.setattr(zsxq_db.boto3, "client", _client)
+    return captured
 
 
 @pytest.mark.asyncio
-async def test_upload_binary_direct_put_no_base64(monkeypatch):
-    monkeypatch.setattr(zsxq_db.httpx, "AsyncClient", _FakeAsyncClient)
+async def test_upload_binary_uses_s3_gateway_path_style(monkeypatch):
+    fake = _FakeS3Client()
+    captured = _patch_boto(monkeypatch, fake)
     monkeypatch.setattr(zsxq_db, "INSFORGE_BASE_URL", "https://host")
-    # API_KEY is preferred over SERVICE_KEY (verified live as the storage credential)
-    monkeypatch.setattr(zsxq_db, "INSFORGE_API_KEY", "api-key")
-    monkeypatch.setattr(zsxq_db, "INSFORGE_SERVICE_KEY", "svc-key")
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_ACCESS_KEY_ID", "AKID")
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_SECRET_ACCESS_KEY", "SECRET")
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_REGION", "us-east-2")
 
-    big = b"%PDF-1.7" + b"x" * 5_000_000  # 5MB — impossible via base64-in-JSON
+    big = b"%PDF-1.7" + b"x" * 5_000_000  # 5MB
     res = await zsxq_db.upload_binary(
         "zsxq-archive", "raw/zsxq/g/files/t/a.pdf", big, content_type="application/pdf"
     )
 
-    cap = _FakeAsyncClient.captured
+    # Client points at the S3 gateway, path-style, signed with the SCOPED key
+    # (not the full-admin INSFORGE_API_KEY).
+    assert captured["service"] == "s3"
+    assert captured["kwargs"]["endpoint_url"] == "https://host/storage/v1/s3"
+    assert captured["kwargs"]["aws_access_key_id"] == "AKID"
+    assert captured["kwargs"]["config"].s3["addressing_style"] == "path"
+    # Object PUT with RAW bytes + content type (no base64).
+    assert len(fake.put_calls) == 1
+    call = fake.put_calls[0]
+    assert call["Bucket"] == "zsxq-archive"
+    assert call["Key"] == "raw/zsxq/g/files/t/a.pdf"
+    assert call["Body"] is big
+    assert call["ContentType"] == "application/pdf"
     assert res["key"] == "raw/zsxq/g/files/t/a.pdf"
-    assert "/api/storage/buckets/zsxq-archive/objects/" in cap["url"]
-    assert cap["headers"]["Authorization"] == "Bearer api-key"
-    # Raw bytes passed straight through (multipart) — NOT base64-encoded.
-    assert cap["files"]["file"][1] is big
-    assert cap["files"]["file"][2] == "application/pdf"
+    assert res["url"] == "https://host/storage/v1/s3/zsxq-archive/raw/zsxq/g/files/t/a.pdf"
 
 
 @pytest.mark.asyncio
-async def test_upload_binary_raises_on_non_2xx(monkeypatch):
-    class _ErrClient(_FakeAsyncClient):
-        async def put(self, url, headers=None, files=None):
-            return _FakeResp(500, text="boom")
-
-    monkeypatch.setattr(zsxq_db.httpx, "AsyncClient", _ErrClient)
-    monkeypatch.setattr(zsxq_db, "INSFORGE_SERVICE_KEY", "svc-key")
+async def test_upload_binary_raises_on_put_error(monkeypatch):
+    fake = _FakeS3Client()
+    fake.put_error = RuntimeError("boom")
+    _patch_boto(monkeypatch, fake)
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_ACCESS_KEY_ID", "AKID")
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_SECRET_ACCESS_KEY", "SECRET")
     with pytest.raises(RuntimeError):
+        await zsxq_db.upload_binary("b", "k", b"x")
+
+
+@pytest.mark.asyncio
+async def test_upload_binary_no_credential_raises_clear_error(monkeypatch):
+    # No S3 key configured must fail legibly and make NO S3 call.
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_ACCESS_KEY_ID", "")
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_SECRET_ACCESS_KEY", "")
+
+    def _no_client(*a, **k):  # pragma: no cover - must not be reached
+        raise AssertionError("boto3 client must not be built without a credential")
+
+    monkeypatch.setattr(zsxq_db.boto3, "client", _no_client)
+
+    with pytest.raises(RuntimeError, match="no S3 storage credential"):
         await zsxq_db.upload_binary("b", "k", b"x")

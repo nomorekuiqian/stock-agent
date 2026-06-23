@@ -24,8 +24,10 @@
 - ⚠️ **平台硬上限发现（20MB）**：Insforge storage 网关（nginx）拒绝 >~20MB 的请求体（HTTP 413）；`insforge storage upload` CLI 同样 413 → 非客户端可绕过。38 个 >20MB 研报 PDF（~1.15GB / 33 topic）当前**无法归档**。**注**：RAG 向量检索基于 `threads.jsonl` 正文，**不依赖**二进制 PDF → 这是「归档完整性」缺口，非检索功能缺口（这些 topic 的正文已入库、可检索）。
 - ✅ **大文件修复（PR #69 已合并）**：`db.upload_binary` 直传 REST（绕过 base64 edge fn）+ 所有 bucket 写入统一走该路径 + 鉴权用 **`INSFORGE_API_KEY`**（实测可写 private bucket）。
 - ✅ **>20MB 优雅处理（代码已改，未提交/未部署）**：`service.py` 加 `MAX_BINARY_UPLOAD_BYTES`（~20MB）→ 超限附件**确定性跳过**（不再白传换 413），`stage_binaries` 据实记 `partial` 并把未归档数计入 `binaries_failed`。修复前 bug：下载成功即标 `done`，会把含超限附件的 topic 误标为已归档。112 测试通过（+1）。
-- 🚧 **S8（live 爬）剩余依赖（部署侧）**：#67+#69 均已合并到 master；上线 live 爬还需：① Railway env 加 **`INSFORGE_API_KEY`**（= Insforge `API_KEY` secret 值），否则二进制上传回退 SERVICE_KEY 可能失败；② 把本次 >20MB 优雅处理修复也部署上去（建议新 follow-up PR）。部署后 S8 用 `?limit=10`（游标已 seed → 实为抓 2026-06-15 之后的新内容）。
-- ⏳ **S7**（schedule）：S8 验证后再建。
+- ✅ **生产事件循环 bug 修复（PR #75 已合并并部署）**：`/api/zsxq/ingest` 的后台任务用 `asyncio.run` 在 worker 线程跑新 loop，但共享的 `InsforgeService` httpx client 绑定在主 loop → 首个 Insforge 调用即抛 "bound to a different event loop"，run 永远卡 `running`。修复：client 按 event loop 缓存（`_clients[loop]`）。**此前经端点触发的爬取从未真正完成过**。
+- ✅ **S8 生产 e2e 跑通（2026-06-23，`?limit=3` 增量）**：`status=done`，**indexed=3**（AMZN/CRWV/NVDA/GOOGL/SPACEX），smoke `1/3 retrievable`，run 正常 finalize。**核心 RAG（爬→index→检索）在生产已贯通。**
+- 🔄 **S8 剩余：bucket 归档改用最小权限 S3 密钥（替代全权 API_KEY）**：生产实测 raw JSON / 二进制 / jsonl 直传全失败（`Bearer ` 空 key —— Railway 未设任何存储凭据）。出于安全，**不**放全权 `INSFORGE_API_KEY` 进后端 env，改走 **InsForge S3 兼容网关**（`/storage/v1/s3`，SigV4，path-style）+ **scoped S3 access key**（仅存储权限、可独立吊销）。`upload_binary` 已改用 boto3（PR 见下）。**不影响检索**（index/search 走 edge fn + `EDGE_FUNCTION_SECRET`）。**动作（需维护者）**：① dashboard → Storage → S3 Configuration → New access key（secret 只显示一次）；② Railway `stock-agent` 加 `INSFORGE_S3_ACCESS_KEY_ID` / `INSFORGE_S3_SECRET_ACCESS_KEY`（region 默认 `us-east-2`，如 dashboard 不同则加 `INSFORGE_S3_REGION`）。设完我重跑 e2e 确认归档。InsForge 2.2.1 已支持（需 ≥2.0.9）。
+- ⏳ **S7**（schedule）：S8 归档验证后再建。
 - ⏳ **S7**（schedule）：**必须待 S8 跑通后再建**——原因：S8（如 `limit=10`）会**seed 游标**（`zsxq_ingest_state.last_seen_create_time`=最新 topic 时间）。没有游标时，定时的增量跑会"全量爬"（无 stop 边界）。**已加代码兜底**：增量且无游标无 limit 时，自动施加 `_FIRST_RUN_SAFETY_LIMIT=50` 上限（防误触发 bulk 爬，尊重「不可大量爬」）。cron job 本身不带 limit，故首次定时若早于 S8 也只会爬 ≤50（被兜底），且存量 748 会 skip。
 
 > **Insforge 侧基础设施已全部就绪（S0–S5）。** 余下 S6/S8 需先部署后端；S7 待 S8 验证后。
