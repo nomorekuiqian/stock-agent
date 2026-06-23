@@ -1,5 +1,6 @@
 fastapi
 fredapi
+boto3                     # InsForge S3-compatible storage gateway (least-privilege upload key)
 posthog>=3.0.0
 google-adk
 google-cloud-storage
