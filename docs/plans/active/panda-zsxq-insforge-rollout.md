@@ -14,8 +14,9 @@
 - ✅ **S0** link — 主仓已链接 `stock-agent` / `9wmhxyi4`（2026-06-21）。
 - ✅ **S1** bucket — `zsxq-archive`（private）已建。
 - ✅ **S2** 迁移 — 4 表已建并验证（全空，0 行）；schema 备份 `/tmp/insforge-schema-backup-20260621-183959.sql`。
-- ⏳ **S3** 待批准：部署 `zsxq-ingest-store` edge function。
-- ⏳ S4（⚠️ cron-trigger 重部署）/ S5 / S6 / S7 / S8（⚠️ live 爬）待批准。
+- ✅ **S3** 部署 `zsxq-ingest-store` — active；负向鉴权返回 401（guard 正常）。
+- ⏳ **S4** 待批准（⚠️ cron-trigger 重部署）。**已 de-risk**：LIVE 部署版 == master（无 drift）；worktree 版 == master + 仅新增 `zsxq_panda_ingestion` 一个 job（diff 已核）。备份 `/tmp/cron-trigger.LIVE.js`。部署后 dry-run 校验所有 job 在列。
+- ⏳ S5 / S6 / S7 / S8（⚠️ live 爬）待批准。
 
 ## 依赖关系
 
