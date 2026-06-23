@@ -363,7 +363,8 @@ class TestRunIngestGateBlock:
             patch("app.features.zsxq_ingest.service.index_prepared", mock_index),
             patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
         ):
-            result = await svc.run_ingest(GROUP, run_id=RUN_ID)
+            # Gate only applies to FULL unlimited runs.
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID, full=True)
 
         assert result["status"] == "failed"
         assert "gate" in result.get("error", "")
@@ -762,7 +763,7 @@ class TestLimitParam:
             patch("app.features.zsxq_ingest.service._db.upload_binary", upload_binary_mock),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
-            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock) as mock_update_state,
             patch("app.features.zsxq_ingest.service.normalize_topic", return_value=_NORM_RECORD),
             patch("app.features.zsxq_ingest.service.prepare_records", return_value=([_PREPARED], Counter())),
             patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
@@ -778,6 +779,8 @@ class TestLimitParam:
         assert result["topics_crawled"] == 1
         raw_calls = [c for c in upload_binary_mock.await_args_list if len(c.args) >= 2 and "topic-" in c.args[1]]
         assert len(raw_calls) == 1
+        # A limited run must NOT advance the cursor (un-crawled newer topics may remain)
+        assert "last_seen_create_time" not in mock_update_state.call_args[1]
 
     @pytest.mark.asyncio
     async def test_first_run_safety_cap_when_no_cursor_no_limit(self):
@@ -812,3 +815,33 @@ class TestLimitParam:
             result = await svc.run_ingest(GROUP, run_id=RUN_ID)  # incremental, no limit
 
         assert result["topics_crawled"] == 2  # capped at safety limit, not 3
+
+    @pytest.mark.asyncio
+    async def test_limited_run_bypasses_gate_despite_high_baseline(self):
+        """Regression: a limited (or incremental) run with a high prior baseline
+        must NOT trip the audit gate — small `selected` is expected, not an anomaly."""
+        mock_client = MagicMock()
+        mock_client.iter_topics.return_value = _iter_gen([{**_RAW_TOPIC, "topic_id": "x1"}])
+        mock_client.download_binaries.return_value = (0, 0)
+        mock_index = AsyncMock(return_value=_FakeIndexResponse())
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
+            patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={"last_summary": {"selected": 1000}}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service.normalize_topic", return_value=_NORM_RECORD),
+            patch("app.features.zsxq_ingest.service.prepare_records", return_value=([_PREPARED], Counter())),
+            patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
+            patch("app.features.zsxq_ingest.service.index_prepared", mock_index),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp(["111"])),
+            patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
+            patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
+        ):
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID, limit=5)
+
+        assert result["status"] in ("done", "degraded")
+        mock_index.assert_awaited()  # indexing ran — gate did NOT block
