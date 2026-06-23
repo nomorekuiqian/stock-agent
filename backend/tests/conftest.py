@@ -220,14 +220,14 @@ def reset_insforge_http_client():
     try:
         from app.core import database as _db_mod
         if _db_mod._insforge_service is not None:
-            _db_mod._insforge_service._client = None
+            _db_mod._insforge_service._clients = {}
     except Exception:
         pass
     yield
     try:
         from app.core import database as _db_mod
         if _db_mod._insforge_service is not None:
-            _db_mod._insforge_service._client = None
+            _db_mod._insforge_service._clients = {}
     except Exception:
         pass
 

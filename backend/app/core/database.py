@@ -5,6 +5,7 @@ Each feature module has its own db.py that uses this base service
 to make feature-specific API calls.
 """
 
+import asyncio
 from typing import Optional
 
 import httpx
@@ -20,28 +21,68 @@ class InsforgeService:
         self.headers = {
             "Content-Type": "application/json",
         }
-        # Reusable client for connection pooling
-        self._client: Optional[httpx.AsyncClient] = None
+        # One pooled client PER event loop. httpx.AsyncClient (and its connection
+        # pool) is bound to the loop it was created on, but this service is a
+        # process-wide singleton reused across the main request loop AND the
+        # worker-thread loop that zsxq ingest spins up via ``asyncio.run``.
+        # Sharing one client across loops raised
+        # "RuntimeError: <...> is bound to a different event loop" on the first
+        # Insforge call from the worker loop. Keying by the running loop gives
+        # each loop its own pool.
+        self._clients: "dict[asyncio.AbstractEventLoop, httpx.AsyncClient]" = {}
+
+    def _new_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            headers=self.headers,
+            timeout=30.0,
+            limits=httpx.Limits(
+                max_connections=20,
+                max_keepalive_connections=5,
+                keepalive_expiry=30,  # Drop idle connections after 30s
+            ),
+        )
 
     async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create the reusable HTTP client."""
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                headers=self.headers,
-                timeout=30.0,
-                limits=httpx.Limits(
-                    max_connections=20,
-                    max_keepalive_connections=5,
-                    keepalive_expiry=30,  # Drop idle connections after 30s
-                ),
-            )
-        return self._client
+        """Return a pooled HTTP client bound to the CURRENT running event loop."""
+        loop = asyncio.get_running_loop()
+        client = self._clients.get(loop)
+        if client is not None and not client.is_closed:
+            return client
+        client = self._new_client()
+        self._clients[loop] = client
+        # Drop entries for loops that have since closed (e.g. finished
+        # ``asyncio.run`` loops) so the map can't grow without bound.
+        for dead in [lp for lp in list(self._clients) if lp is not loop and lp.is_closed()]:
+            self._clients.pop(dead, None)
+        return client
+
+    async def aclose_current_loop(self) -> None:
+        """Close and forget the client bound to the current loop.
+
+        Call at the end of a one-off ``asyncio.run`` (e.g. the zsxq ingest worker
+        thread) so its client is released with the loop instead of lingering
+        bound to a dead loop.
+        """
+        loop = asyncio.get_running_loop()
+        client = self._clients.pop(loop, None)
+        if client is not None and not client.is_closed:
+            await client.aclose()
 
     async def close(self):
-        """Close the HTTP client. Call on shutdown."""
-        if self._client is not None and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
+        """Close the HTTP client for the current loop (call on shutdown).
+
+        Stray clients bound to other (already-finished) loops can't be awaited
+        from here, so they are simply dropped.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None:
+            client = self._clients.pop(loop, None)
+            if client is not None and not client.is_closed:
+                await client.aclose()
+        self._clients.clear()
 
     def function_url(self, function_name: str) -> str:
         """Build full URL for an Insforge Edge Function."""
