@@ -55,6 +55,12 @@ _RATE_LIMIT_COOLDOWN: float = 600.0
 # crawl loop terminates even if a page is persistently throttled.
 _MAX_RATE_LIMIT_RETRIES: int = 2
 
+# Safety cap for a FIRST incremental run (no cursor yet) when no explicit limit
+# is given. Prevents an accidental unbounded bulk crawl (anti-ban) the very
+# first time the cron fires before the cursor is seeded. Explicit full=true or
+# limit=N override this; once a cursor exists, incremental is naturally bounded.
+_FIRST_RUN_SAFETY_LIMIT: int = 50
+
 # Injectable sleep function — tests replace this to avoid real sleeps
 _sleep_fn = asyncio.sleep
 
@@ -187,6 +193,20 @@ async def run_ingest(
     # ------------------------------------------------------------------
     state = await _db.get_state(group_id) or {}
     stop = None if full else state.get("last_seen_create_time")
+
+    # Safety: a first incremental run (no cursor) with no explicit limit would
+    # crawl everything → bulk. Cap it unless the caller explicitly asked for
+    # full=true or a limit. (Once the cursor is seeded, stop bounds the crawl.)
+    effective_limit = limit
+    if not full and stop is None and limit is None:
+        effective_limit = _FIRST_RUN_SAFETY_LIMIT
+        logger.warning(
+            "run_ingest: incremental run with no cursor and no limit — applying "
+            "first-run safety cap of %d (run_id=%s). Use full=true or a higher "
+            "limit to override.",
+            _FIRST_RUN_SAFETY_LIMIT,
+            run_id,
+        )
 
     # ------------------------------------------------------------------
     # Step 3 — crawl
@@ -369,9 +389,10 @@ async def run_ingest(
         topics_new += 1
         topics_seen += 1
 
-        if limit and len(raw_topics) >= limit:
+        if effective_limit and len(raw_topics) >= effective_limit:
             logger.info(
-                "run_ingest: hit limit=%d — stopping crawl run_id=%s", limit, run_id
+                "run_ingest: hit limit=%d — stopping crawl run_id=%s",
+                effective_limit, run_id,
             )
             break
 
