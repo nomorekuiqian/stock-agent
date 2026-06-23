@@ -15,8 +15,12 @@
 - ✅ **S1** bucket — `zsxq-archive`（private）已建。
 - ✅ **S2** 迁移 — 4 表已建并验证（全空，0 行）；schema 备份 `/tmp/insforge-schema-backup-20260621-183959.sql`。
 - ✅ **S3** 部署 `zsxq-ingest-store` — active；负向鉴权返回 401（guard 正常）。
-- ⏳ **S4** 待批准（⚠️ cron-trigger 重部署）。**已 de-risk**：LIVE 部署版 == master（无 drift）；worktree 版 == master + 仅新增 `zsxq_panda_ingestion` 一个 job（diff 已核）。备份 `/tmp/cron-trigger.LIVE.js`。部署后 dry-run 校验所有 job 在列。
-- ⏳ S5 / S6 / S7 / S8（⚠️ live 爬）待批准。
+- ✅ **S4** cron-trigger 重部署 — 成功；部署版含全部 9 个原有 job + `zsxq_panda_ingestion`（10/10 核验）。备份 `/tmp/cron-trigger.LIVE.js`。
+- ✅ **S5** secrets 核验（只读）— `EDGE_FUNCTION_SECRET`/`ANON_KEY`/`CRON_SECRET`/`BACKEND_URL`/`INSFORGE_INTERNAL_URL` 均存在，无需新增。
+- 🚧 **S6**（注入 cookie）/ **S8**（live 爬）**阻塞**：依赖后端 FastAPI 新代码部署到 Railway（`/api/zsxq/*` 路由）。当前分支仅本地未 push/merge → 生产后端尚无这些路由。
+- ⏳ **S7**（schedule）：建议**待 S8 小批量验证通过后**再建，避免定时任务在后端未就绪时夜间空跑失败。
+
+> **Insforge 侧基础设施已全部就绪（S0–S5）。** 余下 S6/S8 需先部署后端；S7 待 S8 验证后。
 
 ## 依赖关系
 
