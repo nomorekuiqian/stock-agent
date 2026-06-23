@@ -17,7 +17,9 @@
 - ✅ **S3** 部署 `zsxq-ingest-store` — active；负向鉴权返回 401（guard 正常）。
 - ✅ **S4** cron-trigger 重部署 — 成功；部署版含全部 9 个原有 job + `zsxq_panda_ingestion`（10/10 核验）。备份 `/tmp/cron-trigger.LIVE.js`。
 - ✅ **S5** secrets 核验（只读）— `EDGE_FUNCTION_SECRET`/`ANON_KEY`/`CRON_SECRET`/`BACKEND_URL`/`INSFORGE_INTERNAL_URL` 均存在，无需新增。
-- 🚧 **S6**（注入 cookie）/ **S8**（live 爬）**阻塞**：依赖后端 FastAPI 新代码部署到 Railway（`/api/zsxq/*` 路由）。当前分支仅本地未 push/merge → 生产后端尚无这些路由。
+- ✅ **后端已部署**（PR #67 merged）：`/api/zsxq/*` 路由 live（`/runs/probe` 返回 401 = 路由存在）。
+- ✅ **S6** 注入 cookie — 经 edge fn `set_credential` 写入 `zsxq_credentials`（group 15554581218512，status=active，cookie 已存 837 chars）。验证了 cookie-refresh 写路径。
+- ⏳ **S8** 待批准（⚠️ 首次 live 爬，建议 `?limit=10`）。
 - ⏳ **S7**（schedule）：**必须待 S8 跑通后再建**——原因：S8（如 `limit=10`）会**seed 游标**（`zsxq_ingest_state.last_seen_create_time`=最新 topic 时间）。没有游标时，定时的增量跑会"全量爬"（无 stop 边界）。**已加代码兜底**：增量且无游标无 limit 时，自动施加 `_FIRST_RUN_SAFETY_LIMIT=50` 上限（防误触发 bulk 爬，尊重「不可大量爬」）。cron job 本身不带 limit，故首次定时若早于 S8 也只会爬 ≤50（被兜底），且存量 748 会 skip。
 
 > **Insforge 侧基础设施已全部就绪（S0–S5）。** 余下 S6/S8 需先部署后端；S7 待 S8 验证后。
