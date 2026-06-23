@@ -75,6 +75,10 @@ INSFORGE_ANON_KEY = os.getenv("INSFORGE_ANON_KEY", "")
 # Insforge service-role key — required for admin API (e.g. /api/auth/admin/users)
 # INSFORGE_ANON_KEY does NOT have admin scope; use SERVICE_KEY for backend-to-backend calls
 INSFORGE_SERVICE_KEY = os.getenv("INSFORGE_SERVICE_KEY", "")
+# Insforge project API key — the credential the storage REST API accepts for
+# uploads (same key the `insforge` CLI uses). Used by zsxq_ingest.db.upload_binary
+# for direct binary uploads. Falls back to SERVICE_KEY if unset.
+INSFORGE_API_KEY = os.getenv("INSFORGE_API_KEY", "")
 EDGE_FUNCTION_SECRET = os.getenv("EDGE_FUNCTION_SECRET", CRON_SECRET)
 
 # Environment
