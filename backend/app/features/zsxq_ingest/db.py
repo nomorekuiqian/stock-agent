@@ -16,6 +16,7 @@ import httpx
 
 from app.core.config import (
     EDGE_FUNCTION_SECRET,
+    INSFORGE_API_KEY,
     INSFORGE_BASE_URL,
     INSFORGE_SERVICE_KEY,
 )
@@ -46,10 +47,13 @@ async def upload_binary(
     base = (INSFORGE_BASE_URL or "").rstrip("/")
     url = f"{base}/api/storage/buckets/{quote(bucket, safe='')}/objects/{quote(key, safe='')}"
     filename = key.rsplit("/", 1)[-1] or "file"
+    # Storage REST accepts the project API key (what the CLI uses); fall back to
+    # the service-role key. Verified live that API_KEY works for uploads.
+    auth_key = INSFORGE_API_KEY or INSFORGE_SERVICE_KEY
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.put(
             url,
-            headers={"Authorization": f"Bearer {INSFORGE_SERVICE_KEY}"},
+            headers={"Authorization": f"Bearer {auth_key}"},
             files={"file": (filename, content, content_type)},
         )
     if resp.status_code not in (200, 201):

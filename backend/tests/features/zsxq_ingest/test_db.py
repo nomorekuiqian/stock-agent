@@ -464,6 +464,8 @@ class _FakeAsyncClient:
 async def test_upload_binary_direct_put_no_base64(monkeypatch):
     monkeypatch.setattr(zsxq_db.httpx, "AsyncClient", _FakeAsyncClient)
     monkeypatch.setattr(zsxq_db, "INSFORGE_BASE_URL", "https://host")
+    # API_KEY is preferred over SERVICE_KEY (verified live as the storage credential)
+    monkeypatch.setattr(zsxq_db, "INSFORGE_API_KEY", "api-key")
     monkeypatch.setattr(zsxq_db, "INSFORGE_SERVICE_KEY", "svc-key")
 
     big = b"%PDF-1.7" + b"x" * 5_000_000  # 5MB — impossible via base64-in-JSON
@@ -474,7 +476,7 @@ async def test_upload_binary_direct_put_no_base64(monkeypatch):
     cap = _FakeAsyncClient.captured
     assert res["key"] == "raw/zsxq/g/files/t/a.pdf"
     assert "/api/storage/buckets/zsxq-archive/objects/" in cap["url"]
-    assert cap["headers"]["Authorization"] == "Bearer svc-key"
+    assert cap["headers"]["Authorization"] == "Bearer api-key"
     # Raw bytes passed straight through (multipart) — NOT base64-encoded.
     assert cap["files"]["file"][1] is big
     assert cap["files"]["file"][2] == "application/pdf"
