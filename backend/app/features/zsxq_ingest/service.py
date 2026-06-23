@@ -226,6 +226,7 @@ async def run_ingest(
     newest_topic_id: str | None = None
 
     rate_limit_retries = 0
+    limit_hit = False  # True if the crawl stopped early due to limit/safety cap
 
     topic_iter = client.iter_topics(stop_create_time=stop, full=full)
 
@@ -400,6 +401,7 @@ async def run_ingest(
                 "run_ingest: hit limit=%d — stopping crawl run_id=%s",
                 effective_limit, run_id,
             )
+            limit_hit = True
             break
 
     logger.info(
@@ -491,7 +493,12 @@ async def run_ingest(
     prev_selected = last_summary.get("selected", 0)
     curr_selected = audit.get("selected", 0)
 
-    if gate_should_block(prev_selected, curr_selected):
+    # The audit gate guards a broken FULL crawl from indexing far fewer records
+    # than the last full run. It does NOT apply to incremental or limited runs,
+    # where a small `selected` is expected by design (only new topics, or capped
+    # by `limit`) — otherwise every incremental run would false-positive.
+    gate_active = full and limit is None
+    if gate_active and gate_should_block(prev_selected, curr_selected):
         logger.warning(
             "run_ingest: gate blocked run_id=%s prev_selected=%d curr_selected=%d",
             run_id,
@@ -651,13 +658,19 @@ async def run_ingest(
         logger.warning("run_ingest: update_run failed run_id=%s: %s", run_id, exc)
 
     try:
-        state_update: dict[str, Any] = {
-            "last_success_at": now_iso,
-            "last_summary": audit,
-        }
-        if newest_create_time:
+        state_update: dict[str, Any] = {"last_success_at": now_iso}
+        # Only a FULL unlimited run resets the gate baseline (last_summary).
+        # Incremental/limited runs select few records by design; overwriting the
+        # baseline with that small number would defeat the full-run gate.
+        if full and limit is None:
+            state_update["last_summary"] = audit
+        # Only advance the cursor when the crawl ended naturally (reached the old
+        # cursor or ran out of topics). If it stopped early on a limit/safety cap,
+        # newer un-crawled topics may remain below `newest_create_time`, so
+        # advancing would skip them — leave the cursor where it was.
+        if newest_create_time and not limit_hit:
             state_update["last_seen_create_time"] = newest_create_time
-        if newest_topic_id:
+        if newest_topic_id and not limit_hit:
             state_update["last_seen_topic_id"] = newest_topic_id
         await _db.update_state(group_id, **state_update)
     except Exception as exc:  # noqa: BLE001
