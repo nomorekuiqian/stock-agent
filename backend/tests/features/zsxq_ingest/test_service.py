@@ -255,7 +255,7 @@ class TestRunIngestNormalIncremental:
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             # prev_selected=0 → gate never blocks on first run
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-            patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "raw/key", "url": "https://x"}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "raw/key", "url": "https://x"}),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock) as mock_update_state,
@@ -284,7 +284,7 @@ class TestRunIngestNormalIncremental:
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-            patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", mock_upsert),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
@@ -313,7 +313,7 @@ class TestRunIngestNormalIncremental:
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-            patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_state", mock_update_state),
@@ -352,7 +352,7 @@ class TestRunIngestGateBlock:
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock,
                   return_value={"last_summary": {"selected": 1000}}),  # high baseline
-            patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock) as mock_update_run,
             patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
@@ -394,7 +394,7 @@ class TestRunIngestSmokeDegraded:
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-            patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", mock_update_run),
             patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
@@ -487,7 +487,7 @@ class TestRateLimitCooldown:
             with (
                 patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
                 patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-                patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+                patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
                 patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
                 patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
                 patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
@@ -539,7 +539,7 @@ class TestRateLimitCooldown:
             with (
                 patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
                 patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-                patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+                patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
                 patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
                 patch("app.features.zsxq_ingest.service._db.update_run", mock_update_run),
                 patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
@@ -562,7 +562,7 @@ class TestRateLimitCooldown:
 class TestBinaryUploadAsyncSafe:
     """download_binaries invokes save_fn synchronously; upload must happen
     in the async context afterward.  Verifies that:
-    - db.put_object is awaited for each binary the save_fn receives
+    - db.upload_binary is awaited for each binary the save_fn receives
     - the run does NOT raise RuntimeError (which would happen if
       run_until_complete were called inside the already-running loop)
     """
@@ -611,13 +611,11 @@ class TestBinaryUploadAsyncSafe:
 
         mock_client.download_binaries.side_effect = _fake_download_binaries
 
-        put_object_mock = AsyncMock(return_value={"key": "some/key", "url": "https://x"})
         upload_binary_mock = AsyncMock(return_value={"key": "some/files/key", "url": "https://x"})
 
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-            patch("app.features.zsxq_ingest.service._db.put_object", put_object_mock),
             patch("app.features.zsxq_ingest.service._db.upload_binary", upload_binary_mock),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
@@ -718,7 +716,7 @@ class TestCreatorIdsPopulated:
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-            patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
@@ -756,12 +754,12 @@ class TestLimitParam:
         mock_client.iter_topics.return_value = _iter_gen(topics)
         mock_client.download_binaries.return_value = (0, 0)
 
-        put_object_mock = AsyncMock(return_value={"key": "k", "url": "u"})
+        upload_binary_mock = AsyncMock(return_value={"key": "k", "url": "u"})
 
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
-            patch("app.features.zsxq_ingest.service._db.put_object", put_object_mock),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", upload_binary_mock),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
@@ -778,7 +776,7 @@ class TestLimitParam:
 
         # Only one topic processed despite three being available
         assert result["topics_crawled"] == 1
-        raw_calls = [c for c in put_object_mock.await_args_list if len(c.args) >= 2 and "topic-" in c.args[1]]
+        raw_calls = [c for c in upload_binary_mock.await_args_list if len(c.args) >= 2 and "topic-" in c.args[1]]
         assert len(raw_calls) == 1
 
     @pytest.mark.asyncio
@@ -798,7 +796,7 @@ class TestLimitParam:
             patch("app.features.zsxq_ingest.service._FIRST_RUN_SAFETY_LIMIT", 2),
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),  # no cursor
-            patch("app.features.zsxq_ingest.service._db.put_object", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),

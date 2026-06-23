@@ -297,10 +297,12 @@ async def run_ingest(
         raw_key = f"raw/zsxq/{group_id}/{date_str}/topic-{tid}.json"
         raw_bytes = json.dumps(topic, ensure_ascii=False).encode("utf-8")
         try:
-            obj_result = await _db.put_object(BUCKET, raw_key, raw_bytes)
+            obj_result = await _db.upload_binary(
+                BUCKET, raw_key, raw_bytes, content_type="application/json"
+            )
             storage_key = obj_result.get("key", raw_key)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("run_ingest: put_object failed topic=%s: %s", tid, exc)
+            logger.warning("run_ingest: raw archive upload failed topic=%s: %s", tid, exc)
             storage_key = raw_key
 
         # Comments (> 8 → fetch full)
@@ -454,9 +456,11 @@ async def run_ingest(
         ).encode("utf-8")
         jsonl_key = f"normalized/zsxq/{group_id}/{run_id}/threads.jsonl"
         try:
-            await _db.put_object(BUCKET, jsonl_key, jsonl_bytes)
+            await _db.upload_binary(
+                BUCKET, jsonl_key, jsonl_bytes, content_type="application/x-ndjson"
+            )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("run_ingest: put_object jsonl failed run_id=%s: %s", run_id, exc)
+            logger.warning("run_ingest: jsonl archive upload failed run_id=%s: %s", run_id, exc)
 
     # Mark ledger stage_normalized
     for rec in records:
