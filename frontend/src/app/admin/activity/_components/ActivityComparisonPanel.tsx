@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { getAccessTokenAsync, getAccessTokenSync } from '@/contexts/AuthContext';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
@@ -134,8 +134,6 @@ const METRICS: MetricDef[] = [
 const HIDDEN_GROWTH_METRIC_KEYS = new Set([
   'correction_rate',
   'first_useful_insight_rate',
-  'useful_answer_rate',
-  'thumbs_down_rate',
   'regeneration_rate',
   'share_export_rate',
 ]);
@@ -154,8 +152,8 @@ const GROWTH_METRIC_COPY: Record<string, { label: string; description: string }>
     description: '已完成持仓或自选设置的用户数，占截至周期末注册用户数的比例。',
   },
   first_insight_generation_rate: {
-    label: '首次洞察生成率',
-    description: '获得首次个性化洞察或助手回答的用户数，占截至周期末注册用户数的比例。',
+    label: '首次 AI 输出率',
+    description: '用户首次获得 AI 输出的比例：目前主要来自第一条助手回答，并兼容旧 first_insight_generated 埋点；不是独立功能入口。',
   },
   weekly_return_rate: {
     label: '周回访率',
@@ -172,6 +170,38 @@ const GROWTH_METRIC_COPY: Record<string, { label: string; description: string }>
   saved_insight_rate: {
     label: '洞察保存率',
     description: '至少保存一条洞察的用户数，占获得过洞察用户数的比例。',
+  },
+  useful_answer_rate: {
+    label: '有用回答率',
+    description: '收到明确反馈的助手回答里，正向反馈占比。',
+  },
+  thumbs_down_rate: {
+    label: '负向反馈率',
+    description: '收到明确反馈的助手回答里，负向反馈占比。',
+  },
+  error_rate: {
+    label: '错误率',
+    description: '出现 agent runtime error 的聊天轮次，占所有记录到的聊天轮次比例。',
+  },
+  timeout_rate: {
+    label: '超时率',
+    description: '出现 timeout error 的聊天轮次，占所有记录到的聊天轮次比例。',
+  },
+  p50_latency_ms: {
+    label: 'P50 延迟',
+    description: '记录了 latency_ms 的助手回答中，第 50 百分位响应耗时。',
+  },
+  p75_latency_ms: {
+    label: 'P75 延迟',
+    description: '记录了 latency_ms 的助手回答中，第 75 百分位响应耗时。',
+  },
+  p95_latency_ms: {
+    label: 'P95 延迟',
+    description: '记录了 latency_ms 的助手回答中，第 95 百分位响应耗时。',
+  },
+  p99_latency_ms: {
+    label: 'P99 延迟',
+    description: '记录了 latency_ms 的助手回答中，第 99 百分位响应耗时。',
   },
 };
 
@@ -193,9 +223,17 @@ function formatRate(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
+function formatDurationMs(value: number): string {
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}s`;
+  }
+  return `${Math.round(value)}ms`;
+}
+
 function formatMetricValue(value: number | null, format: string): string {
   if (value === null) return '暂无';
   if (format === 'percent') return formatRate(value);
+  if (format === 'duration_ms') return formatDurationMs(value);
   if (format === 'decimal') return formatDecimal(value);
   return formatNumber(value);
 }
@@ -343,40 +381,179 @@ export function ActivityComparisonPanel({ initialData }: { initialData: Activity
 }
 
 function GrowthMetricsSection({ metrics }: { metrics?: GrowthMetricsData }) {
-  const rows = (metrics?.metrics ?? []).filter(
+  const [data, setData] = useState<GrowthMetricsData | undefined>(metrics);
+  const [startDate, setStartDate] = useState(
+    isoDateOnly(data?.current?.start_date),
+  );
+  const [endDate, setEndDate] = useState(
+    isoDateOnly(data?.current?.end_date),
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const rows = (data?.metrics ?? []).filter(
     (row) => !HIDDEN_GROWTH_METRIC_KEYS.has(row.key),
   );
+  const growthRows = rows.filter((row) => row.category !== 'Quality / Trust');
+  const qualityRows = rows.filter((row) => row.category === 'Quality / Trust');
+  const currentRange = data?.current?.start_date && data?.current?.end_date
+    ? `${shortDate(data.current.start_date)}-${shortDate(data.current.end_date)}`
+    : '当前周期';
+  const previousRange = data?.previous?.start_date && data?.previous?.end_date
+    ? `${shortDate(data.previous.start_date)}-${shortDate(data.previous.end_date)}`
+    : '上一周期';
+  const intervalLabel = startDate && endDate
+    ? `${shortDate(startDate)}-${shortDate(endDate)}`
+    : `${data?.days ?? 0} 天`;
+
+  async function reloadGrowthMetrics() {
+    if (!startDate || !endDate) {
+      setError('请选择开始和结束日期');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const rangeStart = startDate <= endDate ? startDate : endDate;
+      const rangeEnd = startDate <= endDate ? endDate : startDate;
+      const token = getAccessTokenSync() ?? (await getAccessTokenAsync());
+      if (!token) {
+        setError('未登录');
+        return;
+      }
+      const params = new URLSearchParams({
+        days: String(data?.days ?? metrics?.days ?? 30),
+        growth_start: rangeStart,
+        growth_end: rangeEnd,
+      });
+      const res = await fetch(`${API_BASE}/admin/activity?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        setError(`刷新失败: HTTP ${res.status}`);
+        return;
+      }
+      const next = (await res.json()) as ActivityData;
+      setData(next.growth_metrics);
+      setStartDate(rangeStart);
+      setEndDate(rangeEnd);
+    } catch (e) {
+      setError(`刷新失败: ${String(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderDateFilter(labelPrefix: string) {
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <input
+          aria-label={`${labelPrefix}开始日期`}
+          type="date"
+          value={startDate}
+          onChange={(event) => setStartDate(event.target.value)}
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+        />
+        <span className="text-xs text-muted-foreground">至</span>
+        <input
+          aria-label={`${labelPrefix}结束日期`}
+          type="date"
+          value={endDate}
+          onChange={(event) => setEndDate(event.target.value)}
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+        />
+        <button
+          type="button"
+          onClick={() => void reloadGrowthMetrics()}
+          disabled={loading}
+          className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:border-primary disabled:opacity-50"
+        >
+          {loading ? '加载中' : '应用'}
+        </button>
+        <span className="text-xs text-muted-foreground">
+          {intervalLabel}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      <MetricPanel
+        title="MVP 增长指标"
+        description="基于原始事件和 agent 会话统计激活、留存与使用深度。"
+        rows={growthRows}
+        currentRange={currentRange}
+        previousRange={previousRange}
+        emptyText="暂无增长指标数据。请先运行 admin_growth_metrics migration。"
+        actions={renderDateFilter('增长指标')}
+      />
+      {qualityRows.length > 0 ? (
+        <MetricPanel
+          title="Chat 质量 / 可靠性"
+          description="基于 agent runtime 反馈、错误、超时和回答延迟统计 chat 质量。"
+          rows={qualityRows}
+          currentRange={currentRange}
+          previousRange={previousRange}
+          emptyText="暂无 Chat 质量 / 可靠性指标数据。"
+          actions={renderDateFilter('Chat 指标')}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function MetricPanel({
+  title,
+  description,
+  rows,
+  currentRange,
+  previousRange,
+  emptyText,
+  actions,
+}: {
+  title: string;
+  description: string;
+  rows: GrowthMetricRow[];
+  currentRange: string;
+  previousRange: string;
+  emptyText: string;
+  actions?: ReactNode;
+}) {
   const p0Rows = rows.filter((row) => row.priority === 'P0');
   const p1Rows = rows.filter((row) => row.priority !== 'P0');
-  const currentRange = metrics?.current?.start_date && metrics?.current?.end_date
-    ? `${shortDate(metrics.current.start_date)}-${shortDate(metrics.current.end_date)}`
-    : '当前周期';
-  const previousRange = metrics?.previous?.start_date && metrics?.previous?.end_date
-    ? `${shortDate(metrics.previous.start_date)}-${shortDate(metrics.previous.end_date)}`
-    : '上一周期';
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-foreground">MVP 增长指标</h2>
+          <h2 className="text-base font-semibold text-foreground">{title}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            基于原始事件和 agent 会话统计激活、留存与使用深度。
+            {description}
           </p>
         </div>
-        <div className="text-right text-xs text-muted-foreground">
-          <div>{currentRange}</div>
-          <div>对比 {previousRange}</div>
+        <div className="flex flex-col items-end gap-2">
+          {actions}
+          <div className="text-right text-xs text-muted-foreground">
+            <div>{currentRange}</div>
+            <div>对比 {previousRange}</div>
+          </div>
         </div>
       </div>
 
       {rows.length === 0 ? (
         <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-          暂无增长指标数据。请先运行 admin_growth_metrics migration。
+          {emptyText}
         </div>
       ) : (
         <>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {p0Rows.map((row) => (
               <GrowthMetricCard key={row.key} metric={row} />
             ))}
@@ -411,7 +588,11 @@ function GrowthMetricCard({
   const delta = metricDelta(metric.current.value, metric.previous.value);
   const value = formatMetricValue(metric.current.value, metric.format);
   const previous = formatMetricValue(metric.previous.value, metric.format);
-  const denominatorLabel = metric.current.denominator > 0
+  const denominatorLabel = metric.format === 'duration_ms'
+    ? (metric.current.denominator > 0
+      ? `样本 ${formatNumber(metric.current.denominator)} 条`
+      : '暂无样本')
+    : metric.current.denominator > 0
     ? `${formatNumber(metric.current.numerator)} / ${formatNumber(metric.current.denominator)}`
     : '暂无分母';
 
@@ -509,7 +690,7 @@ function EmailMetricsSection({ metrics }: { metrics?: EmailMetricsData }) {
         return;
       }
       const params = new URLSearchParams({
-        days: String(data?.days ?? metrics?.days ?? 60),
+        days: String(data?.days ?? metrics?.days ?? 30),
         email_start: rangeStart,
         email_end: rangeEnd,
       });

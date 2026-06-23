@@ -39,13 +39,22 @@ module.exports = async function(request) {
   const rawDays = Number.parseInt(url.searchParams.get("days") || "30", 10);
   const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 90) : 30;
   const includeGrowth = url.searchParams.get("include_growth") !== "false";
+  const growthStart = url.searchParams.get("growth_start") || "";
+  const growthEnd = url.searchParams.get("growth_end") || "";
+  const hasGrowthRange = Boolean(growthStart && growthEnd);
 
   let activityResult;
   let growthResult = { data: null, error: null };
   if (includeGrowth) {
+    const growthRpc = hasGrowthRange
+      ? client.database.rpc("admin_growth_metrics_range", {
+          start_date: growthStart,
+          end_date: growthEnd,
+        })
+      : client.database.rpc("admin_growth_metrics", { days_back: days });
     [activityResult, growthResult] = await Promise.all([
       client.database.rpc("admin_daily_activity", { days_back: days }),
-      client.database.rpc("admin_growth_metrics", { days_back: days }),
+      growthRpc,
     ]);
   } else {
     activityResult = await client.database.rpc("admin_daily_activity", { days_back: days });

@@ -245,3 +245,47 @@ async def test_dashboard_activity_uses_lightweight_growth_mode(monkeypatch):
     activity_call = next(kwargs for name, kwargs in calls if name == "admin-activity")
     assert activity_call["params"]["include_growth"] == "false"
     assert result["activity"]["days"] == 30
+
+
+@pytest.mark.asyncio
+async def test_fetch_activity_forwards_growth_date_range(monkeypatch):
+    calls: list[tuple[str, dict]] = []
+
+    class FakeService:
+        async def call_function(self, function_name: str, **kwargs):
+            calls.append((function_name, kwargs))
+            return {
+                "status_code": 200,
+                "data": {
+                    "success": True,
+                    "days": 60,
+                    "data": [],
+                    "growth_metrics": {
+                        "days": 3,
+                        "current": {
+                            "start_date": "2026-06-07",
+                            "end_date": "2026-06-09",
+                        },
+                        "previous": {
+                            "start_date": "2026-06-04",
+                            "end_date": "2026-06-06",
+                        },
+                        "metrics": [],
+                    },
+                },
+            }
+
+    monkeypatch.setattr(admin_router, "get_insforge_service", lambda: FakeService())
+
+    result = await admin_router._fetch_activity(
+        60,
+        include_growth=True,
+        growth_start="2026-06-09",
+        growth_end="2026-06-07",
+    )
+
+    activity_call = calls[0][1]
+    assert activity_call["params"]["include_growth"] == "true"
+    assert activity_call["params"]["growth_start"] == "2026-06-09"
+    assert activity_call["params"]["growth_end"] == "2026-06-07"
+    assert result["growth_metrics"]["days"] == 3

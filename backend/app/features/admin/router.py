@@ -449,16 +449,26 @@ def _shape_email_metrics(
     }
 
 
-async def _fetch_activity(days: int, *, include_growth: bool = True) -> dict[str, Any]:
+async def _fetch_activity(
+    days: int,
+    *,
+    include_growth: bool = True,
+    growth_start: str | None = None,
+    growth_end: str | None = None,
+) -> dict[str, Any]:
     service = get_insforge_service()
+    params: dict[str, Any] = {
+        "action": "daily",
+        "days": days,
+        "include_growth": "true" if include_growth else "false",
+    }
+    if include_growth and growth_start and growth_end:
+        params["growth_start"] = growth_start
+        params["growth_end"] = growth_end
     result = await service.call_function(
         "admin-activity",
         method="GET",
-        params={
-            "action": "daily",
-            "days": days,
-            "include_growth": "true" if include_growth else "false",
-        },
+        params=params,
         extra_headers=(
             {"X-Internal-Secret": EDGE_FUNCTION_SECRET}
             if EDGE_FUNCTION_SECRET else None
@@ -704,13 +714,20 @@ async def get_feedback_dashboard(
 @router.get("/activity")
 async def get_activity(
     days: int = Query(60, ge=1, le=90),
+    growth_start: str | None = Query(None),
+    growth_end: str | None = Query(None),
     email_start: str | None = Query(None),
     email_end: str | None = Query(None),
     _admin: dict = Depends(verify_admin_user),
 ):
     """Return daily activity for admin trend comparisons."""
     activity, email_metrics = await asyncio.gather(
-        _fetch_activity(days, include_growth=True),
+        _fetch_activity(
+            days,
+            include_growth=True,
+            growth_start=growth_start,
+            growth_end=growth_end,
+        ),
         _fetch_email_metrics(days, start_date=email_start, end_date=email_end),
         return_exceptions=True,
     )

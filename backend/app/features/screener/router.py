@@ -196,6 +196,7 @@ async def _complete_research_runtime_turn(
     *,
     assistant_text: str,
     tool_calls: list[dict[str, Any]] | None = None,
+    latency_ms: int | None = None,
 ) -> None:
     if runtime_turn is None or not assistant_text:
         return
@@ -211,7 +212,10 @@ async def _complete_research_runtime_turn(
         await get_agent_runtime().complete_turn(
             runtime_turn,
             assistant_text=assistant_text,
-            metadata={"agent_kind": "research"},
+            metadata={
+                "agent_kind": "research",
+                **({"latency_ms": latency_ms} if latency_ms is not None else {}),
+            },
         )
         events_to_write: list[dict[str, Any]] = [
             context_snapshot_event(runtime_turn),
@@ -1090,6 +1094,7 @@ async def research_chat_stream(
         from app.features.screener.agent import _ensure_universe
         from app.features.screener.research_agent import _recent_reports
 
+        request_started_at = time.monotonic()
         turn_ctx = use_turn_context(
             turn_id=req.turn_id,
             session_id=_runtime_session_id(req),
@@ -1168,10 +1173,12 @@ async def research_chat_stream(
                         freshness = None
                         is_valid = True
                     result = _postprocess_agent_output(parsed, universe_data, freshness, is_valid)
+                    latency_ms = int((time.monotonic() - request_started_at) * 1000)
                     await _complete_research_runtime_turn(
                         runtime_turn,
                         assistant_text=result.message,
                         tool_calls=tool_calls,
+                        latency_ms=latency_ms,
                     )
                     yield "data: %s\n\n" % _json.dumps(
                         {"type": "done", "result": result.model_dump()},
