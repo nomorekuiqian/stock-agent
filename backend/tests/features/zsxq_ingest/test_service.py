@@ -612,11 +612,13 @@ class TestBinaryUploadAsyncSafe:
         mock_client.download_binaries.side_effect = _fake_download_binaries
 
         put_object_mock = AsyncMock(return_value={"key": "some/key", "url": "https://x"})
+        upload_binary_mock = AsyncMock(return_value={"key": "some/files/key", "url": "https://x"})
 
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
             patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
             patch("app.features.zsxq_ingest.service._db.put_object", put_object_mock),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", upload_binary_mock),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
             patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
@@ -634,13 +636,14 @@ class TestBinaryUploadAsyncSafe:
 
         assert result["status"] in ("done", "degraded")
 
-        # put_object must have been awaited for the binary (key contains "files/")
+        # The binary must go via the DIRECT upload path (upload_binary), with a
+        # "files/" key — NOT the base64 edge-function put_object.
         binary_calls = [
-            c for c in put_object_mock.await_args_list
+            c for c in upload_binary_mock.await_args_list
             if len(c.args) >= 2 and "files/" in c.args[1]
         ]
         assert len(binary_calls) >= 1, (
-            "db.put_object should have been awaited for the binary attachment"
+            "db.upload_binary should have been awaited for the binary attachment"
         )
 
         # files_downloaded counter must reflect the downloaded file

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import mimetypes
 from datetime import datetime, timezone
 from typing import Any
 
@@ -343,16 +344,19 @@ async def run_ingest(
                 )
                 stage_binaries = "failed"
 
-            # Now upload each collected binary in the async context
+            # Now upload each collected binary in the async context. Binaries go
+            # via the DIRECT storage REST path (db.upload_binary) — NOT the
+            # base64-in-JSON edge function — so large attachments (PDFs etc.) work.
             for _bin_name, _bin_content in _collected_binaries:
                 _safe_name = _bin_name.replace("/", "_")
                 _bin_key = f"raw/zsxq/{group_id}/files/{tid}/{_safe_name}"
+                _ctype = mimetypes.guess_type(_safe_name)[0] or "application/octet-stream"
                 try:
-                    await _db.put_object(BUCKET, _bin_key, _bin_content)
+                    await _db.upload_binary(BUCKET, _bin_key, _bin_content, content_type=_ctype)
                     binary_storage_keys.append(_bin_key)
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
-                        "run_ingest: put_object binary failed %s: %s", _bin_key, exc
+                        "run_ingest: upload_binary failed %s: %s", _bin_key, exc
                     )
 
         # Determine author role for ledger (creator_ids not yet built; use owner check only)
