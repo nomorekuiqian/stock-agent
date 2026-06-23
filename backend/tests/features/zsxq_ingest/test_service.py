@@ -650,6 +650,105 @@ class TestBinaryUploadAsyncSafe:
 
 
 # ---------------------------------------------------------------------------
+# Oversize binaries: the Insforge storage gateway rejects bodies > ~20MB with
+# HTTP 413.  Such attachments must be skipped deterministically (not streamed
+# only to be 413'd), and the topic's stage_binaries must reflect reality:
+# 'partial' when an oversize file sits alongside an uploadable one.
+# ---------------------------------------------------------------------------
+
+class TestOversizeBinarySkipped:
+    @pytest.mark.asyncio
+    async def test_oversize_binary_skipped_and_stage_partial(self):
+        raw_topic = {
+            "topic_id": "222",
+            "type": "talk",
+            "create_time": "2024-06-01T11:00:00.000+0800",
+            "comments_count": 0,
+            "likes_count": 1,
+            "digested": False,
+            "talk": {
+                "owner": {"user_id": 15555428815112, "name": "潘大"},
+                "text": "带附件的动态",
+                "files": [
+                    {"file_id": "f1", "name": "small.pdf"},
+                    {"file_id": "f2", "name": "big.pdf"},
+                ],
+            },
+        }
+        norm_record = {**_NORM_RECORD, "topic_id": "222"}
+        prepared = PreparedRecord(
+            source_id="222",
+            title="带附件",
+            url="https://wx.zsxq.com/dweb2/index/topic_detail/222",
+            content="带附件的动态",
+            body="带附件的动态",
+            content_type="fragment",
+            tickers=[],
+            report_date="2024-06-01",
+            metadata={"persona_username": "pandacircle"},
+            raw=norm_record,
+        )
+
+        # small <= cap, big > cap (cap patched small to avoid large allocations)
+        small = b"abc"
+        big = b"x" * 50
+
+        def _fake_download_binaries(topic, save_fn):
+            save_fn("small.pdf", small)
+            save_fn("big.pdf", big)
+            return (2, 0)
+
+        mock_client = MagicMock()
+        mock_client.iter_topics.return_value = _iter_gen([raw_topic])
+        mock_client.download_binaries.side_effect = _fake_download_binaries
+
+        upload_binary_mock = AsyncMock(return_value={"key": "k", "url": "https://x"})
+        upsert_ledger_mock = AsyncMock()
+
+        with (
+            patch.object(svc, "MAX_BINARY_UPLOAD_BYTES", 8),
+            patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
+            patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", upload_binary_mock),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", upsert_ledger_mock),
+            patch("app.features.zsxq_ingest.service._db.update_run", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service.normalize_topic", return_value=norm_record),
+            patch("app.features.zsxq_ingest.service.prepare_records", return_value=([prepared], Counter())),
+            patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
+            patch("app.features.zsxq_ingest.service.index_prepared", new_callable=AsyncMock, return_value=_FakeIndexResponse()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp(["222"])),
+            patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
+            patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
+        ):
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID)
+
+        assert result["status"] in ("done", "degraded")
+
+        # Only the small file was uploaded; the oversize file was skipped (never 413'd).
+        uploaded_keys = [
+            c.args[1] for c in upload_binary_mock.await_args_list
+            if len(c.args) >= 2 and "files/" in c.args[1]
+        ]
+        assert any("small.pdf" in k for k in uploaded_keys), "small binary should upload"
+        assert not any("big.pdf" in k for k in uploaded_keys), (
+            "oversize binary must be skipped, not uploaded"
+        )
+
+        # Ledger must record stage_binaries='partial' (an oversize file was present).
+        # Only the crawl-stage upsert carries stage_binaries; later stage upserts
+        # (normalize/index) do partial updates that omit it.
+        binary_entries = [
+            c.args[0] for c in upsert_ledger_mock.await_args_list
+            if c.args and c.args[0].get("topic_id") == "222" and "stage_binaries" in c.args[0]
+        ]
+        assert binary_entries, "a crawl-stage ledger upsert with stage_binaries is expected"
+        assert binary_entries[-1]["stage_binaries"] == "partial"
+        assert binary_entries[-1]["binaries_failed"] == 1
+
+
+# ---------------------------------------------------------------------------
 # Fix 2: creator_ids populated — non-owner topic authors become 'creator'
 # ---------------------------------------------------------------------------
 

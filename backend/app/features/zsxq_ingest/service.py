@@ -46,6 +46,13 @@ OWNER_USER_ID = "15555428815112"
 
 BUCKET = "zsxq-archive"
 
+# The Insforge storage gateway (nginx) rejects request bodies larger than ~20MB
+# with HTTP 413. Attachments above this are skipped deterministically (logged +
+# counted) rather than streamed only to be rejected; the thread *text* is still
+# indexed for RAG. ~64KB headroom covers the multipart framing overhead so a file
+# at the boundary doesn't 413. Raise this if the platform cap is ever lifted.
+MAX_BINARY_UPLOAD_BYTES = 20 * 1024 * 1024 - 64 * 1024
+
 # Emails
 _FROM_EMAIL = "TheMarketBrew <daily@themarketbrew.com>"
 
@@ -336,31 +343,57 @@ async def run_ingest(
                 _collected_binaries.append((filename, content))
                 return True
 
+            _download_failed = False
             try:
                 dl_count, dl_failed = client.download_binaries(topic, _sync_save_fn)
-                stage_binaries = "done"
                 files_downloaded += dl_count
                 files_failed += dl_failed
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "run_ingest: download_binaries failed topic=%s: %s", tid, exc
                 )
-                stage_binaries = "failed"
+                _download_failed = True
 
             # Now upload each collected binary in the async context. Binaries go
             # via the DIRECT storage REST path (db.upload_binary) — NOT the
             # base64-in-JSON edge function — so large attachments (PDFs etc.) work.
+            # Files above the gateway cap are skipped deterministically: streaming
+            # them only earns an HTTP 413 and noisy logs (see MAX_BINARY_UPLOAD_BYTES).
+            _upload_failed = 0
+            _skipped_oversize = 0
             for _bin_name, _bin_content in _collected_binaries:
                 _safe_name = _bin_name.replace("/", "_")
                 _bin_key = f"raw/zsxq/{group_id}/files/{tid}/{_safe_name}"
+                if len(_bin_content) > MAX_BINARY_UPLOAD_BYTES:
+                    _skipped_oversize += 1
+                    logger.warning(
+                        "run_ingest: skipping oversize binary %s (%d bytes > %d cap)",
+                        _bin_key, len(_bin_content), MAX_BINARY_UPLOAD_BYTES,
+                    )
+                    continue
                 _ctype = mimetypes.guess_type(_safe_name)[0] or "application/octet-stream"
                 try:
                     await _db.upload_binary(BUCKET, _bin_key, _bin_content, content_type=_ctype)
                     binary_storage_keys.append(_bin_key)
                 except Exception as exc:  # noqa: BLE001
+                    _upload_failed += 1
                     logger.warning(
                         "run_ingest: upload_binary failed %s: %s", _bin_key, exc
                     )
+
+            # stage_binaries reflects what actually reached the bucket:
+            #   failed  → the download itself failed (nothing collected)
+            #   partial → something couldn't be archived (oversize or upload error)
+            #   done    → every collected binary was stored
+            # The not-archived count is surfaced via binaries_failed in the ledger.
+            _not_archived = _upload_failed + _skipped_oversize
+            if _download_failed:
+                stage_binaries = "failed"
+            elif _not_archived:
+                stage_binaries = "partial"
+                dl_failed += _not_archived
+            else:
+                stage_binaries = "done"
 
         # Determine author role for ledger (creator_ids not yet built; use owner check only)
         talk = topic.get("talk") or {}

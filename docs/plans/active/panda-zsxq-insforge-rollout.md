@@ -19,9 +19,12 @@
 - ✅ **S5** secrets 核验（只读）— `EDGE_FUNCTION_SECRET`/`ANON_KEY`/`CRON_SECRET`/`BACKEND_URL`/`INSFORGE_INTERNAL_URL` 均存在，无需新增。
 - ✅ **后端已部署**（PR #67 merged）：`/api/zsxq/*` 路由 live（`/runs/probe` 返回 401 = 路由存在）。
 - ✅ **S6** 注入 cookie — 经 edge fn `set_credential` 写入 `zsxq_credentials`（group 15554581218512，status=active，cookie 已存 837 chars）。验证了 cookie-refresh 写路径。
-- ✅ **S5.5** backfill（从 748 条 vector_documents 反向 seed）— ledger 748 行全 `stage_indexed/crawled=done`；游标 seed 到最新 `2026-06-15T13:10:51.970+0800`（增量不再白爬 748）；`threads.jsonl` + **237 个 <1MB 附件**已传 bucket（0 失败，live 验证了直传路径），260 个 ≥1MB deferred；`stage_binaries` done=129/partial=40/deferred=150/其余 n/a。
-- ✅ **大文件修复**（`db.upload_binary` 直传 REST，绕过 base64 edge fn）+ 所有 bucket 写入统一走该路径 + 鉴权用 **`INSFORGE_API_KEY`**（实测可写 private bucket；edge fn 的 ANON_KEY 路径未用）。**已提交未部署**。
-- 🚧 **S8（live 爬）阻塞于二次部署**：binary 直传 + API_KEY 等修复在 PR #67 合并**之后**才提交 → 当前线上后端**还没有**这些。需：① 新 PR 合并这些 commit → Railway 重部署；② Railway env 加 **`INSFORGE_API_KEY`**（= Insforge `API_KEY` secret 值），否则二进制上传会回退到 SERVICE_KEY 并可能失败。部署后 S8 用 `?limit=10`（游标已 seed → 实为抓 2026-06-15 之后的新内容）。
+- ✅ **S5.5** backfill（从 748 条 vector_documents 反向 seed）— ledger 748 行全 `stage_indexed/crawled=done`；游标 seed 到最新 `2026-06-15T13:10:51.970+0800`（增量不再白爬 748）；`threads.jsonl` + **237 个 <1MB 附件**已传 bucket（0 失败，live 验证了直传路径）。
+- ✅ **Task 2** 存量附件 backfill（2026-06-23）— 在 ≤20MB 范围把剩余附件全部补传：**222/260 个 ≥1MB 附件上传成功**；**38 个 >20MB 附件失败**（平台硬上限，见下）。合计 **459/497 个附件已归档**。ledger `stage_binaries` 现：`done=288 / deferred=25 / partial=8 / skipped=1 / n/a=429`；含 >20MB 的 33 个 topic 正确**未**标 `done`（25 deferred + 8 partial）。
+- ⚠️ **平台硬上限发现（20MB）**：Insforge storage 网关（nginx）拒绝 >~20MB 的请求体（HTTP 413）；`insforge storage upload` CLI 同样 413 → 非客户端可绕过。38 个 >20MB 研报 PDF（~1.15GB / 33 topic）当前**无法归档**。**注**：RAG 向量检索基于 `threads.jsonl` 正文，**不依赖**二进制 PDF → 这是「归档完整性」缺口，非检索功能缺口（这些 topic 的正文已入库、可检索）。
+- ✅ **大文件修复（PR #69 已合并）**：`db.upload_binary` 直传 REST（绕过 base64 edge fn）+ 所有 bucket 写入统一走该路径 + 鉴权用 **`INSFORGE_API_KEY`**（实测可写 private bucket）。
+- ✅ **>20MB 优雅处理（代码已改，未提交/未部署）**：`service.py` 加 `MAX_BINARY_UPLOAD_BYTES`（~20MB）→ 超限附件**确定性跳过**（不再白传换 413），`stage_binaries` 据实记 `partial` 并把未归档数计入 `binaries_failed`。修复前 bug：下载成功即标 `done`，会把含超限附件的 topic 误标为已归档。112 测试通过（+1）。
+- 🚧 **S8（live 爬）剩余依赖（部署侧）**：#67+#69 均已合并到 master；上线 live 爬还需：① Railway env 加 **`INSFORGE_API_KEY`**（= Insforge `API_KEY` secret 值），否则二进制上传回退 SERVICE_KEY 可能失败；② 把本次 >20MB 优雅处理修复也部署上去（建议新 follow-up PR）。部署后 S8 用 `?limit=10`（游标已 seed → 实为抓 2026-06-15 之后的新内容）。
 - ⏳ **S7**（schedule）：S8 验证后再建。
 - ⏳ **S7**（schedule）：**必须待 S8 跑通后再建**——原因：S8（如 `limit=10`）会**seed 游标**（`zsxq_ingest_state.last_seen_create_time`=最新 topic 时间）。没有游标时，定时的增量跑会"全量爬"（无 stop 边界）。**已加代码兜底**：增量且无游标无 limit 时，自动施加 `_FIRST_RUN_SAFETY_LIMIT=50` 上限（防误触发 bulk 爬，尊重「不可大量爬」）。cron job 本身不带 limit，故首次定时若早于 S8 也只会爬 ≤50（被兜底），且存量 748 会 skip。
 
