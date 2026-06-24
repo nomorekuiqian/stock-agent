@@ -304,6 +304,35 @@ module.exports = async function (request) {
     }
 
     // -----------------------------------------------------------------------
+    // list_runs  GET ?action=list_runs&group_id=...&limit=30&status=running
+    // Read-only: recent ingest runs (newest first), optional status filter.
+    // Powers the admin monitoring view + the ingest concurrency guard.
+    // -----------------------------------------------------------------------
+    if (request.method === "GET" && action === "list_runs") {
+      const groupId = url.searchParams.get("group_id");
+      const status = url.searchParams.get("status");
+      let limit = parseInt(url.searchParams.get("limit") || "30", 10);
+      if (!Number.isFinite(limit) || limit < 1) limit = 30;
+      if (limit > 200) limit = 200;
+      let query = client.database.from("zsxq_ingest_runs").select("*");
+      if (groupId) query = query.eq("group_id", groupId);
+      if (status) query = query.eq("status", status);
+      const { data, error } = await query
+        .order("started_at", { ascending: false })
+        .range(0, limit - 1);
+      if (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+          status: 500,
+          headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ success: true, data: data || [] }), {
+        status: 200,
+        headers: jsonHeaders,
+      });
+    }
+
+    // -----------------------------------------------------------------------
     // upsert_ledger  POST ?action=upsert_ledger  body: {row}
     // -----------------------------------------------------------------------
     if (request.method === "POST" && action === "upsert_ledger") {
@@ -447,7 +476,7 @@ module.exports = async function (request) {
         success: false,
         error:
           "Invalid action. Supported: get_credential, set_credential, get_state, update_state, " +
-          "create_run, update_run, get_run, upsert_ledger, aggregate_ledger, put_object, get_object_url",
+          "create_run, update_run, get_run, list_runs, upsert_ledger, aggregate_ledger, put_object, get_object_url",
       }),
       { status: 400, headers: jsonHeaders },
     );

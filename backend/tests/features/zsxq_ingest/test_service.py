@@ -170,13 +170,18 @@ class TestRunIngestCredentialFailure:
             result = await svc.run_ingest(GROUP, run_id=RUN_ID)
 
         assert result["status"] == "auth_failed"
-        mock_notify.assert_awaited_once()
+        # Dedup: a credential that is already non-active (or missing) must NOT
+        # re-alert — the email fires once, at the crawl-time expiry transition.
+        mock_notify.assert_not_awaited()
         mock_update_run.assert_awaited_once()
         kwargs = mock_update_run.call_args
         assert kwargs[1]["status"] == "auth_failed"
 
     @pytest.mark.asyncio
-    async def test_expired_credential_returns_auth_failed(self):
+    async def test_expired_credential_returns_auth_failed_without_realert(self):
+        # An already-expired cookie blocks the run at Step 1 but must NOT email:
+        # the alert already went out at the active→expired transition. This is
+        # what keeps the 4h schedule from emailing the admin ~6×/day.
         expired_cred = {"cookie": "old", "status": "cookie_expired"}
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=expired_cred),
@@ -186,7 +191,7 @@ class TestRunIngestCredentialFailure:
             result = await svc.run_ingest(GROUP, run_id=RUN_ID)
 
         assert result["status"] == "auth_failed"
-        mock_notify.assert_awaited_once_with(GROUP, "cookie_expired")
+        mock_notify.assert_not_awaited()
         assert mock_update_run.call_args[1]["status"] == "auth_failed"
 
     @pytest.mark.asyncio

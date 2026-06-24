@@ -255,6 +255,38 @@ async def get_run(run_id: str) -> dict[str, Any] | None:
     return payload.get("data")
 
 
+async def list_runs(
+    group_id: str, *, limit: int = 30, status: str | None = None
+) -> list[dict[str, Any]]:
+    """Return recent ingest runs for *group_id*, newest first (read-only).
+
+    Optional *status* filter (e.g. ``"running"``). Returns ``[]`` on any
+    miss/error so callers (the admin monitoring view and the ingest
+    concurrency guard) never crash on a transient read failure.
+    """
+    db = get_insforge_service()
+    params: dict[str, Any] = {
+        "action": "list_runs",
+        "group_id": group_id,
+        "limit": str(limit),
+    }
+    if status:
+        params["status"] = status
+    result = await db.call_function(
+        _FUNCTION_NAME,
+        method="GET",
+        params=params,
+        extra_headers=internal_headers(),
+        timeout=20.0,
+    )
+    if result["status_code"] != 200:
+        return []
+    payload = result.get("data") or {}
+    if not payload.get("success"):
+        return []
+    return payload.get("data") or []
+
+
 # ---------------------------------------------------------------------------
 # Thread ledger
 # ---------------------------------------------------------------------------

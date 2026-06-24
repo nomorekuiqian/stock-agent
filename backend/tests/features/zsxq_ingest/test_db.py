@@ -251,6 +251,50 @@ async def test_get_run_non_200_returns_none(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# list_runs
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_runs_returns_rows_and_passes_filters(monkeypatch):
+    rows = [{"run_id": "r2", "status": "running"}, {"run_id": "r1", "status": "done"}]
+    svc = _make_service(data={"success": True, "data": rows})
+    _patch(monkeypatch, svc)
+
+    result = await zsxq_db.list_runs("g1", limit=10, status="running")
+
+    assert result == rows
+    _, kwargs = svc.call_function.call_args
+    assert kwargs["method"] == "GET"
+    assert kwargs["params"]["action"] == "list_runs"
+    assert kwargs["params"]["group_id"] == "g1"
+    assert kwargs["params"]["limit"] == "10"
+    assert kwargs["params"]["status"] == "running"
+
+
+@pytest.mark.asyncio
+async def test_list_runs_omits_status_when_not_given(monkeypatch):
+    svc = _make_service(data={"success": True, "data": []})
+    _patch(monkeypatch, svc)
+
+    result = await zsxq_db.list_runs("g1")
+
+    assert result == []
+    _, kwargs = svc.call_function.call_args
+    assert "status" not in kwargs["params"]
+
+
+@pytest.mark.asyncio
+async def test_list_runs_returns_empty_on_non_200(monkeypatch):
+    # Read failure degrades to [] so the concurrency guard never crashes.
+    svc = _make_service(status_code=500, data={}, text="boom")
+    _patch(monkeypatch, svc)
+
+    result = await zsxq_db.list_runs("g1", status="running")
+    assert result == []
+
+
+# ---------------------------------------------------------------------------
 # upsert_ledger
 # ---------------------------------------------------------------------------
 
