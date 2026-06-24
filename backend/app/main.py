@@ -180,6 +180,7 @@ from app.features.watchlist_monitor.router import router as watchlist_monitor_ro
 from app.features.community_access.router import router as community_access_router
 from app.features.community_access.router import admin_router as community_access_admin_router
 from app.features.zsxq_ingest.router import router as zsxq_ingest_router
+from app.features.job_monitor.router import router as job_monitor_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -219,6 +220,7 @@ app.include_router(onboarding_router)
 app.include_router(resend_webhook_router)
 app.include_router(watchlist_monitor_router)
 app.include_router(zsxq_ingest_router)
+app.include_router(job_monitor_router)
 
 
 # ---------------------------------------------------------------------------
