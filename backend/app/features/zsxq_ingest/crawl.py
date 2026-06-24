@@ -370,6 +370,35 @@ class ZsxqClient:
         logger.debug("_fetch_topics_page scope=%s end_time=%s", scope, end_time)
         return self._fetch_with_retry(url, params)
 
+    def fetch_creator_ids(self) -> set[int]:
+        """Return the group's OFFICIAL content-author roles from ``/groups/{id}``.
+
+        zsxq lets ordinary members post topics too, so "authored a topic =
+        creator" over-includes member chatter (questions, thank-yous). The real
+        creators are the group ``owner`` + ``admin_ids`` (管理员) + ``guest_ids``
+        (嘉宾) + ``partner_ids`` (合伙人); everyone else is a plain member whose
+        posts must NOT enter the persona corpus. Returns the set of creator
+        user_ids (incl. the owner). Raises like any other fetch on failure — the
+        caller decides the fallback.
+        """
+        data = self._fetch_with_retry(f"{self.BASE_URL}/groups/{self.group_id}", {})
+        grp = (data or {}).get("group") or {}
+        ids: set[int] = set()
+        owner_uid = (grp.get("owner") or {}).get("user_id")
+        if owner_uid:
+            ids.add(int(owner_uid))
+        for key in ("admin_ids", "guest_ids", "partner_ids"):
+            for uid in (grp.get(key) or []):
+                try:
+                    ids.add(int(uid))
+                except (TypeError, ValueError):
+                    continue
+        logger.info(
+            "fetch_creator_ids: %d official creators (owner+admins+guests+partners) group=%s",
+            len(ids), self.group_id,
+        )
+        return ids
+
     # ------------------------------------------------------------------
     # Topic iteration (cursor pagination + incremental stop)
     # ------------------------------------------------------------------

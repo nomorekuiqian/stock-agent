@@ -28,6 +28,7 @@ from app.core.logging import get_logger
 from app.features.zsxq_ingest import db as _db
 from app.features.zsxq_ingest.crawl import ZsxqAuthError, ZsxqRateLimitError
 from app.features.zsxq_ingest.indexing import (
+    DEFAULT_PERSONA_KEY,
     audit_distribution,
     index_prepared,
     prepare_records,
@@ -446,26 +447,27 @@ async def run_ingest(
     )
 
     # ------------------------------------------------------------------
-    # Step 3b — build creator_ids from crawled topics
-    # Every topic author in zsxq is at least a creator/partner (members
-    # can only comment, not post top-level topics).  Mirror the logic in
-    # export_corpus.export_group lines ~263-279.
+    # Step 3b — creator eligibility from the group's OFFICIAL roles.
+    # zsxq lets ordinary members post topics too, so "authored a topic =
+    # creator" over-includes member chatter. Fetch the real roles (owner +
+    # admins + guests + partners) from /groups/{id}; members get role=member
+    # and are dropped by indexing._eligible. On fetch failure, fall back to
+    # owner-only — never silently index member content (handbook: no role →
+    # don't ingest).
     # ------------------------------------------------------------------
-    creator_ids: set[int] = set()
-    for _t in raw_topics:
-        # talk / article topics
-        _talk_uid = (_t.get("talk") or {}).get("owner", {}).get("user_id")
-        if _talk_uid:
-            creator_ids.add(int(_talk_uid))
-        # q&a topics: answer author (primary), fallback to questioner
-        _ans_uid = (_t.get("answer") or {}).get("owner", {}).get("user_id")
-        _q_uid = (_t.get("question") or {}).get("owner", {}).get("user_id")
-        _qa_uid = _ans_uid or _q_uid
-        if _qa_uid:
-            creator_ids.add(int(_qa_uid))
-    logger.info(
-        "run_ingest: creator_ids built count=%d run_id=%s", len(creator_ids), run_id
-    )
+    try:
+        creator_ids = client.fetch_creator_ids()
+        logger.info(
+            "run_ingest: fetched %d official creator ids run_id=%s",
+            len(creator_ids), run_id,
+        )
+    except Exception as exc:  # noqa: BLE001
+        creator_ids = {int(OWNER_USER_ID)}
+        logger.warning(
+            "run_ingest: fetch_creator_ids failed (%s) — falling back to owner-only "
+            "(skips all member + creator topics this run to avoid pollution) run_id=%s",
+            exc, run_id,
+        )
 
     # ------------------------------------------------------------------
     # Step 4 — normalize + archive jsonl
@@ -648,8 +650,20 @@ async def run_ingest(
                 filters=VectorSearchFilters(source_types=["zsxq_thread"]),
             )
             resp = await vector_search(req)
-            returned_ids = {r.source_id for r in (resp.results or [])}
+            results = resp.results or []
+            returned_ids = {r.source_id for r in results}
             found = returned_ids & set(smoke_ids)
+            # The Panda persona retrieves via metadata.author_username=pandacircle
+            # (the retrieval pin). Generic vector search can find a doc even if that
+            # pin is missing, but the PERSONA then can't — so assert the sampled
+            # chunks carry the pin, otherwise the crawl didn't actually feed the
+            # persona corpus.
+            found_chunks = [r for r in results if r.source_id in found]
+            pin_ok = bool(found_chunks) and all(
+                (getattr(r, "metadata", None) or {}).get("author_username")
+                == DEFAULT_PERSONA_KEY
+                for r in found_chunks
+            )
             if not found:
                 logger.warning(
                     "run_ingest: smoke found none of %d sampled ids "
@@ -657,10 +671,19 @@ async def run_ingest(
                     len(smoke_ids), len(returned_ids), run_id,
                 )
                 smoke_ok = False
+            elif not pin_ok:
+                logger.warning(
+                    "run_ingest: smoke — retrieved chunks missing "
+                    "author_username=%s persona pin (Panda persona cannot retrieve "
+                    "this content) run_id=%s",
+                    DEFAULT_PERSONA_KEY, run_id,
+                )
+                smoke_ok = False
             else:
                 logger.info(
-                    "run_ingest: smoke ok — %d/%d sampled ids retrievable run_id=%s",
-                    len(found), len(smoke_ids), run_id,
+                    "run_ingest: smoke ok — %d/%d sampled ids retrievable + "
+                    "persona-pinned (author_username=%s) run_id=%s",
+                    len(found), len(smoke_ids), DEFAULT_PERSONA_KEY, run_id,
                 )
         except Exception as exc:  # noqa: BLE001
             logger.warning("run_ingest: smoke check failed run_id=%s: %s", run_id, exc)

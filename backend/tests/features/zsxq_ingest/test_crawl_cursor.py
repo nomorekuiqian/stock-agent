@@ -244,3 +244,33 @@ class TestLongSleepInterval:
 
         long_sleeps = [s for s in sleep_calls if 180.0 <= s <= 300.0]
         assert not long_sleeps, f"Unexpected long sleep: {long_sleeps}"
+
+
+# ---------------------------------------------------------------------------
+# fetch_creator_ids — official roles (owner + admins + guests + partners)
+# ---------------------------------------------------------------------------
+class TestFetchCreatorIds:
+    def test_parses_owner_admins_guests_partners_deduped(self):
+        client = _make_client()
+        client._fetch_with_retry = MagicMock(return_value={
+            "group": {
+                "owner": {"user_id": 100, "name": "球主"},
+                "admin_ids": [200, 201],
+                "guest_ids": [300, 301, 302],
+                "partner_ids": [200],  # also an admin → deduped
+            }
+        })
+        assert client.fetch_creator_ids() == {100, 200, 201, 300, 301, 302}
+
+    def test_owner_only_when_no_special_roles(self):
+        client = _make_client()
+        client._fetch_with_retry = MagicMock(return_value={"group": {"owner": {"user_id": 7}}})
+        assert client.fetch_creator_ids() == {7}
+
+    def test_members_not_included(self):
+        # A plain member's user_id never appears in the official role lists.
+        client = _make_client()
+        client._fetch_with_retry = MagicMock(return_value={
+            "group": {"owner": {"user_id": 1}, "admin_ids": [2], "guest_ids": [3], "partner_ids": []}
+        })
+        assert 814811842588222 not in client.fetch_creator_ids()
