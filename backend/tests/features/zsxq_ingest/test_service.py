@@ -635,11 +635,11 @@ class TestBinaryUploadAsyncSafe:
 
         assert result["status"] in ("done", "degraded")
 
-        # The binary must go via the DIRECT upload path (upload_binary), with a
-        # "files/" key — NOT the base64 edge-function put_object.
+        # The binary must go via the DIRECT upload path (upload_binary), under the
+        # "attachments/" prefix (downloaded files) — NOT the base64 edge-function.
         binary_calls = [
             c for c in upload_binary_mock.await_args_list
-            if len(c.args) >= 2 and "files/" in c.args[1]
+            if len(c.args) >= 2 and c.args[1].startswith("attachments/")
         ]
         assert len(binary_calls) >= 1, (
             "db.upload_binary should have been awaited for the binary attachment"
@@ -729,7 +729,7 @@ class TestOversizeBinarySkipped:
         # Only the small file was uploaded; the oversize file was skipped (never 413'd).
         uploaded_keys = [
             c.args[1] for c in upload_binary_mock.await_args_list
-            if len(c.args) >= 2 and "files/" in c.args[1]
+            if len(c.args) >= 2 and c.args[1].startswith("attachments/")
         ]
         assert any("small.pdf" in k for k in uploaded_keys), "small binary should upload"
         assert not any("big.pdf" in k for k in uploaded_keys), (

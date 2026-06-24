@@ -302,7 +302,11 @@ async def run_ingest(
 
         # Archive raw JSON
         date_str = (create_time or "")[:10] or "unknown"
-        raw_key = f"raw/zsxq/{group_id}/{date_str}/topic-{tid}.json"
+        # Bucket scheme — top-level prefix = data category (avoids a data swamp):
+        #   topics/      = crawled raw topic JSON (the scrape)
+        #   attachments/ = downloaded files (user-uploaded binaries)
+        #   normalized/  = derived exports
+        raw_key = f"topics/zsxq/{group_id}/{date_str}/topic-{tid}.json"
         raw_bytes = json.dumps(topic, ensure_ascii=False).encode("utf-8")
         try:
             obj_result = await _db.upload_binary(
@@ -363,7 +367,7 @@ async def run_ingest(
             _skipped_oversize = 0
             for _bin_name, _bin_content in _collected_binaries:
                 _safe_name = _bin_name.replace("/", "_")
-                _bin_key = f"raw/zsxq/{group_id}/files/{tid}/{_safe_name}"
+                _bin_key = f"attachments/zsxq/{group_id}/{tid}/{_safe_name}"
                 if len(_bin_content) > MAX_BINARY_UPLOAD_BYTES:
                     _skipped_oversize += 1
                     logger.warning(
