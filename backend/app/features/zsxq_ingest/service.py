@@ -186,10 +186,16 @@ async def run_ingest(
     cred = await _db.get_credential(group_id)
     if not cred or cred.get("status") != "active":
         kind = cred.get("status") if cred else "missing"
+        # Do NOT email here. A non-active status was set — and the admin already
+        # alerted — at the crawl-time transition below (the active→failed flip).
+        # Re-alerting on every blocked tick would spam the admin ~6×/day at the
+        # 4h schedule cadence; the monitoring view surfaces the persistent state.
         logger.warning(
-            "run_ingest: credential not active (status=%s) run_id=%s", kind, run_id
+            "run_ingest: credential not active (status=%s) run_id=%s — skipping "
+            "crawl, no re-alert (already notified at expiry)",
+            kind,
+            run_id,
         )
-        await _notify_auth_failure(group_id, kind)
         await _db.update_run(
             run_id,
             status="auth_failed",

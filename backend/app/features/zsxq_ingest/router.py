@@ -6,6 +6,8 @@ Endpoints:
   POST /api/zsxq/cookie        — update cookie (admin user)
 """
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.core.deps import verify_admin_user, verify_cron_secret
@@ -17,6 +19,39 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/api/zsxq", tags=["zsxq-ingest"])
 
 GROUP = "15554581218512"
+
+# A 'running' run older than this is treated as crashed/stale (won't block new
+# triggers). Comfortably above a normal incremental crawl, below the 4h cadence.
+_ACTIVE_RUN_MAX_AGE_MIN = 120
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat((value or "").replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
+async def _has_active_run(group_id: str) -> bool:
+    """True if a non-stale ``running`` run already exists for *group_id*.
+
+    Guards against overlapping crawls at the 4h schedule cadence: two
+    concurrent crawls would share the cookie and re-walk the same backlog
+    (wasted requests + higher ban risk). A ``running`` row older than
+    ``_ACTIVE_RUN_MAX_AGE_MIN`` is treated as crashed and does NOT block.
+    Never raises — a read failure degrades open (allow the run).
+    """
+    try:
+        runs = await db.list_runs(group_id, limit=5, status="running")
+    except Exception:  # noqa: BLE001 — guard must never break a trigger
+        logger.warning("zsxq _has_active_run: list_runs failed; allowing run", exc_info=True)
+        return False
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=_ACTIVE_RUN_MAX_AGE_MIN)
+    for run in runs or []:
+        started = _parse_iso(run.get("started_at"))
+        if started and started > cutoff:
+            return True
+    return False
 
 
 def _run_ingest_bg(group_id: str, full: bool, run_id: str, limit: int | None) -> None:
@@ -49,7 +84,17 @@ async def ingest(background_tasks: BackgroundTasks, full: bool = False, limit: i
     - ``full=true`` ignores the incremental cursor and crawls from the top.
     - ``limit=N`` stops after N crawled topics — use for a small, controlled
       first run (respects rate limits / avoids a bulk crawl during validation).
+
+    Concurrency guard: an incremental trigger is *skipped* (no run row created)
+    when a crawl is already in flight, so the 4h schedule can't stack overlapping
+    crawls onto the same cookie. ``full=true`` is an explicit admin override and
+    bypasses the guard. ``accepted`` stays ``true`` on skip so the cron step is
+    not counted as a failure.
     """
+    if not full and await _has_active_run(GROUP):
+        logger.info("zsxq ingest skipped: a run is already in progress (group=%s)", GROUP)
+        return {"success": True, "accepted": True, "skipped": True, "reason": "run_in_progress"}
+
     run = await db.create_run(GROUP, "full" if full else "incremental")
     run_id = run["run_id"]
     # Schedule the SYNC wrapper (threadpooled) — NOT the async coroutine directly,
