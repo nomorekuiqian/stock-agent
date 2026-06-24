@@ -376,10 +376,14 @@ class TestRunIngestGateBlock:
 # Smoke returns empty → degraded
 # ---------------------------------------------------------------------------
 
-def _fake_search_resp(source_ids):
-    """Build a fake VectorSearchResponse-like object (has .results with .source_id)."""
+def _fake_search_resp(source_ids, author_username="pandacircle"):
+    """Build a fake VectorSearchResponse-like object (.results with .source_id +
+    .metadata carrying the persona pin the smoke now asserts)."""
     resp = MagicMock()
-    resp.results = [MagicMock(source_id=sid) for sid in source_ids]
+    resp.results = [
+        MagicMock(source_id=sid, metadata={"author_username": author_username})
+        for sid in source_ids
+    ]
     return resp
 
 
@@ -406,6 +410,38 @@ class TestRunIngestSmokeDegraded:
             patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
             # Smoke: search returns no matching zsxq_thread results → degraded
             patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp([])),
+            patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
+            patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
+        ):
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID)
+
+        assert result["status"] == "degraded"
+        assert mock_update_run.call_args[1]["status"] == "degraded"
+
+    @pytest.mark.asyncio
+    async def test_smoke_missing_persona_pin_degraded(self):
+        """Doc is vector-retrievable but its chunks lack author_username=pandacircle
+        → the Panda persona can't retrieve it → run must be degraded, not done."""
+        mock_client = MagicMock()
+        mock_client.iter_topics.return_value = _iter_gen([_RAW_TOPIC])
+        mock_client.download_binaries.return_value = (0, 0)
+        mock_update_run = AsyncMock()
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
+            patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "k", "url": "u"}),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_run", mock_update_run),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service.normalize_topic", return_value=_NORM_RECORD),
+            patch("app.features.zsxq_ingest.service.prepare_records", return_value=([_PREPARED], Counter())),
+            patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
+            patch("app.features.zsxq_ingest.service.index_prepared", new_callable=AsyncMock, return_value=_FakeIndexResponse()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
+            # Sampled id IS returned, but the chunk carries the WRONG author_username
+            # (persona pin missing) → smoke must flag degraded.
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp(["111"], author_username="someone-else")),
             patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
             patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
         ):

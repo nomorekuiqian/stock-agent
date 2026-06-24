@@ -125,6 +125,19 @@ def test_web_url_etag_rendered(etags_raw):
     assert "https://x.com" in rec["text"]
 
 
+def test_external_links_captured_as_metadata(etags_raw):
+    # Q1: the post's external URL is captured for citation (we do NOT fetch it).
+    rec = _norm(etags_raw)
+    assert rec.get("external_links") == ["https://x.com"]
+
+
+def test_non_creator_author_role_is_member(talk_raw):
+    # Q2: zsxq lets members post topics; an author who is neither owner nor in
+    # the official creator_ids must be 'member' so indexing._eligible drops it.
+    rec = _norm(talk_raw, owner_uid=111, creator_ids={222})  # talk author is neither
+    assert rec["author"]["role"] == "member"
+
+
 # ---------------------------------------------------------------------------
 # Test 7: missing title falls back to empty string (indexing handles it)
 # ---------------------------------------------------------------------------
@@ -190,3 +203,80 @@ def test_integration_qa_consumable_by_indexing(qa_raw):
     prepared, drop = indexing.prepare_records([rec], min_chars=0)
     assert prepared, f"Record was dropped: {dict(drop)}"
     assert prepared[0].content_type == "qa"
+
+
+# ---------------------------------------------------------------------------
+# Decision 3: Q&A is kept when a creator/owner PARTICIPATES (answers); a member
+# Q with no creator/owner answer is a member post and is dropped by _eligible.
+# ---------------------------------------------------------------------------
+def test_qa_kept_when_creator_answers_member_question():
+    qa = {
+        "topic_id": "q-keep", "type": "q&a",
+        "question": {"text": "请问光刻胶还能涨多久?", "owner": {"user_id": 999111, "name": "某成员"}},
+        "answer": {"text": "光刻胶这一轮的核心驱动是国产替代加速……（创作者分析）",
+                   "owner": {"user_id": 88214152181182, "name": "bewater"}},
+        "create_time": "2026-06-23T10:00:00.000+0800",
+    }
+    rec = _norm(qa)  # creator_ids includes bewater (88214152181182)
+    assert rec["type"] == "q&a"
+    # answerer is the author → creator → indexing keeps it; body is the answer.
+    assert rec["author"]["role"] == "creator"
+    assert "创作者分析" in rec["text"]
+
+
+def test_qa_dropped_when_only_member_participates():
+    qa = {
+        "topic_id": "q-drop", "type": "q&a",
+        "question": {"text": "蹭个热度问一句", "owner": {"user_id": 999111, "name": "某成员"}},
+        "answer": {"text": "", "owner": {}},  # no creator/owner answer
+        "create_time": "2026-06-23T10:00:00.000+0800",
+    }
+    rec = _norm(qa)
+    # questioner (member) becomes the author → role=member → _eligible drops it.
+    assert rec["author"]["role"] == "member"
+
+
+# ---------------------------------------------------------------------------
+# Owner participation rescue: a member-started thread is kept ONLY when the
+# owner actively replies (substantive comment, not 点赞/表情); re-attributed to
+# the owner with the owner's reply as the indexed value.
+# ---------------------------------------------------------------------------
+def _member_talk_with_comments(comments):
+    return {
+        "topic_id": "m1", "type": "talk",
+        "talk": {"owner": {"user_id": 777111, "name": "成员X"}, "text": "请问AI硬件还能追吗?"},
+        "create_time": "2026-06-23T10:00:00.000+0800",
+        "show_comments": comments,
+    }
+
+
+def test_member_topic_rescued_by_owner_substantive_comment():
+    raw = _member_talk_with_comments([
+        {"comment_id": "c1", "create_time": "2026-06-23T10:05:00.000+0800",
+         "text": "可以继续关注，逻辑没变，重点看下游订单兑现和明年的capex指引。",
+         "owner": {"user_id": OWNER_USER_ID, "name": "潘大"}},
+    ])
+    rec = _norm(raw)  # owner_uid = OWNER_USER_ID
+    assert rec["author"]["role"] == "owner"            # re-attributed to owner
+    assert rec.get("kept_via_owner_comment") is True
+    assert "逻辑没变" in rec["text"]                    # owner reply = indexed value
+    assert "请问AI硬件" in rec["text"]                  # member post kept as context
+
+
+def test_member_topic_not_rescued_by_trivial_owner_comment():
+    raw = _member_talk_with_comments([
+        {"comment_id": "c1", "text": "👍", "owner": {"user_id": OWNER_USER_ID, "name": "潘大"}},
+        {"comment_id": "c2", "text": "好的", "owner": {"user_id": OWNER_USER_ID, "name": "潘大"}},
+    ])
+    rec = _norm(raw)
+    assert rec["author"]["role"] == "member"           # likes/trivial ≠ participation
+    assert not rec.get("kept_via_owner_comment")
+
+
+def test_member_topic_not_rescued_when_only_members_comment():
+    raw = _member_talk_with_comments([
+        {"comment_id": "c1", "text": "同问，蹲一个深度回答谢谢老师们",
+         "owner": {"user_id": 888222, "name": "另一成员"}},
+    ])
+    rec = _norm(raw)
+    assert rec["author"]["role"] == "member"           # no owner participation

@@ -170,6 +170,14 @@ def _metadata(
         "digested": bool(rec.get("digested")),
         "likes_count": rec.get("likes_count") or 0,
         "group_name": rec.get("group_name"),
+        # External URLs the post points to (e.g. a 公众号 article). Citation only
+        # — we do NOT fetch the linked content. Metadata-only, so it doesn't
+        # affect content_hash; empty lists are dropped by the filter below.
+        "external_links": rec.get("external_links") or [],
+        # Set only when this doc was kept because the owner actively replied in
+        # the comments of a member-started thread (body = owner's reply + context).
+        # None when absent → dropped by the filter below (no bloat on normal docs).
+        "kept_via_owner_comment": rec.get("kept_via_owner_comment"),
         # Enrichment provenance (extensibility hook): lets a future LLM-enrich
         # tier distinguish/re-process Tier-0 docs. Metadata-only — NOT part of
         # the embedded content, so adding it does not change content_hash

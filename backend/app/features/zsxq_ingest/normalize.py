@@ -51,6 +51,56 @@ _HASHTAG_E_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+# Inline <e type="web"/"web_url"> external-link tags (e.g. a post pointing to a
+# 公众号 article). We keep the URL as metadata for citation but do NOT fetch the
+# linked content (handbook: don't make indexing depend on external web DOM).
+_WEB_E_RE = re.compile(r'<e\b[^>]*\btype=["\']web[a-z_]*["\'][^>]*/?>', flags=re.IGNORECASE)
+
+
+def _extract_external_links(*raw_texts: Optional[str]) -> list[str]:
+    """Return de-duplicated external URLs from inline <e type="web"> tags."""
+    links: list[str] = []
+    for raw in raw_texts:
+        if not raw:
+            continue
+        for tag in _WEB_E_RE.finditer(raw):
+            m = re.search(r'href="([^"]*)"', tag.group(0))
+            if not m:
+                continue
+            url = unquote(m.group(1))
+            if url and url not in links:
+                links.append(url)
+    return links
+
+
+# A member-authored topic is kept when the OWNER *actively* participates in the
+# comments — a substantive reply, NOT a 点赞/表情/trivial "好的". "Substantive" =
+# at least this many meaningful chars (CJK ideographs + latin alphanumerics),
+# which excludes emoji/stickers/punctuation-only and one-word agreements.
+_OWNER_COMMENT_MIN_CHARS = 8
+_MEANINGFUL_CHAR_RE = re.compile(r"[0-9A-Za-z一-鿿]")
+
+
+def _meaningful_len(text: Optional[str]) -> int:
+    return len(_MEANINGFUL_CHAR_RE.findall(text or ""))
+
+
+def _owner_substantive_comments(
+    comments: list[dict[str, Any]], owner_user_id: Optional[int]
+) -> list[str]:
+    """Cleaned texts of the owner's substantive comments (active participation)."""
+    if not owner_user_id:
+        return []
+    out: list[str] = []
+    for c in comments:
+        co = c.get("owner") or {}
+        if str(co.get("user_id") or "") != str(owner_user_id):
+            continue
+        txt = (c.get("text") or "").strip()
+        if _meaningful_len(txt) >= _OWNER_COMMENT_MIN_CHARS:
+            out.append(txt)
+    return out
+
 
 def _decode(value: Optional[str]) -> str:
     if not value:
@@ -317,6 +367,34 @@ def normalize_topic(
             },
         }
 
+    # ---- Owner participation rescue --------------------------------------
+    # A member-authored post is normally dropped, but if the OWNER actively
+    # joined the comment discussion (a substantive reply, not 点赞/表情), the
+    # thread carries real Panda value: re-attribute the record to the owner and
+    # surface the owner's reply as the indexed body (member post kept as context)
+    # so eligibility passes and citation points to the owner.
+    kept_via_owner_comment = False
+    if author_role == "member" and owner_user_id:
+        owner_replies = _owner_substantive_comments(comments, owner_user_id)
+        if owner_replies:
+            owner_name = next(
+                (
+                    (c.get("owner") or {}).get("name") or ""
+                    for c in comments
+                    if str((c.get("owner") or {}).get("user_id") or "")
+                    == str(owner_user_id)
+                ),
+                "",
+            )
+            context = body
+            body = "【球主评论区回复】\n" + "\n\n".join(owner_replies)
+            if context:
+                body += "\n\n【原帖（成员发起，作为上下文）】\n" + context
+            author_uid = owner_user_id
+            author_name = owner_name or author_name
+            author_role = "owner"
+            kept_via_owner_comment = True
+
     # ---- Assemble record -------------------------------------------------
     rec: dict[str, Any] = {
         "topic_id": tid,
@@ -344,6 +422,14 @@ def normalize_topic(
         rec["question"] = question
     if answer is not None:
         rec["answer"] = answer
+
+    external_links = _extract_external_links(
+        raw_talk_text, raw_question_text, raw_answer_text
+    )
+    if external_links:
+        rec["external_links"] = external_links
+    if kept_via_owner_comment:
+        rec["kept_via_owner_comment"] = True
 
     logger.debug(
         "normalize_topic: topic_id=%s type=%s author_role=%s tags=%s",
