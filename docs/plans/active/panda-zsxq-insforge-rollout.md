@@ -99,13 +99,19 @@ S0 link ──┬─ S1 bucket ─────────────┐
 - **回滚**：`insforge db query "delete from zsxq_credentials where group_id='15554581218512'"`。
 - **风险**：低（1 行）。注意凭证保密。
 
-## S7 — 创建 Schedule（写）
-- **命令**：`insforge schedules create --name zsxq_panda_ingestion --cron "0 18 * * *" --method POST --url "<cron-trigger fn url>?job=zsxq_panda_ingestion" --headers '{"X-Internal-Secret":"<secret>"}'`
-  （cron 时区/点位由开发者定；示例每日 18:00）
-- **影响**：新增一条每日定时，触发 cron-trigger 的 zsxq job。
-- **验证**：`insforge schedules list` 含该条；可手动 `insforge schedules logs <id>` 看首次执行。
+## S7 — 创建 Schedule（写）—— **每 4h「少量多次」（用户定）**
+- **节奏**：每 4 小时一次，错峰。cron `30 1,5,9,13,17,21 * * *`（UTC，:30 避开整点 KOL 抓取与 :15 embeddings；odd 小时避开 20:30 Twitter Generate）。Beijing 即 09:30/13:30/17:30/21:30/01:30/05:30，覆盖全天发帖时段。
+- **命令**（照搬现有 14 条 schedule 的 body 形态，非 query）：
+  `insforge schedules create --name "Cron - zsxq Panda Ingestion" --cron "30 1,5,9,13,17,21 * * *" --method POST --url "<INSFORGE>/functions/cron-trigger" --headers '{"Content-Type":"application/json","X-Internal-Secret":"${{secrets.EDGE_FUNCTION_SECRET}}"}' --body '{"job":"zsxq_panda_ingestion"}'`
+- **影响**：新增每 4h 定时，触发 cron-trigger 的 zsxq job → `/api/zsxq/ingest`（增量）。
+- **前置（必须先 live）**：
+  1. **4h-cadence 安全护栏 PR**（并发护栏 + 告警去重 + 只读 `list_runs`）合并 + Railway 部署 —— 否则 4h 会叠爬同 cookie / 失效时每天轰炸 ~6 封邮件。
+  2. `insforge functions deploy zsxq-ingest-store`（含新 `list_runs` action）—— 护栏与监控模块都依赖它。
+  3. cookie 为 `active`（2026-06-24 limit=3 验证已确认 active + #81 已部署）。
+- **验证**：`insforge schedules list` 含该条；建后用 admin 监控页（job_monitor）看每次 run 的状态/产出，而非 raw run_id。
 - **回滚**：`insforge schedules delete <id>`。
-- **风险**：低（新增）。建议 S8 手动验证通过后再建，避免定时在未验证前自动跑。
+- **风险**：低（新增 + 护栏兜底）。
+- **可监控性**：`app/features/job_monitor` 通用监控模块 + `/admin/jobs` 页（cookie 状态/游标/最近运行表/逐 run ledger 下钻）。其它后台任务（twitter 等）将来实现同 `JobSource` 协议即可接入。
 
 ## S8 — ⚠️ 首次 backfill（live 全量爬，最大写）
 - **命令**：`curl -X POST "$BACKEND/api/zsxq/ingest?full=true" -H "X-Cron-Secret: <secret>"` → 立即返回 `accepted+run_id`，后台异步跑。
