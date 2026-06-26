@@ -280,3 +280,34 @@ def test_member_topic_not_rescued_when_only_members_comment():
     ])
     rec = _norm(raw)
     assert rec["author"]["role"] == "member"           # no owner participation
+
+
+# ---------------------------------------------------------------------------
+# Article posts: full body (crawler-fetched) is preferred over the truncated
+# talk.text preview; tags still come from the preview's <e> hashtag tags.
+# ---------------------------------------------------------------------------
+def test_article_full_body_preferred_over_truncated_preview():
+    raw = {
+        "topic_id": "art1", "type": "talk",
+        "talk": {
+            "owner": {"user_id": OWNER_USER_ID, "name": "潘大"},
+            "text": "开头预览片段 <e type=\"hashtag\" title=\"%23AI硬件%23\" /> …",
+            "article": {"article_id": "a", "article_url": "https://articles.zsxq.com/id_a.html"},
+            "full_article_text": "这是完整文章正文，远比预览长，详细分析了 NVDA 的需求账与 ORCL 的订单交付。",
+        },
+        "create_time": "2026-06-24T10:00:00.000+0800",
+    }
+    rec = _norm(raw)
+    assert "完整文章正文" in rec["text"]          # full body is the indexed content
+    assert "开头预览片段" not in rec["text"]       # truncated preview NOT used as body
+    assert len(rec["tags"]) >= 1                  # tags still parsed from preview <e> tag
+
+
+def test_article_without_full_text_falls_back_to_preview():
+    raw = {
+        "topic_id": "art2", "type": "talk",
+        "talk": {"owner": {"user_id": OWNER_USER_ID, "name": "潘大"}, "text": "只有预览正文"},
+        "create_time": "2026-06-24T10:00:00.000+0800",
+    }
+    rec = _norm(raw)
+    assert "只有预览正文" in rec["text"]
