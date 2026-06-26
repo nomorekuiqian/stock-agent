@@ -279,6 +279,80 @@ class TestRunIngestNormalIncremental:
         assert result["topics_crawled"] == 1
 
     @pytest.mark.asyncio
+    async def test_topics_seen_recorded_on_run_row(self):
+        """The finalize update_run must populate the run row's topics_seen column
+        (the job-monitor's 抓取 metric reads it). Regression guard: topics_seen was
+        never passed, so every run showed 抓取 0 despite topics_crawled > 0."""
+        mock_client = MagicMock()
+        mock_client.iter_topics.return_value = _iter_gen([_RAW_TOPIC])
+        mock_client.fetch_full_comments.return_value = []
+        mock_client.download_binaries.return_value = (0, 0)
+
+        mock_update_run = AsyncMock()
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
+            patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "raw/key", "url": "https://x"}),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_run", mock_update_run),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service.normalize_topic", return_value=_NORM_RECORD),
+            patch("app.features.zsxq_ingest.service.prepare_records", return_value=([_PREPARED], Counter())),
+            patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
+            patch("app.features.zsxq_ingest.service.index_prepared", new_callable=AsyncMock, return_value=_FakeIndexResponse()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp(["111"])),
+            patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
+            patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
+        ):
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID)
+
+        # A normal incremental run reaches finalize → exactly one update_run call,
+        # which must carry topics_seen matching the crawled count (report.topics_crawled).
+        final_kwargs = mock_update_run.call_args[1]
+        assert final_kwargs.get("topics_seen") == result["topics_crawled"]
+        assert final_kwargs["topics_seen"] > 0
+
+    @pytest.mark.asyncio
+    async def test_failed_count_recorded_on_run_row(self):
+        """The finalize update_run must populate the run row's `failed` column
+        (the job-monitor's 失败 metric reads it). Regression guard: the service
+        computes the count but sent it only under the key `index_failed`, which the
+        edge-function allowlist drops — so 失败 stayed 0 even with real failures."""
+        mock_client = MagicMock()
+        mock_client.iter_topics.return_value = _iter_gen([_RAW_TOPIC])
+        mock_client.fetch_full_comments.return_value = []
+        mock_client.download_binaries.return_value = (0, 0)
+
+        mock_update_run = AsyncMock()
+        # index_prepared raises → exactly one index failure recorded.
+        mock_index = AsyncMock(side_effect=RuntimeError("index boom"))
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new_callable=AsyncMock, return_value=_ACTIVE_CRED),
+            patch("app.features.zsxq_ingest.service._db.get_state", new_callable=AsyncMock, return_value={}),
+            patch("app.features.zsxq_ingest.service._db.upload_binary", new_callable=AsyncMock, return_value={"key": "raw/key", "url": "https://x"}),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service._db.update_run", mock_update_run),
+            patch("app.features.zsxq_ingest.service._db.update_state", new_callable=AsyncMock),
+            patch("app.features.zsxq_ingest.service.normalize_topic", return_value=_NORM_RECORD),
+            patch("app.features.zsxq_ingest.service.prepare_records", return_value=([_PREPARED], Counter())),
+            patch("app.features.zsxq_ingest.service.audit_distribution", return_value={"total": 1, "selected": 1, "dropped": {}}),
+            patch("app.features.zsxq_ingest.service.index_prepared", mock_index),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=mock_client),
+            patch("app.features.vector.service.search", new_callable=AsyncMock, return_value=_fake_search_resp([])),
+            patch("app.features.vector.models.VectorSearchRequest", MagicMock()),
+            patch("app.features.vector.models.VectorSearchFilters", MagicMock()),
+        ):
+            result = await svc.run_ingest(GROUP, run_id=RUN_ID)
+
+        # The finalize update_run call must bridge index_failed → the `failed` column.
+        final_kwargs = mock_update_run.call_args[1]
+        assert final_kwargs.get("failed") == result["index_failed"]
+        assert final_kwargs["failed"] == 1
+
+    @pytest.mark.asyncio
     async def test_ledger_upserted_per_topic(self):
         mock_client = MagicMock()
         mock_client.iter_topics.return_value = _iter_gen([_RAW_TOPIC])
