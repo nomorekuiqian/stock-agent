@@ -718,6 +718,14 @@ async def run_ingest(
             status=final_status,
             finished_at=now_iso,
             report={**audit, **counters},
+            # Bridge two report/counters keys to their differently-named run-row
+            # columns (the edge-function update_run allowlist drops anything else):
+            #   topics_seen  ← topics_crawled (== topics_new) — the 抓取 metric
+            #   failed       ← index_failed                   — the 失败 metric
+            # Without these the columns keep their 0 default and the job-monitor
+            # shows a contradictory "抓取 0 · 入库 N" / masks real index failures.
+            topics_seen=topics_seen,
+            failed=index_failed_count,
             **counters,
         )
     except Exception as exc:  # noqa: BLE001
