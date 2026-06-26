@@ -295,6 +295,53 @@ async def test_list_runs_returns_empty_on_non_200(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# list_objects / download_object (S3 gateway — article backfill)
+# ---------------------------------------------------------------------------
+
+
+def _fake_s3(monkeypatch, client):
+    monkeypatch.setattr(zsxq_db, "_make_s3_client", lambda timeout: client)
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_ACCESS_KEY_ID", "k")
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_SECRET_ACCESS_KEY", "s")
+
+
+@pytest.mark.asyncio
+async def test_list_objects_paginates(monkeypatch):
+    client = MagicMock()
+    client.list_objects_v2.side_effect = [
+        {"Contents": [{"Key": "topics/a.json"}, {"Key": "topics/b.json"}],
+         "IsTruncated": True, "NextContinuationToken": "tok"},
+        {"Contents": [{"Key": "topics/c.json"}], "IsTruncated": False},
+    ]
+    _fake_s3(monkeypatch, client)
+
+    keys = await zsxq_db.list_objects("zsxq-archive", "topics/")
+    assert keys == ["topics/a.json", "topics/b.json", "topics/c.json"]
+    assert client.list_objects_v2.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_objects_requires_credential(monkeypatch):
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_ACCESS_KEY_ID", "")
+    monkeypatch.setattr(zsxq_db, "INSFORGE_S3_SECRET_ACCESS_KEY", "")
+    with pytest.raises(RuntimeError, match="no S3 storage credential"):
+        await zsxq_db.list_objects("zsxq-archive", "topics/")
+
+
+@pytest.mark.asyncio
+async def test_download_object_returns_bytes(monkeypatch):
+    client = MagicMock()
+    body = MagicMock()
+    body.read.return_value = b'{"topic_id": 1}'
+    client.get_object.return_value = {"Body": body}
+    _fake_s3(monkeypatch, client)
+
+    out = await zsxq_db.download_object("zsxq-archive", "topics/a.json")
+    assert out == b'{"topic_id": 1}'
+    client.get_object.assert_called_once_with(Bucket="zsxq-archive", Key="topics/a.json")
+
+
+# ---------------------------------------------------------------------------
 # upsert_ledger
 # ---------------------------------------------------------------------------
 

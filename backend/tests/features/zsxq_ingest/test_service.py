@@ -1059,3 +1059,90 @@ class TestLimitParam:
 
         assert result["status"] in ("done", "degraded")
         mock_index.assert_awaited()  # indexing ran — gate did NOT block
+
+
+# ---------------------------------------------------------------------------
+# backfill_articles
+# ---------------------------------------------------------------------------
+
+import json as _json  # noqa: E402
+
+_OWNER = 15555428815112
+
+
+def _archive(topic_id, *, article=True, text="预览片段…"):
+    talk = {"owner": {"user_id": _OWNER, "name": "潘大"}, "text": text}
+    if article:
+        talk["article"] = {"article_url": f"https://articles.zsxq.com/id_{topic_id}.html"}
+    return {
+        "topic_id": topic_id, "type": "talk",
+        "create_time": "2026-06-24T10:00:00.000+0800",
+        "talk": talk,
+    }
+
+
+class TestBackfillArticles:
+    @pytest.mark.asyncio
+    async def test_replaces_article_and_skips_nonarticle(self):
+        archives = {
+            "topics/zsxq/G/d/topic-art1.json": _json.dumps(_archive("art1", article=True)).encode(),
+            "topics/zsxq/G/d/topic-t2.json": _json.dumps(_archive("t2", article=False)).encode(),
+        }
+        client = MagicMock()
+        client.fetch_creator_ids.return_value = {_OWNER}
+        client.fetch_article_text.return_value = "完整文章正文，内容很长很长，足以入库。" * 5
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new=AsyncMock(return_value=_ACTIVE_CRED)),
+            patch("app.features.zsxq_ingest.service._db.list_objects", new=AsyncMock(return_value=list(archives))),
+            patch("app.features.zsxq_ingest.service._db.download_object", new=AsyncMock(side_effect=lambda b, k: archives[k])),
+            patch("app.features.zsxq_ingest.service._db.update_run", new=AsyncMock()),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new=AsyncMock()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=client),
+            patch("app.features.vector.service.delete_vector_source", new=AsyncMock()) as mock_del,
+            patch("app.features.zsxq_ingest.service.index_prepared", new=AsyncMock()) as mock_idx,
+        ):
+            result = await svc.backfill_articles("G", run_id="R")
+
+        assert result["status"] == "done"
+        assert result["scanned"] == 2
+        assert result["articles"] == 1            # only the article topic
+        assert result["backfilled"] == 1
+        mock_del.assert_awaited_once_with("zsxq_thread", "art1")  # old version dropped
+        mock_idx.assert_awaited_once()                            # full body re-indexed
+        assert client.fetch_article_text.call_count == 1          # non-article not fetched
+
+    @pytest.mark.asyncio
+    async def test_auth_failed_when_cookie_inactive(self):
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential",
+                  new=AsyncMock(return_value={"cookie": "x", "status": "cookie_expired"})),
+            patch("app.features.zsxq_ingest.service._db.update_run", new=AsyncMock()) as mock_update,
+        ):
+            result = await svc.backfill_articles("G", run_id="R")
+        assert result["status"] == "auth_failed"
+        assert mock_update.call_args[1]["status"] == "auth_failed"
+
+    @pytest.mark.asyncio
+    async def test_failed_fetch_leaves_old_doc_intact(self):
+        archives = {"topics/zsxq/G/d/topic-art1.json": _json.dumps(_archive("art1")).encode()}
+        client = MagicMock()
+        client.fetch_creator_ids.return_value = {_OWNER}
+        client.fetch_article_text.return_value = None  # fetch failed → keep truncated
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new=AsyncMock(return_value=_ACTIVE_CRED)),
+            patch("app.features.zsxq_ingest.service._db.list_objects", new=AsyncMock(return_value=list(archives))),
+            patch("app.features.zsxq_ingest.service._db.download_object", new=AsyncMock(side_effect=lambda b, k: archives[k])),
+            patch("app.features.zsxq_ingest.service._db.update_run", new=AsyncMock()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=client),
+            patch("app.features.vector.service.delete_vector_source", new=AsyncMock()) as mock_del,
+            patch("app.features.zsxq_ingest.service.index_prepared", new=AsyncMock()) as mock_idx,
+        ):
+            result = await svc.backfill_articles("G", run_id="R")
+
+        assert result["articles"] == 1
+        assert result["backfilled"] == 0
+        assert result["failed"] == 1
+        mock_del.assert_not_awaited()  # never delete without a ready replacement
+        mock_idx.assert_not_awaited()
