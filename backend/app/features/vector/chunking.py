@@ -54,6 +54,13 @@ def _sectionize_markdown(text: str) -> list[tuple[str | None, str]]:
     return [(title, "\n".join(parts).strip()) for title, parts in sections if "\n".join(parts).strip()]
 
 
+def _hard_split(text: str, max_chars: int, overlap_chars: int) -> list[str]:
+    """Slice an oversized block into <= max_chars pieces (with overlap)."""
+    step = max(1, max_chars - overlap_chars)
+    pieces = [text[start:start + max_chars].strip() for start in range(0, len(text), step)]
+    return [p for p in pieces if p]
+
+
 def _split_long_text(text: str, max_chars: int, overlap_chars: int) -> list[str]:
     if len(text) <= max_chars:
         return [text]
@@ -67,18 +74,20 @@ def _split_long_text(text: str, max_chars: int, overlap_chars: int) -> list[str]
         if len(candidate) <= max_chars:
             current = candidate
             continue
+        # candidate exceeds the budget — flush whatever we have first.
         if current:
             chunks.append(current)
-            tail = current[-overlap_chars:].strip()
-            current = f"{tail}\n\n{paragraph}".strip() if tail else paragraph
-        else:
-            # Single paragraph is too large; hard split.
-            start = 0
-            while start < len(paragraph):
-                end = start + max_chars
-                chunks.append(paragraph[start:end].strip())
-                start = max(end - overlap_chars, end)
             current = ""
+        # Place the paragraph. CRITICAL: an oversized paragraph MUST be hard
+        # split even when it arrives after accumulated content — otherwise it
+        # becomes a single >max_chars chunk that blows past the embedding model's
+        # token limit (dense CJK ~1 token/char) and the embed call fails.
+        if len(paragraph) <= max_chars:
+            current = paragraph
+        else:
+            pieces = _hard_split(paragraph, max_chars, overlap_chars)
+            chunks.extend(pieces[:-1])
+            current = pieces[-1] if pieces else ""
 
     if current:
         chunks.append(current)
