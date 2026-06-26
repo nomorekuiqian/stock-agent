@@ -670,6 +670,23 @@ class ZsxqClient:
             logger.warning("fetch_article_text: topic %s failed: %s", topic_id, exc)
             return None
 
+    def fetch_topic_by_id(self, topic_id: str) -> Optional[dict]:
+        """Fetch a single topic's detail via ``GET /topics/{id}``.
+
+        Used by the by-ids article backfill to reach topics that were indexed
+        from a local export and never archived to the bucket. Returns the topic
+        dict (carries ``talk.article`` for long-form posts) or ``None`` when the
+        topic is unavailable (deleted) or any error occurs — the caller counts
+        it as a skip and moves on.
+        """
+        url = f"{self.BASE_URL}/topics/{topic_id}"
+        try:
+            data = self._fetch_with_retry(url, {})
+            return (data or {}).get("topic")
+        except Exception as exc:  # noqa: BLE001 — a single bad/deleted topic must not abort the batch
+            logger.warning("fetch_topic_by_id: topic %s failed: %s", topic_id, exc)
+            return None
+
     # ------------------------------------------------------------------
     # Binary downloads
     # ------------------------------------------------------------------

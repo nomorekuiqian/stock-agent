@@ -122,3 +122,17 @@ async def test_backfill_creates_run_and_schedules_task():
     assert resp["limit"] == 3
     mock_create.assert_awaited_once_with(rt.GROUP, "backfill")
     assert len(bg.tasks) == 1   # background backfill scheduled
+
+
+@pytest.mark.asyncio
+async def test_backfill_by_ids_dispatches_with_source_ids():
+    with patch("app.features.zsxq_ingest.router.db.create_run", new_callable=AsyncMock,
+               return_value={"run_id": "rbi"}) as mock_create:
+        bg = BackgroundTasks()
+        resp = await rt.backfill(bg, limit=None, payload={"source_ids": ["a", "b", "c"]})
+
+    assert resp["accepted"] is True
+    assert resp["run_id"] == "rbi"
+    assert resp["mode"] == "by_ids(3)"   # routed to the by-ids path
+    mock_create.assert_awaited_once_with(rt.GROUP, "backfill")
+    assert len(bg.tasks) == 1
