@@ -779,6 +779,128 @@ async def run_ingest(
 
 
 # ---------------------------------------------------------------------------
+# Article backfill (one-time repair of truncated long-form posts)
+# ---------------------------------------------------------------------------
+
+
+async def backfill_articles(
+    group_id: str, *, run_id: str, limit: int | None = None
+) -> dict[str, Any]:
+    """Repair already-indexed article topics that were stored as truncated previews.
+
+    Targeted + light on cookie: reads the raw topic archives from the bucket
+    (NO timeline re-crawl) and, for each topic that is an *article* (has
+    ``talk.article``), fetches the full body, re-normalizes, and REPLACES the
+    indexed doc — ``delete_vector_source`` then ``index_prepared(force=True)`` —
+    so retrieval gets the full text instead of the ~600-char preview. The delete
+    happens only once a full replacement is prepared, so a failed fetch leaves
+    the existing (truncated) doc intact. Non-article topics are left untouched.
+
+    ``limit`` caps the number of articles *backfilled* (for a controlled test).
+    """
+    from app.features.vector.service import delete_vector_source
+    from app.features.zsxq_ingest.crawl import ZsxqClient
+
+    logger.info("backfill_articles: start run_id=%s group=%s limit=%s", run_id, group_id, limit)
+
+    cred = await _db.get_credential(group_id)
+    if not cred or cred.get("status") != "active":
+        kind = cred.get("status") if cred else "missing"
+        logger.warning("backfill_articles: credential not active (%s) run_id=%s", kind, run_id)
+        await _db.update_run(run_id, status="auth_failed", error_message="credential status=%s" % kind)
+        return {"status": "auth_failed", "error": "credential status=%s" % kind}
+
+    client = ZsxqClient(cookie=cred["cookie"], group_id=group_id)
+    try:
+        creator_ids = client.fetch_creator_ids()
+    except Exception as exc:  # noqa: BLE001
+        creator_ids = {int(OWNER_USER_ID)}
+        logger.warning("backfill_articles: fetch_creator_ids failed (%s) — owner-only", exc)
+
+    try:
+        keys = await _db.list_objects(BUCKET, f"topics/zsxq/{group_id}/")
+    except Exception as exc:  # noqa: BLE001
+        logger.error("backfill_articles: list_objects failed run_id=%s: %s", run_id, exc)
+        await _db.update_run(run_id, status="failed", error_message="list_objects: %s" % exc)
+        return {"status": "failed", "error": str(exc)}
+
+    scanned = articles = backfilled = dropped = failed = 0
+    for key in keys:
+        if not key.endswith(".json"):
+            continue
+        scanned += 1
+        try:
+            topic = json.loads(await _db.download_object(BUCKET, key))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("backfill_articles: download/parse failed key=%s: %s", key, exc)
+            failed += 1
+            continue
+
+        art = (topic.get("talk") or {}).get("article") or {}
+        if not (art.get("inline_article_url") or art.get("article_url")):
+            continue  # not an article — leave untouched
+        articles += 1
+        tid = str(topic.get("topic_id", ""))
+
+        try:
+            full = client.fetch_article_text(topic)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("backfill_articles: fetch_article_text failed topic=%s: %s", tid, exc)
+            full = None
+        if not full:
+            failed += 1
+            continue
+        topic.setdefault("talk", {})["full_article_text"] = full
+
+        try:
+            rec = normalize_topic(
+                topic, group_id=group_id, group_name=GROUP_NAME,
+                owner_user_id=int(OWNER_USER_ID), creator_ids=creator_ids,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("backfill_articles: normalize failed topic=%s: %s", tid, exc)
+            failed += 1
+            continue
+
+        prepared, _drop = prepare_records([rec], min_chars=0)
+        if not prepared:
+            dropped += 1  # ineligible (e.g. member) — leave existing doc as-is
+            continue
+
+        p = prepared[0]
+        try:
+            # Replace: drop the old (truncated) version, then index the full body.
+            await delete_vector_source("zsxq_thread", p.source_id)
+            await index_prepared(p, force=True, source_type="zsxq_thread")
+            backfilled += 1
+            await _db.upsert_ledger({
+                "group_id": group_id, "topic_id": p.source_id,
+                "last_run_id": run_id, "stage_indexed": "done",
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("backfill_articles: reindex failed topic=%s: %s", tid, exc)
+            failed += 1
+
+        if limit and backfilled >= limit:
+            logger.info("backfill_articles: hit limit=%d run_id=%s", limit, run_id)
+            break
+
+    report = {
+        "scanned": scanned, "articles": articles, "backfilled": backfilled,
+        "dropped": dropped, "failed": failed,
+    }
+    logger.info("backfill_articles: done run_id=%s %s", run_id, report)
+    try:
+        await _db.update_run(
+            run_id, status="done", finished_at=datetime.now(timezone.utc).isoformat(),
+            indexed=backfilled, failed=failed, report=report,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("backfill_articles: update_run failed run_id=%s: %s", run_id, exc)
+    return {"status": "done", **report}
+
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 

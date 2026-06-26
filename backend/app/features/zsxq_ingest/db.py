@@ -89,6 +89,47 @@ async def upload_binary(
     return {"key": key, "url": url_out}
 
 
+async def list_objects(bucket: str, prefix: str, *, timeout: float = 60.0) -> list[str]:
+    """List all object keys under *prefix* via the S3 gateway (paginated).
+
+    Used by the article backfill to enumerate raw topic archives without a
+    timeline re-crawl. Same least-privilege S3 key as ``upload_binary``.
+    """
+    if not (INSFORGE_S3_ACCESS_KEY_ID and INSFORGE_S3_SECRET_ACCESS_KEY):
+        raise RuntimeError("list_objects: no S3 storage credential configured")
+
+    def _list() -> list[str]:
+        client = _make_s3_client(timeout)
+        keys: list[str] = []
+        token: str | None = None
+        while True:
+            kwargs: dict[str, Any] = {"Bucket": bucket, "Prefix": prefix, "MaxKeys": 1000}
+            if token:
+                kwargs["ContinuationToken"] = token
+            resp = client.list_objects_v2(**kwargs)
+            keys.extend(obj["Key"] for obj in (resp.get("Contents") or []))
+            if resp.get("IsTruncated"):
+                token = resp.get("NextContinuationToken")
+            else:
+                break
+        return keys
+
+    return await asyncio.to_thread(_list)
+
+
+async def download_object(bucket: str, key: str, *, timeout: float = 60.0) -> bytes:
+    """Download an object's bytes via the S3 gateway."""
+    if not (INSFORGE_S3_ACCESS_KEY_ID and INSFORGE_S3_SECRET_ACCESS_KEY):
+        raise RuntimeError("download_object: no S3 storage credential configured")
+
+    def _get() -> bytes:
+        client = _make_s3_client(timeout)
+        resp = client.get_object(Bucket=bucket, Key=key)
+        return resp["Body"].read()
+
+    return await asyncio.to_thread(_get)
+
+
 def internal_headers() -> dict | None:
     if not EDGE_FUNCTION_SECRET:
         return None

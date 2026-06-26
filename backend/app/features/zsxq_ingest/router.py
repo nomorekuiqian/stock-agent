@@ -104,6 +104,38 @@ async def ingest(background_tasks: BackgroundTasks, full: bool = False, limit: i
     return {"success": True, "accepted": True, "run_id": run_id, "limit": limit}
 
 
+def _run_backfill_bg(group_id: str, run_id: str, limit: int | None) -> None:
+    """Sync threadpool wrapper for the article backfill (same loop pattern as ingest)."""
+    import asyncio
+
+    from app.core.database import get_insforge_service
+
+    async def _main() -> None:
+        try:
+            await service.backfill_articles(group_id, run_id=run_id, limit=limit)
+        finally:
+            await get_insforge_service().aclose_current_loop()
+
+    asyncio.run(_main())
+
+
+@router.post("/backfill", dependencies=[Depends(verify_cron_secret)])
+async def backfill(background_tasks: BackgroundTasks, limit: int | None = None):
+    """Backfill full article bodies for already-archived article topics.
+
+    Targeted, no timeline re-crawl: reads raw archives, re-fetches only article
+    posts, and replaces their truncated docs with the full body. ``limit=N``
+    caps how many articles are backfilled (controlled test). Creates a
+    ``backfill`` run that shows up in the job monitor; while it runs, scheduled
+    incrementals skip (the concurrency guard sees a run in progress).
+    """
+    run = await db.create_run(GROUP, "backfill")
+    run_id = run["run_id"]
+    background_tasks.add_task(_run_backfill_bg, GROUP, run_id, limit)
+    logger.info("zsxq backfill accepted: run_id=%s limit=%s", run_id, limit)
+    return {"success": True, "accepted": True, "run_id": run_id, "limit": limit}
+
+
 @router.get("/runs/{run_id}", dependencies=[Depends(verify_cron_secret)])
 async def get_run(run_id: str):
     """Return the current state of an ingest run."""

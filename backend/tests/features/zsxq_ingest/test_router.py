@@ -108,3 +108,17 @@ async def test_guard_degrades_open_on_read_failure():
 
     assert resp.get("skipped") is not True
     mock_create.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_backfill_creates_run_and_schedules_task():
+    with patch("app.features.zsxq_ingest.router.db.create_run", new_callable=AsyncMock,
+               return_value={"run_id": "rb"}) as mock_create:
+        bg = BackgroundTasks()
+        resp = await rt.backfill(bg, limit=3)
+
+    assert resp["accepted"] is True
+    assert resp["run_id"] == "rb"
+    assert resp["limit"] == 3
+    mock_create.assert_awaited_once_with(rt.GROUP, "backfill")
+    assert len(bg.tasks) == 1   # background backfill scheduled
