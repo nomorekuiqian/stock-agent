@@ -123,3 +123,22 @@ def test_fetch_returns_none_on_empty_extraction():
     c = _make_client()
     c._http = MagicMock(); c._http.get.return_value = _resp(200, "<html><body></body></html>")
     assert c.fetch_article_text(_article_topic(article_url="u")) is None
+
+
+# ---------------------------------------------------------------------------
+# fetch_topic_by_id (by-ids backfill source)
+# ---------------------------------------------------------------------------
+
+def test_fetch_topic_by_id_returns_topic():
+    c = _make_client()
+    c._fetch_with_retry = MagicMock(return_value={"topic": {"topic_id": 7, "talk": {"article": {}}}})
+    out = c.fetch_topic_by_id("7")
+    assert out == {"topic_id": 7, "talk": {"article": {}}}
+    assert c._fetch_with_retry.call_args[0][0].endswith("/topics/7")
+
+
+def test_fetch_topic_by_id_none_on_error():
+    # A deleted/inaccessible topic (any exception) → None, never aborts the batch.
+    c = _make_client()
+    c._fetch_with_retry = MagicMock(side_effect=RuntimeError("topic gone / 403"))
+    assert c.fetch_topic_by_id("7") is None

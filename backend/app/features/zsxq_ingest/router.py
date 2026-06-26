@@ -8,7 +8,7 @@ Endpoints:
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Body, Depends
 
 from app.core.deps import verify_admin_user, verify_cron_secret
 from app.core.logging import get_logger
@@ -119,21 +119,50 @@ def _run_backfill_bg(group_id: str, run_id: str, limit: int | None) -> None:
     asyncio.run(_main())
 
 
-@router.post("/backfill", dependencies=[Depends(verify_cron_secret)])
-async def backfill(background_tasks: BackgroundTasks, limit: int | None = None):
-    """Backfill full article bodies for already-archived article topics.
+def _run_backfill_ids_bg(group_id: str, run_id: str, source_ids: list[str], limit: int | None) -> None:
+    """Sync threadpool wrapper for the by-ids article backfill."""
+    import asyncio
 
-    Targeted, no timeline re-crawl: reads raw archives, re-fetches only article
-    posts, and replaces their truncated docs with the full body. ``limit=N``
-    caps how many articles are backfilled (controlled test). Creates a
-    ``backfill`` run that shows up in the job monitor; while it runs, scheduled
-    incrementals skip (the concurrency guard sees a run in progress).
+    from app.core.database import get_insforge_service
+
+    async def _main() -> None:
+        try:
+            await service.backfill_articles_by_ids(
+                group_id, run_id=run_id, source_ids=source_ids, limit=limit
+            )
+        finally:
+            await get_insforge_service().aclose_current_loop()
+
+    asyncio.run(_main())
+
+
+@router.post("/backfill", dependencies=[Depends(verify_cron_secret)])
+async def backfill(
+    background_tasks: BackgroundTasks,
+    limit: int | None = None,
+    payload: dict | None = Body(default=None),
+):
+    """Backfill full article bodies for article topics (repairs truncated previews).
+
+    - Default (no body): reads raw bucket archives, re-fetches only article posts.
+    - Body ``{"source_ids": [...]}``: fetches those topics by id from the API —
+      use for topics indexed from a local export (never archived).
+
+    ``limit=N`` caps how many articles are backfilled (controlled test). Creates a
+    ``backfill`` run in the job monitor; while it runs, scheduled incrementals skip
+    (the concurrency guard sees a run in progress).
     """
+    source_ids = (payload.get("source_ids") if isinstance(payload, dict) else None) or None
     run = await db.create_run(GROUP, "backfill")
     run_id = run["run_id"]
-    background_tasks.add_task(_run_backfill_bg, GROUP, run_id, limit)
-    logger.info("zsxq backfill accepted: run_id=%s limit=%s", run_id, limit)
-    return {"success": True, "accepted": True, "run_id": run_id, "limit": limit}
+    if source_ids:
+        background_tasks.add_task(_run_backfill_ids_bg, GROUP, run_id, [str(s) for s in source_ids], limit)
+        mode = "by_ids(%d)" % len(source_ids)
+    else:
+        background_tasks.add_task(_run_backfill_bg, GROUP, run_id, limit)
+        mode = "archive"
+    logger.info("zsxq backfill accepted: run_id=%s mode=%s limit=%s", run_id, mode, limit)
+    return {"success": True, "accepted": True, "run_id": run_id, "mode": mode, "limit": limit}
 
 
 @router.get("/runs/{run_id}", dependencies=[Depends(verify_cron_secret)])

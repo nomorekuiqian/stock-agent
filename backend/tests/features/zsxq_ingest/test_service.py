@@ -1094,7 +1094,7 @@ class TestBackfillArticles:
 
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new=AsyncMock(return_value=_ACTIVE_CRED)),
-            patch("app.features.zsxq_ingest.service._db.list_objects", new=AsyncMock(return_value=list(archives))),
+            patch("app.features.zsxq_ingest.service._db.list_objects", new=AsyncMock(side_effect=[list(archives), []])),
             patch("app.features.zsxq_ingest.service._db.download_object", new=AsyncMock(side_effect=lambda b, k: archives[k])),
             patch("app.features.zsxq_ingest.service._db.update_run", new=AsyncMock()),
             patch("app.features.zsxq_ingest.service._db.upsert_ledger", new=AsyncMock()),
@@ -1132,7 +1132,7 @@ class TestBackfillArticles:
 
         with (
             patch("app.features.zsxq_ingest.service._db.get_credential", new=AsyncMock(return_value=_ACTIVE_CRED)),
-            patch("app.features.zsxq_ingest.service._db.list_objects", new=AsyncMock(return_value=list(archives))),
+            patch("app.features.zsxq_ingest.service._db.list_objects", new=AsyncMock(side_effect=[list(archives), []])),
             patch("app.features.zsxq_ingest.service._db.download_object", new=AsyncMock(side_effect=lambda b, k: archives[k])),
             patch("app.features.zsxq_ingest.service._db.update_run", new=AsyncMock()),
             patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=client),
@@ -1145,4 +1145,52 @@ class TestBackfillArticles:
         assert result["backfilled"] == 0
         assert result["failed"] == 1
         mock_del.assert_not_awaited()  # never delete without a ready replacement
+        mock_idx.assert_not_awaited()
+
+
+class TestBackfillByIds:
+    @pytest.mark.asyncio
+    async def test_replaces_article_via_api_and_skips_nonarticle(self):
+        client = MagicMock()
+        client.fetch_creator_ids.return_value = {_OWNER}
+        client.fetch_article_text.return_value = "完整文章正文，内容很长很长，足以入库。" * 5
+        topics = {"a1": _archive("a1", article=True), "t2": _archive("t2", article=False)}
+        client.fetch_topic_by_id.side_effect = lambda tid: topics.get(tid)
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new=AsyncMock(return_value=_ACTIVE_CRED)),
+            patch("app.features.zsxq_ingest.service._db.update_run", new=AsyncMock()),
+            patch("app.features.zsxq_ingest.service._db.upsert_ledger", new=AsyncMock()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=client),
+            patch("app.features.vector.service.delete_vector_source", new=AsyncMock()) as mock_del,
+            patch("app.features.zsxq_ingest.service.index_prepared", new=AsyncMock()) as mock_idx,
+        ):
+            result = await svc.backfill_articles_by_ids("G", run_id="R", source_ids=["a1", "t2"])
+
+        assert result["status"] == "done"
+        assert result["scanned"] == 2
+        assert result["articles"] == 1                # only a1 is an article
+        assert result["backfilled"] == 1
+        mock_del.assert_awaited_once_with("zsxq_thread", "a1")
+        mock_idx.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_deleted_topic_counted_failed_not_crash(self):
+        client = MagicMock()
+        client.fetch_creator_ids.return_value = {_OWNER}
+        client.fetch_topic_by_id.return_value = None  # deleted / unavailable
+
+        with (
+            patch("app.features.zsxq_ingest.service._db.get_credential", new=AsyncMock(return_value=_ACTIVE_CRED)),
+            patch("app.features.zsxq_ingest.service._db.update_run", new=AsyncMock()),
+            patch("app.features.zsxq_ingest.crawl.ZsxqClient", return_value=client),
+            patch("app.features.vector.service.delete_vector_source", new=AsyncMock()) as mock_del,
+            patch("app.features.zsxq_ingest.service.index_prepared", new=AsyncMock()) as mock_idx,
+        ):
+            result = await svc.backfill_articles_by_ids("G", run_id="R", source_ids=["gone1", "gone2"])
+
+        assert result["scanned"] == 2
+        assert result["failed"] == 2
+        assert result["backfilled"] == 0
+        mock_del.assert_not_awaited()
         mock_idx.assert_not_awaited()
