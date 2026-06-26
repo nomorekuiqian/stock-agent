@@ -304,6 +304,10 @@ def normalize_topic(
     raw_talk_text = talk.get("text") or ""
     raw_question_text = (t.get("question") or {}).get("text") or ""
     raw_answer_text = (t.get("answer") or {}).get("text") or ""
+    # Long-form "article" posts: the crawler fetches the full body into
+    # full_article_text (already plain text). talk.text is only a truncated
+    # preview ending in "…", so prefer the full body when present.
+    full_article_text = (talk.get("full_article_text") or "").strip()
 
     talk_text = clean_text(raw_talk_text)
     question_text = clean_text(raw_question_text)
@@ -313,7 +317,7 @@ def normalize_topic(
     if ttype == "q&a":
         body = answer_text or question_text
     else:
-        body = talk_text
+        body = full_article_text or talk_text
 
     # ---- Tags ------------------------------------------------------------
     # Tags are inline <e type="hashtag"> in raw text (not a separate field)

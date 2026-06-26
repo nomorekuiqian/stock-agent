@@ -22,6 +22,7 @@ Key mechanics:
 """
 from __future__ import annotations
 
+import html
 import random
 import re
 import time
@@ -33,6 +34,58 @@ import httpx
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Article HTML → plain text
+# ---------------------------------------------------------------------------
+
+_SCRIPT_STYLE_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.S | re.I)
+_BLOCK_CLOSE_RE = re.compile(r"</(p|div|h[1-6]|li|tr|section|article|blockquote)\s*>", re.I)
+_BR_RE = re.compile(r"<br\s*/?>", re.I)
+_ANY_TAG_RE = re.compile(r"<[^>]+>")
+
+# Trailing page chrome on zsxq article pages (join-group CTA etc.) — not content.
+_ARTICLE_CHROME_LINES = {"知识星球", "扫码加入星球", "查看更多优质内容", "查看更多精彩内容"}
+
+
+def _extract_article_text(html_str: str) -> str:
+    """Extract readable plain text from a zsxq article HTML page.
+
+    zsxq long-form posts ("articles") keep their full body in a separate HTML
+    document (``talk.article.article_url``); the topic feed only carries a
+    truncated ``talk.text`` preview. Strips scripts/styles/tags and preserves
+    paragraph breaks so the full body can be indexed.
+    """
+    if not html_str:
+        return ""
+    s = _SCRIPT_STYLE_RE.sub("", html_str)
+    s = _BLOCK_CLOSE_RE.sub("\n", s)
+    s = _BR_RE.sub("\n", s)
+    s = _ANY_TAG_RE.sub("", s)
+    s = html.unescape(s)
+    out: list[str] = []
+    prev_blank = False
+    for raw_line in s.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            if out and not prev_blank:
+                out.append("")
+            prev_blank = True
+        else:
+            out.append(line)
+            prev_blank = False
+    # zsxq article pages repeat the title line; drop the leading duplicate(s).
+    while len(out) >= 2 and out[0] and out[0] == out[1]:
+        out.pop(0)
+    # Cut the trailing join-group CTA (a "…/join_group.html…" link) and any
+    # adjacent page-chrome lines so only article body is indexed.
+    for i, line in enumerate(out):
+        if "join_group" in line and "zsxq.com" in line:
+            out = out[:i]
+            break
+    while out and (out[-1] == "" or out[-1] in _ARTICLE_CHROME_LINES):
+        out.pop()
+    return "\n".join(out).strip()
 
 # ---------------------------------------------------------------------------
 # Retry constants — ported from zsxq_retry.py
@@ -561,6 +614,61 @@ class ZsxqClient:
                 break
 
         return all_comments
+
+    # ------------------------------------------------------------------
+    # Article body (long-form posts)
+    # ------------------------------------------------------------------
+
+    def _article_headers(self) -> dict:
+        """Headers for fetching an article HTML page (articles.zsxq.com)."""
+        return {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "Cookie": self.cookie,
+            "Referer": "https://wx.zsxq.com/",
+            "User-Agent": random.choice(self._USER_AGENTS),
+        }
+
+    def fetch_article_text(self, topic: dict) -> Optional[str]:
+        """Fetch the full body of an "article" (long-form) topic.
+
+        zsxq stores long posts as a separate article: the topic feed's
+        ``talk.text`` is only a truncated preview ending in "…", and the full
+        body lives at ``talk.article.{inline_article_url,article_url}``. When an
+        article is present, GET it (cookie-authed) and return the extracted
+        plain-text body.
+
+        Returns ``None`` when there is no article, on non-200, on empty
+        extraction, or on any exception — the caller then keeps the preview.
+        """
+        article = (topic.get("talk") or {}).get("article") or {}
+        url = article.get("inline_article_url") or article.get("article_url")
+        if not url:
+            return None
+
+        topic_id = topic.get("topic_id")
+        try:
+            resp = self._http.get(url, headers=self._article_headers(), timeout=20)
+            if resp.status_code != 200:
+                logger.warning(
+                    "fetch_article_text: topic %s HTTP %d", topic_id, resp.status_code
+                )
+                return None
+            text = _extract_article_text(resp.text)
+            # An extra cross-host request — pace it like a page fetch (anti-ban).
+            self._smart_delay()
+            if not text:
+                logger.warning("fetch_article_text: topic %s empty extraction", topic_id)
+                return None
+            logger.info(
+                "fetch_article_text: topic %s fetched full body (%d chars)",
+                topic_id,
+                len(text),
+            )
+            return text
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("fetch_article_text: topic %s failed: %s", topic_id, exc)
+            return None
 
     # ------------------------------------------------------------------
     # Binary downloads

@@ -234,6 +234,7 @@ async def run_ingest(
     topics_new = 0
     topics_seen = 0
     comments_fetched = 0
+    articles_fetched = 0
     files_downloaded = 0
     files_failed = 0
     newest_create_time: str | None = None
@@ -338,6 +339,21 @@ async def run_ingest(
                     "run_ingest: fetch_full_comments failed topic=%s: %s", tid, exc
                 )
                 stage_comments = "failed"
+
+        # Article body — long-form posts keep their full text in a separate
+        # article; topic feed's talk.text is only a truncated preview. Fetch the
+        # full body so the RAG indexes the whole post, not the first ~600 chars.
+        _article = (topic.get("talk") or {}).get("article") or {}
+        if _article.get("inline_article_url") or _article.get("article_url"):
+            try:
+                _full_article = client.fetch_article_text(topic)
+                if _full_article:
+                    topic.setdefault("talk", {})["full_article_text"] = _full_article
+                    articles_fetched += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest: fetch_article_text failed topic=%s: %s", tid, exc
+                )
 
         # Binaries
         stage_binaries = "skipped"
@@ -704,6 +720,7 @@ async def run_ingest(
     counters = {
         "topics_crawled": topics_new,
         "comments_fetched": comments_fetched,
+        "articles_fetched": articles_fetched,
         "files_downloaded": files_downloaded,
         "files_failed": files_failed,
         "normalized": len(records),
