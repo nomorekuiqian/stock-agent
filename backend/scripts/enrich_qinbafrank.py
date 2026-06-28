@@ -16,7 +16,6 @@ if str(root) not in sys.path:
     sys.path.insert(0, str(root))
 
 from dotenv import load_dotenv
-load_dotenv(root / 'env', override=True)
 load_dotenv(root / '.env', override=False)
 
 from app.core.database import get_insforge_service

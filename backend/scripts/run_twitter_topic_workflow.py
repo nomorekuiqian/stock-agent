@@ -19,7 +19,6 @@ def _load_env() -> Path:
     root = Path(__file__).resolve().parents[1]
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
-    load_dotenv(root / "env", override=True)
     load_dotenv(root / ".env", override=False)
     return root
 

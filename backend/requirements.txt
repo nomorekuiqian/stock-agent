@@ -4,6 +4,15 @@ posthog>=3.0.0
 google-adk
 google-cloud-storage
 google-genai
+langfuse>=4.0.0
+openinference-instrumentation-google-adk
+openinference-instrumentation-google-genai
+# google-adk 2.2.x currently caps OpenTelemetry at 1.41.1. Keep the shared
+# OTel stack pinned so Langfuse/OpenInference installs do not float past ADK.
+opentelemetry-api==1.41.1
+opentelemetry-sdk==1.41.1
+opentelemetry-exporter-otlp-proto-http==1.41.1
+opentelemetry-instrumentation==0.62b1
 httpx
 itsdangerous
 openai

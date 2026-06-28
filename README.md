@@ -149,7 +149,7 @@ git clone <repo-url>
 
 后端需要 `backend/.env`，前端需要 `frontend/.env.local`。找 Golden 要环境变量。
 
-关键变量：`GOOGLE_API_KEY`（AI）、`FMP_API_KEY`（金融数据）、`FRED_API_KEY`（宏观）、`STRIPE_SECRET_KEY`（支付）、`RESEND_API_KEY`（邮件）、`INSFORGE_*`（数据库）。完整定义见 `backend/app/core/config.py`。
+关键变量：`GOOGLE_API_KEY`（AI）、`FMP_API_KEY`（金融数据）、`FRED_API_KEY`（宏观）、`STRIPE_SECRET_KEY`（支付）、`RESEND_API_KEY`（邮件）、`INSFORGE_*`（数据库）。可选观测变量：`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`。完整定义见 `backend/app/core/config.py` / `backend/.env.example`。
 
 ### 启动
 
@@ -180,7 +180,7 @@ pytest -v --run-generate          # 包含 AI 生成测试（慢）
 
 ### 开发规范
 
-- **AI Agent**: 使用 Google ADK，默认模型 `gemini-3.5-flash`
+- **AI Agent**: 使用 Google ADK，交互式 Research/KOL 默认模型 `gemini-3.1-flash-lite`，可通过 `RESEARCH_AGENT_MODEL` / `KOL_RESEARCH_MODEL` 覆盖
 - **日志**: `get_logger(__name__)`，禁止 `print()`
 - **认证**: 用户端点 `Depends(verify_user_token)`，定时任务 `Depends(verify_cron_secret)`
 - **Git Hooks**: pre-commit 自动运行 ESLint + tsc（前端）和 AST 检查（后端）
