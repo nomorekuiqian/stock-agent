@@ -77,6 +77,7 @@ from app.features.screener.research_agent import (
     get_report_by_date,
     list_recent_reports,
 )
+from app.shared.agent_errors import agent_error_message, classify_agent_error
 from app.shared.data_tools.briefs import brief_tools
 from app.shared.data_tools.research_tools import get_forward_valuation, get_technical_analysis
 from app.shared.kol_persona import (
@@ -98,7 +99,7 @@ _GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if _GOOGLE_API_KEY and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = _GOOGLE_API_KEY
 
-MODEL = "gemini-3.5-flash"
+MODEL = os.getenv("KOL_RESEARCH_MODEL", "gemini-3.1-flash-lite")
 FOLLOW_UP_MODEL = "gemini-3.1-flash-lite"
 APP_NAME = "kol_research_agent"
 FOLLOW_UP_APP_NAME = "kol_follow_up_options"
@@ -1607,13 +1608,7 @@ async def stream_kol_research(
                 }
                 completed_normally = True
                 return
-            err_text = str(err).lower()
-            if "token" in err_text or "context" in err_text or "too long" in err_text:
-                code = "context_too_long"
-            elif "schema" in err_text or "validation" in err_text or "json" in err_text:
-                code = "model_schema_error"
-            else:
-                code = "agent_error"
+            code = classify_agent_error(err)
 
             # Phase 2.3 — automatic retry once on context_too_long with the
             # history aggressively shrunk. The first attempt already used the
@@ -1651,9 +1646,10 @@ async def stream_kol_research(
                 await task
                 if agent_error:
                     err = agent_error[0]
-                    logger.exception(
+                    logger.error(
                         "kol chat retry failed: persona=%s err=%s",
                         persona_username, err,
+                        exc_info=err,
                     )
                     if runtime_turn is not None:
                         await append_turn_events(
@@ -1679,11 +1675,12 @@ async def stream_kol_research(
                     return
                 # Retry succeeded — fall through to the success path.
             else:
-                # logger.exception captures the full traceback — search log for
+                # exc_info captures the full traceback — search log for
                 # "kol chat failed" to find the exact stack on a failing turn.
-                logger.exception(
+                logger.error(
                     "kol chat failed: persona=%s elapsed=%.1fs code=%s err=%s",
                     persona_username, elapsed, code, err,
+                    exc_info=err,
                 )
                 if runtime_turn is not None:
                     await append_turn_events(
@@ -1696,14 +1693,14 @@ async def stream_kol_research(
                             error_event(
                                 code=code,
                                 stage="model_run",
-                                message="AI 助手出了点问题，请再试一次",
+                                message=agent_error_message(code),
                             )
                         ],
                     )
                 yield {
                     "type": "error",
                     "code": code,
-                    "error": "AI 助手出了点问题，请再试一次",
+                    "error": agent_error_message(code),
                 }
                 completed_normally = True
                 return

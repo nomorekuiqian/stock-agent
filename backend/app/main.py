@@ -34,6 +34,12 @@ logger = get_logger(__name__)
 from app.core.email_guard import install as install_email_guard
 install_email_guard()
 
+# --- Langfuse observability ---
+# Configure before importing ADK/GenAI feature modules so OpenInference can
+# instrument those libraries at import/startup time.
+from app.core.langfuse import configure_langfuse
+configure_langfuse()
+
 # --- Market Lens MCP (Streamable HTTP sub-app, mounted at /frank/mcp/) ---
 from contextlib import asynccontextmanager
 
@@ -325,6 +331,11 @@ async def _shutdown():
         shutdown_posthog()
     except Exception as e:
         logger.warning("Error shutting down PostHog: %s", e)
+    try:
+        from app.core.langfuse import flush_langfuse
+        flush_langfuse()
+    except Exception as e:
+        logger.warning("Error flushing Langfuse: %s", e)
     try:
         from app.core.database import get_insforge_service
         await get_insforge_service().close()

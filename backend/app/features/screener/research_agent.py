@@ -13,6 +13,8 @@ Layered tool architecture:
 import asyncio
 import contextvars
 import json
+import os
+import re
 import time
 from datetime import date
 from typing import Any, Dict, List, Optional
@@ -40,11 +42,12 @@ from app.features.screener.agent import (
     get_field_distribution,
     list_available_sectors,
 )
+from app.shared.agent_errors import agent_error_message, classify_agent_error
 from app.shared.data_tools.research_tools import research_data_tools
 from app.shared.llm_metering import meter
 from app.shared.llm_output import CoerceNoneToDefaultsMixin
 
-RESEARCH_MODEL_NAME = "gemini-3.5-flash"
+RESEARCH_MODEL_NAME = os.getenv("RESEARCH_AGENT_MODEL", "gemini-3.1-flash-lite")
 RESEARCH_MODEL = RESEARCH_MODEL_NAME
 # Keep Gemini thinking at the lowest level for default research chat. The
 # frontend can still render thought summaries when ADK emits them.
@@ -56,6 +59,78 @@ _RESEARCH_GENERATE_CONTENT_CONFIG = genai_types.GenerateContentConfig(
 )
 
 logger = get_logger(__name__)
+
+
+class _JsonStringFieldDelta:
+    """Extract one JSON string field from streamed JSON fragments."""
+
+    def __init__(self, field_name: str):
+        self._field_re = re.compile(r'"%s"\s*:' % re.escape(field_name))
+        self._search = ""
+        self._in_value = False
+        self._done = False
+        self._raw_value = ""
+        self._emitted_len = 0
+        self._escape = False
+
+    def feed(self, chunk: str) -> str:
+        if self._done or not chunk:
+            return ""
+
+        if not self._in_value:
+            self._search += chunk
+            match = self._field_re.search(self._search)
+            if not match:
+                self._search = self._search[-64:]
+                return ""
+            idx = match.end()
+            while idx < len(self._search) and self._search[idx].isspace():
+                idx += 1
+            if idx >= len(self._search):
+                self._search = self._search[match.start():]
+                return ""
+            if self._search[idx] != '"':
+                self._done = True
+                return ""
+            self._in_value = True
+            chunk = self._search[idx + 1:]
+            self._search = ""
+
+        for idx, ch in enumerate(chunk):
+            if self._escape:
+                self._raw_value += ch
+                self._escape = False
+                continue
+            if ch == "\\":
+                self._raw_value += ch
+                self._escape = True
+                continue
+            if ch == '"':
+                self._done = True
+                break
+            self._raw_value += ch
+
+        try:
+            decoded = json.loads('"%s"' % self._raw_value)
+        except json.JSONDecodeError:
+            return ""
+        delta = decoded[self._emitted_len:]
+        self._emitted_len = len(decoded)
+        return delta
+
+
+def _safe_context_reset(
+    var: contextvars.ContextVar,
+    token: contextvars.Token,
+    *,
+    name: str,
+) -> None:
+    """Best-effort ContextVar cleanup for async generator disconnects."""
+
+    try:
+        var.reset(token)
+    except ValueError as exc:
+        logger.debug("research context reset skipped: name=%s err=%s", name, exc)
 
 # Pre-loaded recent daily reports (set in guide(), read by tools)
 _recent_reports: contextvars.ContextVar[list[dict]] = contextvars.ContextVar(
@@ -1265,9 +1340,13 @@ class ResearchAgent:
 
             return result
         finally:
-            _navigate_buffer.reset(token_nav)
-            _tool_started_at.reset(token_timers)
-            _google_search_calls.reset(token_google)
+            _safe_context_reset(_navigate_buffer, token_nav, name="_navigate_buffer")
+            _safe_context_reset(_tool_started_at, token_timers, name="_tool_started_at")
+            _safe_context_reset(
+                _google_search_calls,
+                token_google,
+                name="_google_search_calls",
+            )
 
     async def run_stream(
         self,
@@ -1327,6 +1406,7 @@ class ResearchAgent:
             # JSON content on separate channels, so the JSON body is buffered as
             # usual while thinking text streams through the SSE queue.
             run_config = RunConfig(streaming_mode=StreamingMode.SSE)
+            message_delta = _JsonStringFieldDelta("message")
 
             async def _run_agent():
                 try:
@@ -1355,7 +1435,15 @@ class ResearchAgent:
                                 continue
                             if not bool(getattr(part, "thought", False)):
                                 # Non-thought partials are JSON fragments of the
-                                # output schema — useless to render, drop them.
+                                # output schema. Stream only the human-facing
+                                # `message` field, not the raw JSON.
+                                delta = message_delta.feed(text)
+                                if delta:
+                                    queue.put_nowait({
+                                        "type": "message_delta",
+                                        "text": delta,
+                                    })
+                                    await asyncio.sleep(0)
                                 continue
                             queue.put_nowait({"type": "thinking", "text": text})
                             await asyncio.sleep(0)
@@ -1416,21 +1504,17 @@ class ResearchAgent:
                     parsed["navigate"] = auto_nav
             return parsed
 
-        def _classify(err: BaseException) -> str:
-            err_text = str(err).lower()
-            if "token" in err_text or "context" in err_text or "too long" in err_text:
-                return "context_too_long"
-            if "schema" in err_text or "validation" in err_text or "json" in err_text:
-                return "model_schema_error"
-            return "agent_error"
-
         try:
             async for event in _stream_once(prompt):
                 yield event
             err = run_state["error"]
             session_id = run_state["session_id"]
 
-            if err is not None and _classify(err) == "context_too_long" and retry_prompt_factory is not None:
+            if (
+                err is not None
+                and classify_agent_error(err) == "context_too_long"
+                and retry_prompt_factory is not None
+            ):
                 logger.warning(
                     "research stream context_too_long: retrying once with shrunk prompt"
                 )
@@ -1450,19 +1534,25 @@ class ResearchAgent:
                     session_id = run_state["session_id"]
 
             if err is not None:
-                if isinstance(err, asyncio.TimeoutError):
-                    logger.exception("Research stream timed out")
+                code = classify_agent_error(err)
+                if code == "agent_timeout":
+                    logger.error("Research stream timed out", exc_info=err)
                     yield {
                         "type": "error",
-                        "code": "agent_timeout",
-                        "message": "AI 助手思考时间太长了，请再试一次",
+                        "code": code,
+                        "message": agent_error_message(code),
                     }
                     return
-                logger.exception("Research stream error: %s", err)
+                logger.error(
+                    "Research stream error: code=%s err=%s",
+                    code,
+                    err,
+                    exc_info=err,
+                )
                 yield {
                     "type": "error",
-                    "code": _classify(err),
-                    "message": "AI 助手出了点问题，请再试一次",
+                    "code": code,
+                    "message": agent_error_message(code),
                 }
                 return
 
@@ -1472,10 +1562,14 @@ class ResearchAgent:
                 "parsed": parsed,
             }
         finally:
-            _sse_queue.reset(token_queue)
-            _navigate_buffer.reset(token_nav)
-            _tool_started_at.reset(token_timers)
-            _google_search_calls.reset(token_google)
+            _safe_context_reset(_sse_queue, token_queue, name="_sse_queue")
+            _safe_context_reset(_navigate_buffer, token_nav, name="_navigate_buffer")
+            _safe_context_reset(_tool_started_at, token_timers, name="_tool_started_at")
+            _safe_context_reset(
+                _google_search_calls,
+                token_google,
+                name="_google_search_calls",
+            )
             await _delete_session(active_session_id)
 
     async def assemble_prompt_context(

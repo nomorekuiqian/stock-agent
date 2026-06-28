@@ -3,14 +3,10 @@ Core configuration - environment variables and app settings.
 """
 
 import os
-from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
-_backend_env = Path(__file__).resolve().parents[2] / "env"
-if _backend_env.exists():
-    load_dotenv(_backend_env, override=False)
 
 # API Keys
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")

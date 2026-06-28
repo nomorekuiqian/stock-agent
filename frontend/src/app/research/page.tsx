@@ -250,6 +250,12 @@ function getAgentErrorMessage(event: {
   if (event.code === 'model_schema_error') {
     return 'AI 助手输出格式异常，请重新发送一次。';
   }
+  if (event.code === 'provider_unavailable') {
+    return event.message || event.error || '模型服务暂时繁忙或限流，请稍后再试一次。';
+  }
+  if (event.code === 'provider_auth_error') {
+    return event.message || event.error || 'AI 模型服务鉴权失败，请检查后端模型配置。';
+  }
   if (event.code === 'agent_setup_error') {
     return 'AI 助手启动失败，请检查后端日志后再试一次。';
   }
@@ -1689,6 +1695,10 @@ export function ResearchWorkspace({
           } else if (event.type === 'tool_call_end') {
             // Don't dispatch end — let the description stay visible.
             // It gets replaced by the next tool_call_start or cleared by RECEIVE_RESPONSE.
+          } else if (event.type === 'message_delta' && event.text) {
+            dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text, sessionId: conversationIdForTurn, turnId });
+          } else if (event.type === 'thinking' && event.text) {
+            dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text, sessionId: conversationIdForTurn, turnId });
           } else if (event.type === 'done' && event.result) {
             streamResult = event.result as ResearchResult;
           } else if (event.type === 'error') {

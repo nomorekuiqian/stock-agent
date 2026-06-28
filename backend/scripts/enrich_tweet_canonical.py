@@ -36,7 +36,6 @@ def _bootstrap() -> Path:
         sys.path.insert(0, str(root))
     from dotenv import load_dotenv
 
-    load_dotenv(root / "env", override=True)
     load_dotenv(root / ".env", override=False)
     return root
 

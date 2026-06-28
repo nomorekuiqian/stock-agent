@@ -74,6 +74,12 @@ KOL_RESEARCH_AGENT_ID = "kol_research_agent"
 _PINNABLE_RUNTIME_AGENT_IDS = (RESEARCH_AGENT_ID, KOL_RESEARCH_AGENT_ID)
 
 
+def _stream_text_chunks(text: str, *, chunk_size: int = 12) -> list[str]:
+    if not text:
+        return []
+    return [text[idx:idx + chunk_size] for idx in range(0, len(text), chunk_size)]
+
+
 def _runtime_session_id(req: ResearchRequest) -> str | None:
     return req.session_id or req.conversation_id
 
@@ -1151,6 +1157,7 @@ async def research_chat_stream(
 
         tool_descriptions: dict[str, str] = {}
         tool_calls: list[dict[str, Any]] = []
+        message_delta_seen = False
 
         try:
             async for event in agent.run_stream(
@@ -1180,10 +1187,20 @@ async def research_chat_stream(
                         tool_calls=tool_calls,
                         latency_ms=latency_ms,
                     )
+                    if result.message and not message_delta_seen:
+                        for chunk in _stream_text_chunks(result.message):
+                            yield "data: %s\n\n" % _json.dumps(
+                                {"type": "message_delta", "text": chunk},
+                                ensure_ascii=False, default=str,
+                            )
+                            await asyncio.sleep(0.015)
                     yield "data: %s\n\n" % _json.dumps(
                         {"type": "done", "result": result.model_dump()},
                         ensure_ascii=False, default=str,
                     )
+                elif event.get("type") == "message_delta":
+                    message_delta_seen = True
+                    yield "data: %s\n\n" % _json.dumps(event, ensure_ascii=False, default=str)
                 elif event.get("type") == "tool_call_start":
                     tool_name = event.get("tool")
                     if tool_name:

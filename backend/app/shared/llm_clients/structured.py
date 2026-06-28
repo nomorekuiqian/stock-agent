@@ -8,6 +8,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from app.core.logging import get_logger
+from app.core.langfuse import start_langfuse_generation, update_observation
 from app.shared.llm_clients.deepseek import create_chat_completion
 from app.shared.llm_metering import record_usage
 
@@ -41,6 +42,25 @@ def _usage(response: dict[str, Any]) -> dict[str, Any]:
         "prompt_cache_hit_tokens": usage.get("prompt_cache_hit_tokens"),
         "prompt_cache_miss_tokens": usage.get("prompt_cache_miss_tokens"),
     }
+
+
+def _trace_messages(
+    messages: list[dict[str, str]],
+    *,
+    max_content_chars: int = 4000,
+) -> list[dict[str, str]]:
+    traceable: list[dict[str, str]] = []
+    for message in messages:
+        content = str(message.get("content") or "")
+        if len(content) > max_content_chars:
+            content = content[:max_content_chars] + "...[truncated]"
+        traceable.append(
+            {
+                "role": str(message.get("role") or ""),
+                "content": content,
+            }
+        )
+    return traceable
 
 
 def _record_deepseek_usage(
@@ -119,61 +139,98 @@ async def generate_structured_json(
     last_error: Exception | None = None
     last_text = ""
     for attempt in range(retries + 1):
-        response = await create_chat_completion(
+        trace_input = {
+            "messages": _trace_messages(messages),
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "response_format": {"type": "json_object"},
+        }
+        trace_metadata = {
+            "feature": feature,
+            "agent_name": agent_name,
+            "provider": "deepseek",
+            "attempt": attempt,
+            "output_schema": output_model.__name__,
+        }
+        with start_langfuse_generation(
+            name="%s.%s" % (feature, agent_name),
             model=model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            response_format={"type": "json_object"},
-        )
-        text = _response_text(response)
-        last_text = text
-        outcome = "ok"
-        try:
-            if not text:
-                raise RuntimeError("DeepSeek returned empty content")
-            raw = json.loads(text)
-            parsed = output_model.model_validate(raw)
-            _record_deepseek_usage(
-                feature=feature,
-                agent_name=agent_name,
+            input=trace_input,
+            metadata=trace_metadata,
+            tags=["deepseek", "structured-json", feature],
+        ) as generation:
+            response = await create_chat_completion(
                 model=model,
-                response=response,
-                attempt=attempt,
-                outcome=outcome,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                response_format={"type": "json_object"},
             )
-            return parsed
-        except (json.JSONDecodeError, ValidationError, RuntimeError) as exc:
-            last_error = exc
-            outcome = "invalid_json" if isinstance(exc, json.JSONDecodeError) else "invalid_schema"
-            _record_deepseek_usage(
-                feature=feature,
-                agent_name=agent_name,
-                model=model,
-                response=response,
-                attempt=attempt,
-                outcome=outcome,
+            text = _response_text(response)
+            last_text = text
+            outcome = "ok"
+            usage = _usage(response)
+            update_observation(
+                generation,
+                output=text[:8000],
+                usage_details={
+                    "input": usage["prompt_tokens"],
+                    "output": usage["output_tokens"],
+                    "total": usage["total_tokens"],
+                    "cache_read_input_tokens": usage["prompt_cache_hit_tokens"],
+                    "cache_miss_input_tokens": usage["prompt_cache_miss_tokens"],
+                },
+                metadata={**trace_metadata, "outcome": outcome},
             )
-            if attempt >= retries:
-                break
-            logger.warning(
-                "structured LLM output invalid for feature=%s model=%s attempt=%s: %s",
-                feature,
-                model,
-                attempt,
-                str(exc)[:500],
-            )
-            messages.append({"role": "assistant", "content": text[:8000]})
-            messages.append(
-                {
-                    "role": "user",
-                    "content": (
-                        "The previous json failed validation. Return a corrected "
-                        "json object only. Validation error:\n"
-                        + str(exc)[:3000]
-                    ),
-                }
-            )
+            try:
+                if not text:
+                    raise RuntimeError("DeepSeek returned empty content")
+                raw = json.loads(text)
+                parsed = output_model.model_validate(raw)
+                _record_deepseek_usage(
+                    feature=feature,
+                    agent_name=agent_name,
+                    model=model,
+                    response=response,
+                    attempt=attempt,
+                    outcome=outcome,
+                )
+                return parsed
+            except (json.JSONDecodeError, ValidationError, RuntimeError) as exc:
+                last_error = exc
+                outcome = "invalid_json" if isinstance(exc, json.JSONDecodeError) else "invalid_schema"
+                update_observation(
+                    generation,
+                    metadata={**trace_metadata, "outcome": outcome, "error": str(exc)[:500]},
+                )
+                _record_deepseek_usage(
+                    feature=feature,
+                    agent_name=agent_name,
+                    model=model,
+                    response=response,
+                    attempt=attempt,
+                    outcome=outcome,
+                )
+                if attempt >= retries:
+                    break
+                logger.warning(
+                    "structured LLM output invalid for feature=%s model=%s attempt=%s: %s",
+                    feature,
+                    model,
+                    attempt,
+                    str(exc)[:500],
+                )
+                messages.append({"role": "assistant", "content": text[:8000]})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "The previous json failed validation. Return a corrected "
+                            "json object only. Validation error:\n"
+                            + str(exc)[:3000]
+                        ),
+                    }
+                )
 
     raise RuntimeError(
         "structured LLM output failed after %s attempts: %s; last output=%s"

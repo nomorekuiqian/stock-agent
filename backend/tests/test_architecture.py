@@ -251,6 +251,10 @@ class TestNoCrossFeatureImports:
         ("community_access", "kol_research"),
         ("community_access", "screener"),
         ("community_access", "agent_runtime"),
+        # ZSXQ ingest is an indexing pipeline: it writes/searches the shared
+        # vector store and reuses KOL ticker aliases for extraction parity.
+        ("zsxq_ingest", "vector"),
+        ("zsxq_ingest", "kol_research"),
     }
 
     def test_no_cross_feature_imports(self):

@@ -10,6 +10,8 @@ Usage:
     pytest tests/test_llm_clients_unit.py -v
 """
 
+from contextlib import contextmanager
+
 from pydantic import BaseModel
 import pytest
 import httpx
@@ -57,8 +59,24 @@ async def test_generate_structured_json_retries_invalid_json_and_records_usage(m
     def fake_record_usage(**kwargs):
         usage_records.append(kwargs)
 
+    trace_generations = []
+
+    class _FakeGeneration:
+        def __init__(self):
+            self.updates = []
+
+        def update(self, **kwargs):
+            self.updates.append(kwargs)
+
+    @contextmanager
+    def fake_start_langfuse_generation(**kwargs):
+        generation = _FakeGeneration()
+        trace_generations.append({"kwargs": kwargs, "generation": generation})
+        yield generation
+
     monkeypatch.setattr(structured, "create_chat_completion", fake_create_chat_completion)
     monkeypatch.setattr(structured, "record_usage", fake_record_usage)
+    monkeypatch.setattr(structured, "start_langfuse_generation", fake_start_langfuse_generation)
 
     parsed = await structured.generate_structured_json(
         feature="watchlist_monitor.test",
@@ -85,6 +103,13 @@ async def test_generate_structured_json_retries_invalid_json_and_records_usage(m
     assert usage_records[1]["prompt_tokens"] == 12
     assert usage_records[1]["output_tokens"] == 3
     assert usage_records[1]["cached_tokens"] == 4
+    assert len(trace_generations) == 2
+    assert trace_generations[0]["kwargs"]["tags"] == [
+        "deepseek",
+        "structured-json",
+        "watchlist_monitor.test",
+    ]
+    assert trace_generations[1]["generation"].updates[-1]["metadata"]["outcome"] == "ok"
 
 
 def test_record_usage_builds_provider_neutral_record(monkeypatch):
