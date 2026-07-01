@@ -44,6 +44,7 @@ from app.features.payment.service import (
     sync_entitlements_from_stripe,
 )
 from app.features.payment.db import (
+    SubscriptionLookupError,
     get_subscription,
     invalidate_subscription_cache,
     upsert_subscription,
@@ -236,19 +237,22 @@ async def api_subscription_status(
     user_id: str = Depends(verify_user_token),
 ):
     """Query subscription status for a user."""
-    fresh_result = None
-    if fresh:
-        invalidate_subscription_cache(user_id)
-        sub_before_refresh = await get_subscription(user_id)
-        if sub_before_refresh and not sub_before_refresh.get("is_lifetime"):
-            try:
-                fresh_result = await sync_subscription_from_stripe(
-                    user_id,
-                    source="subscription-status.fresh",
-                )
-            except Exception as e:
-                logger.warning("fresh subscription Stripe sync failed user=%s: %s", user_id[:8], e)
-    sub = await get_subscription(user_id)
+    try:
+        fresh_result = None
+        if fresh:
+            invalidate_subscription_cache(user_id)
+            sub_before_refresh = await get_subscription(user_id)
+            if sub_before_refresh and not sub_before_refresh.get("is_lifetime"):
+                try:
+                    fresh_result = await sync_subscription_from_stripe(
+                        user_id,
+                        source="subscription-status.fresh",
+                    )
+                except Exception as e:
+                    logger.warning("fresh subscription Stripe sync failed user=%s: %s", user_id[:8], e)
+        sub = await get_subscription(user_id)
+    except SubscriptionLookupError as exc:
+        raise HTTPException(status_code=503, detail="subscription_lookup_failed") from exc
     if not sub:
         return SubscriptionStatusResponse(plan="free", status="none")
     return SubscriptionStatusResponse(
@@ -300,20 +304,23 @@ async def api_my_entitlements(
     """Return the current user's feature entitlement set and trial eligibility."""
     from app.features.payment.entitlements import get_user_entitlements
 
-    if fresh:
-        invalidate_subscription_cache(user_id)
-        sub_before_refresh = await get_subscription(user_id)
-        if sub_before_refresh and not sub_before_refresh.get("is_lifetime"):
-            try:
-                await sync_subscription_from_stripe(
-                    user_id,
-                    source="me-entitlements.fresh",
-                )
-            except Exception as e:
-                logger.warning("fresh entitlements Stripe sync failed user=%s: %s", user_id[:8], e)
-    ents = await get_user_entitlements(user_id)
-    # trial_eligible: user has no subscription record yet (never used trial or paid)
-    sub = await get_subscription(user_id)
+    try:
+        if fresh:
+            invalidate_subscription_cache(user_id)
+            sub_before_refresh = await get_subscription(user_id)
+            if sub_before_refresh and not sub_before_refresh.get("is_lifetime"):
+                try:
+                    await sync_subscription_from_stripe(
+                        user_id,
+                        source="me-entitlements.fresh",
+                    )
+                except Exception as e:
+                    logger.warning("fresh entitlements Stripe sync failed user=%s: %s", user_id[:8], e)
+        ents = await get_user_entitlements(user_id)
+        # trial_eligible: user has no subscription record yet (never used trial or paid)
+        sub = await get_subscription(user_id)
+    except SubscriptionLookupError as exc:
+        raise HTTPException(status_code=503, detail="subscription_lookup_failed") from exc
     return {
         "entitlements": sorted(ents),
         "trial_eligible": sub is None,

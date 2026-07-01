@@ -11,6 +11,10 @@ from typing import Optional
 import httpx
 
 from app.core.config import INSFORGE_BASE_URL
+from app.core.logging import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class InsforgeService:
@@ -88,6 +92,54 @@ class InsforgeService:
         """Build full URL for an Insforge Edge Function."""
         return f"{self.base_url}/functions/{function_name}"
 
+    async def _send(
+        self,
+        client: httpx.AsyncClient,
+        method: str,
+        url: str,
+        *,
+        params: Optional[dict],
+        json_body: Optional[dict],
+        timeout: float,
+        extra_headers: Optional[dict],
+    ) -> httpx.Response:
+        if method == "GET":
+            return await client.get(
+                url,
+                params=params,
+                headers=extra_headers,
+                timeout=timeout,
+            )
+        if method == "POST":
+            return await client.post(
+                url,
+                params=params,
+                json=json_body,
+                headers=extra_headers,
+                timeout=timeout,
+            )
+        if method == "DELETE":
+            return await client.delete(
+                url,
+                params=params,
+                headers=extra_headers,
+                timeout=timeout,
+            )
+        raise ValueError(f"Unsupported HTTP method: {method}")
+
+    @staticmethod
+    def _result_from_response(response: httpx.Response) -> dict:
+        try:
+            data = response.json() if response.status_code in (200, 201) else {}
+        except Exception:
+            data = {}
+
+        return {
+            "status_code": response.status_code,
+            "data": data,
+            "text": response.text,
+        }
+
     async def call_function(
         self,
         function_name: str,
@@ -96,6 +148,7 @@ class InsforgeService:
         json_body: Optional[dict] = None,
         timeout: float = 30.0,
         extra_headers: Optional[dict] = None,
+        use_pool: bool = True,
     ) -> dict:
         """
         Generic helper to call an Insforge Edge Function.
@@ -109,44 +162,93 @@ class InsforgeService:
             extra_headers: Optional per-request headers merged on top of the
                 client defaults. Used for internal-only edge functions that
                 require ``X-Internal-Secret``.
+            use_pool: Whether to use the per-event-loop shared httpx client.
+                Set to False for paths where a fresh connection is preferable
+                to connection reuse.
 
         Returns:
             Parsed JSON response dict
         """
         url = self.function_url(function_name)
-        client = await self._get_client()
 
         # Filter out None values from params
         clean_params = {k: v for k, v in (params or {}).items() if v is not None} or None
 
-        try:
-            if method == "GET":
-                response = await client.get(url, params=clean_params, headers=extra_headers, timeout=timeout)
-            elif method == "POST":
-                response = await client.post(
-                    url, params=clean_params, json=json_body, headers=extra_headers, timeout=timeout
-                )
-            elif method == "DELETE":
-                response = await client.delete(url, params=clean_params, headers=extra_headers, timeout=timeout)
-            else:
-                raise ValueError(f"Unsupported HTTP method: {method}")
-
-            # Parse JSON safely
+        if not use_pool:
             try:
-                data = response.json() if response.status_code in (200, 201) else {}
-            except Exception:
-                data = {}
+                async with self._new_client() as client:
+                    response = await self._send(
+                        client,
+                        method,
+                        url,
+                        params=clean_params,
+                        json_body=json_body,
+                        timeout=timeout,
+                        extra_headers=extra_headers,
+                    )
+                return self._result_from_response(response)
+            except httpx.TimeoutException as e:
+                return {
+                    "status_code": 408,
+                    "data": {},
+                    "text": f"Request timeout: {e}",
+                }
+            except httpx.RequestError as e:
+                return {
+                    "status_code": 502,
+                    "data": {},
+                    "text": f"Request error: {e}",
+                }
 
-            return {
-                "status_code": response.status_code,
-                "data": data,
-                "text": response.text,
-            }
+        client = await self._get_client()
+        try:
+            response = await self._send(
+                client,
+                method,
+                url,
+                params=clean_params,
+                json_body=json_body,
+                timeout=timeout,
+                extra_headers=extra_headers,
+            )
+            return self._result_from_response(response)
         except httpx.TimeoutException as e:
+            logger.warning(
+                "Insforge function timeout: function=%s method=%s timeout=%.1fs; retrying with a fresh client",
+                function_name,
+                method,
+                timeout,
+            )
+            await self.aclose_current_loop()
+            try:
+                async with self._new_client() as retry_client:
+                    response = await self._send(
+                        retry_client,
+                        method,
+                        url,
+                        params=clean_params,
+                        json_body=json_body,
+                        timeout=min(timeout, 5.0),
+                        extra_headers=extra_headers,
+                    )
+                return self._result_from_response(response)
+            except httpx.TimeoutException as retry_error:
+                return {
+                    "status_code": 408,
+                    "data": {},
+                    "text": f"Request timeout: {retry_error or e}",
+                }
+            except httpx.RequestError as retry_error:
+                return {
+                    "status_code": 502,
+                    "data": {},
+                    "text": f"Request error: {retry_error}",
+                }
+        except httpx.RequestError as e:
             return {
-                "status_code": 408,
+                "status_code": 502,
                 "data": {},
-                "text": f"Request timeout: {e}",
+                "text": f"Request error: {e}",
             }
 
 

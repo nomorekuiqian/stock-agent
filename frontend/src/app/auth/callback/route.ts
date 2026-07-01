@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/insforge-server';
 import { setAuthCookies, getAndClearOAuthCodeVerifier } from '@/lib/auth-cookies';
 
+const ONBOARDING_STATUS_TIMEOUT_MS = 2500;
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get('insforge_code') || searchParams.get('code');
@@ -46,9 +48,15 @@ export async function GET(request: NextRequest) {
   // row yet, or a row whose onboarding_completed_at is still NULL).
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
   let needsOnboarding = false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, ONBOARDING_STATUS_TIMEOUT_MS);
   try {
     const res = await fetch(`${apiUrl}/user/onboarding-status`, {
       headers: { Authorization: `Bearer ${data.accessToken}` },
+      signal: controller.signal,
+      cache: 'no-store',
     });
     if (res.ok) {
       const status = await res.json();
@@ -56,6 +64,8 @@ export async function GET(request: NextRequest) {
     }
   } catch {
     // Non-blocking — fall through to intended destination
+  } finally {
+    clearTimeout(timeout);
   }
 
   const safePath = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/today';

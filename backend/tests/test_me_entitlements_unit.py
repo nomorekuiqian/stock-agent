@@ -4,6 +4,8 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 
+from app.features.payment.db import SubscriptionLookupError
+
 
 class TestMeEntitlements:
     """Test the /api/payment/me/entitlements endpoint."""
@@ -116,6 +118,20 @@ class TestMeEntitlements:
         assert resp.status_code == 200
         assert resp.json() == {"entitlements": [], "trial_eligible": True}
 
+    @patch(
+        "app.features.payment.entitlements.get_user_entitlements",
+        new_callable=AsyncMock,
+    )
+    def test_lookup_failure_returns_503_not_free(self, mock_get_ents):
+        """Subscription store failures must not be converted into free access."""
+        self._override_auth("user-ent-timeout")
+        mock_get_ents.side_effect = SubscriptionLookupError("timeout")
+
+        resp = self.client.get("/api/payment/me/entitlements")
+
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "subscription_lookup_failed"
+
     # ------------------------------------------------------------------
     # 4. Unauthenticated request returns 401
     # ------------------------------------------------------------------
@@ -172,3 +188,48 @@ class TestSubscriptionStatus:
         assert resp.json()["billing_currency"] == "usd"
         assert resp.json()["billing_interval"] == "month"
         mock_invalidate.assert_called_once_with("user-sub-001")
+
+    @pytest.mark.parametrize(
+        ("sub", "expected"),
+        [
+            (
+                None,
+                {"plan": "free", "status": "none"},
+            ),
+            (
+                {"plan": "pro", "status": "active"},
+                {"plan": "pro", "status": "active"},
+            ),
+            (
+                {"plan": "max", "status": "active"},
+                {"plan": "max", "status": "active"},
+            ),
+        ],
+    )
+    @patch(
+        "app.features.payment.router.get_subscription",
+        new_callable=AsyncMock,
+    )
+    def test_subscription_status_free_pro_max(self, mock_get_sub, sub, expected):
+        self._override_auth("user-sub-tier")
+        mock_get_sub.return_value = sub
+
+        resp = self.client.get("/api/payment/subscription-status")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["plan"] == expected["plan"]
+        assert body["status"] == expected["status"]
+
+    @patch(
+        "app.features.payment.router.get_subscription",
+        new_callable=AsyncMock,
+    )
+    def test_subscription_status_lookup_failure_returns_503_not_free(self, mock_get_sub):
+        self._override_auth("user-sub-timeout")
+        mock_get_sub.side_effect = SubscriptionLookupError("timeout")
+
+        resp = self.client.get("/api/payment/subscription-status")
+
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "subscription_lookup_failed"

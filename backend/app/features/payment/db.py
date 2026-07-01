@@ -6,10 +6,51 @@ import time
 from typing import Optional, Dict, Any
 
 from app.core.database import get_insforge_service
+from app.core.logging import get_logger
+
+
+logger = get_logger(__name__)
 
 # In-memory cache: user_id -> (data, timestamp)
 _sub_cache: Dict[str, tuple] = {}
 _CACHE_TTL = 300  # 5 minutes
+_FUNCTION_NAME = "subscriptions"
+_FUNCTION_TIMEOUT_S = 8.0
+_USE_POOL = False
+
+
+class SubscriptionLookupError(RuntimeError):
+    """Raised when the subscription store could not be queried reliably."""
+
+
+async def _call_subscriptions(
+    *,
+    method: str = "GET",
+    params: Optional[dict] = None,
+    json_body: Optional[dict] = None,
+    timeout: float = _FUNCTION_TIMEOUT_S,
+) -> dict:
+    service = get_insforge_service()
+    return await service.call_function(
+        _FUNCTION_NAME,
+        method=method,
+        params=params,
+        json_body=json_body,
+        timeout=timeout,
+        use_pool=_USE_POOL,
+    )
+
+
+def _failure_message(action: str, result: dict, data: dict) -> str:
+    status = result.get("status_code")
+    error = data.get("error") or result.get("text") or "unknown error"
+    return f"subscriptions {action} failed: status={status} error={error}"
+
+
+def _raise_lookup_failure(action: str, result: dict, data: dict) -> None:
+    message = _failure_message(action, result, data)
+    logger.warning("%s", message)
+    raise SubscriptionLookupError(message)
 
 
 async def get_subscription(user_id: str) -> Optional[Dict[str, Any]]:
@@ -19,9 +60,7 @@ async def get_subscription(user_id: str) -> Optional[Dict[str, Any]]:
     if cached and (now - cached[1]) < _CACHE_TTL:
         return cached[0]
 
-    service = get_insforge_service()
-    result = await service.call_function(
-        "subscriptions",
+    result = await _call_subscriptions(
         method="GET",
         params={"action": "get", "user_id": user_id},
     )
@@ -36,7 +75,7 @@ async def get_subscription(user_id: str) -> Optional[Dict[str, Any]]:
             _sub_cache[user_id] = (sub, now)
         return sub
 
-    return None
+    _raise_lookup_failure("get", result, data)
 
 
 def invalidate_subscription_cache(user_id: str) -> None:
@@ -159,15 +198,15 @@ async def upsert_subscription(
     if reactivation_state is not None:
         body["reactivation_state"] = reactivation_state
 
-    service = get_insforge_service()
-    result = await service.call_function(
-        "subscriptions",
+    result = await _call_subscriptions(
         method="POST",
         params={"action": "upsert"},
         json_body=body,
     )
     data = result.get("data", {})
     success = data.get("success", False)
+    if not success:
+        logger.warning("%s", _failure_message("upsert", result, data))
 
     # Invalidate cache so next read gets fresh data
     if success:
@@ -220,9 +259,7 @@ async def set_lifetime(
     if entitlements is not None:
         body["entitlements"] = entitlements
 
-    service = get_insforge_service()
-    result = await service.call_function(
-        "subscriptions",
+    result = await _call_subscriptions(
         method="POST",
         params={"action": "set_lifetime"},
         json_body=body,
@@ -258,30 +295,26 @@ async def set_lifetime(
 
 async def list_entitled_users(feature: str) -> list:
     """List all users who have a specific entitlement."""
-    service = get_insforge_service()
-    result = await service.call_function(
-        "subscriptions",
+    result = await _call_subscriptions(
         method="GET",
         params={"action": "list_entitled", "feature": feature},
     )
     data = result.get("data", {})
     if data.get("success"):
         return data.get("data", [])
-    raise RuntimeError(data.get("error") or "list_entitled_users failed")
+    raise RuntimeError(_failure_message("list_entitled", result, data))
 
 
 async def list_expired_access_grants(now_iso: str) -> list:
     """List subscription rows whose non-Stripe access grant has expired."""
-    service = get_insforge_service()
-    result = await service.call_function(
-        "subscriptions",
+    result = await _call_subscriptions(
         method="GET",
         params={"action": "list_expired_access_grants", "now": now_iso},
     )
     data = result.get("data", {})
     if data.get("success"):
         return data.get("data", [])
-    raise RuntimeError(data.get("error") or "list_expired_access_grants failed")
+    raise RuntimeError(_failure_message("list_expired_access_grants", result, data))
 
 
 async def get_user_email_by_id(user_id: Optional[str]) -> Optional[str]:
@@ -295,11 +328,10 @@ async def get_user_email_by_id(user_id: Optional[str]) -> Optional[str]:
     """
     if not user_id:
         return None
-    service = get_insforge_service()
-    result = await service.call_function(
-        "subscriptions",
+    result = await _call_subscriptions(
         method="GET",
         params={"action": "list_user_profiles"},
+        timeout=15.0,
     )
     data = result.get("data", {})
     if not data.get("success"):
@@ -312,9 +344,7 @@ async def get_user_email_by_id(user_id: Optional[str]) -> Optional[str]:
 
 async def get_subscription_by_customer(stripe_customer_id: str) -> Optional[Dict[str, Any]]:
     """Get subscription by stripe_customer_id."""
-    service = get_insforge_service()
-    result = await service.call_function(
-        "subscriptions",
+    result = await _call_subscriptions(
         method="GET",
         params={"action": "get_by_customer", "stripe_customer_id": stripe_customer_id},
     )

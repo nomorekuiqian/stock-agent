@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.deps import verify_user_token
 from app.core.logging import get_logger
-from app.features.payment.db import get_subscription, upsert_subscription
+from app.features.payment.db import (
+    SubscriptionLookupError,
+    get_subscription,
+    upsert_subscription,
+)
 
 logger = get_logger(__name__)
 
@@ -18,7 +22,10 @@ router = APIRouter(prefix="/api", tags=["user"])
 @router.get("/user/onboarding-status")
 async def get_onboarding_status(user_id: str = Depends(verify_user_token)):
     """Whether the user has completed the post-signup guided tour."""
-    sub = await get_subscription(user_id)
+    try:
+        sub = await get_subscription(user_id)
+    except SubscriptionLookupError as exc:
+        raise HTTPException(status_code=503, detail="subscription_lookup_failed") from exc
     completed = bool(sub and sub.get("onboarding_completed_at"))
     return {"completed": completed}
 
@@ -26,7 +33,10 @@ async def get_onboarding_status(user_id: str = Depends(verify_user_token)):
 @router.post("/user/onboarding/complete")
 async def complete_onboarding(user_id: str = Depends(verify_user_token)):
     """Mark onboarding as complete (idempotent — sets timestamp once)."""
-    sub = await get_subscription(user_id)
+    try:
+        sub = await get_subscription(user_id)
+    except SubscriptionLookupError as exc:
+        raise HTTPException(status_code=503, detail="subscription_lookup_failed") from exc
     if sub and sub.get("onboarding_completed_at"):
         return {"completed": True, "completed_at": sub["onboarding_completed_at"]}
 

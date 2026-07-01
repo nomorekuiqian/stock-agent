@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.core.deps import verify_user_token
+from app.features.payment.db import SubscriptionLookupError
 
 
 TEST_USER_ID = "user-onboarding-test"
@@ -76,6 +77,21 @@ def test_status_returns_true_when_timestamp_set(client: TestClient):
         )
     assert resp.status_code == 200
     assert resp.json() == {"completed": True}
+
+
+def test_status_returns_503_when_subscription_lookup_fails(client: TestClient):
+    """Lookup failure is not the same as incomplete onboarding."""
+    with patch(
+        "app.features.onboarding.router.get_subscription",
+        new_callable=AsyncMock,
+        side_effect=SubscriptionLookupError("timeout"),
+    ):
+        resp = client.get(
+            "/api/user/onboarding-status",
+            headers={"Authorization": "Bearer test-token"},
+        )
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == "subscription_lookup_failed"
 
 
 # ---------------------------------------------------------------------------
@@ -152,3 +168,22 @@ def test_complete_500s_when_upsert_fails(client: TestClient):
         )
     assert resp.status_code == 500
     assert resp.json()["detail"] == "failed_to_mark_complete"
+
+
+def test_complete_returns_503_when_subscription_lookup_fails(client: TestClient):
+    """Do not create/update onboarding state when the read path is unavailable."""
+    with patch(
+        "app.features.onboarding.router.get_subscription",
+        new_callable=AsyncMock,
+        side_effect=SubscriptionLookupError("timeout"),
+    ), patch(
+        "app.features.onboarding.router.upsert_subscription",
+        new_callable=AsyncMock,
+    ) as upsert_mock:
+        resp = client.post(
+            "/api/user/onboarding/complete",
+            headers={"Authorization": "Bearer test-token"},
+        )
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == "subscription_lookup_failed"
+    upsert_mock.assert_not_called()

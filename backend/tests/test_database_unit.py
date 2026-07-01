@@ -13,6 +13,8 @@ from __future__ import annotations
 import asyncio
 import threading
 
+import httpx
+
 from app.core.database import InsforgeService
 
 
@@ -71,3 +73,51 @@ def test_aclose_current_loop_closes_and_removes():
         return c.is_closed
 
     assert asyncio.run(make_then_close()) is True
+
+
+def test_call_function_retries_timeout_with_fresh_client(monkeypatch):
+    """A pooled-client timeout should drop that loop's client and retry once."""
+    svc = InsforgeService()
+    seen_clients: list[httpx.AsyncClient] = []
+
+    async def fake_send(client, *_args, **_kwargs):
+        seen_clients.append(client)
+        if len(seen_clients) == 1:
+            raise httpx.TimeoutException("stale connection")
+        return httpx.Response(200, json={"success": True})
+
+    monkeypatch.setattr(svc, "_send", fake_send)
+
+    async def run():
+        return await svc.call_function("example", timeout=15.0)
+
+    result = asyncio.run(run())
+
+    assert result["status_code"] == 200
+    assert result["data"] == {"success": True}
+    assert len(seen_clients) == 2
+    assert seen_clients[0].is_closed
+    assert svc._clients == {}
+
+
+def test_call_function_can_bypass_pool(monkeypatch):
+    """use_pool=False uses a one-shot client and leaves the pool untouched."""
+    svc = InsforgeService()
+    seen_clients: list[httpx.AsyncClient] = []
+
+    async def fake_send(client, *_args, **_kwargs):
+        seen_clients.append(client)
+        return httpx.Response(200, json={"success": True})
+
+    monkeypatch.setattr(svc, "_send", fake_send)
+
+    async def run():
+        return await svc.call_function("example", use_pool=False)
+
+    result = asyncio.run(run())
+
+    assert result["status_code"] == 200
+    assert result["data"] == {"success": True}
+    assert len(seen_clients) == 1
+    assert seen_clients[0].is_closed
+    assert svc._clients == {}
