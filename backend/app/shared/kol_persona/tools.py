@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import List, Optional
 
+from app.core.langfuse import start_langfuse_observation, update_observation
 from app.core.logging import get_logger
 from app.features.vector.models import (
     VectorChunkResult,
@@ -569,11 +570,46 @@ async def search_kol_tweets(
     author = _active_kol_author.get(None) or author_username
     bindings = _persona_corpus_bindings(author)
     plan = _build_hybrid_query_plan(query, query_variants)
-    results = await _hybrid_search_persona_chunks(
-        plan=plan,
-        bindings=bindings,
-        k=k,
-    )
+    with start_langfuse_observation(
+        name="kol_persona.search_kol_tweets",
+        as_type="span",
+        input={
+            "query": query,
+            "query_variants": query_variants or [],
+            "author_username": author_username,
+            "active_author": author,
+            "k": k,
+        },
+        metadata={
+            "tool": "search_kol_tweets",
+            "author_username": author,
+            "k": k,
+            "bindings": _bindings_summary(bindings),
+            "search_plan": _plan_summary(plan),
+        },
+        tags=["kol_research", "retrieval"],
+    ) as langfuse_observation:
+        results = await _hybrid_search_persona_chunks(
+            plan=plan,
+            bindings=bindings,
+            k=k,
+        )
+        update_observation(
+            langfuse_observation,
+            output={
+                "result_count": len(results),
+                "source_ids": [item.source_id for item in results[:10]],
+                "source_types": [item.source_type for item in results[:10]],
+            },
+            metadata={
+                "tool": "search_kol_tweets",
+                "author_username": author,
+                "k": k,
+                "bindings": _bindings_summary(bindings),
+                "search_plan": _plan_summary(plan),
+                "result_count": len(results),
+            },
+        )
     if not results:
         logger.info(
             "persona hybrid search returned no results: author=%s bindings=%s plan=%s",

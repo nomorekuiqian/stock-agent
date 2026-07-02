@@ -47,6 +47,7 @@ from app.core.config import (
     AGENT_RUNTIME_TOOL_CACHE_MAXSIZE,
     AGENT_RUNTIME_TOOL_CACHE_TTL,
 )
+from app.core.langfuse import record_langfuse_observation
 from app.core.logging import get_logger, use_turn_context
 from app.features.agent_runtime import (
     AgentRunRequest,
@@ -540,6 +541,18 @@ async def _before_tool_callback(tool, args, tool_context):
             skill = args.get("skill_name")
             if skill and skill not in bucket:
                 bucket.append(skill)
+        record_langfuse_observation(
+            name="kol_research.skill_activated",
+            as_type="span",
+            input={"tool": tool_name, "args": args},
+            output={"skill_name": args.get("skill_name")},
+            metadata={
+                "agent": APP_NAME,
+                "tool": tool_name,
+                "skill_name": args.get("skill_name"),
+            },
+            tags=["kol_research", "skill"],
+        )
 
     # Record start time for duration measurement.
     timers = _tool_started_at.get(None)
@@ -572,6 +585,30 @@ async def _after_tool_callback(tool, args, tool_context, tool_response):
             "duration_ms": duration_ms,
         })
 
+    if tool_name != "set_model_response":
+        from app.features.agent_runtime.events import summarize_tool_result
+
+        summary = summarize_tool_result(tool_response)
+        record_langfuse_observation(
+            name=f"kol_research.tool.{tool_name}",
+            as_type="span",
+            input={"tool": tool_name, "args": args or {}},
+            output={
+                "result_preview": summary["preview"],
+                "result_hash": summary["hash"],
+                "result_truncated": summary["truncated"],
+            },
+            metadata={
+                "agent": APP_NAME,
+                "tool": tool_name,
+                "duration_ms": duration_ms,
+                "ok": True,
+                "result_hash": summary["hash"],
+                "result_truncated": summary["truncated"],
+            },
+            tags=["kol_research", "tool"],
+        )
+
     # Store cacheable tool results so subsequent turns can reuse them.
     if tool_name in _CACHEABLE_TOOLS and tool_response is not None:
         try:
@@ -582,7 +619,6 @@ async def _after_tool_callback(tool, args, tool_context, tool_response):
     # Log tool calls for response.tool_calls (excluding ADK internals like set_model_response).
     log = _tool_call_log.get(None)
     if log is not None and tool_name not in {"set_model_response"}:
-        from app.features.agent_runtime.events import summarize_tool_result
         summary = summarize_tool_result(tool_response)
         log.append(KolToolCallSummary(
             name=tool_name,
