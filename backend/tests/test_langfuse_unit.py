@@ -112,3 +112,60 @@ def test_configure_langfuse_sets_host_masks_and_instruments(monkeypatch):
     assert patch.set_attributes["authorization"] == "[REDACTED]"
     assert "gen_ai.prompt.0.content" in patch.delete_attributes
     assert patch.set_attributes["metadata.note"] == "call me at [REDACTED_PHONE]"
+
+
+def test_custom_observation_redacts_content_when_disabled(monkeypatch):
+    from app.core import langfuse as core_langfuse
+
+    observations = []
+
+    class FakeObservation:
+        def __init__(self, kwargs):
+            self.kwargs = kwargs
+            self.updates = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def update(self, **kwargs):
+            self.updates.append(kwargs)
+
+    class FakeLangfuse:
+        def start_as_current_observation(self, **kwargs):
+            observation = FakeObservation(kwargs)
+            observations.append(observation)
+            return observation
+
+    monkeypatch.setattr(core_langfuse, "_configured", True)
+    monkeypatch.setattr(core_langfuse, "_client", FakeLangfuse())
+    monkeypatch.setenv("LANGFUSE_CAPTURE_CONTENT", "false")
+    monkeypatch.setitem(
+        sys.modules,
+        "langfuse",
+        types.SimpleNamespace(propagate_attributes=lambda **kwargs: _NullContext()),
+    )
+
+    core_langfuse.record_langfuse_observation(
+        name="test.tool",
+        input={"query": "NVDA test@example.com", "api_key": "secret"},
+        output="result with 415-555-1212",
+        metadata={"duration_ms": 12, "note": "call 415-555-1212"},
+    )
+
+    assert observations
+    kwargs = observations[0].kwargs
+    assert kwargs["input"]["redacted"] is True
+    assert kwargs["metadata"]["duration_ms"] == 12
+    assert kwargs["metadata"]["note"] == "call [REDACTED_PHONE]"
+    assert observations[0].updates[0]["output"]["redacted"] is True
+
+
+class _NullContext:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, tb):
+        return False

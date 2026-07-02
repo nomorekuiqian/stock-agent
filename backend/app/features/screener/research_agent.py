@@ -28,6 +28,7 @@ from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 
 from app.core.config import AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT
+from app.core.langfuse import record_langfuse_observation
 from app.core.logging import get_logger
 from app.features.agent_runtime import (
     AssembledContext,
@@ -375,6 +376,27 @@ async def _after_tool_callback(tool, args, tool_context, tool_response):
             "result_hash": summary["hash"],
             "result_truncated": summary["truncated"],
         })
+    else:
+        summary = summarize_tool_result(tool_response)
+    record_langfuse_observation(
+        name=f"research.tool.{tool_name}",
+        as_type="span",
+        input={"tool": tool_name, "args": args or {}},
+        output={
+            "result_preview": summary["preview"],
+            "result_hash": summary["hash"],
+            "result_truncated": summary["truncated"],
+        },
+        metadata={
+            "agent": "research_agent",
+            "tool": tool_name,
+            "duration_ms": duration_ms,
+            "ok": True,
+            "result_hash": summary["hash"],
+            "result_truncated": summary["truncated"],
+        },
+        tags=["research", "tool"],
+    )
     return None  # use original tool response
 
 
