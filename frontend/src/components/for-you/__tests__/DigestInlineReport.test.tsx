@@ -38,11 +38,10 @@ describe('DigestInlineReport variant gating', () => {
     expect(screen.getByText('总结')).toBeInTheDocument();
   });
 
-  it('links to the AI monitor from the digest header', () => {
+  it('does not expose the retired AI monitor from the digest', () => {
     render(<DigestInlineReport digest={baseDigest} />);
 
-    const link = screen.getByRole('link', { name: /查看详细监控/ });
-    expect(screen.getByText('AI 监控台')).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/for-you/monitor');
+    expect(screen.queryByText('AI 监控台')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /查看详细监控/ })).not.toBeInTheDocument();
   });
 });

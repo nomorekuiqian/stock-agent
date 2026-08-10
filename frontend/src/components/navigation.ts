@@ -58,7 +58,6 @@ export function getMainNavSections({
       children: forYouV2
         ? [
             { href: '/for-you', label: '专属日报', exact: true },
-            { href: '/for-you/monitor', label: 'AI 监控台', exact: true },
             { href: '/for-you/onboarding', label: '投资画像' },
             { href: '/for-you/watchlist', label: '关注列表' },
             {
@@ -74,7 +73,6 @@ export function getMainNavSections({
           ]
         : [
             { href: '/for-you', label: '专属日报', exact: true },
-            { href: '/for-you/monitor', label: 'AI 监控台', exact: true },
             { href: '/for-you/watchlist', label: '我的自选股' },
           ],
     },

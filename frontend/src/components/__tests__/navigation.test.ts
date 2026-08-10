@@ -12,7 +12,7 @@ describe('navigation helpers', () => {
     expect(isNavHrefActive('/for-you/monitor', '/for-you')).toBe(true);
   });
 
-  it('includes AI monitor as an exact For You child route', () => {
+  it('does not expose the retired AI monitor as a For You child route', () => {
     const sections = getMainNavSections({
       forYouV2: true,
       watchlistExtended: true,
@@ -23,10 +23,6 @@ describe('navigation helpers', () => {
       (child) => child.href === '/for-you/monitor',
     );
 
-    expect(monitorChild).toEqual({
-      href: '/for-you/monitor',
-      label: 'AI 监控台',
-      exact: true,
-    });
+    expect(monitorChild).toBeUndefined();
   });
 });

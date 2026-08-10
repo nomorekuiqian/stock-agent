@@ -619,27 +619,6 @@ def get_personal_digest_cta_section(
     return _get_personal_digest_upsell_cta()
 
 
-def _get_personal_digest_monitor_cta() -> str:
-    """Fixed CTA from the email digest to the richer web monitor."""
-    monitor_url = f"{_EMAIL_LINK_BASE}/for-you/monitor"
-    return f"""
-        <div style="background: #ffffff; padding: 16px 16px 18px;">
-            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 20px;">
-                <div style="font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px;">AI 监控台</div>
-                <div style="font-size: 15px; font-weight: 600; color: #0a0a0a; line-height: 1.5; margin-bottom: 8px;">
-                    去网页端查看更完整的今日监控
-                </div>
-                <div style="font-size: 12px; color: #3f3f46; line-height: 1.75; margin-bottom: 16px;">
-                    邮件只保留压缩摘要；监控台会按股票展开新闻事件、技术面结构、市场讨论和未来观察点。
-                </div>
-                <a href="{monitor_url}" style="display: inline-block; padding: 11px 18px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; border: 2px solid #047857;">
-                    查看 AI 监控台 &rarr;
-                </a>
-            </div>
-        </div>
-        """
-
-
 # ---------------------------------------------------------------------------
 # Full-page templates
 # ---------------------------------------------------------------------------
@@ -1137,7 +1116,6 @@ def format_digest_html(
                     {summary_html}
                 </div>
 
-                {_get_personal_digest_monitor_cta()}
                 {get_feedback_section(feedback_digest_date, feedback_digest_id, "digest")}
                 {get_personal_digest_cta_section(cta_variant)}
                 {get_email_footer()}
