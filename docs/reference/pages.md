@@ -32,7 +32,7 @@
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
-| `/for-you/monitor` | AI 关注列表监控台 | Backend (watchlist-monitor API) | 是 + `for_you_website` |
+| `/for-you/monitor` | AI 关注列表监控台（软退休，保留直达页） | Backend (watchlist-monitor API) | 是 + `for_you_website` |
 | `/for-you/[id]` | 摘要详情 | Insforge (getUserDigestById) | 是 |
 | `/for-you/archive` | 摘要存档 | Backend (digests API) | 是 |
 | `/for-you/watchlist` | 自选股管理 | Backend (watchlist API) + StockQuotes | 是 |
@@ -171,6 +171,7 @@
 - 摘要保存到 Insforge (personal_digests 表)
 
 ### `/for-you/monitor` AI 关注列表监控台
+- 2026-08-10 起软退休：页面和 API 代码保留，但普通导航、专属日报内联 CTA、邮件 CTA 与自动生成 schedule 均已停用
 - Client Component，需要登录和 `for_you_website` entitlement，未登录重定向到 `/login?redirect=/for-you/monitor`，未开通时显示 Pro paywall
 - 调用 `api.getWatchlistMonitor()` -> `GET /api/watchlist-monitor`
 - 只读取 cached `ticker_daily_briefs`，页面读取不触发 LLM

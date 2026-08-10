@@ -248,11 +248,11 @@ function LockScreen({
 
   const supportText =
     checkoutProduct === 'pro'
-      ? '升级后即可使用专属日报和 AI 监控台'
+      ? '升级后即可使用专属日报和专业市场简报'
       : '一次解锁所有内容';
   const includedText =
     checkoutProduct === 'pro'
-      ? '包含：盘前早报 · 宏观周报 · 专属持仓日报 · 推特 KOL 日报 · AI 监控台'
+      ? '包含：盘前早报 · 宏观周报 · 专属持仓日报 · 推特 KOL 日报'
       : '包含：Pro 全部权益 · AI 投研引擎（无限使用）· AI 深度个股分析';
   const fallbackDescription =
     checkoutProduct === 'pro'
