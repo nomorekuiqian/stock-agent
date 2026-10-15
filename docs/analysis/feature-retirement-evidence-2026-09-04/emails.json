@@ -1,0 +1,90 @@
+[
+  {
+    "channel": "personal_digest",
+    "event_type": "email.clicked",
+    "messages30": "4",
+    "recipients30": "4",
+    "messages60": "20",
+    "recipients60": "12"
+  },
+  {
+    "channel": "personal_digest",
+    "event_type": "email.delivered",
+    "messages30": "724",
+    "recipients30": "39",
+    "messages60": "1561",
+    "recipients60": "52"
+  },
+  {
+    "channel": "personal_digest",
+    "event_type": "email.opened",
+    "messages30": "511",
+    "recipients30": "30",
+    "messages60": "949",
+    "recipients60": "45"
+  },
+  {
+    "channel": "unknown",
+    "event_type": "email.bounced",
+    "messages30": "26",
+    "recipients30": "15",
+    "messages60": "118",
+    "recipients60": "16"
+  },
+  {
+    "channel": "unknown",
+    "event_type": "email.clicked",
+    "messages30": "58",
+    "recipients30": "36",
+    "messages60": "218",
+    "recipients60": "113"
+  },
+  {
+    "channel": "unknown",
+    "event_type": "email.delivered",
+    "messages30": "5479",
+    "recipients30": "1669",
+    "messages60": "21016",
+    "recipients60": "1700"
+  },
+  {
+    "channel": "unknown",
+    "event_type": "email.opened",
+    "messages30": "2319",
+    "recipients30": "573",
+    "messages60": "8534",
+    "recipients60": "898"
+  },
+  {
+    "channel": "unknown",
+    "event_type": "email.suppressed",
+    "messages30": "12",
+    "recipients30": "7",
+    "messages60": "78",
+    "recipients60": "9"
+  },
+  {
+    "channel": "welcome_email",
+    "event_type": "email.clicked",
+    "messages30": "0",
+    "recipients30": "0",
+    "messages60": "3",
+    "recipients60": "3"
+  },
+  {
+    "channel": "welcome_email",
+    "event_type": "email.delivered",
+    "messages30": "30",
+    "recipients30": "29",
+    "messages60": "74",
+    "recipients60": "73"
+  },
+  {
+    "channel": "welcome_email",
+    "event_type": "email.opened",
+    "messages30": "14",
+    "recipients30": "13",
+    "messages60": "41",
+    "recipients60": "40"
+  }
+]

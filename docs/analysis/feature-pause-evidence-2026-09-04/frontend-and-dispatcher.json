@@ -1,0 +1,91 @@
+{
+  "checked_at": "2026-09-05T03:26:50.991139+00:00",
+  "checks": [
+    {
+      "surface": "frontend_canonical",
+      "path": "/for-you/health",
+      "status": 307,
+      "location": "/for-you"
+    },
+    {
+      "surface": "frontend_canonical",
+      "path": "/for-you/monitor",
+      "status": 307,
+      "location": "/for-you"
+    },
+    {
+      "surface": "frontend_canonical",
+      "path": "/research/kb",
+      "status": 307,
+      "location": "/research"
+    },
+    {
+      "surface": "frontend_canonical",
+      "path": "/kol",
+      "status": 307,
+      "location": "/research"
+    },
+    {
+      "surface": "frontend_canonical",
+      "path": "/panda",
+      "status": 307,
+      "location": "/research"
+    },
+    {
+      "surface": "frontend_canonical",
+      "path": "/mcp",
+      "status": 307,
+      "location": "/research"
+    },
+    {
+      "surface": "frontend_canonical",
+      "path": "/for-you/onboarding",
+      "status": 307,
+      "location": "/for-you/watchlist"
+    },
+    {
+      "surface": "frontend_canonical",
+      "path": "/research?agent=kol&persona=panda",
+      "status": 307,
+      "location": "/research"
+    },
+    {
+      "surface": "frontend_authorize",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "visible_links",
+      "path": "/",
+      "status": 200,
+      "paused_links": []
+    },
+    {
+      "surface": "visible_links",
+      "path": "/pricing",
+      "status": 200,
+      "paused_links": []
+    },
+    {
+      "surface": "disabled_dispatcher",
+      "job": "watchlist_monitor_paid_universe",
+      "status": 200,
+      "disabled": true,
+      "reason": "feature_paused"
+    },
+    {
+      "surface": "disabled_dispatcher",
+      "job": "zsxq_panda_ingestion",
+      "status": 200,
+      "disabled": true,
+      "reason": "feature_paused"
+    },
+    {
+      "surface": "disabled_dispatcher",
+      "job": "onboarding_drip",
+      "status": 200,
+      "disabled": true,
+      "reason": "feature_paused"
+    }
+  ]
+}

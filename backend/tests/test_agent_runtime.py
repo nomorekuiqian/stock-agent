@@ -247,6 +247,8 @@ async def test_picker_conversation_store_reads_existing_messages(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_agent_sessions_store_reads_persistent_events(monkeypatch):
+    from app.core import feature_pause
+    monkeypatch.setattr(feature_pause, "PAUSED_FEATURES", frozenset())
     async def fake_get_session(*, user_id: str, agent_id: str, session_id: str, limit: int = 80):
         assert user_id == "u1"
         assert agent_id == "kol_research_agent"
@@ -816,6 +818,8 @@ async def test_runtime_restore_router_rejects_unknown_agent_id():
 
 @pytest.mark.asyncio
 async def test_runtime_restore_router_empty_session_returns_empty_payload(monkeypatch):
+    from app.core import feature_pause
+    monkeypatch.setattr(feature_pause, "PAUSED_FEATURES", frozenset())
     """No agent_sessions row should return 200 + empty shape so frontend can
     cleanly fall through to picker_conversations."""
     from app.features.agent_runtime import router as runtime_router

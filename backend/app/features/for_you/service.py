@@ -12,6 +12,7 @@ supports "llm" and "llm_fallback" for V1.1.
 from datetime import datetime, timezone
 from typing import Optional
 
+from app.core.feature_pause import is_paused
 from app.core.logging import get_logger
 from app.features.for_you import templates
 from app.features.for_you.models import ActionBar, ActionChip, DragResult, Signal
@@ -241,7 +242,8 @@ async def build_action_bar(
     )
 
     # Map ActionItem → ActionChip
-    chips = [_action_item_to_chip(item) for item in validated]
+    chips = [_action_item_to_chip(item) for item in validated
+             if not (is_paused("portfolio_health") and item.target == "health")]
 
     headline = portfolio_summary.strip()
     if not chips and not headline:

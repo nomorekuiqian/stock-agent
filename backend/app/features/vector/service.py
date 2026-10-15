@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.core.feature_pause import require_active
 from app.core.config import VECTOR_EMBEDDING_MODEL
 from app.core.logging import get_logger
 from app.features.vector.chunking import chunk_document, content_hash
@@ -22,6 +23,8 @@ logger = get_logger(__name__)
 
 
 async def index_document(request: VectorIndexRequest) -> VectorIndexResponse:
+    if request.document.source_type == "kol_tweet" or request.document.source_type.startswith("zsxq_"):
+        require_active("kol_index")
     doc = request.document
     doc_hash = content_hash(doc.content)
 

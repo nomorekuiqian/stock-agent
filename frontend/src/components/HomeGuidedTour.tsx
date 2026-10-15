@@ -1,5 +1,7 @@
 "use client";
 
+import { isFeaturePaused } from '@/lib/feature-pause';
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -104,7 +106,7 @@ function findVisibleTourTarget(target: string): HTMLElement | null {
   );
 }
 
-export default function HomeGuidedTour() {
+function ActiveHomeGuidedTour() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -398,4 +400,9 @@ export default function HomeGuidedTour() {
       </aside>
     </>
   );
+}
+
+export default function HomeGuidedTour() {
+  if (isFeaturePaused('onboarding')) return null;
+  return <ActiveHomeGuidedTour />;
 }

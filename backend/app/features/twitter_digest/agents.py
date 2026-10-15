@@ -2,9 +2,9 @@
 LlmAgent + InMemoryRunner singletons for the twitter digest pipeline.
 
 Two agents, two models:
-  - `enrich_agent` — gemini-3.1-flash-lite, minimal per-tweet enrichment
+  - `enrich_agent` — shared classification model, minimal per-tweet enrichment
     (quality keep/drop + ticker_stances + sectors).
-  - `curate_agent` — gemini-3.5-flash, ticker-clustered aggregation +
+  - `curate_agent` — shared Gemini model, ticker-clustered aggregation +
     editorial synthesis.
 """
 
@@ -21,7 +21,9 @@ if os.getenv("GOOGLE_API_KEY") and not os.getenv("GOOGLE_GENAI_API_KEY"):
 
 from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
+from google.genai import types
 
+from app.core.ai_models import CLASSIFICATION_MODEL, GENERATIVE_MODEL
 from app.features.twitter_digest.enrichment_prompts import ENRICH_INSTRUCTION
 from app.features.twitter_digest.models import (
     CuratedDigestOutput,
@@ -30,8 +32,8 @@ from app.features.twitter_digest.models import (
 from app.features.twitter_digest.prompts import CURATE_INSTRUCTION
 from app.shared.llm_metering import meter
 
-CURATE_MODEL = "gemini-3.5-flash"
-ENRICH_MODEL = "gemini-3.1-flash-lite"
+CURATE_MODEL = GENERATIVE_MODEL
+ENRICH_MODEL = CLASSIFICATION_MODEL
 APP_NAME = "twitter_digest"
 
 
@@ -56,6 +58,9 @@ enrich_agent = LlmAgent(
     instruction=ENRICH_INSTRUCTION,
     output_schema=_EnrichmentBatchOutput,
     output_key="enriched_batch",
+    generate_content_config=types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
+    ),
     after_model_callback=meter("twitter_digest.enrich", model=ENRICH_MODEL),
 )
 

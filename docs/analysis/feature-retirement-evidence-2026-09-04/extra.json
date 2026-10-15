@@ -1,0 +1,16 @@
+[
+  {
+    "feature": "health",
+    "all_rows": "10",
+    "all_users": "1",
+    "external_rows": "0",
+    "external_users": "0"
+  },
+  {
+    "feature": "portfolio",
+    "all_rows": "7",
+    "all_users": "1",
+    "external_rows": "0",
+    "external_users": "0"
+  }
+]

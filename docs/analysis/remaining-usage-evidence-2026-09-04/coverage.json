@@ -1,0 +1,26 @@
+[
+  {
+    "period": "30d",
+    "registered_external_users": "1604",
+    "new_users": "28",
+    "observed_authenticated_users": "77",
+    "observed_requests": "6204",
+    "days_with_activity": "31"
+  },
+  {
+    "period": "7d",
+    "registered_external_users": "1604",
+    "new_users": "4",
+    "observed_authenticated_users": "22",
+    "observed_requests": "774",
+    "days_with_activity": "8"
+  },
+  {
+    "period": "previous7d",
+    "registered_external_users": "1604",
+    "new_users": "6",
+    "observed_authenticated_users": "25",
+    "observed_requests": "1370",
+    "days_with_activity": "8"
+  }
+]

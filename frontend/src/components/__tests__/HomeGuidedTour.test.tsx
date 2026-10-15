@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HomeGuidedTour from '../HomeGuidedTour';
 
 const mocks = vi.hoisted(() => ({
+  paused: false,
   replace: vi.fn(),
   searchParams: new URLSearchParams('tour=1'),
   useAuth: vi.fn(),
@@ -12,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   completeOnboarding: vi.fn(),
   trackProductEvent: vi.fn(),
 }));
+
+vi.mock('@/lib/feature-pause', () => ({ isFeaturePaused: () => mocks.paused }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace }),
@@ -83,6 +86,7 @@ describe('HomeGuidedTour', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mocks.paused = false;
     localStorage.clear();
     window.history.pushState({}, '', '/?tour=1');
     mocks.searchParams = new URLSearchParams('tour=1');
@@ -163,4 +167,14 @@ describe('HomeGuidedTour', () => {
     expect(mocks.onboardingStatus).not.toHaveBeenCalled();
     expect(mocks.replace).not.toHaveBeenCalled();
   });
+});
+
+it('paused tour ignores old tour URLs without network or completion writes', () => {
+  mocks.paused = true;
+  mocks.onboardingStatus.mockClear();
+  mocks.completeOnboarding.mockClear();
+  const view = render(<HomeGuidedTour />);
+  expect(view.container).toBeEmptyDOMElement();
+  expect(mocks.onboardingStatus).not.toHaveBeenCalled();
+  expect(mocks.completeOnboarding).not.toHaveBeenCalled();
 });

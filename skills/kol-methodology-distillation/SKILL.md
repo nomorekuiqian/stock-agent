@@ -1,6 +1,6 @@
 ---
 name: kol-methodology-distillation
-description: Project workflow for Stock Agent KOL methodology distillation and chat. Use when working on qinbafrank or other KOL tweet distillation, methodology YAML extraction, evidence validation, KOL chat behavior, live market context injection, KOL conversation persistence, Twitter digest enrichment, or related backend/frontend/docs changes in this repository.
+description: "Maintain Stock Agent KOL methodology extraction, evidence validation, and related chat or digest integrations."
 ---
 
 # KOL Methodology Distillation

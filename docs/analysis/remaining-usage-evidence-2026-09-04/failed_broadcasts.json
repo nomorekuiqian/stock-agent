@@ -1,0 +1,9 @@
+[
+  {
+    "channel": "daily_report",
+    "error": "The audience you are sending contains a contact with an email address ending in `@example.com`. Please use our testing email address instead. See our documentation for more information.",
+    "failures": "20",
+    "first_date": "2026-08-06T00:00:00.000Z",
+    "last_date": "2026-09-02T00:00:00.000Z"
+  }
+]

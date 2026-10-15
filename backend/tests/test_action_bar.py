@@ -748,9 +748,8 @@ class TestBuildActionBarAgentDriven:
                 holdings=holdings,
             )
         assert bar.visibility == "visible"
-        assert len(bar.chips) == 2
-        # With priority+target sort: (1,"thesis:NVDA"),(2,"health") → order [thesis:NVDA, health]
-        assert [c.target for c in bar.chips] == ["thesis:NVDA", "health"]
+        assert len(bar.chips) == 1
+        assert [c.target for c in bar.chips] == ["thesis:NVDA"]
         assert bar.source == "agent"
 
     @pytest.mark.asyncio
@@ -766,8 +765,8 @@ class TestBuildActionBarAgentDriven:
         with patch("app.features.portfolio.db.get_profile", new=AsyncMock(return_value=make_profile())), \
              patch("app.features.brew.db.resolve_digest_id_by_date", new=AsyncMock(return_value=None)):
             bar = await build_action_bar("user-1", digest_data=digest, holdings=[])
-        assert len(bar.chips) == 1
-        assert bar.chips[0].target == "health"
+        assert bar.chips == []
+        assert bar.visibility == "hidden"
 
     @pytest.mark.asyncio
     async def test_non_string_portfolio_summary_does_not_crash(self):

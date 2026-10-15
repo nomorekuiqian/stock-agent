@@ -1,0 +1,112 @@
+[
+  {
+    "agent_id": "research_agent",
+    "event_type": "tool_call_completed",
+    "role": "tool",
+    "events30": "196",
+    "users30": "27",
+    "events60": "813",
+    "users60": "70",
+    "latest": "2026-09-02T21:56:46.168Z"
+  },
+  {
+    "agent_id": "research_agent",
+    "event_type": "user_message",
+    "role": "user",
+    "events30": "94",
+    "users30": "27",
+    "events60": "369",
+    "users60": "70",
+    "latest": "2026-09-02T21:56:45.968Z"
+  },
+  {
+    "agent_id": "research_agent",
+    "event_type": "assistant_message",
+    "role": "assistant",
+    "events30": "94",
+    "users30": "27",
+    "events60": "369",
+    "users60": "70",
+    "latest": "2026-09-02T21:56:45.969Z"
+  },
+  {
+    "agent_id": "research_agent",
+    "event_type": "context_snapshot",
+    "role": "system",
+    "events30": "94",
+    "users30": "27",
+    "events60": "369",
+    "users60": "70",
+    "latest": "2026-09-02T21:56:46.165Z"
+  },
+  {
+    "agent_id": "research_agent",
+    "event_type": "ui_navigation",
+    "role": "system",
+    "events30": "76",
+    "users30": "27",
+    "events60": "283",
+    "users60": "70",
+    "latest": "2026-09-02T21:56:49.309Z"
+  },
+  {
+    "agent_id": "kol_research_agent",
+    "event_type": "assistant_message",
+    "role": "assistant",
+    "events30": "23",
+    "users30": "3",
+    "events60": "60",
+    "users60": "11",
+    "latest": "2026-08-24T12:47:30.801Z"
+  },
+  {
+    "agent_id": "kol_research_agent",
+    "event_type": "user_message",
+    "role": "user",
+    "events30": "23",
+    "users30": "3",
+    "events60": "60",
+    "users60": "11",
+    "latest": "2026-08-24T12:47:30.800Z"
+  },
+  {
+    "agent_id": "kol_research_agent",
+    "event_type": "context_snapshot",
+    "role": "system",
+    "events30": "23",
+    "users30": "3",
+    "events60": "60",
+    "users60": "11",
+    "latest": "2026-08-24T12:47:31.068Z"
+  },
+  {
+    "agent_id": "kol_research_agent",
+    "event_type": "tool_call_completed",
+    "role": "tool",
+    "events30": "21",
+    "users30": "3",
+    "events60": "77",
+    "users60": "11",
+    "latest": "2026-08-24T12:47:08.333Z"
+  },
+  {
+    "agent_id": "kol_research_agent",
+    "event_type": "ui_navigation",
+    "role": "system",
+    "events30": "4",
+    "users30": "3",
+    "events60": "23",
+    "users60": "11",
+    "latest": "2026-08-24T10:55:37.230Z"
+  },
+  {
+    "agent_id": "research_agent",
+    "event_type": "error",
+    "role": "system",
+    "events30": "2",
+    "users30": "2",
+    "events60": "11",
+    "users60": "8",
+    "latest": "2026-09-01T03:10:37.917Z"
+  }
+]

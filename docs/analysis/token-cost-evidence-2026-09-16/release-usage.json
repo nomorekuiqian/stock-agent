@@ -1,0 +1,135 @@
+[
+  {
+    "feature": "brew.digest_paid",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-07T22:30:32.000Z",
+    "max": "2026-09-15T22:34:02.000Z",
+    "after_release": "247"
+  },
+  {
+    "feature": "brew.digest_paid",
+    "model": "gemini-3-flash-preview",
+    "min": "2026-09-01T22:30:55.000Z",
+    "max": "2026-09-04T22:36:11.000Z",
+    "after_release": "0"
+  },
+  {
+    "feature": "daily_report",
+    "model": "gemini-3.5-flash",
+    "min": "2026-09-01T22:00:49.000Z",
+    "max": "2026-09-04T22:00:52.000Z",
+    "after_release": "0"
+  },
+  {
+    "feature": "daily_report",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-07T22:00:31.000Z",
+    "max": "2026-09-15T22:00:19.000Z",
+    "after_release": "7"
+  },
+  {
+    "feature": "macro.weekly",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-06T02:01:01.000Z",
+    "max": "2026-09-13T02:01:15.000Z",
+    "after_release": "2"
+  },
+  {
+    "feature": "morning_report",
+    "model": "gemini-3.1-flash-lite",
+    "min": "2026-09-01T13:00:14.000Z",
+    "max": "2026-09-04T13:00:15.000Z",
+    "after_release": "0"
+  },
+  {
+    "feature": "morning_report",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-07T13:00:45.000Z",
+    "max": "2026-09-15T13:00:17.000Z",
+    "after_release": "7"
+  },
+  {
+    "feature": "screener.research",
+    "model": "gemini-3.1-flash-lite",
+    "min": "2026-09-01T03:10:37.000Z",
+    "max": "2026-09-02T21:56:45.000Z",
+    "after_release": "0"
+  },
+  {
+    "feature": "screener.research",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-06T12:06:22.000Z",
+    "max": "2026-09-14T06:30:08.000Z",
+    "after_release": "244"
+  },
+  {
+    "feature": "stock.earnings",
+    "model": "gemini-3.1-flash-lite",
+    "min": "2026-09-02T19:02:00.000Z",
+    "max": "2026-09-02T19:02:00.000Z",
+    "after_release": "0"
+  },
+  {
+    "feature": "stock.earnings",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-08T20:52:21.000Z",
+    "max": "2026-09-16T07:15:07.000Z",
+    "after_release": "3"
+  },
+  {
+    "feature": "stock.fundamental",
+    "model": "gemini-3.1-flash-lite",
+    "min": "2026-09-02T19:01:03.000Z",
+    "max": "2026-09-02T21:48:25.000Z",
+    "after_release": "0"
+  },
+  {
+    "feature": "stock.fundamental",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-06T02:17:12.000Z",
+    "max": "2026-09-15T15:11:17.000Z",
+    "after_release": "5"
+  },
+  {
+    "feature": "stock.market_overview",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-06T02:17:21.000Z",
+    "max": "2026-09-15T16:04:00.000Z",
+    "after_release": "4"
+  },
+  {
+    "feature": "stock.technical",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-06T02:17:27.000Z",
+    "max": "2026-09-08T20:52:25.000Z",
+    "after_release": "2"
+  },
+  {
+    "feature": "twitter_digest.curate",
+    "model": "gemini-3.5-flash",
+    "min": "2026-09-01T20:31:27.000Z",
+    "max": "2026-09-04T20:31:47.000Z",
+    "after_release": "0"
+  },
+  {
+    "feature": "twitter_digest.curate",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-07T20:30:28.000Z",
+    "max": "2026-09-15T20:30:43.000Z",
+    "after_release": "7"
+  },
+  {
+    "feature": "twitter_digest.enrich",
+    "model": "gemini-3.1-flash-lite",
+    "min": "2026-09-01T00:00:46.000Z",
+    "max": "2026-09-05T03:00:54.000Z",
+    "after_release": "0"
+  },
+  {
+    "feature": "twitter_digest.enrich",
+    "model": "gemini-3.8-flash",
+    "min": "2026-09-05T04:00:39.000Z",
+    "max": "2026-09-16T10:01:48.000Z",
+    "after_release": "1385"
+  }
+]

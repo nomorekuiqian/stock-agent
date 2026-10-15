@@ -13,6 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.core.feature_pause import paused_conversation, require_active
 from app.core.deps import verify_user_token
 from app.core.logging import get_logger
 from app.features.agent_runtime import db
@@ -86,6 +87,8 @@ async def get_session(
     frontend can fall through to the picker_conversations compatibility path
     without needing to interpret HTTP status codes.
     """
+    if agent_id == "kol_research_agent":
+        require_active("kol_chat")
     if agent_id not in _ALLOWED_AGENT_IDS:
         raise HTTPException(status_code=400, detail="unsupported agent_id")
     # The (after_created_at, after_id) cursor must be supplied together. Edge
@@ -114,4 +117,6 @@ async def get_session(
         )
         raise HTTPException(status_code=502, detail="runtime store unavailable")
 
+    if paused_conversation((payload or {}).get("session") or {}):
+        require_active("kol_research")
     return _public_session_payload(payload)

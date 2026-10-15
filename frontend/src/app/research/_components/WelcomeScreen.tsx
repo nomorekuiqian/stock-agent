@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useKolCockpitTickers } from '@/hooks/queries/use-kol-data';
+import { isFeaturePaused } from '@/lib/feature-pause';
 import type { KolCockpitTickerSummary, KolPersonaScope } from '@/lib/api';
 import ChatInput from './ChatInput';
 import PersonaSelector, { type AgentKind } from './PersonaSelector';
@@ -373,7 +374,9 @@ export default function WelcomeScreen({
     agentKind === 'kol_research' && personaUsername ? 'persona' : 'default';
   const [renderMode, setRenderMode] = useState<'default' | 'persona'>(targetMode);
   const isLeaving = renderMode !== targetMode;
-  const personaTickersQuery = useKolCockpitTickers(personaUsername ?? '');
+  const personaTickersQuery = useKolCockpitTickers(
+    isFeaturePaused('kol_research') ? '' : personaUsername ?? '',
+  );
   const personaTickerChips = selectPersonaTickerChips(
     personaUsername,
     personaTickersQuery.data?.tickers,

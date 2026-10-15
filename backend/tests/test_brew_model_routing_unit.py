@@ -81,8 +81,8 @@ class TestResolveRunnerForUser:
 
 
 class TestModuleConstants:
-    def test_paid_and_free_models_temporarily_unified(self):
-        assert FREE_TIER_MODEL == PAID_TIER_MODEL == "gemini-3-flash-preview"
+    def test_paid_and_free_models_unified(self):
+        assert FREE_TIER_MODEL == PAID_TIER_MODEL == "gemini-3.8-flash"
 
     def test_paid_entitlement_is_pro_feature(self):
         from app.features.payment.entitlements import PRO_FEATURES

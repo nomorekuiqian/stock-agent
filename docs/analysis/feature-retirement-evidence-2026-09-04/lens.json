@@ -1,0 +1,37 @@
+[
+  {
+    "tool_name": "frank_search_evidence",
+    "calls": "16",
+    "latest": "2026-06-08T23:18:24.426Z"
+  },
+  {
+    "tool_name": "frank_market_regime",
+    "calls": "14",
+    "latest": "2026-06-08T23:18:29.698Z"
+  },
+  {
+    "tool_name": "market_lens_get_lens",
+    "calls": "1",
+    "latest": "2026-06-08T23:18:22.339Z"
+  },
+  {
+    "tool_name": "market_lens_search_lenses",
+    "calls": "1",
+    "latest": "2026-06-08T23:18:22.994Z"
+  },
+  {
+    "tool_name": "market_lens_list_lenses",
+    "calls": "3",
+    "latest": "2026-06-08T23:18:21.676Z"
+  },
+  {
+    "tool_name": "frank_stock_diagnosis",
+    "calls": "14",
+    "latest": "2026-06-08T23:18:27.855Z"
+  },
+  {
+    "tool_name": "frank_research_memo",
+    "calls": "3",
+    "latest": "2026-06-08T20:09:02.673Z"
+  }
+]

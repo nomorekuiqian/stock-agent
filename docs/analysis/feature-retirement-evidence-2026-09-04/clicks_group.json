@@ -1,0 +1,37 @@
+[
+  {
+    "destination": "for-you",
+    "clicks30": "9",
+    "users30": "5",
+    "clicks60": "39",
+    "users60": "11"
+  },
+  {
+    "destination": "morning",
+    "clicks30": "0",
+    "users30": "0",
+    "clicks60": "4",
+    "users60": "2"
+  },
+  {
+    "destination": "other",
+    "clicks30": "72",
+    "users30": "31",
+    "clicks60": "417",
+    "users60": "105"
+  },
+  {
+    "destination": "today",
+    "clicks30": "10",
+    "users30": "7",
+    "clicks60": "44",
+    "users60": "15"
+  },
+  {
+    "destination": "twitter-digest",
+    "clicks30": "23",
+    "users30": "5",
+    "clicks60": "38",
+    "users60": "9"
+  }
+]

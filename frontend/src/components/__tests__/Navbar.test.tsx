@@ -93,13 +93,11 @@ describe('Navbar', () => {
     expect(container.querySelector('[data-guided-tour-target="nav-my"]')).toBeTruthy();
   });
 
-  it('shows KOL research under the research menu after rollout', () => {
+  it('hides paused KOL research from all menus', () => {
     render(<Navbar />);
 
-    expect(screen.getAllByText('博主研究室').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByRole('menuitem', { name: '博主研究室' }).every((link) => (
-      link.getAttribute('href') === '/kol'
-    ))).toBe(true);
+    expect(screen.queryByText('博主研究室')).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '博主研究室' })).not.toBeInTheDocument();
   });
 
   it('does not expose the retired AI monitor in navigation', () => {

@@ -15,13 +15,14 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from pydantic import BaseModel, Field
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso
 from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
 
-EARNINGS_MODEL = "gemini-3.1-flash-lite"
+EARNINGS_MODEL = GENERATIVE_MODEL
 
 logger = get_logger(__name__)
 
@@ -473,7 +474,7 @@ class EarningsAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite",
+                    "model": GENERATIVE_MODEL,
                     "has_transcript": has_transcript,
                     "generated_at": now_iso(),
                 },
@@ -486,7 +487,7 @@ class EarningsAgent:
                 "analysis": _empty_earnings_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite",
+                    "model": GENERATIVE_MODEL,
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

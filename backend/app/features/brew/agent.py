@@ -2,14 +2,17 @@
 PersonalDigest - Daily Digest for User Watchlist
 
 Architecture:
-    Python (fetch stock + news data) -> PersonalDigest Agent (gemini-3.1-flash-lite) -> Structured output
+    Python (fetch stock + news data) -> PersonalDigest Agent (shared Gemini model) -> Structured output
 """
 
 import json
 import os
 from datetime import datetime, timezone
 
+from app.core.feature_pause import is_paused
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
+from app.shared.agent_sessions import temporary_agent_session
 from dotenv import load_dotenv
 
 logger = get_logger(__name__)
@@ -334,12 +337,12 @@ Target 白名单（只能使用这些，其他一律丢弃）：
 """
 
 
-# Two-tier model routing:
-#   free  -> gemini-3-flash-preview
-#   paid  -> gemini-3-flash-preview  (temporarily unified — pro tier disabled)
-# Paid users are identified by the "personal_digest_email" entitlement (Pro+ tier).
-FREE_TIER_MODEL = "gemini-3-flash-preview"
-PAID_TIER_MODEL = "gemini-3-flash-preview"
+if is_paused("portfolio_health"):
+    DIGEST_INSTRUCTION += "\n当前持仓体检已停用，不得生成 target=health 的 action，也不要推荐用户使用持仓体检。\n"
+
+# Separate entitlement routing and usage attribution, with one shared model.
+FREE_TIER_MODEL = GENERATIVE_MODEL
+PAID_TIER_MODEL = GENERATIVE_MODEL
 PAID_ENTITLEMENT = "personal_digest_email"
 
 personal_digest_agent_free = LlmAgent(
@@ -663,7 +666,7 @@ class PersonalDigest:
 
             # Fetch latest health check timestamp for action_context
             health_generated_at = None
-            if user_id:
+            if user_id and not is_paused("portfolio_health"):
                 try:
                     from app.features.portfolio_health.service import (
                         get_latest as get_latest_health,
@@ -767,65 +770,64 @@ class PersonalDigest:
                 (user_id or "?")[:8],
             )
 
-            session = await runner.session_service.create_session(
-                app_name="personal_digest", user_id="digest"
-            )
-
-            profile_header = inject_profile("", profile) if profile else ""
-            message = Content(
-                parts=[
-                    Part(
-                        text=f"{profile_header}Generate personalized digest for user watchlist:\n\n{json.dumps(data_for_agent, ensure_ascii=False, indent=2, default=str)}"
-                    )
-                ],
-                role="user",
-            )
-
-            async for _ in runner.run_async(
-                user_id="digest", session_id=session.id, new_message=message
-            ):
-                pass
-
-            # Get output from session state
-            session_data = await runner.session_service.get_session(
-                app_name="personal_digest", user_id="digest", session_id=session.id
-            )
-
-            digest_output = {}
-            if session_data and hasattr(session_data, "state"):
-                state = session_data.state or {}
-                digest_output = state.get("digest", {})
-                if isinstance(digest_output, str):
-                    try:
-                        digest_output = json.loads(digest_output)
-                    except json.JSONDecodeError:
-                        digest_output = {}
-
-            news_data = digest_output.get("news", {})
-            news_count = 0
-            if isinstance(news_data, dict):
-                news_count = len(news_data.get("headlines", [])) + len(
-                    news_data.get("briefs", [])
+            async with temporary_agent_session(
+                runner, app_name="personal_digest", user_id="digest"
+            ) as session:
+                profile_header = inject_profile("", profile) if profile else ""
+                message = Content(
+                    parts=[
+                        Part(
+                            text=f"{profile_header}Generate personalized digest for user watchlist:\n\n{json.dumps(data_for_agent, ensure_ascii=False, indent=2, default=str)}"
+                        )
+                    ],
+                    role="user",
                 )
-            logger.info(
-                "Generation complete. Stocks: %d, News: %d, Events: %d",
-                len(digest_output.get("stocks", [])),
-                news_count,
-                len(digest_output.get("events", [])),
-            )
 
-            self._attach_news_metadata(
-                digest_output.get("news"), news_result.get("news", [])
-            )
+                async for _ in runner.run_async(
+                    user_id="digest", session_id=session.id, new_message=message
+                ):
+                    pass
 
-            return {
-                "success": True,
-                "timestamp": now_iso(),
-                "symbols_used": symbols,
-                "model_tier": tier_label,
-                "model_name": model_name,
-                **digest_output,
-            }
+                # Get output from session state
+                session_data = await runner.session_service.get_session(
+                    app_name="personal_digest", user_id="digest", session_id=session.id
+                )
+
+                digest_output = {}
+                if session_data and hasattr(session_data, "state"):
+                    state = session_data.state or {}
+                    digest_output = state.get("digest", {})
+                    if isinstance(digest_output, str):
+                        try:
+                            digest_output = json.loads(digest_output)
+                        except json.JSONDecodeError:
+                            digest_output = {}
+
+                news_data = digest_output.get("news", {})
+                news_count = 0
+                if isinstance(news_data, dict):
+                    news_count = len(news_data.get("headlines", [])) + len(
+                        news_data.get("briefs", [])
+                    )
+                logger.info(
+                    "Generation complete. Stocks: %d, News: %d, Events: %d",
+                    len(digest_output.get("stocks", [])),
+                    news_count,
+                    len(digest_output.get("events", [])),
+                )
+
+                self._attach_news_metadata(
+                    digest_output.get("news"), news_result.get("news", [])
+                )
+
+                return {
+                    "success": True,
+                    "timestamp": now_iso(),
+                    "symbols_used": symbols,
+                    "model_tier": tier_label,
+                    "model_name": model_name,
+                    **digest_output,
+                }
 
         except Exception as e:
             logger.exception("Error generating personal digest")

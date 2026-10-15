@@ -144,13 +144,13 @@ describe('/login page', () => {
     fireEvent.click(screen.getByRole('button', { name: '创建账户' }));
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/verify-email?redirect=%2F%3Ftour%3D1&email=user%40example.com');
+      expect(mockPush).toHaveBeenCalledWith('/verify-email?redirect=%2Ftoday&email=user%40example.com');
     });
     expect(sessionStorage.getItem('pending_verification_email')).toBe('user@example.com');
     expect(sessionStorage.getItem('pending_verification_name')).toBe('Tester');
   });
 
-  it('preserves explicit Panda redirect for sign-up verification', async () => {
+  it('redirects paused Panda entry to neutral research after verification', async () => {
     mockSearchParams = new URLSearchParams('mode=signup&redirect=%2Fpanda');
     mockSignUp.mockResolvedValue({
       success: true,
@@ -170,10 +170,10 @@ describe('/login page', () => {
         'user@example.com',
         'Password123!',
         'Tester',
-        '/panda',
+        '/research',
       );
-      expect(mockPush).toHaveBeenCalledWith('/verify-email?redirect=%2Fpanda&email=user%40example.com');
+      expect(mockPush).toHaveBeenCalledWith('/verify-email?redirect=%2Fresearch&email=user%40example.com');
     });
-    expect(sessionStorage.getItem('auth_redirect')).toBe('/panda');
+    expect(sessionStorage.getItem('auth_redirect')).toBe('/research');
   });
 });

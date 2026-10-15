@@ -23,6 +23,7 @@ from pydantic import BaseModel, ValidationError
 from app.core.config import EDGE_FUNCTION_SECRET
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
+from app.shared.agent_sessions import temporary_agent_session
 from app.features.twitter.service import get_enabled_kols
 from app.features.twitter_digest import db
 from app.features.twitter_digest.agents import (
@@ -368,37 +369,36 @@ async def _run_agent(agent, input_payload: dict, output_schema: Type[T]) -> T:
 
     runner = get_runner(agent)
     user_id = f"{agent.name}_caller"
-    session = await runner.session_service.create_session(
-        app_name=APP_NAME, user_id=user_id,
-    )
+    async with temporary_agent_session(
+        runner, app_name=APP_NAME, user_id=user_id
+    ) as session:
+        payload_text = json.dumps(input_payload, ensure_ascii=False, default=str)
+        message = Content(parts=[Part(text=payload_text)], role="user")
 
-    payload_text = json.dumps(input_payload, ensure_ascii=False, default=str)
-    message = Content(parts=[Part(text=payload_text)], role="user")
+        async for _ in runner.run_async(
+            user_id=user_id, session_id=session.id, new_message=message,
+        ):
+            pass
 
-    async for _ in runner.run_async(
-        user_id=user_id, session_id=session.id, new_message=message,
-    ):
-        pass
+        session_data = await runner.session_service.get_session(
+            app_name=APP_NAME, user_id=user_id, session_id=session.id,
+        )
+        state = (session_data.state if session_data else {}) or {}
+        raw = state.get(agent.output_key)
 
-    session_data = await runner.session_service.get_session(
-        app_name=APP_NAME, user_id=user_id, session_id=session.id,
-    )
-    state = (session_data.state if session_data else {}) or {}
-    raw = state.get(agent.output_key)
+        if raw is None:
+            raise RuntimeError(f"{agent.name} produced no output")
 
-    if raw is None:
-        raise RuntimeError(f"{agent.name} produced no output")
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(f"{agent.name} output was not valid JSON: {raw[:200]}") from exc
 
-    if isinstance(raw, str):
         try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(f"{agent.name} output was not valid JSON: {raw[:200]}") from exc
-
-    try:
-        return output_schema.model_validate(raw)
-    except ValidationError as exc:
-        raise RuntimeError(f"{agent.name} output did not match schema: {exc}") from exc
+            return output_schema.model_validate(raw)
+        except ValidationError as exc:
+            raise RuntimeError(f"{agent.name} output did not match schema: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------

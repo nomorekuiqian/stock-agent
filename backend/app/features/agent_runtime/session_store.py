@@ -7,6 +7,7 @@ from copy import deepcopy
 from typing import Any, Protocol
 from uuid import uuid4
 
+from app.core.feature_pause import paused_conversation, require_active
 from app.core.config import (
     AGENT_RUNTIME_INMEMORY_MAX_SESSIONS,
     AGENT_RUNTIME_INMEMORY_MAX_TRANSCRIPT,
@@ -242,6 +243,8 @@ class PickerConversationSessionStore:
             )
             conversation = None
 
+        if paused_conversation(conversation or {}):
+            require_active("kol_research")
         data = (conversation or {}).get("data") or {}
         messages = data.get("messages") if isinstance(data, dict) else None
         transcript = _normalize_history(messages)
@@ -313,6 +316,8 @@ class AgentSessionsSessionStore:
             raw_entries = (payload or {}).get("entries") or []
             transcript = _normalize_history(raw_entries)
         stored_session = (payload or {}).get("session")
+        if paused_conversation(stored_session or {}):
+            require_active("kol_research")
         stored_metadata = {}
         if isinstance(stored_session, dict) and isinstance(stored_session.get("metadata"), dict):
             stored_metadata = stored_session["metadata"]

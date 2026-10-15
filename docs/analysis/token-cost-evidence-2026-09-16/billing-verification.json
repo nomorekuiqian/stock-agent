@@ -1,0 +1,86 @@
+{
+  "verified_date": "2026-09-16",
+  "surface": "Google Cloud Billing Reports visible authenticated browser UI",
+  "project": "Stock-Agent",
+  "project_id": "gen-lang-client-0642500064",
+  "current_period": "2026-09-01 through 2026-09-15, as displayed by Google",
+  "current_service": "Gemini API",
+  "current_usd": 50.34,
+  "current_savings_usd": 0,
+  "google_month_forecast_usd": 99.6,
+  "august_invoice": {
+    "period": "2026-08-01 through 2026-08-31",
+    "gemini_api_usd": 53.03,
+    "tax_usd": 5.6,
+    "invoice_total_usd": 58.63
+  },
+  "current_skus": [
+    {
+      "model": "gemini-3.8-flash",
+      "type": "output_including_thinking",
+      "tokens": 7480312,
+      "usd": 28.05
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "type": "uncached_input",
+      "tokens": 17817539,
+      "usd": 13.36
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "type": "output_including_thinking",
+      "tokens": 997547,
+      "usd": 2.99
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "type": "uncached_input",
+      "tokens": 3460018,
+      "usd": 1.73
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "type": "uncached_input",
+      "tokens": 5679060,
+      "usd": 1.42
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "type": "uncached_input",
+      "tokens": 818171,
+      "usd": 1.23
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "type": "output_including_thinking",
+      "tokens": 90292,
+      "usd": 0.81
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "type": "output_including_thinking",
+      "tokens": 489554,
+      "usd": 0.73
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "type": "cached_input",
+      "tokens": 48934,
+      "usd": 0
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "type": "cached_input",
+      "tokens": 40287,
+      "usd": 0
+    }
+  ],
+  "budget_edit_page": {
+    "mode": "Alerts only",
+    "spend_cap_enforcement": "disabled",
+    "visible_target_amount": 50,
+    "saved_state_verified": false,
+    "mutations_performed": false
+  }
+}

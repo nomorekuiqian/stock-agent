@@ -1,0 +1,20 @@
+{
+  "asof_utc": "2026-09-05T04:00:00Z",
+  "excluded_accounts": 6,
+  "exclusion_source": "production ADMIN_EMAILS plus documented test account plus @example.com",
+  "windows": {
+    "30d": "2026-08-06T04:00:00Z",
+    "7d": "2026-08-29T04:00:00Z",
+    "previous7d": "2026-08-22T04:00:00Z"
+  },
+  "external_only": [
+    "coverage",
+    "routes",
+    "research",
+    "watchlists",
+    "email_campaigns"
+  ],
+  "all_system_calls": [
+    "llm"
+  ]
+}

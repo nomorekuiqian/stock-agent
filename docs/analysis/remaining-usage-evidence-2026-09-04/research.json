@@ -1,0 +1,42 @@
+[
+  {
+    "period": "30d",
+    "agent_id": "kol_research_agent",
+    "users": "3",
+    "questions": "23",
+    "returning_across_days": "1",
+    "median_questions": 4
+  },
+  {
+    "period": "30d",
+    "agent_id": "research_agent",
+    "users": "27",
+    "questions": "94",
+    "returning_across_days": "5",
+    "median_questions": 2
+  },
+  {
+    "period": "7d",
+    "agent_id": "research_agent",
+    "users": "3",
+    "questions": "9",
+    "returning_across_days": "1",
+    "median_questions": 4
+  },
+  {
+    "period": "previous7d",
+    "agent_id": "kol_research_agent",
+    "users": "1",
+    "questions": "4",
+    "returning_across_days": "0",
+    "median_questions": 4
+  },
+  {
+    "period": "previous7d",
+    "agent_id": "research_agent",
+    "users": "8",
+    "questions": "18",
+    "returning_across_days": "2",
+    "median_questions": 1.5
+  }
+]

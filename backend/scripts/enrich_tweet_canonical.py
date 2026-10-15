@@ -41,7 +41,14 @@ def _bootstrap() -> Path:
     return root
 
 
-DEFAULT_MODEL = "gemini-3.5-flash"
+# The shared model constant has no environment dependencies. Preserve the
+# existing deferred environment loading in _bootstrap().
+_backend_root = str(Path(__file__).resolve().parents[1])
+if _backend_root not in sys.path:
+    sys.path.insert(0, _backend_root)
+from app.core.ai_models import GENERATIVE_MODEL  # noqa: E402
+
+DEFAULT_MODEL = GENERATIVE_MODEL
 CANONICAL_BUILDER = "canonical-builder-v1"
 MAX_IMAGE_DIM = 2048
 MAX_OCR_CHARS_PER_IMAGE = 6000

@@ -1,0 +1,1434 @@
+[
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/payment/subscription-status",
+    "status": "200",
+    "calls": "934",
+    "users": "76"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/flags",
+    "status": "200",
+    "calls": "903",
+    "users": "73"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/payment/me/entitlements",
+    "status": "200",
+    "calls": "902",
+    "users": "76"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/subscriptions/preferences",
+    "status": "200",
+    "calls": "552",
+    "users": "67"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/admin/whoami",
+    "status": "200",
+    "calls": "447",
+    "users": "76"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/research/quota",
+    "status": "200",
+    "calls": "431",
+    "users": "48"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/subscriptions/sync-user",
+    "status": "200",
+    "calls": "273",
+    "users": "76"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/research/conversations",
+    "status": "200",
+    "calls": "219",
+    "users": "49"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/user/onboarding-status",
+    "status": "200",
+    "calls": "156",
+    "users": "64"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/watchlist",
+    "status": "200",
+    "calls": "150",
+    "users": "47"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/{id}",
+    "status": "200",
+    "calls": "140",
+    "users": "18"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/latest",
+    "status": "200",
+    "calls": "106",
+    "users": "28"
+  },
+  {
+    "period": "30d",
+    "method": "PUT",
+    "path": "/api/research/conversations/{id}",
+    "status": "200",
+    "calls": "103",
+    "users": "23"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/research/chat/stream",
+    "status": "200",
+    "calls": "100",
+    "users": "28"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/agent-runtime/sessions/{id}",
+    "status": "200",
+    "calls": "92",
+    "users": "31"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/latest",
+    "status": "200",
+    "calls": "82",
+    "users": "29"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/digests",
+    "status": "200",
+    "calls": "74",
+    "users": "10"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/analysis/cache",
+    "status": "200",
+    "calls": "71",
+    "users": "7"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/research/conversations",
+    "status": "201",
+    "calls": "55",
+    "users": "27"
+  },
+  {
+    "period": "30d",
+    "method": "PUT",
+    "path": "/api/watchlist",
+    "status": "200",
+    "calls": "43",
+    "users": "7"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/user/onboarding/complete",
+    "status": "200",
+    "calls": "29",
+    "users": "29"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/portfolio",
+    "status": "200",
+    "calls": "24",
+    "users": "16"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/payment/checkout-session",
+    "status": "200",
+    "calls": "23",
+    "users": "20"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/kol_research/chat/stream",
+    "status": "200",
+    "calls": "23",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/technical",
+    "status": "200",
+    "calls": "23",
+    "users": "4"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/analysis",
+    "status": "200",
+    "calls": "20",
+    "users": "6"
+  },
+  {
+    "period": "30d",
+    "method": "PUT",
+    "path": "/api/kol_research/conversations/{id}",
+    "status": "200",
+    "calls": "19",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/market-analysis",
+    "status": "200",
+    "calls": "19",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/research/conversations/{id}",
+    "status": "200",
+    "calls": "12",
+    "users": "7"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/kol_research/personas",
+    "status": "200",
+    "calls": "9",
+    "users": "6"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/market-analysis",
+    "status": "200",
+    "calls": "8",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/payment/portal-session",
+    "status": "200",
+    "calls": "6",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/earnings",
+    "status": "200",
+    "calls": "6",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-13",
+    "status": "200",
+    "calls": "5",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/subscriptions/preferences",
+    "status": "200",
+    "calls": "5",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-06",
+    "status": "200",
+    "calls": "5",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-24",
+    "status": "200",
+    "calls": "5",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/watchlist-monitor",
+    "status": "200",
+    "calls": "5",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-18",
+    "status": "200",
+    "calls": "5",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/payment/cancel-subscription",
+    "status": "200",
+    "calls": "5",
+    "users": "5"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-24",
+    "status": "404",
+    "calls": "5",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-23",
+    "status": "404",
+    "calls": "4",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/kol_research/conversations",
+    "status": "201",
+    "calls": "4",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-21",
+    "status": "404",
+    "calls": "4",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-25",
+    "status": "200",
+    "calls": "4",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/subscriptions/preferences",
+    "status": "403",
+    "calls": "4",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-09-01",
+    "status": "200",
+    "calls": "3",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-11",
+    "status": "200",
+    "calls": "3",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/payment/me/entitlements",
+    "status": "503",
+    "calls": "3",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-27",
+    "status": "200",
+    "calls": "3",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "PUT",
+    "path": "/api/research/conversations/{id}",
+    "status": "404",
+    "calls": "3",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-25",
+    "status": "404",
+    "calls": "3",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-21",
+    "status": "200",
+    "calls": "3",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-07",
+    "status": "404",
+    "calls": "3",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-20",
+    "status": "200",
+    "calls": "3",
+    "users": "3"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-07",
+    "status": "200",
+    "calls": "3",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-09-03",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-10",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-10",
+    "status": "404",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-11",
+    "status": "404",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-14",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-15",
+    "status": "404",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-17",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-19",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-20",
+    "status": "404",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-26",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-28",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-30",
+    "status": "404",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-31",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-09-02",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-10",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-09-02",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/archive",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/payment/checkout-session",
+    "status": "409",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/payment/checkout-session/complete",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "30d",
+    "method": "POST",
+    "path": "/api/feedback",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-09-01",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-21",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-14",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-13",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/archive",
+    "status": "503",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/user/onboarding-status",
+    "status": "503",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-12",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-11",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-07",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-06",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/payment/subscription-status",
+    "status": "503",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-09-01",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-29",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-27",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-26",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-18",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-17",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-16",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-14",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-09",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "30d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-06",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/payment/subscription-status",
+    "status": "200",
+    "calls": "128",
+    "users": "22"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/payment/me/entitlements",
+    "status": "200",
+    "calls": "121",
+    "users": "22"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/flags",
+    "status": "200",
+    "calls": "117",
+    "users": "22"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/subscriptions/preferences",
+    "status": "200",
+    "calls": "77",
+    "users": "19"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/admin/whoami",
+    "status": "200",
+    "calls": "68",
+    "users": "20"
+  },
+  {
+    "period": "7d",
+    "method": "POST",
+    "path": "/api/subscriptions/sync-user",
+    "status": "200",
+    "calls": "44",
+    "users": "19"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/research/quota",
+    "status": "200",
+    "calls": "40",
+    "users": "8"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/research/conversations",
+    "status": "200",
+    "calls": "31",
+    "users": "8"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/{id}",
+    "status": "200",
+    "calls": "25",
+    "users": "5"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/user/onboarding-status",
+    "status": "200",
+    "calls": "20",
+    "users": "11"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/latest",
+    "status": "200",
+    "calls": "13",
+    "users": "8"
+  },
+  {
+    "period": "7d",
+    "method": "PUT",
+    "path": "/api/research/conversations/{id}",
+    "status": "200",
+    "calls": "13",
+    "users": "3"
+  },
+  {
+    "period": "7d",
+    "method": "POST",
+    "path": "/api/research/chat/stream",
+    "status": "200",
+    "calls": "10",
+    "users": "4"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/watchlist",
+    "status": "200",
+    "calls": "9",
+    "users": "8"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/agent-runtime/sessions/{id}",
+    "status": "200",
+    "calls": "8",
+    "users": "3"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/twitter-digest/latest",
+    "status": "200",
+    "calls": "7",
+    "users": "5"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/analysis/cache",
+    "status": "200",
+    "calls": "6",
+    "users": "2"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/digests",
+    "status": "200",
+    "calls": "6",
+    "users": "3"
+  },
+  {
+    "period": "7d",
+    "method": "POST",
+    "path": "/api/research/conversations",
+    "status": "201",
+    "calls": "4",
+    "users": "3"
+  },
+  {
+    "period": "7d",
+    "method": "POST",
+    "path": "/api/user/onboarding/complete",
+    "status": "200",
+    "calls": "4",
+    "users": "4"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/portfolio",
+    "status": "200",
+    "calls": "4",
+    "users": "3"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-09-01",
+    "status": "200",
+    "calls": "3",
+    "users": "2"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-09-02",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-09-03",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-30",
+    "status": "404",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-09-02",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-31",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/analysis",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-29",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-09-01",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "POST",
+    "path": "/api/payment/checkout-session",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "POST",
+    "path": "/api/subscriptions/preferences",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-09-01",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/flags",
+    "status": "200",
+    "calls": "200",
+    "users": "24"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/payment/subscription-status",
+    "status": "200",
+    "calls": "199",
+    "users": "24"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/payment/me/entitlements",
+    "status": "200",
+    "calls": "195",
+    "users": "24"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/admin/whoami",
+    "status": "200",
+    "calls": "115",
+    "users": "23"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/subscriptions/preferences",
+    "status": "200",
+    "calls": "99",
+    "users": "16"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/research/quota",
+    "status": "200",
+    "calls": "82",
+    "users": "13"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/subscriptions/sync-user",
+    "status": "200",
+    "calls": "57",
+    "users": "23"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/research/conversations",
+    "status": "200",
+    "calls": "49",
+    "users": "14"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/{id}",
+    "status": "200",
+    "calls": "36",
+    "users": "5"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/watchlist",
+    "status": "200",
+    "calls": "35",
+    "users": "11"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/latest",
+    "status": "200",
+    "calls": "34",
+    "users": "9"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/user/onboarding-status",
+    "status": "200",
+    "calls": "29",
+    "users": "11"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/analysis/cache",
+    "status": "200",
+    "calls": "27",
+    "users": "4"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/research/chat/stream",
+    "status": "200",
+    "calls": "20",
+    "users": "8"
+  },
+  {
+    "period": "previous7d",
+    "method": "PUT",
+    "path": "/api/research/conversations/{id}",
+    "status": "200",
+    "calls": "20",
+    "users": "6"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/digests",
+    "status": "200",
+    "calls": "20",
+    "users": "3"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/agent-runtime/sessions/{id}",
+    "status": "200",
+    "calls": "19",
+    "users": "8"
+  },
+  {
+    "period": "previous7d",
+    "method": "PUT",
+    "path": "/api/watchlist",
+    "status": "200",
+    "calls": "13",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/research/conversations",
+    "status": "201",
+    "calls": "12",
+    "users": "8"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/twitter-digest/latest",
+    "status": "200",
+    "calls": "12",
+    "users": "6"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/market-analysis",
+    "status": "200",
+    "calls": "9",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/user/onboarding/complete",
+    "status": "200",
+    "calls": "7",
+    "users": "7"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/analysis",
+    "status": "200",
+    "calls": "7",
+    "users": "3"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/payment/checkout-session",
+    "status": "200",
+    "calls": "7",
+    "users": "5"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/technical",
+    "status": "200",
+    "calls": "6",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-24",
+    "status": "404",
+    "calls": "5",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/market-analysis",
+    "status": "200",
+    "calls": "5",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-24",
+    "status": "200",
+    "calls": "5",
+    "users": "3"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/earnings",
+    "status": "200",
+    "calls": "4",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-23",
+    "status": "404",
+    "calls": "4",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-25",
+    "status": "200",
+    "calls": "4",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/kol_research/chat/stream",
+    "status": "200",
+    "calls": "4",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/portfolio",
+    "status": "200",
+    "calls": "3",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-25",
+    "status": "404",
+    "calls": "3",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "PUT",
+    "path": "/api/kol_research/conversations/{id}",
+    "status": "200",
+    "calls": "3",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-27",
+    "status": "200",
+    "calls": "3",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-28",
+    "status": "200",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/research/conversations/{id}",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/payment/cancel-subscription",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/subscriptions/preferences",
+    "status": "403",
+    "calls": "2",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-26",
+    "status": "200",
+    "calls": "2",
+    "users": "2"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-27",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/subscriptions/preferences",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/kol_research/conversations",
+    "status": "201",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/payment/checkout-session/complete",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/twitter-digest/2026-08-21",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "GET",
+    "path": "/api/morning/reports/date/2026-08-26",
+    "status": "404",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/feedback",
+    "status": "200",
+    "calls": "1",
+    "users": "1"
+  },
+  {
+    "period": "previous7d",
+    "method": "POST",
+    "path": "/api/payment/checkout-session",
+    "status": "409",
+    "calls": "1",
+    "users": "1"
+  }
+]

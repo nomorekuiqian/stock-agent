@@ -13,7 +13,9 @@ import json
 import os
 import re
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
+from app.shared.agent_sessions import temporary_agent_session
 from app.utils.timezone import now_iso, format_report_date
 
 logger = get_logger(__name__)
@@ -36,7 +38,7 @@ from app.features.daily_report.models import MarketReportOutput
 from app.features.daily_report import db as market_db
 from app.shared.llm_metering import meter
 
-DAILY_REPORT_MODEL = "gemini-3.5-flash"
+DAILY_REPORT_MODEL = GENERATIVE_MODEL
 
 # Import data fetching tools
 from app.shared.data_tools import get_all_market_data
@@ -487,60 +489,59 @@ class MarketAgent:
 
             for attempt in range(1, max_attempts + 1):
                 try:
-                    session = await self.runner.session_service.create_session(
-                        app_name="stock_agent", user_id="analyst"
-                    )
-
-                    message = Content(
-                        parts=[
-                            Part(
-                                text=f"Please analyze the following market data and provide a comprehensive report:\n\n{json.dumps(data_for_analyst, ensure_ascii=False, indent=2, default=str)}"
-                            )
-                        ],
-                        role="user",
-                    )
-
-                    async for event in self.runner.run_async(
-                        user_id="analyst", session_id=session.id, new_message=message
-                    ):
-                        pass
-
-                    session_data = await self.runner.session_service.get_session(
-                        app_name="stock_agent", user_id="analyst", session_id=session.id
-                    )
-
-                    if session_data and hasattr(session_data, "state"):
-                        state = session_data.state or {}
-                        report_data = state.get("report", {})
-
-                        if isinstance(report_data, str):
-                            try:
-                                report_data = json.loads(report_data)
-                            except json.JSONDecodeError:
-                                report_data = {}
-
-                        if isinstance(report_data, dict):
-                            title = report_data.get("title", "")
-                            summary = report_data.get("summary", "")
-                            intro = report_data.get("intro", "")
-                            news = report_data.get("news", {"headlines": [], "briefs": []})
-                            report_summary = report_data.get("report_summary", [])
-                            calendar = report_data.get("calendar", [])
-
-                    # Validate Gemini returned actual content
-                    if not title and not news.get("headlines"):
-                        logger.warning(
-                            "Gemini returned empty content (attempt %d/%d)",
-                            attempt, max_attempts,
+                    async with temporary_agent_session(
+                        self.runner, app_name="stock_agent", user_id="analyst"
+                    ) as session:
+                        message = Content(
+                            parts=[
+                                Part(
+                                    text=f"Please analyze the following market data and provide a comprehensive report:\n\n{json.dumps(data_for_analyst, ensure_ascii=False, indent=2, default=str)}"
+                                )
+                            ],
+                            role="user",
                         )
-                        if attempt < max_attempts:
-                            await asyncio.sleep(3)
-                            continue
-                        else:
-                            logger.error("Gemini returned empty content after %d attempts", max_attempts)
-                            return None
 
-                    break  # Success, exit retry loop
+                        async for event in self.runner.run_async(
+                            user_id="analyst", session_id=session.id, new_message=message
+                        ):
+                            pass
+
+                        session_data = await self.runner.session_service.get_session(
+                            app_name="stock_agent", user_id="analyst", session_id=session.id
+                        )
+
+                        if session_data and hasattr(session_data, "state"):
+                            state = session_data.state or {}
+                            report_data = state.get("report", {})
+
+                            if isinstance(report_data, str):
+                                try:
+                                    report_data = json.loads(report_data)
+                                except json.JSONDecodeError:
+                                    report_data = {}
+
+                            if isinstance(report_data, dict):
+                                title = report_data.get("title", "")
+                                summary = report_data.get("summary", "")
+                                intro = report_data.get("intro", "")
+                                news = report_data.get("news", {"headlines": [], "briefs": []})
+                                report_summary = report_data.get("report_summary", [])
+                                calendar = report_data.get("calendar", [])
+
+                        # Validate Gemini returned actual content
+                        if not title and not news.get("headlines"):
+                            logger.warning(
+                                "Gemini returned empty content (attempt %d/%d)",
+                                attempt, max_attempts,
+                            )
+                            if attempt < max_attempts:
+                                await asyncio.sleep(3)
+                                continue
+                            else:
+                                logger.error("Gemini returned empty content after %d attempts", max_attempts)
+                                return None
+
+                        break  # Success, exit retry loop
 
                 except Exception as e:
                     if attempt < max_attempts:

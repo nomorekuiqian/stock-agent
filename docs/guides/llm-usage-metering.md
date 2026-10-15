@@ -112,25 +112,19 @@ GROUP BY day, feature
 ORDER BY day DESC, total DESC;
 ```
 
-**估算月度费用** — 把 token 数 × 各模型的官方单价（https://ai.google.dev/pricing）：
+**估算 Gemini 3.8 的近 30 天 token 费用**（非完整账单）：
 ```sql
--- 粗算，单价以 USD per 1M tokens 为准；改成你查到的当前价格
 SELECT feature, model,
-       SUM(prompt_tokens) / 1e6 * CASE
-         WHEN model LIKE '%flash-lite%' THEN 0.10
-         WHEN model LIKE '%flash%' THEN 0.30
-         ELSE 1.25
-       END
-       + SUM(output_tokens) / 1e6 * CASE
-         WHEN model LIKE '%flash-lite%' THEN 0.40
-         WHEN model LIKE '%flash%' THEN 2.50
-         ELSE 5.00
-       END AS est_usd
+ SUM((CASE WHEN ts >= '2027-01-01T00:00:00Z' THEN 2 ELSE 1 END) * (
+   (COALESCE(prompt_tokens,0) - LEAST(COALESCE(cached_tokens,0),COALESCE(prompt_tokens,0))) * 0.75
+   + LEAST(COALESCE(cached_tokens,0),COALESCE(prompt_tokens,0)) * 0.075
+   + (COALESCE(output_tokens,0) + COALESCE(thoughts_tokens,0)) * 3.75
+ )) / 1e6 AS estimated_token_usd
 FROM llm_usage
-WHERE ts > NOW() - INTERVAL '30 days'
-GROUP BY feature, model
-ORDER BY est_usd DESC;
+WHERE ts > NOW() - INTERVAL '30 days' AND model = 'gemini-3.8-flash'
+GROUP BY feature, model;
 ```
+缺失 token 字段在估值中按 0 处理，须同时披露缺失覆盖；不能当成零消耗。费用不含 grounding、缓存存储、数据源、折扣或税费。历史模型按其当期单价另算，不套用新模型费率。
 
 ## 5. 给新 LlmAgent 加埋点
 
@@ -139,7 +133,8 @@ ORDER BY est_usd DESC;
 ```python
 from app.shared.llm_metering import meter
 
-MY_MODEL = "gemini-3.1-flash-lite-preview"
+from app.core.ai_models import GENERATIVE_MODEL
+MY_MODEL = GENERATIVE_MODEL
 
 my_agent = LlmAgent(
     name="my_agent",
@@ -167,15 +162,11 @@ my_agent = LlmAgent(
 
 ## 6. 加新模型档位的对照表
 
-改单价 / 切模型档时，更新 §4 SQL 里的 CASE WHEN 模型匹配。Google 模型命名约定够稳定，目前匹配规则：
+运行时生成模型唯一来源为 `app.core.ai_models.GENERATIVE_MODEL`。Gemini 3.8 不支持 MINIMAL thinking，显式设置时使用 LOW。
 
-| LIKE 模式 | 当前覆盖 | 备注 |
-|---|---|---|
-| `%flash-lite%` | gemini-3.1-flash-lite-preview | 最便宜 |
-| `%flash%` | gemini-3.5-flash, gemini-3-flash-preview | 中档 |
-| 其他 | pro / opus 之类 | 贵档 |
+当前单价逻辑位于 `shared/llm_pricing.py`；以 [Google 官方价格](https://ai.google.dev/gemini-api/docs/pricing) 为准。Gemini 3.8 在 2026-12-31 前：输入 $0.75、缓存输入 $0.075、输出（含 thinking）$3.75 / 百万 token；2027-01-01 起翻倍。旧模型的 generic Flash 分支仅为历史粗估，不能用于 Gemini 3.8。
 
-引入新模型时核对一次，免得算偏。
+admin 的 daily 聚合依赖 `llm-usage.js` 返回 cached/thoughts token，两端同步发布。embedding 和历史记录的 model 标签不改。
 
 ## 7. 故障速查
 

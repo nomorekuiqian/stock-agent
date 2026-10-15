@@ -6,6 +6,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from app.core.feature_pause import require_active
 from app.core.config import EDGE_FUNCTION_SECRET
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
@@ -310,6 +311,7 @@ def _preview(tweet: dict[str, Any]) -> KolTweetIndexPreview:
 
 
 async def index_kol_tweets(request: KolTweetIndexRequest) -> KolTweetIndexResponse:
+    require_active("kol_index")
     author_usernames = _normalize_values(request.author_usernames)
     tweet_types = {item.lower() for item in _normalize_values(request.tweet_types)}
     qualities = {item.lower() for item in _normalize_values(request.qualities)}

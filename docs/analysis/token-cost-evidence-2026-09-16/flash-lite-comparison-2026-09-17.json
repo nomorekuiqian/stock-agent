@@ -1,0 +1,35 @@
+{
+  "window_utc": "2026-09-06 through 2026-09-15",
+  "days": 10,
+  "calls": 1232,
+  "old_enrich": 26.0247204,
+  "old_project": 40.375425075,
+  "monthly_old_enrich": 78.07416119999999,
+  "monthly_old_project": 121.126275225,
+  "scenarios": [
+    {
+      "remaining_thinking_fraction": 1,
+      "enrich_cost": 15.49932116,
+      "reduction_percent": 40.4438513775541,
+      "monthly_enrich": 46.497963479999996,
+      "monthly_project": 89.55007750500002,
+      "monthly_savings": 31.576197720000003
+    },
+    {
+      "remaining_thinking_fraction": 0.25,
+      "enrich_cost": 7.91456866,
+      "reduction_percent": 69.58826631620603,
+      "monthly_enrich": 23.743705979999998,
+      "monthly_project": 66.79582000500001,
+      "monthly_savings": 54.33045522
+    },
+    {
+      "remaining_thinking_fraction": 0,
+      "enrich_cost": 5.386331159999999,
+      "reduction_percent": 79.30302006241727,
+      "monthly_enrich": 16.15899348,
+      "monthly_project": 59.211107505,
+      "monthly_savings": 61.91516772000001
+    }
+  ]
+}

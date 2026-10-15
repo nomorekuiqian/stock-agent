@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { isFeaturePaused } from '@/lib/feature-pause';
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -1075,7 +1076,7 @@ export default function FeatureSections() {
     <>
       <TrustSignalSection />
       <ResearchAgentSection />
-      <PersonaResearchSection />
+      {!isFeaturePaused('kol_research') && <PersonaResearchSection />}
       <ResearchSystemSection />
     </>
   );

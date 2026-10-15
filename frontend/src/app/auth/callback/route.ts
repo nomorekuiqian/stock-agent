@@ -1,3 +1,5 @@
+import { isFeaturePaused } from '@/lib/feature-pause';
+import { sanitizeRedirectPath } from '@/lib/auth-redirect';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/insforge-server';
 import { setAuthCookies, getAndClearOAuthCodeVerifier } from '@/lib/auth-cookies';
@@ -47,6 +49,7 @@ export async function GET(request: NextRequest) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
   let needsOnboarding = false;
   try {
+    if (!isFeaturePaused('onboarding')) {
     const res = await fetch(`${apiUrl}/user/onboarding-status`, {
       headers: { Authorization: `Bearer ${data.accessToken}` },
     });
@@ -54,11 +57,12 @@ export async function GET(request: NextRequest) {
       const status = await res.json();
       needsOnboarding = status.completed === false;
     }
+    }
   } catch {
     // Non-blocking — fall through to intended destination
   }
 
-  const safePath = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/today';
+  const safePath = sanitizeRedirectPath(redirect);
   const finalPath = needsOnboarding ? '/?tour=1' : safePath;
   return NextResponse.redirect(new URL(finalPath, baseUrl));
 }

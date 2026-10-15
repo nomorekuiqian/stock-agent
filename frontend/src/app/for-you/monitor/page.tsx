@@ -1349,8 +1349,8 @@ function TopBar({
 
   return (
     <section className="monitor-reveal border-b border-border/50 bg-background">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-8 md:py-10 lg:px-5">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-6 md:py-8 lg:px-5">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-end">
           <div className="max-w-3xl">
             <div className="mb-3 flex items-center gap-3">
               <div className="monitor-eyebrow-line h-px max-w-[60px] flex-1 bg-gradient-to-r from-primary to-transparent" />
@@ -1361,16 +1361,16 @@ function TopBar({
                 / MONITOR
               </span>
             </div>
-            <h1 className="font-editorial text-3xl leading-[1.1] tracking-tight text-foreground md:text-4xl">
+            <h1 className="font-editorial text-3xl leading-tight tracking-tight text-foreground md:text-4xl">
               AI 监控台
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              每个交易日更新一次关注列表监控，覆盖公司新闻、未来事件、技术面结构、市场讨论和来源链接；新加入标的若当天尚未生成，会先显示待更新状态。
+              每个交易日生成自选股投研备忘，串联公司新闻、未来事件、技术结构和市场讨论证据。
             </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <MonitorFeaturePill label="交易日更新" tone="emerald" />
-              <MonitorFeaturePill label="新闻 / 事件 / 技术面" tone="amber" />
-              <MonitorFeaturePill label="来源可追溯" tone="sky" />
+            <div className="mt-4 flex flex-wrap gap-2">
+              <MonitorFeaturePill label="今日备忘" tone="emerald" />
+              <MonitorFeaturePill label="证据链" tone="amber" />
+              <MonitorFeaturePill label="来源追溯" tone="sky" />
             </div>
           </div>
 
@@ -1378,7 +1378,7 @@ function TopBar({
             <div className="grid grid-cols-3 gap-2">
               <TopBarStat label="跟踪" value={stats.totalCount} />
               <TopBarStat
-                label="今日"
+                label="可读"
                 value={stats.freshCount}
                 tone="primary"
               />
@@ -1448,7 +1448,7 @@ function MonitorFeaturePill({
 
   return (
     <span
-      className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium ${toneClass}`}
+      className={`inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium ${toneClass}`}
     >
       {label}
     </span>
@@ -1505,7 +1505,9 @@ function SidebarMetric({
 
   return (
     <div className={`rounded-md border px-3 py-2 ${surfaceClass}`}>
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-sm font-medium leading-relaxed text-muted-foreground">
+        {label}
+      </div>
       <div
         className={`mt-1 font-data text-lg font-semibold tabular-nums ${
           tone === "amber"
@@ -1599,7 +1601,7 @@ function WatchlistSidebar({
   }, [addQuery, clearSearch, onAddSymbol]);
 
   return (
-    <aside className="monitor-sidebar-enter flex max-h-[360px] min-h-0 flex-col self-start overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm sm:max-h-[430px] lg:sticky lg:top-20 lg:max-h-[calc(100dvh-96px)]">
+    <aside className="monitor-sidebar-enter flex max-h-[220px] min-h-0 flex-col self-start overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm sm:max-h-[430px] lg:sticky lg:top-20 lg:max-h-[calc(100dvh-96px)]">
       <div className="shrink-0 border-b border-border/50 bg-card/35 p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1620,7 +1622,7 @@ function WatchlistSidebar({
           </Link>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3 hidden grid-cols-2 gap-2 sm:grid">
           <SidebarMetric label="今日覆盖" value={freshRows} />
           <SidebarMetric label="待更新" value={waitingRows} tone="amber" />
         </div>
@@ -2028,6 +2030,7 @@ function MarketDiscussionTab({
   isLoading: boolean;
   isError: boolean;
 }) {
+  const [showRawTweets, setShowRawTweets] = useState(false);
   const topics = buildDiscussionTopics(symbol, discussion);
   const tweets = discussion?.data ?? [];
 
@@ -2045,7 +2048,7 @@ function MarketDiscussionTab({
         tone="sky"
       >
         <div className="border-b border-border/40 bg-background/25 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-sm leading-relaxed text-muted-foreground">
             <span className="rounded-md border border-border/60 bg-background/35 px-2 py-1">
               {symbol}
             </span>
@@ -2074,23 +2077,46 @@ function MarketDiscussionTab({
         tone="sky"
       >
         <div className="border-b border-border/40 bg-background/25 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="rounded-md border border-border/60 bg-background/35 px-2 py-1">
-              {symbol}
-            </span>
-            <span>过去 24 小时</span>
-            <span>完整样本验证</span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-relaxed text-muted-foreground">
+              <span className="rounded-md border border-border/60 bg-background/35 px-2 py-1">
+                {symbol}
+              </span>
+              <span>过去 24 小时</span>
+              <span>完整样本验证</span>
+            </div>
+            {tweets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowRawTweets((value) => !value)}
+                className="monitor-action-button inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border/60 px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+                aria-expanded={showRawTweets}
+              >
+                {showRawTweets ? "收起原文样本" : "展开原文样本"}
+                {showRawTweets ? (
+                  <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                )}
+              </button>
+            )}
           </div>
         </div>
         {isLoading ? (
           <TwitterDiscussionSkeleton />
         ) : isError ? (
           <EmptySection text="Twitter 讨论读取失败，请稍后重试。" />
-        ) : tweets.length ? (
+        ) : tweets.length && showRawTweets ? (
           <div className="divide-y divide-border/40">
             {tweets.map((tweet) => (
               <TwitterDiscussionRow key={tweet.id} tweet={tweet} />
             ))}
+          </div>
+        ) : tweets.length ? (
+          <div className="px-4 py-6">
+            <p className="rounded-md border border-dashed border-border/60 bg-background/30 px-3 py-3 text-sm leading-relaxed text-muted-foreground">
+              原文样本默认折叠，先看上方讨论摘要和话题卡；需要核验具体表述时再展开。
+            </p>
           </div>
         ) : (
           <EmptySection text="过去 24 小时暂无可验证的 Twitter 讨论原文。" />
@@ -2160,11 +2186,14 @@ function TwitterDiscussionBrief({
                   过去 24 小时
                 </span>
               </div>
-              <div className="mt-3 max-w-4xl space-y-2 text-sm leading-relaxed text-foreground md:text-base">
+              <div className="font-reading mt-3 max-w-4xl space-y-2 text-sm leading-relaxed text-foreground md:text-base">
                 {summaryParagraphs.map((paragraph, index) => (
                   <p key={`discussion-overview-${index}`}>{paragraph}</p>
                 ))}
               </div>
+              <p className="mt-3 rounded-md border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-sm leading-relaxed text-sky-700 dark:text-sky-300">
+                市场讨论是观点样本，用来理解共识、分歧和叙事变化，不作为事实来源或买卖建议。
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               <DiscussionStat label="讨论" value={overview?.tweet_count ?? 0} />
@@ -2204,7 +2233,7 @@ function DiscussionTopicCard({ topic }: { topic: DiscussionTopic }) {
       <h4 className="mt-3 text-base font-semibold leading-snug text-foreground">
         {topic.title}
       </h4>
-      <p className="mt-2 flex-1 text-sm leading-relaxed text-foreground">
+      <p className="font-reading mt-2 flex-1 text-sm leading-relaxed text-foreground">
         {topic.summary}
       </p>
 
@@ -2216,7 +2245,7 @@ function DiscussionTopicCard({ topic }: { topic: DiscussionTopic }) {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border/60 bg-background/35 px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border/60 bg-background/35 px-2.5 py-1 text-sm text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
             >
               <span>
                 {link.author === "原文"
@@ -2258,8 +2287,10 @@ function DiscussionStat({
 }) {
   return (
     <div className="border-l border-border/50 pl-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-data text-base font-semibold tabular-nums">
+      <div className="text-sm font-medium leading-relaxed text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 font-data text-lg font-semibold tabular-nums">
         {typeof value === "number" ? formatMetricCount(value) : value}
       </div>
     </div>
@@ -2313,7 +2344,7 @@ function TwitterDiscussionRow({
   return (
     <article className="px-4 py-4 transition-colors duration-200 hover:bg-muted/20 motion-reduce:transition-none">
       <div className="flex min-w-0 items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/50 font-data text-xs font-semibold text-muted-foreground">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/50 text-xs font-semibold text-muted-foreground">
           @{author.slice(0, 1).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
@@ -2322,7 +2353,7 @@ function TwitterDiscussionRow({
               href={`https://x.com/${author}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-data text-sm font-semibold text-foreground transition-colors duration-200 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+              className="text-sm font-semibold text-foreground transition-colors duration-200 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
             >
               @{author}
             </a>
@@ -2346,19 +2377,19 @@ function TwitterDiscussionRow({
           </div>
 
           {tweet.key_claim && (
-            <p className="mt-2 rounded-md border border-border/45 bg-background/35 px-3 py-2 text-sm leading-relaxed text-foreground">
+            <p className="font-reading mt-2 rounded-md border border-border/45 bg-background/35 px-3 py-2 text-sm leading-relaxed text-foreground">
               {tweet.key_claim}
             </p>
           )}
 
           <p
-            className={`mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground ${bodyClassName}`}
+            className={`font-reading mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground ${bodyClassName}`}
           >
             {bodyText}
           </p>
 
           {quotedText && (
-            <div className="mt-3 flex gap-2 rounded-md border border-border/60 bg-background/35 px-3 py-3 text-sm leading-relaxed text-muted-foreground">
+            <div className="font-reading mt-3 flex gap-2 rounded-md border border-border/60 bg-background/35 px-3 py-3 text-sm leading-relaxed text-muted-foreground">
               <Quote className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               <p
                 className={`min-w-0 whitespace-pre-wrap break-words ${quoteClassName}`}
@@ -2373,7 +2404,7 @@ function TwitterDiscussionRow({
               <button
                 type="button"
                 onClick={() => setIsExpanded((value) => !value)}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-sm text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
                 aria-expanded={isExpanded}
               >
                 {isExpanded ? (
@@ -2389,7 +2420,7 @@ function TwitterDiscussionRow({
                 )}
               </button>
             )}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <TweetMetric icon={Heart} label="赞" value={tweet.like_count} />
               <TweetMetric
                 icon={Repeat2}
@@ -2407,7 +2438,7 @@ function TwitterDiscussionRow({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1 text-sm text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none"
             >
               原文
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -2431,7 +2462,7 @@ function TweetMetric({
   return (
     <span className="inline-flex items-center gap-1">
       <Icon className="h-3.5 w-3.5" aria-hidden />
-      <span>{formatMetricCount(value)}</span>
+      <span className="font-data tabular-nums">{formatMetricCount(value)}</span>
       <span>{label}</span>
     </span>
   );
@@ -2447,12 +2478,45 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
   const dailyChange = quote?.daily_change;
   const freshness = getMonitorFreshness(row);
   const showFreshnessBadge = shouldShowMonitorFreshnessBadge(row);
+  const sources = row.source_refs ?? [];
+  const signals = getSignals(row);
+  const discussionCount =
+    row.market_discussion?.count ??
+    row.market_discussion?.overview?.tweet_count ??
+    0;
+  const evidenceItems = [
+    {
+      label: "新闻",
+      value: sources.filter((source) => source.type === "news").length,
+      tone: "emerald" as const,
+    },
+    {
+      label: "事件",
+      value:
+        sources.filter((source) => source.type === "event").length +
+        signals.filter(
+          (signal) =>
+            signal.type === "event" || signal.type === "macro_sector",
+        ).length,
+      tone: "amber" as const,
+    },
+    {
+      label: "技术",
+      value: row.technical_monitor?.signals?.length ?? 0,
+      tone: "cyan" as const,
+    },
+    {
+      label: "讨论",
+      value: discussionCount,
+      tone: "sky" as const,
+    },
+  ];
 
   return (
-    <div className="space-y-4">
-      <section className="overflow-hidden rounded-lg border border-border/50 bg-card/55 shadow-sm">
-        <div className="grid gap-4 px-4 py-4 md:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div className="flex min-w-0 flex-1 items-start gap-3">
+    <section className="min-w-0 overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm">
+      <div className="border-b border-border/50 bg-card/35 px-4 py-4 md:px-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
             <CompanyLogo symbol={row.symbol} size="lg" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -2481,54 +2545,114 @@ function TickerSummary({ row }: { row: MonitorTickerRow }) {
 
           <Link
             href={`/stock/${row.symbol}`}
-            className="monitor-action-button inline-flex h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-border/70 bg-background/40 px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none sm:w-auto"
+            className="monitor-action-button inline-flex h-9 w-auto shrink-0 cursor-pointer items-center justify-center gap-1.5 self-start rounded-md border border-border/70 bg-background/40 px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 motion-reduce:transition-none sm:h-10 sm:gap-2 sm:px-3"
           >
             个股研究
             <ExternalLink className="h-4 w-4" aria-hidden />
           </Link>
         </div>
-      </section>
+      </div>
 
-      <section className="min-w-0 overflow-hidden rounded-lg border border-border/50 bg-card/60 shadow-sm">
-        <div className="flex items-start justify-between gap-3 border-b border-border/50 bg-card/35 px-4 py-3">
-          <div className="flex min-w-0 gap-3">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
-              <Activity className="h-4 w-4" aria-hidden />
+      <div className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0 px-4 py-5 md:px-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
+              <Quote className="h-4 w-4" aria-hidden />
             </span>
-            <div className="min-w-0">
-              <h3 className="font-editorial text-lg leading-snug text-foreground">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
+                TODAY MEMO
+              </p>
+              <h3 className="mt-1 font-editorial text-xl leading-snug text-foreground">
                 今日盯盘结论
               </h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                结合新闻、技术面与未来事件生成
-              </p>
             </div>
           </div>
+          <p className="font-reading mt-4 max-w-5xl text-base leading-relaxed text-foreground md:text-lg">
+            {row.ai_take ||
+              "今日监控还在准备中。完成后，这里会先给出一段可追溯的投研备忘，再把新闻、事件、技术面和市场讨论拆到下方证据区。"}
+          </p>
         </div>
-        <div className="grid gap-4 px-4 py-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-            <div className="rounded-md border border-border/45 bg-background/45 px-3 py-3">
-              <p className="text-xs text-muted-foreground">当前价</p>
-              <p className="mt-1 font-data text-2xl font-semibold leading-tight tabular-nums text-foreground">
-                {formatPrice(currentPrice)}
-              </p>
-            </div>
-            <div className="rounded-md border border-border/45 bg-background/45 px-3 py-3">
-              <p className="text-xs text-muted-foreground">今日涨跌幅</p>
-              <p
-                className={`mt-1 font-data text-2xl font-semibold leading-tight tabular-nums ${changeTextClass(dailyChange)}`}
-              >
-                {formatSignedPercent(dailyChange)}
-              </p>
-            </div>
+
+        <aside className="border-t border-border/50 bg-background/25 px-4 py-4 lg:border-l lg:border-t-0">
+          <div className="grid grid-cols-2 gap-3">
+            <MemoMetric label="当前价" value={formatPrice(currentPrice)} />
+            <MemoMetric
+              label="今日涨跌幅"
+              value={formatSignedPercent(dailyChange)}
+              valueClassName={changeTextClass(dailyChange)}
+            />
           </div>
-          <div className="min-w-0 rounded-md border border-border/45 bg-background/35 px-4 py-4">
-            <p className="text-sm leading-relaxed text-foreground md:text-base">
-              {row.ai_take}
+          <div className="mt-4 border-t border-border/40 pt-4">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              证据覆盖
             </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {evidenceItems.map((item) => (
+                <EvidenceCoveragePill
+                  key={item.label}
+                  label={item.label}
+                  value={item.value}
+                  tone={item.tone}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function MemoMetric({
+  label,
+  value,
+  valueClassName = "text-foreground",
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="rounded-md border border-border/45 bg-background/45 px-3 py-3">
+      <p className="text-sm font-medium leading-relaxed text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={`mt-1 font-data text-xl font-semibold leading-tight tabular-nums ${valueClassName}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function EvidenceCoveragePill({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "emerald" | "amber" | "sky" | "cyan";
+}) {
+  const toneClass =
+    tone === "amber"
+      ? "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+      : tone === "sky"
+        ? "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+        : tone === "cyan"
+          ? "border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
+          : "border-primary/25 bg-primary/10 text-primary";
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-sm font-medium ${toneClass}`}
+    >
+      <span>{label}</span>
+      <span className="font-data font-semibold tabular-nums">
+        {formatMetricCount(value)}
+      </span>
     </div>
   );
 }
@@ -2671,16 +2795,19 @@ function SectionShell({
           >
             <Icon className="h-4 w-4" aria-hidden />
           </span>
-          <span className="min-w-0 truncate font-editorial text-lg leading-snug text-foreground">
+          <span className="min-w-0 truncate font-editorial text-xl leading-snug text-foreground">
             {title}
           </span>
         </h3>
         <div className="flex shrink-0 items-center gap-2">
           {typeof count === "number" && (
             <span
-              className={`rounded-md border px-2 py-1 text-sm ${toneClass.count}`}
+              className={`rounded-md border px-2 py-1 text-sm font-medium ${toneClass.count}`}
             >
-              {count} 条
+              <span className="font-data font-semibold tabular-nums">
+                {count}
+              </span>{" "}
+              条
             </span>
           )}
         </div>
@@ -2821,6 +2948,7 @@ function TechnicalTab({
 }) {
   return (
     <div className="min-w-0 space-y-4">
+      <TechnicalPanel technical={technical} />
       <div className="min-w-0 space-y-3">
         <MonitorTradingChart
           symbol={symbol}
@@ -2829,7 +2957,6 @@ function TechnicalTab({
         />
         <MarketLevelStrip symbol={symbol} technical={technical} />
       </div>
-      <TechnicalPanel technical={technical} />
     </div>
   );
 }
@@ -2844,7 +2971,9 @@ function TechnicalDimensionCard({
   return (
     <article className="min-w-0 rounded-md border border-border/50 bg-background/35 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-sm font-semibold">{dimension.label || "结构"}</h4>
+        <h4 className="text-base font-semibold leading-snug">
+          {dimension.label || "结构"}
+        </h4>
         {dimension.state && (
           <span
             className={`shrink-0 rounded-md border px-2 py-1 text-xs ${technicalStateClass(dimension.state)}`}
@@ -2854,7 +2983,7 @@ function TechnicalDimensionCard({
         )}
       </div>
       {dimension.explanation && (
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        <p className="font-reading mt-3 text-sm leading-relaxed text-muted-foreground">
           {dimension.explanation}
         </p>
       )}
@@ -2895,14 +3024,16 @@ function TechnicalPanel({
           <div>
             <div className="px-4 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h4 className="text-sm font-semibold">技术面判断</h4>
+                <h4 className="text-base font-semibold leading-snug">
+                  技术面判断
+                </h4>
                 {technical?.updated_at && (
                   <span className="text-xs text-muted-foreground">
                     更新 {formatDate(technical.updated_at)}
                   </span>
                 )}
               </div>
-              <p className="mt-2 text-base leading-relaxed text-foreground">
+              <p className="font-reading mt-2 text-base leading-relaxed text-foreground">
                 {view?.verdict || summary}
               </p>
             </div>
@@ -2920,14 +3051,16 @@ function TechnicalPanel({
         ) : (
           <div className="px-4 py-4">
             <div className="flex items-center justify-between gap-3">
-              <h4 className="text-sm font-semibold">技术面判断</h4>
+              <h4 className="text-base font-semibold leading-snug">
+                技术面判断
+              </h4>
               {technical?.updated_at && (
                 <span className="text-xs text-muted-foreground">
                   更新 {formatDate(technical.updated_at)}
                 </span>
               )}
             </div>
-            <p className="mt-2 text-base leading-relaxed text-foreground">
+            <p className="font-reading mt-2 text-base leading-relaxed text-foreground">
               {summary}
             </p>
           </div>
@@ -2966,11 +3099,11 @@ function SignalCard({
       <h4 className="mt-3 break-words text-base font-semibold leading-snug">
         {signal.title}
       </h4>
-      <p className="mt-2 text-sm leading-relaxed text-foreground">
+      <p className="font-reading mt-2 text-sm leading-relaxed text-foreground">
         {signal.summary}
       </p>
       {signal.why_it_matters && (
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        <p className="font-reading mt-2 text-sm leading-relaxed text-muted-foreground">
           {signal.why_it_matters}
         </p>
       )}
@@ -3001,15 +3134,23 @@ function NewsPanel({
       ) : (
         <div>
           <div className="border-b border-border/50 bg-background/25 px-4 py-4">
-            <div className="max-w-3xl rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
-              <h4 className="font-editorial text-lg leading-snug text-foreground">
-                新闻总结
+            <div className="max-w-4xl rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary">
+                Conclusion
+              </p>
+              <h4 className="mt-1 font-editorial text-lg leading-snug text-foreground">
+                新闻结论
               </h4>
-              <p className="mt-2 text-sm leading-relaxed text-foreground">
+              <p className="font-reading mt-2 text-sm leading-relaxed text-foreground md:text-base">
                 {trimmedSummary ||
                   "暂无新闻总结。重新生成今日监控后，这里会总结过去 24 小时英文新闻。"}
               </p>
             </div>
+          </div>
+          <div className="border-b border-border/40 bg-background/15 px-4 py-2">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Evidence / News Sources
+            </p>
           </div>
           <div className="divide-y divide-border/40">
             {sources.map((source) => (
@@ -3091,11 +3232,11 @@ function FutureEventsPanel({
                 <h4 className="mt-3 break-words text-base font-semibold leading-snug">
                   {watchpoint.title}
                 </h4>
-                <p className="mt-2 text-sm leading-relaxed text-foreground">
+                <p className="font-reading mt-2 text-sm leading-relaxed text-foreground">
                   {watchpoint.what_to_watch}
                 </p>
                 {watchpoint.why_it_matters && (
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  <p className="font-reading mt-2 text-sm leading-relaxed text-muted-foreground">
                     {watchpoint.why_it_matters}
                   </p>
                 )}
@@ -3153,16 +3294,16 @@ function EventCandidateCard({
           {confidenceLabel[candidate.confidence]}
         </span>
       </div>
-      <h4 className="mt-3 text-sm font-semibold leading-snug">
+      <h4 className="mt-3 text-base font-semibold leading-snug">
         {candidate.title}
       </h4>
       {candidate.summary && (
-        <p className="mt-2 text-sm leading-relaxed text-foreground">
+        <p className="font-reading mt-2 text-sm leading-relaxed text-foreground">
           {candidate.summary}
         </p>
       )}
       {candidate.why_it_matters && (
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        <p className="font-reading mt-2 text-sm leading-relaxed text-muted-foreground">
           {candidate.why_it_matters}
         </p>
       )}

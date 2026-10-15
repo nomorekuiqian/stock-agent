@@ -12,6 +12,7 @@ import contextvars
 import asyncio
 import re
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from app.core.logging import get_logger
@@ -147,6 +148,39 @@ _TICKER_STOPWORDS = {
     "YOY",
 }
 
+# --- Recency-aware re-ranking -------------------------------------------------
+# Cosine similarity alone has no notion of time: a 3-month-old take and a 3-day
+# take on the same ticker score ~equally, so stale opinions routinely win.
+# We re-rank candidates by similarity x recency_weight, where the recency
+# influence is chosen by the query's temporal intent. Old content is NEVER
+# filtered out (the candidate pool is unchanged) — historical queries simply
+# turn the decay off — so the corpus stays fully retrievable.
+#
+# Weight = (1 - alpha) + alpha * 0.5 ** (age_days / half_life)
+#   - alpha: how much recency matters (0 = pure relevance).
+#   - (1 - alpha) is a RELEVANCE FLOOR: a strongly-relevant old take is
+#     down-weighted, never crushed, so semantics still dominate when warranted.
+#   - half_life: days for the decaying half of the weight to halve.
+# Profiles map a recency mode -> (alpha, half_life_days).
+_RECENCY_PROFILES: dict[str, tuple[float, float | None]] = {
+    "recent": (0.75, 14.0),      # "最近/现在/当下买什么" — strong, fast preference for fresh takes
+    "auto": (0.35, 30.0),        # neutral default — gentle nudge; old-but-relevant stays competitive
+    "historical": (0.0, None),   # "去年/当时/回顾" — no decay, pure semantic relevance
+}
+_DEFAULT_RECENCY_MODE = "auto"
+
+# Deterministic intent fallback used when the caller passes no explicit hint.
+# Recent wins over historical on tie (a query mentioning both is usually "now").
+_RECENT_INTENT_KEYWORDS = (
+    "最近", "近期", "现在", "当下", "目前", "如今", "眼下", "这几天", "这两天",
+    "今天", "本周", "这周", "最新", "当前", "近来",
+    "recent", "recently", "latest", "now", "currently", "today", "this week",
+)
+_HISTORICAL_INTENT_KEYWORDS = (
+    "去年", "前年", "当时", "之前", "早些时候", "历史上", "回顾", "曾经", "最初", "一开始",
+    "last year", "previously", "back then", "historically", "originally", "at the time",
+)
+
 
 @dataclass(frozen=True)
 class _HybridQueryPlan:
@@ -243,10 +277,78 @@ def _build_hybrid_query_plan(
     )
 
 
-def _plan_summary(plan: _HybridQueryPlan) -> str:
+def _plan_summary(plan: _HybridQueryPlan, recency_mode: str | None = None) -> str:
     tickers = ", ".join(plan.detected_tickers) if plan.detected_tickers else "none"
     variants = " | ".join(plan.variants[:_MAX_QUERY_VARIANTS])
-    return f"variants=[{variants}], detected_tickers=[{tickers}], lanes=text+metadata+vector"
+    recency = f", recency={recency_mode}" if recency_mode else ""
+    return (
+        f"variants=[{variants}], detected_tickers=[{tickers}], "
+        f"lanes=text+metadata+vector{recency}"
+    )
+
+
+def _detect_recency_mode(query: str, variants: list[str]) -> str:
+    """Deterministic temporal-intent classifier used when the caller passes no
+    explicit recency hint. Returns one of _RECENCY_PROFILES keys."""
+    text = " ".join([query or "", *(variants or [])]).lower()
+    if any(kw in text for kw in _RECENT_INTENT_KEYWORDS):
+        return "recent"
+    if any(kw in text for kw in _HISTORICAL_INTENT_KEYWORDS):
+        return "historical"
+    return _DEFAULT_RECENCY_MODE
+
+
+# Caller-facing aliases mapped onto the canonical profile keys.
+_RECENCY_MODE_ALIASES = {"any": "auto", "neutral": "auto", "default": "auto"}
+
+
+def _resolve_recency_mode(hint: str | None, query: str, variants: list[str]) -> str:
+    """LLM-supplied hint wins; otherwise fall back to keyword detection."""
+    if hint:
+        normalized = str(hint).strip().lower()
+        normalized = _RECENCY_MODE_ALIASES.get(normalized, normalized)
+        if normalized in _RECENCY_PROFILES:
+            return normalized
+    return _detect_recency_mode(query, variants)
+
+
+def _chunk_age_days(item: VectorChunkResult, *, today: date) -> float | None:
+    """Age in days from the post date. Prefer report_date (the day the opinion
+    was expressed), fall back to metadata.created_at. None when undatable."""
+    raw = item.report_date or str((item.metadata or {}).get("created_at") or "")
+    raw = raw[:10]
+    try:
+        posted = date.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, float((today - posted).days))
+
+
+def _recency_weight(age_days: float | None, *, alpha: float, half_life: float | None) -> float:
+    """Blended recency weight in [1-alpha, 1]. Undatable/old-disabled -> 1.0."""
+    if alpha <= 0 or half_life is None or age_days is None:
+        return 1.0
+    decay = 0.5 ** (age_days / half_life)
+    return (1.0 - alpha) + alpha * decay
+
+
+def _rerank_by_recency(
+    items: list[VectorChunkResult], *, mode: str, today: date
+) -> list[VectorChunkResult]:
+    """Stable re-rank by similarity x recency_weight. historical mode (alpha=0)
+    is identical to a pure similarity sort, preserving historical-query behavior.
+    Python's sort is stable, so same-date items keep their similarity order."""
+    alpha, half_life = _RECENCY_PROFILES.get(mode, _RECENCY_PROFILES[_DEFAULT_RECENCY_MODE])
+    if alpha <= 0:
+        return sorted(items, key=lambda it: it.similarity, reverse=True)
+
+    def _score(it: VectorChunkResult) -> float:
+        weight = _recency_weight(
+            _chunk_age_days(it, today=today), alpha=alpha, half_life=half_life
+        )
+        return it.similarity * weight
+
+    return sorted(items, key=_score, reverse=True)
 
 
 def _dedupe_chunks(results: list[VectorChunkResult], *, limit: int) -> list[VectorChunkResult]:
@@ -379,6 +481,7 @@ async def _hybrid_search_persona_chunks(
     plan: _HybridQueryPlan,
     bindings: list[CorpusBinding],
     k: int,
+    recency_mode: str = _DEFAULT_RECENCY_MODE,
 ) -> list[VectorChunkResult]:
     tasks: list[tuple[int, asyncio.Task[list[VectorChunkResult]]]] = []
 
@@ -456,11 +559,15 @@ async def _hybrid_search_persona_chunks(
     for (binding_index, _task), results in zip(tasks, lane_results):
         by_binding[binding_index].extend(results)
 
+    # Re-rank the full candidate pool by similarity x recency BEFORE truncating
+    # to k, so a fresh-but-slightly-less-similar take can be promoted into the
+    # top-k instead of being dropped by a pure-cosine cutoff.
+    today = datetime.now(timezone.utc).date()
     prepared: list[list[VectorChunkResult]] = []
     for results in by_binding:
         relevant = [item for item in results if _is_relevant_chunk(item, plan)]
-        relevant.sort(key=lambda item: item.similarity, reverse=True)
-        prepared.append(_dedupe_chunks(relevant, limit=k))
+        ranked = _rerank_by_recency(relevant, mode=recency_mode, today=today)
+        prepared.append(_dedupe_chunks(ranked, limit=k))
 
     if len(prepared) <= 1:
         return prepared[0][:k] if prepared else []
@@ -542,6 +649,7 @@ async def search_kol_tweets(
     author_username: str = "qinbafrank",
     k: int = 6,
     query_variants: Optional[List[str]] = None,
+    recency: Optional[str] = None,
 ) -> str:
     """Hybrid 检索指定 KOL/persona 的历史观点片段，返回带 [#N] 的 markdown。
 
@@ -560,6 +668,17 @@ async def search_kol_tweets(
       query_variants: Optional alternative names / products / event keywords
         that should be searched together, e.g. ["AMD", "Advanced Micro Devices",
         "超威半导体", "Instinct", "MI300"].
+      recency: Temporal intent of the question, controls how strongly fresher
+        takes are preferred when ranking (old content is never excluded):
+          - "recent": user wants the analyst's CURRENT stance / latest calls
+            (e.g. "最近看好什么", "现在该买什么", "下跌时买入哪只"). Strongly
+            favors fresh posts.
+          - "historical": user is asking about the PAST or how a view evolved
+            (e.g. "去年怎么看英伟达", "当时的判断"). Ranks by pure relevance,
+            no recency preference.
+          - "any" / omitted: neutral — a gentle recency nudge with old,
+            strongly-relevant takes still competitive. If omitted, the backend
+            infers intent from the query wording.
 
     Returns:
       Markdown text with [#N] indexed chunks, ready to be cited inline.
@@ -569,17 +688,19 @@ async def search_kol_tweets(
     author = _active_kol_author.get(None) or author_username
     bindings = _persona_corpus_bindings(author)
     plan = _build_hybrid_query_plan(query, query_variants)
+    recency_mode = _resolve_recency_mode(recency, plan.original_query, plan.variants)
     results = await _hybrid_search_persona_chunks(
         plan=plan,
         bindings=bindings,
         k=k,
+        recency_mode=recency_mode,
     )
     if not results:
         logger.info(
             "persona hybrid search returned no results: author=%s bindings=%s plan=%s",
             author,
             _bindings_summary(bindings),
-            _plan_summary(plan),
+            _plan_summary(plan, recency_mode),
         )
 
     buf = persona_chunks_buffer.get()
@@ -594,7 +715,8 @@ async def search_kol_tweets(
             return (
                 "This search only returned sources already cited earlier in "
                 "this turn. Do not create new citation IDs; reuse the earlier "
-                f"citation numbers if needed.\n\nSearch plan attempted: {_plan_summary(plan)}"
+                "citation numbers if needed.\n\nSearch plan attempted: "
+                f"{_plan_summary(plan, recency_mode)}"
             )
     else:
         start = 1
@@ -602,5 +724,5 @@ async def search_kol_tweets(
     return _format_chunks_for_llm(
         results,
         start_index=start,
-        search_plan=_plan_summary(plan),
+        search_plan=_plan_summary(plan, recency_mode),
     )

@@ -15,7 +15,9 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
+from app.shared.agent_sessions import temporary_agent_session
 
 load_dotenv()
 
@@ -29,7 +31,7 @@ from google.genai.types import Content, Part
 from app.features.macro.weekly.models import WeeklyRawData, WeeklyReportOutput
 from app.shared.llm_metering import meter
 
-WEEKLY_MACRO_MODEL = "gemini-3.5-flash"
+WEEKLY_MACRO_MODEL = GENERATIVE_MODEL
 
 logger = get_logger(__name__)
 
@@ -438,52 +440,51 @@ class WeeklyReportAgent:
         logger.info("Preparing data for agent...")
         data_for_agent = _prepare_data_for_agent(raw_data)
 
-        session = await self.runner.session_service.create_session(
-            app_name="weekly_report", user_id="weekly_analyst"
-        )
-
-        message = Content(
-            parts=[
-                Part(
-                    text=(
-                        "Please analyze the following weekly macro data and "
-                        "generate a comprehensive weekly report:\n\n"
-                        + json.dumps(
-                            data_for_agent,
-                            ensure_ascii=False,
-                            indent=2,
-                            default=str,
+        async with temporary_agent_session(
+            self.runner, app_name="weekly_report", user_id="weekly_analyst"
+        ) as session:
+            message = Content(
+                parts=[
+                    Part(
+                        text=(
+                            "Please analyze the following weekly macro data and "
+                            "generate a comprehensive weekly report:\n\n"
+                            + json.dumps(
+                                data_for_agent,
+                                ensure_ascii=False,
+                                indent=2,
+                                default=str,
+                            )
                         )
                     )
-                )
-            ],
-            role="user",
-        )
+                ],
+                role="user",
+            )
 
-        logger.info("Running agent (this may take 30-60s)...")
+            logger.info("Running agent (this may take 30-60s)...")
 
-        async for event in self.runner.run_async(
-            user_id="weekly_analyst",
-            session_id=session.id,
-            new_message=message,
-        ):
-            pass
+            async for event in self.runner.run_async(
+                user_id="weekly_analyst",
+                session_id=session.id,
+                new_message=message,
+            ):
+                pass
 
-        session_data = await self.runner.session_service.get_session(
-            app_name="weekly_report",
-            user_id="weekly_analyst",
-            session_id=session.id,
-        )
+            session_data = await self.runner.session_service.get_session(
+                app_name="weekly_report",
+                user_id="weekly_analyst",
+                session_id=session.id,
+            )
 
-        result = self._extract_report(session_data)
+            result = self._extract_report(session_data)
 
-        logger.info(
-            "Generation complete. Title: %s, Signal lights: %s",
-            result.get("title", ""),
-            result.get("signal_lights", {}),
-        )
+            logger.info(
+                "Generation complete. Title: %s, Signal lights: %s",
+                result.get("title", ""),
+                result.get("signal_lights", {}),
+            )
 
-        return result
+            return result
 
     @staticmethod
     def _empty_section() -> dict:

@@ -7,8 +7,9 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from app.core.feature_pause import require_generation_active
 from app.core.logging import get_logger
-from app.shared.llm_clients.deepseek import create_chat_completion
+from app.shared.llm_clients.gemini import create_chat_completion
 from app.shared.llm_metering import record_usage
 
 logger = get_logger(__name__)
@@ -36,14 +37,13 @@ def _usage(response: dict[str, Any]) -> dict[str, Any]:
     return {
         "prompt_tokens": usage.get("prompt_tokens"),
         "output_tokens": usage.get("completion_tokens"),
-        "cached_tokens": usage.get("prompt_cache_hit_tokens"),
+        "cached_tokens": usage.get("cached_tokens"),
+        "thoughts_tokens": usage.get("thoughts_tokens"),
         "total_tokens": usage.get("total_tokens"),
-        "prompt_cache_hit_tokens": usage.get("prompt_cache_hit_tokens"),
-        "prompt_cache_miss_tokens": usage.get("prompt_cache_miss_tokens"),
     }
 
 
-def _record_deepseek_usage(
+def _record_generation_usage(
     *,
     feature: str,
     agent_name: str,
@@ -60,13 +60,12 @@ def _record_deepseek_usage(
         prompt_tokens=usage["prompt_tokens"],
         output_tokens=usage["output_tokens"],
         cached_tokens=usage["cached_tokens"],
+        thoughts_tokens=usage["thoughts_tokens"],
         total_tokens=usage["total_tokens"],
         extra={
-            "provider": "deepseek",
+            "provider": "google",
             "attempt": attempt,
             "outcome": outcome,
-            "prompt_cache_hit_tokens": usage["prompt_cache_hit_tokens"],
-            "prompt_cache_miss_tokens": usage["prompt_cache_miss_tokens"],
         },
     )
 
@@ -92,10 +91,11 @@ async def generate_structured_json(
 ) -> T:
     """Generate and validate one structured JSON object.
 
-    DeepSeek JSON Output guarantees syntactically valid JSON, not JSON Schema
-    conformance. We still validate locally and ask the model to repair invalid
+    Gemini JSON mode produces JSON; application schema conformance is still
+    validated locally. Ask the model to repair invalid
     output before surfacing a hard failure to the caller.
     """
+    require_generation_active(feature)
     schema = _schema_text(output_model)
     messages: list[dict[str, str]] = [
         {
@@ -131,10 +131,10 @@ async def generate_structured_json(
         outcome = "ok"
         try:
             if not text:
-                raise RuntimeError("DeepSeek returned empty content")
+                raise RuntimeError("Gemini returned empty content")
             raw = json.loads(text)
             parsed = output_model.model_validate(raw)
-            _record_deepseek_usage(
+            _record_generation_usage(
                 feature=feature,
                 agent_name=agent_name,
                 model=model,
@@ -146,7 +146,7 @@ async def generate_structured_json(
         except (json.JSONDecodeError, ValidationError, RuntimeError) as exc:
             last_error = exc
             outcome = "invalid_json" if isinstance(exc, json.JSONDecodeError) else "invalid_schema"
-            _record_deepseek_usage(
+            _record_generation_usage(
                 feature=feature,
                 agent_name=agent_name,
                 model=model,
@@ -163,7 +163,8 @@ async def generate_structured_json(
                 attempt,
                 str(exc)[:500],
             )
-            messages.append({"role": "assistant", "content": text[:8000]})
+            if text:
+                messages.append({"role": "assistant", "content": text[:8000]})
             messages.append(
                 {
                     "role": "user",

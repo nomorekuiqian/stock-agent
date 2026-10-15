@@ -11,6 +11,8 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
+from app.core.feature_pause import require_active, model_pause_guard
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.config import AGENT_RUNTIME_RESEARCH_TIMEOUT_S
 from app.core.logging import get_logger
 from app.features.research_kb.models import (
@@ -33,7 +35,7 @@ from app.shared.llm_metering import meter
 
 logger = get_logger(__name__)
 
-MODEL_NAME = "gemini-3.5-flash"
+MODEL_NAME = GENERATIVE_MODEL
 APP_NAME = "research_kb"
 
 INSTRUCTION = """你是一名中文投研助手，核心能力是**基于博主历史观点知识库**回答用户的投研问题。
@@ -82,6 +84,7 @@ _agent = LlmAgent(
         get_technical_analysis,
         get_stock_fundamentals,
     ],
+    before_model_callback=model_pause_guard("research_kb"),
     after_model_callback=meter("research_kb.chat", model=MODEL_NAME),
 )
 
@@ -133,6 +136,7 @@ async def answer(
     message: str,
     history: list[ResearchKBMessage],
 ) -> ResearchKBResponse:
+    require_active("research_kb")
     reset_chunks_buffer()
 
     prompt_parts: list[str] = []

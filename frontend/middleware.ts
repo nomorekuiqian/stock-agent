@@ -1,3 +1,4 @@
+import { pausedPageRedirect } from './src/lib/feature-pause';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_ROUTES = [
@@ -36,6 +37,9 @@ function isPublicRoute(pathname: string) {
 
 export default function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  const pausedRedirect = pausedPageRedirect(pathname, request.nextUrl.searchParams);
+  if (pausedRedirect) return NextResponse.redirect(new URL(pausedRedirect, request.url));
 
   if (isPublicRoute(pathname)) {
     return NextResponse.next();

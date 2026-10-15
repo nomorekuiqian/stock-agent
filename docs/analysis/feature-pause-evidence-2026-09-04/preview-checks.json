@@ -1,0 +1,74 @@
+[
+  {
+    "path": "/for-you/health",
+    "headers": [
+      "HTTP/2 307",
+      "location: /for-you"
+    ],
+    "exit": 0
+  },
+  {
+    "path": "/for-you/monitor",
+    "headers": [
+      "HTTP/2 307",
+      "location: /for-you"
+    ],
+    "exit": 0
+  },
+  {
+    "path": "/research/kb",
+    "headers": [
+      "HTTP/2 307",
+      "location: /research"
+    ],
+    "exit": 0
+  },
+  {
+    "path": "/kol",
+    "headers": [
+      "HTTP/2 307",
+      "location: /research"
+    ],
+    "exit": 0
+  },
+  {
+    "path": "/panda",
+    "headers": [
+      "HTTP/2 307",
+      "location: /research"
+    ],
+    "exit": 0
+  },
+  {
+    "path": "/mcp",
+    "headers": [
+      "HTTP/2 307",
+      "location: /research"
+    ],
+    "exit": 0
+  },
+  {
+    "path": "/for-you/onboarding",
+    "headers": [
+      "HTTP/2 307",
+      "location: /for-you/watchlist"
+    ],
+    "exit": 0
+  },
+  {
+    "path": "/research?agent=kol&persona=panda",
+    "headers": [
+      "HTTP/2 307",
+      "location: /research"
+    ],
+    "exit": 0
+  },
+  {
+    "path": "/?tour=1",
+    "headers": [
+      "HTTP/2 307",
+      "location: /"
+    ],
+    "exit": 0
+  }
+]

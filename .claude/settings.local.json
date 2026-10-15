@@ -198,7 +198,17 @@
       "Bash(railway deployment:*)",
       "WebFetch(domain:docs.railway.com)",
       "Bash(codex:*)",
-      "mcp__insforge__list-buckets"
+      "mcp__insforge__list-buckets",
+      "Bash(command -v insforge)",
+      "Bash(insforge --version)",
+      "Bash(insforge projects *)",
+      "Bash(insforge db *)",
+      "Bash(insforge schedules *)",
+      "Bash(insforge --help)",
+      "Bash(awk '{print $2}')",
+      "Bash(awk '{print $6,$7,$9,$5,$10}')",
+      "Read(//Users/docs/**)",
+      "Read(//Users/**)"
     ],
     "deny": [],
     "ask": []

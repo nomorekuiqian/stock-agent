@@ -1,0 +1,107 @@
+[
+  {
+    "period": "30d",
+    "feature": "daily_report",
+    "reports": "22",
+    "report_owners": "1",
+    "last_created": "2026-09-04T22:00:52.832Z"
+  },
+  {
+    "period": "30d",
+    "feature": "morning_report",
+    "reports": "22",
+    "report_owners": "1",
+    "last_created": "2026-09-04T13:00:16.198Z"
+  },
+  {
+    "period": "30d",
+    "feature": "personal_digest_external",
+    "reports": "724",
+    "report_owners": "39",
+    "last_created": "2026-09-04T22:36:12.358Z"
+  },
+  {
+    "period": "30d",
+    "feature": "twitter_digest",
+    "reports": "21",
+    "report_owners": "1",
+    "last_created": "2026-09-04T20:31:48.550Z"
+  },
+  {
+    "period": "30d",
+    "feature": "weekly_report",
+    "reports": "4",
+    "report_owners": "1",
+    "last_created": "2026-08-30T02:02:21.555Z"
+  },
+  {
+    "period": "7d",
+    "feature": "daily_report",
+    "reports": "5",
+    "report_owners": "1",
+    "last_created": "2026-09-04T22:00:52.832Z"
+  },
+  {
+    "period": "7d",
+    "feature": "morning_report",
+    "reports": "5",
+    "report_owners": "1",
+    "last_created": "2026-09-04T13:00:16.198Z"
+  },
+  {
+    "period": "7d",
+    "feature": "personal_digest_external",
+    "reports": "160",
+    "report_owners": "32",
+    "last_created": "2026-09-04T22:36:12.358Z"
+  },
+  {
+    "period": "7d",
+    "feature": "twitter_digest",
+    "reports": "5",
+    "report_owners": "1",
+    "last_created": "2026-09-04T20:31:48.550Z"
+  },
+  {
+    "period": "7d",
+    "feature": "weekly_report",
+    "reports": "1",
+    "report_owners": "1",
+    "last_created": "2026-08-30T02:02:21.555Z"
+  },
+  {
+    "period": "previous7d",
+    "feature": "daily_report",
+    "reports": "5",
+    "report_owners": "1",
+    "last_created": "2026-08-28T22:01:02.528Z"
+  },
+  {
+    "period": "previous7d",
+    "feature": "morning_report",
+    "reports": "5",
+    "report_owners": "1",
+    "last_created": "2026-08-28T13:00:12.677Z"
+  },
+  {
+    "period": "previous7d",
+    "feature": "personal_digest_external",
+    "reports": "165",
+    "report_owners": "33",
+    "last_created": "2026-08-28T22:36:34.058Z"
+  },
+  {
+    "period": "previous7d",
+    "feature": "twitter_digest",
+    "reports": "5",
+    "report_owners": "1",
+    "last_created": "2026-08-28T20:32:13.163Z"
+  },
+  {
+    "period": "previous7d",
+    "feature": "weekly_report",
+    "reports": "1",
+    "report_owners": "1",
+    "last_created": "2026-08-23T02:02:12.611Z"
+  }
+]

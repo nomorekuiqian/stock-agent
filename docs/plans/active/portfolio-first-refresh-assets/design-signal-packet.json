@@ -1,0 +1,78 @@
+{
+  "packet_id": "PKT-tmb-holdings-20260904",
+  "from": "taste-engine",
+  "to": "designly-director",
+  "job": "Three alternative holdings-first UI concepts",
+  "decisions": [
+    {
+      "key": "taste_state",
+      "value": {
+        "status": "proposed_unselected",
+        "evidence_scope": "one observed owned homepage plus local brand specification",
+        "recommended": "A",
+        "alternatives": [
+          "B",
+          "C"
+        ],
+        "user_confirmed": false
+      },
+      "rationale": "The user requested options before implementation.",
+      "priority": 1
+    },
+    {
+      "key": "reference_jobs",
+      "value": {
+        "homepage": "emerald brand and flat restraint",
+        "local_design_system": "readable Chinese typography and semantic color",
+        "user_brief": "information architecture and feature reduction"
+      },
+      "priority": 1
+    },
+    {
+      "key": "priority",
+      "value": "Product truth and accessibility override mood and decorative resemblance.",
+      "priority": 1
+    },
+    {
+      "key": "output",
+      "value": "Three desktop concept PNGs plus a comparison gallery and written operational options.",
+      "priority": 2
+    }
+  ],
+  "evidence": [
+    "Observed public homepage in browser 2026-09-04 PDT.",
+    "Read local navigation, brew prompt/models/cache, portfolio and holdings_sync contracts.",
+    "No private production usage or billing audit performed."
+  ],
+  "confidence": 0.87,
+  "hard_vetoes": [
+    {
+      "rule": "Use illustrative data labels.",
+      "reason": "Generated finance mockups must not imply verified current events.",
+      "severity": "hard_gate",
+      "remediation": "Show the demo label on the image and in the comparison page."
+    },
+    {
+      "rule": "Do not merge all alternatives into a larger product.",
+      "reason": "The explicit task is core-service simplification.",
+      "severity": "hard_gate",
+      "remediation": "Select one direction after review."
+    }
+  ],
+  "soft_warnings": [
+    "C may imply higher freshness than a daily service can promise.",
+    "B introduces more interaction state than A.",
+    "Generated small text can differ; the written specification is authoritative."
+  ],
+  "unresolved": [
+    "User's preferred visual direction.",
+    "Preferred delivery frequency.",
+    "Verified dependence of existing paid users on retirement candidates."
+  ],
+  "recommended_next": [
+    "Review A/B/C side by side.",
+    "Choose one visual direction and service scope.",
+    "Audit real usage and costs before retiring production capabilities."
+  ]
+}
+

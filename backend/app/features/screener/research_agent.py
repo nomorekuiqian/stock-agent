@@ -25,6 +25,7 @@ from google.adk.tools.google_search_tool import GoogleSearchTool
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.config import AGENT_RUNTIME_PROMPT_CHAR_SOFT_LIMIT
 from app.core.logging import get_logger
 from app.features.agent_runtime import (
@@ -44,14 +45,14 @@ from app.shared.data_tools.research_tools import research_data_tools
 from app.shared.llm_metering import meter
 from app.shared.llm_output import CoerceNoneToDefaultsMixin
 
-RESEARCH_MODEL_NAME = "gemini-3.5-flash"
+RESEARCH_MODEL_NAME = GENERATIVE_MODEL
 RESEARCH_MODEL = RESEARCH_MODEL_NAME
 # Keep Gemini thinking at the lowest level for default research chat. The
 # frontend can still render thought summaries when ADK emits them.
 _RESEARCH_GENERATE_CONTENT_CONFIG = genai_types.GenerateContentConfig(
     thinking_config=genai_types.ThinkingConfig(
         include_thoughts=True,
-        thinking_level=genai_types.ThinkingLevel.MINIMAL,
+        thinking_level=genai_types.ThinkingLevel.LOW,
     ),
 )
 

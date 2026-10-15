@@ -38,6 +38,8 @@ from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from app.core.feature_pause import persona_chat_model_guard, require_persona_chat_active
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.config import (
     AGENT_RUNTIME_KOL_TIMEOUT_S,
     AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN,
@@ -98,8 +100,8 @@ _GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if _GOOGLE_API_KEY and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = _GOOGLE_API_KEY
 
-MODEL = "gemini-3.5-flash"
-FOLLOW_UP_MODEL = "gemini-3.1-flash-lite"
+MODEL = GENERATIVE_MODEL
+FOLLOW_UP_MODEL = GENERATIVE_MODEL
 APP_NAME = "kol_research_agent"
 FOLLOW_UP_APP_NAME = "kol_follow_up_options"
 DEFAULT_PERSONA = "qinbafrank"
@@ -802,7 +804,7 @@ _SKILL_TOOL_USAGE_RULES = """
    - 如果涉及具体个股,加载对应 ticker skill。
    - 如果涉及产业或主题,加载对应 sector skill。
 4. 当用户问"为什么 / 怎么判断 / 框架 / 方法 / 如何理解",或博主近期没有直接观点但需要按其长期思路分析当下问题时,优先寻找方法论 / 相邻案例证据;方法论用于解释判断逻辑,不要机械复述 skill 内容。
-5. 用 `search_kol_tweets(query=..., author_username="{username}", query_variants=[...])` 检索当前 persona 的历史原文。具体标的、板块或事件问题先做 query planning,把 ticker / 公司名 / 中文名 / 产品 / 产业链 / 事件关键词作为 `query_variants` 一次性传入;后端会做 exact text + metadata + vector hybrid retrieval。默认一轮只调用一次 `search_kol_tweets`;只有第一次没有直接证据,或需要检索明显不同的第二个主题时,才追加调用。
+5. 用 `search_kol_tweets(query=..., author_username="{username}", query_variants=[...], recency=...)` 检索当前 persona 的历史原文。具体标的、板块或事件问题先做 query planning,把 ticker / 公司名 / 中文名 / 产品 / 产业链 / 事件关键词作为 `query_variants` 一次性传入;后端会做 exact text + metadata + vector hybrid retrieval。**判断问题的时效意图并显式传 `recency`**:问"最近 / 现在 / 当下怎么看、该买什么、下跌买入哪只"等关注当前立场的,传 `recency="recent"`(优先最新观点);问"去年 / 当时 / 观点怎么演变"等历史追问的,传 `recency="historical"`(纯相关性,不偏向新内容);泛泛而问可省略。注意旧观点永远不会被排除,只是排序权重不同。默认一轮只调用一次 `search_kol_tweets`;只有第一次没有直接证据,或需要检索明显不同的第二个主题时,才追加调用。
 6. 涉及当下判断时,调用 `get_stock_brief` / `get_peer_brief` / `get_industry_brief` / `get_macro_brief` 等 brief 工具;早报/复盘问题可用 `get_report_by_date` / `list_recent_reports`。
 7. 回答时先给综合判断,再清楚分开: 博主历史上说过什么、当前数据是什么、按博主方法论可以如何理解、后续需要观察哪些变化。
 
@@ -872,7 +874,7 @@ def get_agent(persona_username: str = DEFAULT_PERSONA) -> LlmAgent:
     gen_config = types.GenerateContentConfig(
         thinking_config=types.ThinkingConfig(
             include_thoughts=True,
-            thinking_level=types.ThinkingLevel.MINIMAL,
+            thinking_level=types.ThinkingLevel.LOW,
         ),
     )
     agent = LlmAgent(
@@ -883,6 +885,7 @@ def get_agent(persona_username: str = DEFAULT_PERSONA) -> LlmAgent:
         generate_content_config=gen_config,
         before_tool_callback=_before_tool_callback,
         after_tool_callback=_after_tool_callback,
+        before_model_callback=persona_chat_model_guard(persona_username),
         after_model_callback=meter("kol_research", model=MODEL),
     )
     _agent_cache[persona_username] = agent
@@ -1101,6 +1104,7 @@ async def generate_kol_follow_up_options(
     callers return an empty list and the frontend falls back to deterministic
     chips so the main answer is never blocked by UI sugar.
     """
+    require_persona_chat_active(persona_username)
     payload = {
         "persona_username": persona_username,
         "recent_history": [
@@ -1308,6 +1312,7 @@ async def answer_kol_research(
     timeout: float | None = None,
 ) -> KolResearchResponse:
     """Unary entry — runs the agent and returns a complete response."""
+    require_persona_chat_active(persona_username)
     if timeout is None:
         timeout = AGENT_RUNTIME_KOL_TIMEOUT_S
     chunks_buf: List = []
@@ -1472,6 +1477,7 @@ async def stream_kol_research(
     Internally the agent run is launched in a background task; this generator
     forwards events from a contextvar queue until the agent finishes.
     """
+    require_persona_chat_active(persona_username)
     if timeout is None:
         timeout = AGENT_RUNTIME_KOL_TIMEOUT_S
     queue: asyncio.Queue = asyncio.Queue()

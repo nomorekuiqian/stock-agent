@@ -1,0 +1,17 @@
+[
+  {
+    "channel": "welcome_email",
+    "deliveries": "30",
+    "unclassified_nonbroadcast": "30"
+  },
+  {
+    "channel": "unknown",
+    "deliveries": "5707",
+    "unclassified_nonbroadcast": "0"
+  },
+  {
+    "channel": "personal_digest",
+    "deliveries": "834",
+    "unclassified_nonbroadcast": "834"
+  }
+]

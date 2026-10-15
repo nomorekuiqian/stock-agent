@@ -552,3 +552,153 @@ def test_chunk_to_persona_result_preserves_metadata():
     assert result.source_id == "tweet-1"
     assert result.source_type == "kol_tweet"
     assert result.metadata["source_type"] == "kol_tweet"
+
+
+# ---------------------------------------------------------------------------
+# Recency-aware re-ranking (Tier 1)
+# ---------------------------------------------------------------------------
+
+from datetime import date, timedelta  # noqa: E402
+
+from app.shared.kol_persona import tools as _tools  # noqa: E402
+
+
+def _dated_chunk(source_id: str, *, similarity: float, days_ago: int, today: date) -> VectorChunkResult:
+    posted = (today - timedelta(days=days_ago)).isoformat()
+    return VectorChunkResult(
+        id=f"chunk-{source_id}",
+        document_id=f"doc-{source_id}",
+        source_type="kol_tweet",
+        source_id=source_id,
+        chunk_index=0,
+        content=f"{source_id}_CONTENT about the market.",
+        title=f"@qinbafrank tweet {source_id}",
+        url=f"https://x.com/qinbafrank/status/{source_id}",
+        report_date=posted,
+        metadata={"author_username": "qinbafrank", "created_at": posted + "T00:00:00Z"},
+        similarity=similarity,
+    )
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("最近我想在下跌时买入一只股票，买入什么股票好？", "recent"),
+        ("现在该买什么", "recent"),
+        ("what should I buy now", "recent"),
+        ("去年Frank怎么看英伟达", "historical"),
+        ("how did the view evolve historically", "historical"),
+        ("Frank对NVDA的看法", "auto"),
+        ("AMD competitive position", "auto"),
+    ],
+)
+def test_detect_recency_mode(query, expected):
+    assert _tools._detect_recency_mode(query, []) == expected
+
+
+def test_resolve_recency_mode_hint_wins_over_text():
+    # Explicit hint beats whatever the wording would imply.
+    assert _tools._resolve_recency_mode("recent", "去年的观点", []) == "recent"
+    assert _tools._resolve_recency_mode("historical", "最近怎么看", []) == "historical"
+
+
+def test_resolve_recency_mode_aliases_and_fallback():
+    assert _tools._resolve_recency_mode("any", "最近", []) == "auto"        # alias ignores text
+    assert _tools._resolve_recency_mode("neutral", "去年", []) == "auto"
+    assert _tools._resolve_recency_mode("garbage", "最近怎么看", []) == "recent"  # invalid -> infer
+    assert _tools._resolve_recency_mode(None, "去年怎么看", []) == "historical"
+
+
+def test_recency_weight_bounds_and_monotonic():
+    # alpha=0 or undatable -> no penalty.
+    assert _tools._recency_weight(None, alpha=0.75, half_life=14.0) == 1.0
+    assert _tools._recency_weight(100.0, alpha=0.0, half_life=14.0) == 1.0
+    # Bounded in [1-alpha, 1] and strictly decreasing in age.
+    w0 = _tools._recency_weight(0.0, alpha=0.75, half_life=14.0)
+    w30 = _tools._recency_weight(30.0, alpha=0.75, half_life=14.0)
+    w_inf = _tools._recency_weight(10_000.0, alpha=0.75, half_life=14.0)
+    assert w0 == pytest.approx(1.0)
+    assert w0 > w30 > w_inf
+    assert w_inf >= (1.0 - 0.75) - 1e-9  # relevance floor
+
+
+def test_chunk_age_days_prefers_report_date_then_created_at():
+    today = date(2026, 6, 26)
+    by_report = _dated_chunk("A", similarity=0.9, days_ago=10, today=today)
+    assert _tools._chunk_age_days(by_report, today=today) == 10.0
+    # Falls back to metadata.created_at when report_date is missing.
+    no_report = VectorChunkResult(
+        id="x", document_id="x", source_type="kol_tweet", source_id="x",
+        content="c", metadata={"created_at": "2026-06-16T00:00:00Z"}, similarity=0.9,
+    )
+    assert _tools._chunk_age_days(no_report, today=today) == 10.0
+    # Undatable -> None (not penalized downstream).
+    undated = VectorChunkResult(
+        id="y", document_id="y", source_type="kol_tweet", source_id="y",
+        content="c", metadata={}, similarity=0.9,
+    )
+    assert _tools._chunk_age_days(undated, today=today) is None
+
+
+def test_rerank_recent_promotes_fresh_over_more_similar_old():
+    today = date(2026, 6, 26)
+    old = _dated_chunk("OLD", similarity=0.82, days_ago=120, today=today)
+    new = _dated_chunk("NEW", similarity=0.76, days_ago=3, today=today)
+    order = [c.source_id for c in _tools._rerank_by_recency([old, new], mode="recent", today=today)]
+    assert order == ["NEW", "OLD"]
+
+
+def test_rerank_historical_preserves_pure_similarity_order():
+    today = date(2026, 6, 26)
+    old = _dated_chunk("OLD", similarity=0.82, days_ago=120, today=today)
+    new = _dated_chunk("NEW", similarity=0.76, days_ago=3, today=today)
+    order = [c.source_id for c in _tools._rerank_by_recency([old, new], mode="historical", today=today)]
+    assert order == ["OLD", "NEW"]  # history queries must keep old, relevant content on top
+
+
+def test_rerank_same_date_keeps_similarity_order():
+    today = date(2026, 6, 26)
+    a = _dated_chunk("A", similarity=0.90, days_ago=30, today=today)
+    b = _dated_chunk("B", similarity=0.85, days_ago=30, today=today)
+    c = _dated_chunk("C", similarity=0.80, days_ago=30, today=today)
+    order = [x.source_id for x in _tools._rerank_by_recency([c, b, a], mode="recent", today=today)]
+    assert order == ["A", "B", "C"]  # uniform decay -> similarity order preserved
+
+
+@pytest.mark.asyncio
+async def test_search_kol_tweets_recent_reorders_fresh_first():
+    """End-to-end through search_kol_tweets: a recent query must cite the fresh
+    take before an older, slightly-more-similar one (both clear the relevance
+    gate at >=0.85), while old content is still returned, not dropped."""
+    today = date.today()
+    old = _dated_chunk("OLD", similarity=0.88, days_ago=120, today=today)
+    new = _dated_chunk("NEW", similarity=0.86, days_ago=2, today=today)
+    fake_resp = VectorSearchResponse(success=True, query="q", count=2, results=[old, new])
+    with patch(
+        "app.shared.kol_persona.tools.vector_search",
+        AsyncMock(return_value=fake_resp),
+    ):
+        out = await search_kol_tweets(
+            "现在该买什么股票", author_username="qinbafrank", k=6, recency="recent"
+        )
+    # Both present (old not excluded), but NEW cited first.
+    assert "NEW_CONTENT" in out and "OLD_CONTENT" in out
+    assert out.index("NEW_CONTENT") < out.index("OLD_CONTENT")
+    assert "recency=recent" in out
+
+
+@pytest.mark.asyncio
+async def test_search_kol_tweets_historical_keeps_old_first():
+    today = date.today()
+    old = _dated_chunk("OLD", similarity=0.88, days_ago=120, today=today)
+    new = _dated_chunk("NEW", similarity=0.86, days_ago=2, today=today)
+    fake_resp = VectorSearchResponse(success=True, query="q", count=2, results=[old, new])
+    with patch(
+        "app.shared.kol_persona.tools.vector_search",
+        AsyncMock(return_value=fake_resp),
+    ):
+        out = await search_kol_tweets(
+            "去年的判断", author_username="qinbafrank", k=6, recency="historical"
+        )
+    assert out.index("OLD_CONTENT") < out.index("NEW_CONTENT")
+    assert "recency=historical" in out

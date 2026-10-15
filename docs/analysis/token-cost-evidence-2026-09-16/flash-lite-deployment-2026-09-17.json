@@ -1,0 +1,26 @@
+{
+  "deployment_id": "e11659a5-8bf3-44dd-b067-b5e66a852ddf",
+  "enrich_model": "gemini-3.5-flash-lite",
+  "thinking_level": "MINIMAL",
+  "curate_model": "gemini-3.8-flash",
+  "sample_cost": 1.246,
+  "sha256": {
+    "app/core/ai_models.py": "4c63a1a8c1d09f56bd0a9a5a02b12f555223f529b4a7557ce00d9c3c92aa4fff",
+    "app/features/twitter_digest/agents.py": "38631fe970d6a833bff72ad83adac40177f7d04ae7139444e7c7db5cb500005b",
+    "app/shared/llm_pricing.py": "568591d94c2fde6896d85b9083453c33ab47f4a23d19a6f4a18d0ea5251633c4"
+  },
+  "google_model_available": "models/gemini-3.5-flash-lite",
+  "http/": {
+    "status": 200,
+    "body": "{\"message\":\"Market Analysis API is running\"}"
+  },
+  "http/health": {
+    "status": 200,
+    "body": "{\"status\":\"ok\",\"timestamp\":1789609978.8731012}"
+  },
+  "http/ready": {
+    "status": 200,
+    "body": "{\"status\":\"ready\",\"checks\":{\"insforge\":\"ok\",\"google_api_key\":\"ok\",\"fmp_api_key\":\"ok\"}}"
+  },
+  "verified_at_utc": "2026-09-17T01:53:12.294393+00:00"
+}

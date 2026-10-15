@@ -4,6 +4,7 @@ import hashlib
 import json
 from datetime import datetime, timezone, timedelta
 
+from app.core.feature_pause import require_active
 from app.core.logging import get_logger
 from app.features.portfolio.models import HoldingView, ProfileView
 from app.features.portfolio_health.models import (
@@ -50,6 +51,7 @@ async def generate_health_check(
     force: bool = False,
 ) -> HealthResponse:
     """Generate or return cached health check."""
+    require_active("portfolio_health")
     cache_key = _compute_cache_key(user_id, holdings, profile.version)
 
     # Check cache (unless force)

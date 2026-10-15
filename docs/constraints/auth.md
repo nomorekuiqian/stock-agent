@@ -420,3 +420,7 @@ MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，
 - 不要重新引入 `@insforge/nextjs`
 - callback 与 session 恢复优先信任 `app_access_token` / `app_refresh_token` 和 `/api/auth/session`，不要在页面层再造第二套状态机
 - `/api/auth/session` 是当前 server-cookie bridge 的权威恢复入口；不要回退到浏览器直连 Insforge refresh cookie 或恢复 `@insforge/nextjs`
+
+## 可恢复功能暂停（2026-09-04）
+
+暂停策略优先于订阅/角色和登录回跳。注册/邮箱验证/OAuth 保留；跳过 onboarding 状态检查，旧 persona/Panda/MCP 回跳清理到可用页面。暂停接口对 admin、cron key、历史 MCP token 同样返回 403。

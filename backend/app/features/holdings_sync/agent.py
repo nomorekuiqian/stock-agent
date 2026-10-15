@@ -1,8 +1,6 @@
-"""holdings_sync vision/text extraction (Gemini flash-lite).
+"""holdings_sync vision/text extraction with the shared generation model.
 
-Model is **FIXED** to `gemini-3.1-flash-lite-preview` (design §5: cheapest
-Gemini-3 native multimodal tier, project default in CLAUDE.md; **NOT pro**).
-Do not change to pro without updating §5/§8 first.
+The active model is configured by app.core.ai_models.GENERATIVE_MODEL.
 
 Anti-prompt-injection: generation is server-side schema-constrained via
 `response_schema`; the instruction explicitly tells the model to treat the
@@ -24,6 +22,7 @@ from __future__ import annotations
 from google import genai
 from google.genai import types
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.config import GOOGLE_API_KEY
 from app.core.logging import get_logger
 
@@ -31,7 +30,7 @@ from .models import PasteExtractionOutput, VisionExtractionOutput
 
 logger = get_logger(__name__)
 
-MODEL = "gemini-3.1-flash-lite-preview"  # design §5 — do NOT change to pro
+MODEL = GENERATIVE_MODEL
 
 # Hard product cap (design §8). Enforced post-parse: maxItems in the response
 # schema together with multiple nullable numerics triggers 400 (PoC finding).

@@ -203,6 +203,29 @@ pip install → import check → unit tests (*_unit.py) → E2E tests (tests/e2e
 - 环境变量在 Railway Dashboard 管理
 - `ENVIRONMENT=production` 是关键变量，控制邮件广播路由
 
+#### CLI 上传目录约定
+
+`stock-agent` 的 production / staging 服务使用以下目录配置：
+
+- Root Directory: `/backend`
+- Railway Config File: `/backend/railway.json`
+- Dockerfile: `/backend/Dockerfile`
+
+上传包必须保留 `backend/` 这一层。在已获准部署的情况下，从仓库根目录执行以下命令，并明确指定环境：
+
+```bash
+cd /Users/kedeng/projects/stock-agent
+railway up ./backend --service stock-agent --environment staging
+# staging 验证通过后，按本次任务的部署授权发布 production：
+railway up ./backend --service stock-agent --environment production
+```
+
+上述命令不使用 `--path-as-root`；该选项会把 `backend/` 的内容提升为上传包根目录，与当前服务的 `/backend` 配置不匹配。若使用临时发布目录，也必须保留 `backend/Dockerfile`、`backend/railway.json` 和应用文件的相对位置。参见 [Railway CLI 上传路径说明](https://docs.railway.com/cli/deploying)。
+
+2026-09-04 PDT 的两次失败部署分别为 production `69217deb-af85-4b5e-8e23-651460e45746`、staging `ff51e9e2-ddd3-4be4-af29-4ff429589617`，均报 `couldn't locate a dockerfile at path backend/Dockerfile in code archive`。失败发生在读取 Dockerfile 前；失败记录的配置文件路径为 `/railway.json`，与服务的 `/backend` 根目录不匹配。
+
+后续恢复目录布局后的 production `aa9fcfd7-7606-460d-935f-34902682146e`、staging `00f23062-ca99-45ff-9646-1efc0d22a143` 均为 `SUCCESS`，构建日志确认加载 `backend/Dockerfile` 且健康检查通过。本次排查还复核了两个环境的 `/` 均返回 HTTP 200；历史失败记录保留不代表当前部署仍失败。
+
 ### 部署前检查清单
 
 - [ ] 本地 `/test` 通过

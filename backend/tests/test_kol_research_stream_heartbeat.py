@@ -173,7 +173,7 @@ async def test_stream_can_close_after_error_from_different_task(monkeypatch):
 
     stream = kol_agent.stream_kol_research(
         message="test",
-        persona_username="pandacircle",
+        persona_username="qinbafrank",
         conversation_id="test-conversation",
         user_id="test-user",
         turn_id="test-turn",

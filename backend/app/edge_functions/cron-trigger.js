@@ -444,6 +444,11 @@ module.exports = async function(request) {
     });
   }
 
+  const pausedJobs = new Set(["watchlist_monitor_paid_universe", "zsxq_panda_ingestion", "onboarding_drip"]);
+  if (pausedJobs.has(jobName)) {
+    return response(200, { success: true, disabled: true, job: jobName, reason: "feature_paused" });
+  }
+
   const cronSecret = Deno.env.get("CRON_SECRET");
   if (!cronSecret) {
     return response(503, { success: false, job: jobName, error: "CRON_SECRET not configured" });

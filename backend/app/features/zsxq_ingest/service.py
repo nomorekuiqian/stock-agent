@@ -23,6 +23,7 @@ from typing import Any
 
 import resend
 
+from app.core.feature_pause import require_active
 from app.core.config import ADMIN_EMAILS, RESEND_API_KEY
 from app.core.logging import get_logger
 from app.features.zsxq_ingest import db as _db
@@ -178,6 +179,7 @@ async def run_ingest(
     Report dict (also saved to the run row).  Returns early (with a partial
     report) on auth failure or gate block.
     """
+    require_active("panda")
     logger.info("run_ingest: start run_id=%s group=%s full=%s", run_id, group_id, full)
 
     # ------------------------------------------------------------------

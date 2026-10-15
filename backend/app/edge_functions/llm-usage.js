@@ -57,7 +57,7 @@ module.exports = async function(request) {
       const since = new Date(Date.now() - days * 86400000).toISOString();
       const { data, error } = await client.database
         .from("llm_usage")
-        .select("ts, feature, model, prompt_tokens, output_tokens, total_tokens")
+        .select("ts, feature, model, prompt_tokens, output_tokens, cached_tokens, thoughts_tokens, total_tokens")
         .gte("ts", since);
       if (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500, headers: jsonHeaders });
@@ -76,11 +76,15 @@ module.exports = async function(request) {
           calls: 0,
           prompt_tokens: 0,
           output_tokens: 0,
+          cached_tokens: 0,
+          thoughts_tokens: 0,
           total_tokens: 0,
         };
         b.calls += 1;
         b.prompt_tokens += row.prompt_tokens || 0;
         b.output_tokens += row.output_tokens || 0;
+        b.cached_tokens += row.cached_tokens || 0;
+        b.thoughts_tokens += row.thoughts_tokens || 0;
         b.total_tokens += row.total_tokens || 0;
         buckets.set(key, b);
       }

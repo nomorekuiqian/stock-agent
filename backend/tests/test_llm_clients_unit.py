@@ -33,7 +33,8 @@ async def test_generate_structured_json_retries_invalid_json_and_records_usage(m
             "usage": {
                 "prompt_tokens": 10,
                 "completion_tokens": 1,
-                "prompt_cache_hit_tokens": 2,
+                "cached_tokens": 2,
+                "thoughts_tokens": 2,
                 "prompt_cache_miss_tokens": 8,
                 "total_tokens": 11,
             },
@@ -43,7 +44,8 @@ async def test_generate_structured_json_retries_invalid_json_and_records_usage(m
             "usage": {
                 "prompt_tokens": 12,
                 "completion_tokens": 3,
-                "prompt_cache_hit_tokens": 4,
+                "cached_tokens": 4,
+                    "thoughts_tokens": 3,
                 "prompt_cache_miss_tokens": 8,
                 "total_tokens": 15,
             },
@@ -63,7 +65,7 @@ async def test_generate_structured_json_retries_invalid_json_and_records_usage(m
     parsed = await structured.generate_structured_json(
         feature="watchlist_monitor.test",
         agent_name="unit_test_agent",
-        model="deepseek-test",
+        model="gemini-3.8-flash",
         system_prompt="Return an answer.",
         user_payload={"symbol": "AAPL"},
         output_model=_StructuredSample,
@@ -85,6 +87,8 @@ async def test_generate_structured_json_retries_invalid_json_and_records_usage(m
     assert usage_records[1]["prompt_tokens"] == 12
     assert usage_records[1]["output_tokens"] == 3
     assert usage_records[1]["cached_tokens"] == 4
+    assert usage_records[1]["thoughts_tokens"] == 3
+    assert usage_records[1]["extra"]["provider"] == "google"
 
 
 def test_record_usage_builds_provider_neutral_record(monkeypatch):
