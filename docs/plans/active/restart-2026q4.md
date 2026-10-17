@@ -121,7 +121,7 @@ KOL 抓取 + enrichment（已有：twitter_digest / kol_research）
 
 **0.3 修复度量**
 1. [ ] 在 Resend 后台重新启用 webhook（发向 `/api/webhooks/resend`），确认 `email_events` 恢复写入。判断是否需要用 Resend API 回填 9/05 以来的打开和点击记录。
-2. [~] 记录注册来源（2026-10-17 代码完成，待应用迁移 + 发布；实现与原设计的差异：写入时机改为首次登录同步而非 `signUpAction`，以覆盖邮箱验证、OAuth、微信等所有注册路径）：
+2. [~] 记录注册来源（2026-10-17：表已在线上建好（用 `db query` 执行，未进 CLI 迁移历史），edge function `user-acquisition` 已部署并验证；**后端和前端尚未发布**；实现与原设计的差异：写入时机改为首次登录同步而非 `signUpAction`，以覆盖邮箱验证、OAuth、微信等所有注册路径）：
    - 前端首次访问时，把 `utm_*`、`ref`、落地路径、`document.referrer` 写进一个首方 cookie
    - `signUpAction` 带上这个 cookie，注册成功后写入新表 `user_acquisition`（user_id、first_touch、last_touch、created_at）。不再塞进 auth metadata，避免再出现 `[object Object]`
 3. [x] 统一 UTM 规范（`docs/guides/utm-conventions.md`）（source=平台、medium=organic/seo/email/kol、campaign=内容 id），写进 `docs/guides/`。
