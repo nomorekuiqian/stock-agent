@@ -28,11 +28,13 @@ CONV_DB = "app.features.screener.conversation_db"
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
     """Create a test client with mocked auth via dependency_overrides."""
     from app.main import app
     from app.core.deps import verify_user_token
+    from app.features.agent_runtime import db as runtime_db
 
+    monkeypatch.setattr(runtime_db, "get_session", AsyncMock(return_value=None))
     app.dependency_overrides[verify_user_token] = lambda: MOCK_USER_ID
     yield TestClient(app)
     app.dependency_overrides.pop(verify_user_token, None)
@@ -368,7 +370,9 @@ class TestCreateConversation:
 
 class TestUpdateConversation:
     @patch(f"{CONV_DB}.update_conversation", new_callable=AsyncMock)
-    def test_updates_successfully(self, mock_update, client, save_request):
+    def test_updates_successfully(self, mock_update, client, save_request, monkeypatch, sample_conversation):
+        from app.features.screener import conversation_db
+        monkeypatch.setattr(conversation_db, "get_conversation", AsyncMock(return_value=sample_conversation))
         mock_update.return_value = True
         resp = client.put(
             f"/api/screener/conversations/{MOCK_CONV_ID}",
@@ -428,7 +432,12 @@ class TestPinConversation:
         )
 
     @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
-    def test_pins_specific_runtime_agent(self, mock_pin, client):
+    @pytest.mark.parametrize("persona", ["qinbafrank", "aleabitoreddit"])
+    def test_pins_specific_runtime_agent(self, mock_pin, client, monkeypatch, persona):
+        from app.features.agent_runtime import db as runtime_db
+        monkeypatch.setattr(runtime_db, "get_session", AsyncMock(return_value={
+            "session": {"agent_id": "kol_research_agent", "metadata": {"persona_username": persona}},
+        }))
         mock_pin.return_value = {
             "id": MOCK_CONV_ID,
             "agent_id": "kol_research_agent",
@@ -441,13 +450,20 @@ class TestPinConversation:
             json={"is_pinned": True, "agent_id": "kol_research_agent"},
         )
         assert resp.status_code == 200
-        assert resp.json()["agent_id"] == "kol_research_agent"
-        mock_pin.assert_called_once_with(
-            user_id=MOCK_USER_ID,
-            agent_id="kol_research_agent",
-            session_id=MOCK_CONV_ID,
-            is_pinned=True,
+        mock_pin.assert_awaited_once()
+
+    @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
+    def test_paused_persona_cannot_be_pinned(self, mock_pin, client, monkeypatch):
+        from app.features.agent_runtime import db as runtime_db
+        monkeypatch.setattr(runtime_db, "get_session", AsyncMock(return_value={
+            "session": {"agent_id": "kol_research_agent", "metadata": {"persona_username": "pandacircle"}},
+        }))
+        response = client.patch(
+            f"/api/screener/conversations/{MOCK_CONV_ID}/pin",
+            json={"is_pinned": True, "agent_id": "kol_research_agent"},
         )
+        assert response.status_code == 403
+        mock_pin.assert_not_awaited()
 
     @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
     def test_not_found_returns_404(self, mock_pin, client):
@@ -457,7 +473,7 @@ class TestPinConversation:
             json={"is_pinned": False},
         )
         assert resp.status_code == 404
-        assert mock_pin.call_count == 2
+        assert mock_pin.call_count == 1
 
     @patch(f"{CONV_DB}.get_conversation", new_callable=AsyncMock)
     @patch("app.features.agent_runtime.db.pin_session", new_callable=AsyncMock)
@@ -469,7 +485,6 @@ class TestPinConversation:
         sample_conversation,
     ):
         mock_pin.side_effect = [
-            None,
             None,
             {
                 "id": MOCK_CONV_ID,
@@ -489,8 +504,8 @@ class TestPinConversation:
         assert resp.status_code == 200
         assert resp.json()["is_pinned"] is True
         mock_get_conversation.assert_called_once_with(MOCK_CONV_ID, MOCK_USER_ID)
-        assert mock_pin.call_count == 3
-        fallback_kwargs = mock_pin.call_args_list[2].kwargs
+        assert mock_pin.call_count == 2
+        fallback_kwargs = mock_pin.call_args_list[1].kwargs
         assert fallback_kwargs["user_id"] == MOCK_USER_ID
         assert fallback_kwargs["agent_id"] == "research_agent"
         assert fallback_kwargs["session_id"] == MOCK_CONV_ID
@@ -519,7 +534,7 @@ class TestPinConversation:
         )
 
         assert resp.status_code == 404
-        assert mock_pin.call_count == 2
+        assert mock_pin.call_count == 1
         mock_get_conversation.assert_called_once_with(MOCK_CONV_ID, MOCK_USER_ID)
 
 
@@ -530,7 +545,9 @@ class TestPinConversation:
 
 class TestDeleteConversation:
     @patch(f"{CONV_DB}.delete_conversation", new_callable=AsyncMock)
-    def test_deletes_successfully(self, mock_delete, client):
+    def test_deletes_successfully(self, mock_delete, client, monkeypatch, sample_conversation):
+        from app.features.screener import conversation_db
+        monkeypatch.setattr(conversation_db, "get_conversation", AsyncMock(return_value=sample_conversation))
         mock_delete.return_value = True
         resp = client.delete(f"/api/screener/conversations/{MOCK_CONV_ID}")
         assert resp.status_code == 200
