@@ -97,14 +97,14 @@ KOL 抓取 + enrichment（已有：twitter_digest / kol_research）
 4. [x] 导出线上 schedules 列表（应为 17 项：13 项启用、4 项暂停）和数据库 schema，作为基线证据存入 `docs/analysis/`。
    - 2026-10-17 完成：`docs/analysis/production-baseline-2026-10-17/`（17 个 schedules：13 个启用、4 个停用；48 张表、38 个函数；只有结构）。
 5. [x] 用文件哈希和 `release-manifest.json` / `production-hashes.txt` 对照，确认重建的代码等于线上。
-6. [ ] 对比 `wip/2026-09-local` 与基线，逐个文件分成三类：
+6. [x] 对比 `wip/2026-09-local` 与基线，逐个文件分成三类：
    - 已在线上：丢弃
    - 本地独有且有价值：单独提交
    - 过时：丢弃
 
    分类清单写入本文附录。
    - 2026-10-17 完成，见附录 A。已在工作区应用（未提交）：B 类 140 个文件（不含个人权限配置、6 张概念图 PNG 和下面两个测试）；C 类 14 个文档做了三方合并。附录 A 的两处修正：`tests/test_llm_clients_unit.py` 以**线上为准**（备份版删掉了 Langfuse 断言）；`tests/test_kol_persona_unit.py`、`tests/test_llm_usage_edge_unit.py` 不合入（前者测的是未上线的时间衰减重排，后者测的是旧版 `llm-usage.js`）。
-7. [ ] 按逻辑分组提交，包括 `docs/analysis/` 下 9–10 月的审计文档和 evidence。`.codex/artifacts/` 保持被忽略。
+7. [x] 按逻辑分组提交，包括 `docs/analysis/` 下 9–10 月的审计文档和 evidence。`.codex/artifacts/` 保持被忽略。
 8. [x] 在基线分支上跑 `pytest`、`npm test`、`npm run build`，记录已知失败。
    - 2026-10-17：后端单元测试（不含 `tests/e2e`、`tests/eval`）2537 通过 / 90 失败；前端 vitest 748 通过 / 16 失败；`npm run build` 通过。**失败全部是基线自带的，与合入无关**，集中在已暂停的功能：zsxq_ingest 24、themarketbrew_mcp 28、watchlist_monitor 12、onboarding 8、research_kb 5、entitlement_gates 4、okx_mcp 3、community_access 2、kol_cockpit_v3 2、architecture 1、llm_clients 1；前端是 SubscriptionContext 6、OnboardingGate 4、AuthSubscriptionSync 3、HomeGuidedTour 3。处理方式：随 MVP 第 2 步下线这些模块时一并删除，或改为断言 `feature_paused`。
    - 注意：`pytest` 不加参数会收进 `tests/e2e`，那部分需要后端在运行。
@@ -233,3 +233,16 @@ KOL 抓取 + enrichment（已有：twitter_digest / kol_research）
 - `skills/stripe-*`（3 个，git 忽略，像是被技能安装器放进来的）
 
 **6. git 分支**：远端 42 个分支，大多是已合并的 `claude/*`、`codex/*`。确认后批量删除已合并的分支。
+
+### 附录 B 执行结果（2026-10-17，commit `ea98764` 及其后的整理提交）
+
+用户决定：放弃「博主共识地图」，方向改为持仓追踪（`mvp-portfolio-tracker.md`）；按推荐删除。
+
+- **已删除**：AI 监控台（后端 `watchlist_monitor`、前端 `/for-you/monitor`）、Panda/知识星球（`zsxq_ingest`、`community_access`、`/panda`、`/admin/panda`）、持仓体检（`portfolio_health`、`/for-you/health`）、后台任务监控（`job_monitor`、`/admin/jobs`，它只服务知识星球）、`shared/` 下 3 个只给监控台用的模块、微信小程序 `miniprogram/`、`backend/vercel.json`、3 个一次性脚本、知识星球操作手册。共约 4.9 万行。
+- **按新方向保留**（与原清单不同）：`holdings_sync`（MVP 要复用截图识别）、MCP（MVP 的 Agent 出口）、`frontend/src/app/kol/`（Frank/Serenity 对话还在用，第 1 步后再定）、`research_kb`、`onboarding`。
+- **线上没动**：被删功能的 Edge Functions（`watchlist-monitor`、`zsxq-ingest-store`、`community-access`、`portfolio-health` 等）、4 个已停用的定时任务、相关数据表都还在线上。仓库里的 `backend/app/edge_functions/` 保留这些函数源码，保持「仓库 = 线上」。下线它们需要单独确认后再做。
+- **整理**：9 个停滞计划移到 `docs/plans/archived/`；根目录 `package.json` 去掉重复的前端依赖；`.claude/settings.local.json` 不再被 git 跟踪；`CLAUDE.md` 去掉已不存在的 `services/`、`models/` 规则。
+- **刻意没做：合并两套 migration 目录。** 线上 Insforge 的迁移历史只登记到 `20260613220000`（11 个），根目录 `migrations/` 里有 9 个文件没有登记（含监控台相关和删列操作），新的 `20261017120000_user-acquisition.sql` 是用 `db query` 直接建表的，也没有登记。**绝对不要运行 `insforge db migrations up --all`**，它会把这些旧文件一并执行。要整理迁移目录，必须先把线上迁移历史和本地对齐，作为单独任务。
+- **没做的低价值项**：`skills-lock.json`（技能安装器自动维护）、`.impeccable.md`、`.cclsp.json`（个人工具配置，仍在用）、`docs/architecture.md`（过时，等 MVP 架构定下来再重写）、远端 42 个分支（删除远端分支需要单独确认）。
+- **测试**：后端单元测试 2318 通过 / 47 失败，前端 732 通过 / 15 失败，全部是基线原有的失败；tsc、`next build`、eslint 都通过。
+

@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 关键规则
 
 1. **禁止自动 Git 操作**: 不要自动执行 `git commit` 或 `git push`，需用户手动确认
-2. **遗留代码禁区**: `backend/app/services/` 和 `backend/app/models/` 是死代码，禁止 import。活跃代码在 `app/features/` 和 `app/shared/`
+2. **代码位置**: 后端活跃代码只在 `app/features/` 和 `app/shared/`（旧的 `services/`、`models/` 已删除）。已暂停功能见 `backend/app/core/feature_pause.py`
 3. **日志规范**: 使用 `get_logger(__name__)`，禁止 `print()`，用 `%s` lazy 格式化
 4. **认证模式**: 用户端点用 `Depends(verify_user_token)`，定时任务用 `Depends(verify_cron_secret)`
 5. **改代码前读 .context.md，改完后更新**。详细维护规则见 `docs/constraints/engineering-rules.md`
@@ -90,9 +90,7 @@ backend/app/
 ├── core/                # 基础设施 (config/database/logging/rate_limit)
 ├── features/            # 功能模块 (daily_report/morning_report/brew/stock/macro/screener/subscription/notification/feedback/payment/invites)
 ├── shared/              # 共享服务 (fmp/yfinance/openbb/insforge/data_tools)
-├── edge_functions/      # Insforge Edge Functions (JavaScript)
-├── services/            # [DEAD] 禁止导入
-└── models/              # [DEAD] 禁止导入
+└── edge_functions/      # Insforge Edge Functions (JavaScript，与线上逐字节一致)
 ```
 
 Feature 模块标准结构: `router.py` / `agent.py` / `service.py` / `models.py` / `db.py`
