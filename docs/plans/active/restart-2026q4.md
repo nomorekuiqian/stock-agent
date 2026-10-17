@@ -86,8 +86,8 @@ KOL 抓取 + enrichment（已有：twitter_digest / kol_research）
 完成标准：仓库可以复现线上；以后只从 git 发布；能回答「这周的注册从哪来、谁付了费」。
 
 **0.1 把线上基线收回 git**（每一步 git 操作都需要用户确认）
-1. [ ] 把当前 171 个文件的工作区原样保存到分支 `wip/2026-09-local`，作为备份，不合并。
-2. [ ] 从 `67893fb` 开分支 `restart/prod-baseline`：
+1. [x] 把当前工作区原样保存到分支 `wip/2026-09-local`，作为备份，不合并（2026-10-15，commit `f7fb671`，252 个文件；2026-10-17 已推送到 origin 做异地备份）。
+2. [ ] 从 **`origin/master`（`f450ccf`）** 开分支 `restart/prod-baseline`。注意本地 `master` 落后它 7 个提交（6/27–8/10 的 Langfuse、研究流式响应、认证超时修复、AI monitor 退休合并），9 月的发布包就是以这些线上修复为底的。分支建好后：
    - 后端：用 `railway-memory-2026-10-13/baseline/` 覆盖 `backend/`，再应用 `release.patch`
    - 前端：用 `persona-chat-2026-09-22/release/frontend/` 覆盖 `frontend/`
 3. [ ] 用 Insforge CLI 拉取所有线上 Edge Functions 的源码，覆盖 `backend/app/edge_functions/`。特别核对 `llm-usage.js`、`cron-trigger.js`、`picker-conversations.js`。
