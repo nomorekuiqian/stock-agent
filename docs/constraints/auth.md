@@ -91,7 +91,7 @@ Onboarding gate 的状态请求是安全关键路径：`OnboardingGate` 先读�
   -> AuthContext 通过 /api/auth/session 决定真实登录态
 ```
 
-`middleware` 当前维护的是 `PUBLIC_ROUTES` 白名单：`/`、`/today`、`/morning`、`/stock`、`/market`、`/reports`、`/contact`、`/feedback`、`/unsubscribe`、`/login`、`/verify-email`、`/forgot-password`、`/reset-password`、`/auth/callback`、`/email-test`、`/pricing`、`/frank-agent`、`/qinbafrank`、`/webview-check`、`/macro`、`/research`、`/twitter-digest`、`/kol`、`/panda` 等公开前缀直接放行。其它页面先经过 cookie gate；例如 `/for-you`、`/profile`、`/settings`、`/admin`、`/request-access` 会在没有 `app_access_token` / `app_refresh_token` 时跳 `/login?redirect=...`。权威鉴权仍在 `/api/auth/session` 和后端 `verify_user_token` / admin API 中完成。
+`middleware` 当前维护的是 `PUBLIC_ROUTES` 白名单：`/`、`/today`、`/morning`、`/stock`、`/market`、`/reports`、`/contact`、`/about`、`/terms`、`/privacy`、`/feedback`、`/unsubscribe`、`/login`、`/verify-email`、`/forgot-password`、`/reset-password`、`/auth/callback`、`/email-test`、`/pricing`、`/frank-agent`、`/qinbafrank`、`/webview-check`、`/macro`、`/research`、`/twitter-digest`、`/kol`、`/panda` 等公开前缀直接放行。其它页面先经过 cookie gate；例如 `/for-you`、`/profile`、`/settings`、`/admin`、`/request-access` 会在没有 `app_access_token` / `app_refresh_token` 时跳 `/login?redirect=...`。权威鉴权仍在 `/api/auth/session` 和后端 `verify_user_token` / admin API 中完成。
 
 ## Session 与 Token
 

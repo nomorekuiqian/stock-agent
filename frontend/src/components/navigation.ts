@@ -77,6 +77,7 @@ export function getMainNavSections({
       label: '定价',
       href: '/pricing',
     },
+    { label: '关于', href: '/about' },
   ];
 
   if (isAdmin) {

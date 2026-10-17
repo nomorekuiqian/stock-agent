@@ -8,6 +8,11 @@ import { serializeJsonLd, SITE_URL } from '@/lib/seo';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('crawler access and authentication boundary', () => {
+  it.each(['/about', '/terms', '/privacy', '/contact'])('allows anonymous access to %s', (path) => {
+    const response = middleware(new NextRequest(`${SITE_URL}${path}`));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+  });
   it.each(['/robots.txt', '/sitemap.xml'])('allows anonymous %s without cookies or redirects', (path) => {
     const response = middleware(new NextRequest(`${SITE_URL}${path}`));
     expect(response.status).toBe(200);

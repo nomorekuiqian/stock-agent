@@ -37,7 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const paths = [
     '', '/today', '/today/archive', '/morning', '/morning/archive',
     '/macro', '/macro/economy', '/macro/inflation-rates', '/macro/liquidity',
-    '/macro/sentiment', '/macro/weekly', '/stock', '/pricing', '/contact',
+    '/macro/sentiment', '/macro/weekly', '/stock', '/pricing', '/contact', '/about', '/terms', '/privacy',
   ];
   // Do not label every request/build time as a content modification.
   const pages: MetadataRoute.Sitemap = paths.map((path) => ({ url: `${SITE_URL}${path}` }));

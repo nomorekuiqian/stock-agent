@@ -332,6 +332,10 @@ function LoginPageContent() {
           </button>
         </form>
 
+        <p className="text-center text-sm leading-7 text-muted-foreground">
+          使用前请阅读 <Link href="/terms" className="text-primary underline underline-offset-4">服务条款</Link> 与 <Link href="/privacy" className="text-primary underline underline-offset-4">隐私政策</Link>。
+        </p>
+
         {/* Toggle Sign Up / Sign In */}
         <p className="text-center text-sm text-muted-foreground animate-fade-in delay-300">
           {isSignUp ? '已有账户?' : '没有账户?'}{' '}

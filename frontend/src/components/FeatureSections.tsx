@@ -195,22 +195,22 @@ function StockSearchBox() {
 
 const TRUST_STATS = [
   {
-    value: "1,500+",
-    label: "活跃用户",
-    detail: "中文投资者正在用 TheMarketBrew 做日常研究",
-    numeric: true,
+    value: "中文",
+    label: "市场研究",
+    detail: "把市场变化整理成便于阅读的中文研究材料",
+    numeric: false,
   },
   {
-    value: "3,680+",
+    value: "个股",
     label: "美股标的",
     detail: "覆盖主流可交易股票与 ETF 的研究入口",
-    numeric: true,
+    numeric: false,
   },
   {
-    value: "300+",
+    value: "公开观点",
     label: "博主观点源",
     detail: "从高质量公开观点里提取论据和市场线索",
-    numeric: true,
+    numeric: false,
   },
   {
     value: "多市场",
@@ -232,7 +232,7 @@ function TrustSignalSection() {
         <div className="space-y-4">
           <SectionLabel label="Trusted Research Stack" />
           <h2 className="font-editorial text-3xl leading-tight text-foreground md:text-4xl">
-            被真实投资者每天打开的投研系统
+            围绕日常研究组织信息
           </h2>
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base">
             我们不把 Agent 做成单纯聊天窗口，而是把专业数据、新闻、宏观和博主方法论放进同一个研究环境。

@@ -2,7 +2,6 @@
 
 import { isFeaturePaused } from '@/lib/feature-pause';
 import { Suspense } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -50,7 +49,7 @@ const PRICING_TIERS = [
     note: "随时取消 · Stripe 安全支付",
     features: [
       "盘前情报 + 盘后总览邮件推送",
-      "300+ 美股博主观点聚合",
+      "美股博主观点聚合",
       "基于持仓的专属日报",
       "宏观周报邮件推送",
       "自选股管理",
@@ -272,7 +271,7 @@ export default function Home() {
             </div>
             <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
               免费版覆盖基础复盘；Pro 负责推送、持仓和博主观点；
-              Max 解锁完整 AI 投研、博主研究室和深度个股分析。
+              Max 解锁 AI 投研助手和深度个股分析。
             </p>
           </div>
 
@@ -290,24 +289,9 @@ export default function Home() {
       >
         <div className="mx-auto grid max-w-6xl gap-10 px-4 md:px-6 lg:grid-cols-[0.72fr_1.28fr]">
           <aside className="lg:sticky lg:top-28 lg:self-start">
-            <SectionLabel label="Our Story" align="left" />
-            <div className="mt-8 flex items-center gap-4">
-              <Image
-                src="/founder-avatar.jpeg"
-                alt="Golden"
-                width={80}
-                height={80}
-                className="h-20 w-20 rounded-xl border border-primary/20 object-cover"
-              />
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  Golden / 金黄
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  独立开发者，美股投资者
-                </p>
-              </div>
-            </div>
+            <SectionLabel label="Our Approach" align="left" />
+            <p className="mt-6 max-w-xs text-base leading-7 text-muted-foreground">用清晰的研究流程，把分散的信息连接起来。</p>
+            <Link href="/about" className="mt-4 inline-flex min-h-11 items-center text-sm text-primary hover:underline">了解 TheMarketBrew</Link>
           </aside>
 
           <div className="space-y-8">
@@ -319,11 +303,10 @@ export default function Home() {
               </h2>
               <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-muted-foreground">
                 <p>
-                  我是硅谷大厂的全职程序员，也投资美股十多年。过去我每天被盘面、新闻和社交媒体牵着走，涨跌都知道，真正的原因却经常要花很久才拼出来。
+                  行情、新闻和公开观点每天都在变化。TheMarketBrew 将这些信息整理到同一个研究环境，帮助你理解变化、核实依据，并继续追问。
                 </p>
                 <p>
-                  TheMarketBrew 最早只是给自己做的一份 AI
-                  日报。后来它逐渐变成一个完整的投研平台：日报、盘前情报、个股深度分析、宏观仪表盘和投研助手，都服务同一个目标。
+                  日报、盘前情报、个股分析、宏观仪表盘和投研助手，共同服务于日常市场研究。
                 </p>
               </div>
             </div>
@@ -362,7 +345,7 @@ export default function Home() {
             从一份清晰研究开始
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-            免费体验日报和投研助手。需要更完整的推送、博主观点、博主研究室和深度个股分析时，再升级即可。
+            免费体验日报和投研助手。需要更完整的推送、博主观点和深度个股分析时，再升级即可。
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link

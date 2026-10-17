@@ -96,13 +96,21 @@ export default function ContactPage() {
         {/* Header — compact, left-aligned */}
         <div className="mb-8">
           <h1 className="font-editorial text-2xl md:text-3xl text-foreground leading-tight mb-2">
-            联系我们
+            联系与支持
           </h1>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            有问题或建议？直接告诉我们
+            使用问题、账单咨询、内容纠错，或只是想提一个建议。
           </p>
         </div>
 
+        <section className="mb-10 border-y border-border py-6">
+          <h2 className="text-lg font-semibold text-foreground">使用与账户支持</h2>
+          <p className="mt-3 text-sm leading-7 text-muted-foreground">通过页脚的 X / Twitter 链接联系我们，说明遇到的问题及发生时间。如涉及账单或隐私，请使用私信，不要公开账户信息。请勿发送密码、验证码或完整支付卡号。</p>
+          <a href="#site-social" className="mt-4 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline">查看 X / Twitter 联系方式</a>
+          <p className="mt-3 text-sm leading-7 text-muted-foreground">套餐与取消续费说明见 <Link href="/terms#billing" className="text-primary underline underline-offset-4">订阅条款</Link>。也可以通过下方表单留下邮箱和问题；表单仍包含一项产品评价。</p>
+        </section>
+        <h2 className="mb-3 text-lg font-semibold text-foreground">产品反馈</h2>
+        <p className="mb-5 text-sm leading-7 text-muted-foreground">分享使用感受或改进建议。我们会阅读反馈，通过你填写的邮箱联系你。</p>
         {/* Form */}
         {submitStatus === 'success' ? (
           <div className="rounded-xl border border-border bg-card p-6 md:p-8 text-center">
@@ -121,7 +129,7 @@ export default function ContactPage() {
                 />
               </svg>
             </div>
-            <h2 className="text-base font-medium text-foreground mb-1.5">感谢您的反馈！</h2>
+            <h2 role="status" className="text-base font-medium text-foreground mb-1.5">感谢您的反馈！</h2>
             <p className="text-sm text-muted-foreground mb-5">
               您的意见对我们非常重要，我们会认真阅读每一条反馈。
             </p>
@@ -205,7 +213,7 @@ export default function ContactPage() {
 
               {/* Error Message */}
               {errorMessage && (
-                <div className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5">
+                <div role="alert" className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5">
                   {errorMessage}
                 </div>
               )}
@@ -246,6 +254,8 @@ export default function ContactPage() {
             </form>
           </div>
         )}
+
+        <p className="mt-5 text-sm leading-7 text-muted-foreground">提交的邮箱和反馈用于处理你的问题，详见 <Link href="/privacy" className="text-primary underline underline-offset-4">隐私政策</Link>。</p>
 
         {/* Secondary links — generous top spacing, subtle */}
         <div className="mt-8 flex items-center gap-4 text-xs text-muted-foreground">
