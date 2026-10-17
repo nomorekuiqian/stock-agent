@@ -31,7 +31,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 全栈宏观市场分析应用，使用 Google ADK 构建 AI Agent，提供市场数据获取、新闻分析和投资报告服务。
 
-**技术栈**: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 | FastAPI + Google ADK (gemini-3.1-flash-lite-preview) | Stripe | Resend | Insforge (PostgreSQL)
+**技术栈**: Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 | FastAPI + Google ADK (gemini-3.8-flash | Stripe | Resend | Insforge (PostgreSQL)
 
 **品牌**: TheMarketBrew (#059669 翠绿色) / https://themarketbrew.com
 
@@ -116,7 +116,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 
 agent = LlmAgent(
-    model="gemini-3.1-flash-lite-preview",
+    model="gemini-3.8-flash",
     name="analyst",
     instruction=ANALYST_INSTRUCTION,
     output_schema=MarketReportOutput,
