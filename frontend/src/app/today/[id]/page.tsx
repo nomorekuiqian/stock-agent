@@ -1,3 +1,4 @@
+import { SITE_URL, serializeJsonLd } from '@/lib/seo';
 import { cache } from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -38,12 +39,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: 'article',
+      url: `/today/${id}`,
+      images: ['/logo-avatar.png'],
       publishedTime: report.timestamp || report.report_date || '',
       siteName: 'TheMarketBrew',
       locale: 'zh_CN',
     },
     twitter: {
-      card: 'summary_large_image',
+      card: 'summary',
+      images: ['/logo-avatar.png'],
       title,
       description,
     },
@@ -73,16 +77,16 @@ function generateJsonLd(report: MarketData, id: string) {
     author: {
       '@type': 'Organization',
       name: 'TheMarketBrew',
-      url: 'https://themarketbrew.com',
+      url: SITE_URL,
     },
     publisher: {
       '@type': 'Organization',
       name: 'TheMarketBrew',
-      url: 'https://themarketbrew.com',
+      url: SITE_URL,
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `https://themarketbrew.com/today/${id}`,
+      '@id': `${SITE_URL}/today/${id}`,
     },
     articleSection: '美股市场分析',
     inLanguage: 'zh-CN',
@@ -109,7 +113,7 @@ export default async function ReportDetailPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <main className="min-h-screen bg-background">

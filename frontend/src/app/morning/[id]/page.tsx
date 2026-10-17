@@ -1,3 +1,4 @@
+import { SITE_URL, serializeJsonLd } from '@/lib/seo';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -68,12 +69,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: 'article',
+      url: `/morning/${id}`,
+      images: ['/logo-avatar.png'],
       publishedTime: report.timestamp || report.report_date || '',
       siteName: 'TheMarketBrew',
       locale: 'zh_CN',
     },
     twitter: {
-      card: 'summary_large_image',
+      card: 'summary',
+      images: ['/logo-avatar.png'],
       title,
       description,
     },
@@ -94,16 +98,16 @@ function generateJsonLd(report: { title?: string; report_date?: string; timestam
     author: {
       '@type': 'Organization',
       name: 'TheMarketBrew',
-      url: 'https://themarketbrew.com',
+      url: SITE_URL,
     },
     publisher: {
       '@type': 'Organization',
       name: 'TheMarketBrew',
-      url: 'https://themarketbrew.com',
+      url: SITE_URL,
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `https://themarketbrew.com/morning/${id}`,
+      '@id': `${SITE_URL}/morning/${id}`,
     },
     articleSection: '盘前早报',
     inLanguage: 'zh-CN',
@@ -124,7 +128,7 @@ export default async function MorningReportDetailPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <main className="min-h-screen bg-background">

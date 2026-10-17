@@ -35,6 +35,13 @@ const PUBLIC_ROUTES = [
   '/panda',
 ];
 
+const SEO_FILES = new Set(['/robots.txt', '/sitemap.xml']);
+const NOINDEX_ROUTES = [
+  '/login', '/auth', '/forgot-password', '/reset-password', '/verify-email',
+  '/unsubscribe', '/feedback', '/email-test', '/webview-check', '/pricing/success',
+  '/for-you', '/profile', '/settings', '/admin', '/request-access', '/dev', '/mcp',
+];
+
 const ACCESS_COOKIE = 'app_access_token';
 const REFRESH_COOKIE = 'app_refresh_token';
 
@@ -63,7 +70,13 @@ function withAcquisitionCookies(request: NextRequest, response: NextResponse): N
 }
 
 export default function middleware(request: NextRequest) {
-  return withAcquisitionCookies(request, route(request));
+  // Exact files only: never expose private routes by file extension.
+  if (SEO_FILES.has(request.nextUrl.pathname)) return NextResponse.next();
+  const response = withAcquisitionCookies(request, route(request));
+  if (NOINDEX_ROUTES.some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))) {
+    response.headers.set('X-Robots-Tag', 'noindex, follow');
+  }
+  return response;
 }
 
 function route(request: NextRequest) {

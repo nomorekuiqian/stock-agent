@@ -1,3 +1,4 @@
+import { SITE_URL } from '@/lib/seo';
 import type { Metadata } from "next";
 import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
@@ -44,11 +45,10 @@ export const metadata: Metadata = {
   authors: [{ name: "TheMarketBrew" }],
   creator: "TheMarketBrew",
   publisher: "TheMarketBrew",
-  metadataBase: new URL("https://themarketbrew.com"),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     locale: "zh_CN",
-    url: "https://themarketbrew.com",
     siteName: "TheMarketBrew",
     title: "TheMarketBrew - AI 美股分析平台",
     description: "AI 驱动的美股分析平台。每日市场日报、宏观经济周报、个股深度投研，中文解读助力投资决策。",

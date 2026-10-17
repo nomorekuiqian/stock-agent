@@ -1,31 +1,10 @@
 import { MetadataRoute } from 'next';
+import { SITE_URL } from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [
-      {
-        userAgent: '*',
-        allow: [
-          '/',
-          '/today',
-          '/today/*',
-          '/macro',
-          '/macro/*',
-          '/stock',
-          '/stock/*',
-        ],
-        disallow: [
-          '/api/',
-          '/login',
-          '/auth/',
-          '/for-you',
-          '/for-you/*',
-          '/unsubscribe',
-          '/email-test',
-          '/feedback',
-        ],
-      },
-    ],
-    sitemap: 'https://themarketbrew.com/sitemap.xml',
+    // Utility pages stay crawlable so crawlers can read X-Robots-Tag: noindex.
+    rules: [{ userAgent: '*', allow: '/', disallow: ['/api/'] }],
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

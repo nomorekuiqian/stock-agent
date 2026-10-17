@@ -406,3 +406,9 @@ MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，
 ## 可恢复功能暂停（2026-09-04）
 
 暂停策略优先于订阅/角色和登录回跳。注册/邮箱验证/OAuth 保留；跳过 onboarding 状态检查，旧 persona/Panda/MCP 回跳清理到可用页面。暂停接口对 admin、cron key、历史 MCP token 同样返回 403。
+
+## SEO 文件与索引控制（2026-10-17）
+
+- middleware 对 `/robots.txt`、`/sitemap.xml` 做精确放行，不设置来源 cookie；不按文件扩展名扩大公开范围。
+- 登录、验证、重置密码、个人页面、后台、支付成功回跳等功能路由返回 `X-Robots-Tag: noindex, follow`。这不是权限控制；原有 cookie gate 与后端鉴权继续生效。
+- robots.txt 允许抓取功能页以读取 noindex；只禁止 `/api/`。

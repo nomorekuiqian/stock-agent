@@ -58,6 +58,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `/stock/${upperSymbol}`,
     },
     openGraph: {
+      url: `/stock/${upperSymbol}`,
       title,
       description,
     },
