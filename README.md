@@ -1,230 +1,173 @@
 # TheMarketBrew
 
-> 云端 AI 炒股助手 —— 9 个 AI Agent 全天候运转，替你做投研。
->
-> https://themarketbrew.com
->
-> **聪明的散户用这个。** 你也可以有投研团队。
+**面向美股投资者的 AI 研究平台：从市场数据与新闻，到每日简报、个性化摘要和交互式研究。**
 
-> **想参与代码贡献？** 请先读 [docs/contributing.md](docs/contributing.md)。
+[访问网站](https://themarketbrew.com) · [本地开发](#本地开发) · [架构文档](docs/architecture.md) · [贡献指南](docs/contributing.md)
 
----
+TheMarketBrew 将数据采集、AI 分析、报告存储与邮件分发串成持续运行的研究流程。用户可以通过网页和邮件阅读市场变化，也可以在 Research Desk 中继续提问、筛选股票和查看研究资料。
 
-## 我们在做什么
+本仓库包含 Next.js 前端、FastAPI 后端，以及数据处理、Agent 和交付流程的实现。
 
-一个云端的 AI 投研团队。9 个 AI Agent 分工协作，替你读新闻、看财报、盯宏观、做分析，把分析师团队一天的工作量压缩成你早晨一杯咖啡的时间。
+## 核心能力
 
-| 功能 | 一句话 | 交付方式 |
-|------|--------|----------|
-| **每日日报** | 今天市场发生了什么，哪些值得关注 | 邮件 + 网页 |
-| **专属持仓日报** | 今天的新闻和数据，对你的持仓意味着什么 | 邮件 + 网页 |
-| **个股深度分析** | 输入一个代码，一页看透基本面+技术面+新闻+宏观 | 网页 |
-| **AI 投研助手** | 像和分析师对话一样研究股票，追问到底 | 网页 |
-| **宏观仪表盘** | 流动性、经济、通胀、情绪，四维信号灯 | 网页 |
+| 能力 | 内容 | 页面入口 |
+| --- | --- | --- |
+| 市场简报 | 市场日报与盘前早报，支持网页阅读和邮件分发 | `/today`、`/morning` |
+| 个性化摘要 | 围绕用户自选股组织新闻与研究摘要 | `/for-you` |
+| Research Desk | 自然语言选股、连续追问、研究面板与对话历史 | `/research` |
+| 个股研究 | 行情、基本面、技术面、财报与 AI 分析 | `/stock` |
+| 宏观观察 | 宏观风险、流动性与周度分析 | `/macro` |
 
-**核心认知**：帮用户做更好的判断，而非堆积信息。邮件是每天的触点（5 分钟被动接收），平台是深度入口（按需主动探索）。
+研究台支持 `qinbafrank` 与 `aleabitoreddit` 两种博主视角的聊天、技能及历史对话。它们通过独立的 `kol_chat` 开关开放，不代表博主研究室整体恢复。
 
----
+> **功能范围（2026-10-17）**：Portfolio Health、Research-KB、KOL 独立研究室、Panda、AI Monitor、MCP 和 Onboarding 仍处于停用状态。功能入口以[后端开关](backend/app/core/feature_pause.py)和[前端开关](frontend/src/lib/feature-pause.ts)为准；仓库中保留的模块不等于已开放的产品能力。
 
-## 为什么做
+## 系统架构
 
-### 使命
-
-让每一个忙碌的散户投资者，不再需要花几个小时刷新闻、翻财报、猜方向。打开平台，5 分钟掌握全局；问一个问题，拿到带依据的答案。
-
-### 愿景
-
-成为散户投资者的标配工具。就像交易软件解决了"怎么买卖"，我们解决"买卖之前该看什么"。
-
-### 我们的敌人
-
-- **噪音** — 每天几万条碎片化信息，不仅无用，反而让人焦虑和冲动
-- **盲目猜测** — 靠"感觉"、"消息"、"大 V 说的"做交易决策
-- **信息不对等** — 机构有几十人的研究团队，散户只有自己
-
-### 我们的武器
-
-- **AI 算力** — 9 个 Agent 同时运转，吞吐量远超人类极限
-- **个性化** — 不给你看"大盘怎么样"，只告诉你"你的持仓今天怎么样"
-- **可追溯** — 每个结论都有数据来源，不是黑盒
-
-完整品牌叙事见 [docs/brand/narrative.md](docs/brand/narrative.md)。
-
----
-
-## 产品现状
-
-> 最后更新：2026-03-31
-
-### 关键数字
-
-| 指标 | 数据 | 备注 |
-|------|------|------|
-| 邮件订阅用户 | ~350 | 自然增长中，出现"人传人"信号 |
-| 付费用户 | 0 | Paywall 尚未激活 |
-| MRR | $0 | — |
-| 小红书粉丝 | ~7000 | 主要获客渠道（3 周从 3000 涨至 6800） |
-| Twitter 订阅 | ~350 | Reply Guy 策略已验证 |
-
-### 功能状态
-
-| 功能 | 页面 | 状态 | 备注 |
-|------|------|------|------|
-| 每日市场日报 | /today | 已上线 | 邮件推送 + 网页，核心用户触点 |
-| 盘前早报 | /morning | 已上线 | 每天开盘前推送 |
-| 个性化摘要 (Brew) | /for-you | 已上线 | 按用户自选股定制 |
-| 个股四维分析 | /stock | 已上线 | 基本面+技术面+新闻面+宏观面，DAU ~0 |
-| 宏观风险仪表盘 | /macro | 已上线 | 四维信号灯 + 流动性监控 |
-| 板块分析 | /sectors | 已上线 | 12 板块每日 AI 分析 |
-| Research Desk | /screener | 已上线 (3/20) | 对话式选股 + 个股/日报/宏观面板 |
-| 邀请码系统 | — | 已上线 (3/23) | 通用码 + 专属推荐码裂变 |
-| Stripe 支付 | — | 已上线 | Stripe Live + Paywall 已激活 |
-
-### 卡住的地方
-
-- **付费转化待验证** — Paywall 已激活，但尚无付费用户数据
-- **个股研究 DAU ~0** — 不确定是需求问题还是入口/交互门槛问题
-- **邮件质量下滑** — 日报准确度、前瞻性不足等问题待修复
-
----
-
-## 短期计划 / 长期方向
-
-### 短期重点
-
-1. **付费转化优化** — Paywall 已激活（Pro $10/月，Max $20/月），关注首批付费数据
-2. **Research Desk Phase 4** — 从 /screener 独立为 /research 路由，成为产品主入口
-3. **邮件质量系统性提升** — 日报准确度、专属日报数据问题
-4. **国内访问优化** — 国内用户访问速度很慢
-
-### 产品三个方向
-
-| 方向 | 核心命题 | 状态 |
-|------|---------|------|
-| **一：AI 财务顾问** | 持仓 + 宏观 → 诊断。告诉用户"你的持仓处于什么状态" | 当前重心 |
-| **二：Agent 服务** | 把分析能力包装为 MCP/API，服务人类和 AI Agent | 远期，等方向一引擎跑通 |
-| **三：统一研究台** | 左右分栏 Agent 对话 + 动态内容面板，完整研究闭环 | 进行中 (Phase 3) |
-
-三者关系：方向一是核心引擎（分析能力），方向三是交付界面（用户怎么用），方向二是扩展（把能力卖给 AI）。
-
-### 里程碑
-
-```
-MS1: 新用户上手 + 日报升级（"替你读" → "替你判断"）
-MS2: 持仓体检上线（板块分布、集中度、AI 一键诊断）  ← 用户价值最大
-MS3: 个股深研升级（新闻解读、宏观关联、组合语境）
-MS4: 风险预警 + 机会发现（24h 监控 + 主动推送）
-MS5: 反馈闭环（建议追踪、准确率看板）
+```mermaid
+flowchart LR
+    Sources[行情 / 新闻 / 财报 / 宏观数据] --> Backend[FastAPI + 共享数据工具]
+    Web[Next.js 研究界面] <-->|API / SSE| Backend
+    Backend <--> Agents[Google ADK Agents]
+    Backend <--> DB[(InsForge / PostgreSQL)]
+    Backend --> Email[Resend 邮件分发]
 ```
 
-完整模块规划和商业模式见 [docs/product/roadmap.md](docs/product/roadmap.md)。
+系统主要包含两条工作流：
 
----
-
-## 技术栈概览
+- **报告生成**：获取数据 → AI 分析 → 结构化输出 → 存储与缓存 → 网页阅读 / 邮件分发。
+- **交互研究**：用户提问 → Agent 调用研究工具 → 流式回答与内容面板 → 保存对话与反馈。
 
 | 层级 | 技术 |
-|------|------|
-| 前端 | Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 + shadcn/ui |
-| 后端 | FastAPI + Google ADK (Gemini) + Pydantic |
-| AI | 9 个 Agent，Structured Output + Tool-Use 两种范式 |
-| 数据 | yfinance + FMP API + FRED + OpenBB + TradingView Screener |
-| 数据库 | Insforge (托管 PostgreSQL + Edge Functions) |
-| 认证 | Insforge Auth (JWT + Google OAuth) |
-| 支付 | Stripe (订阅制) |
-| 邮件 | Resend API |
-| 部署 | Vercel (前端) + Railway (后端) |
+| --- | --- |
+| 前端 | Next.js 16、React 19、TypeScript、Tailwind CSS 4、shadcn/ui |
+| 后端 | Python 3.12、FastAPI、Pydantic |
+| AI | Google ADK、Gemini；生成模型统一由 `app.core.ai_models` 管理 |
+| 数据来源 | Financial Modeling Prep、yfinance、FRED、TradingView Screener 等 |
+| 数据与认证 | InsForge：PostgreSQL、Auth、Edge Functions |
+| 支付与邮件 | Stripe、Resend |
+| 部署 | Vercel（前端）、Railway（后端） |
+| 测试 | Vitest、Playwright、pytest；GitHub Actions CI |
 
-详细架构见 [docs/architecture.md](docs/architecture.md)。
+## 本地开发
 
----
+### 1. 准备环境
 
-## 如何开始开发
-
-### 环境准备
+使用 **Node.js 22、npm 和 Python 3.12**，与仓库 CI 保持一致。
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/nomorekuiqian/stock-agent.git
+cd stock-agent
+npm ci
+
+cp frontend/.env.example frontend/.env.local
+cp backend/.env.example backend/.env
 ```
 
-后端需要 `backend/.env`，前端需要 `frontend/.env.local`。找 Golden 要环境变量。
+根目录的 `npm ci` 会安装 Git hooks。已有环境文件时请保留配置，不要直接覆盖。
 
-关键变量：`GOOGLE_API_KEY`（AI）、`FMP_API_KEY`（金融数据）、`FRED_API_KEY`（宏观）、`STRIPE_SECRET_KEY`（支付）、`RESEND_API_KEY`（邮件）、`INSFORGE_*`（数据库）。可选观测变量：`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`。完整定义见 `backend/app/core/config.py` / `backend/.env.example`。
+### 2. 配置服务
 
-### 启动
+这是依赖外部服务的全栈应用；复制环境模板并不能获得完整功能。
+
+| 配置 | 用途 |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | 前端访问后端，本地设为 `http://localhost:8000/api` |
+| 前后端 `INSFORGE_*` / `NEXT_PUBLIC_INSFORGE_*` | 数据库、登录与 Edge Functions；两端需指向同一目标实例 |
+| `GOOGLE_API_KEY` | AI 生成与研究对话 |
+| `FMP_API_KEY`、`FRED_API_KEY` | 金融与宏观数据 |
+| `STRIPE_*`、`RESEND_*` | 按需配置支付测试与邮件功能 |
+
+本地保持 `ENVIRONMENT=development`。**环境模板包含现有 InsForge 实例地址，本地服务不自动隔离云端数据**；涉及数据修改时，应先配置开发实例及所需数据库结构、Edge Functions。支付使用测试密钥，服务端密钥不得放入 `NEXT_PUBLIC_*` 变量。
+
+完整变量见[后端模板](backend/.env.example)、[前端模板](frontend/.env.example)与[后端配置](backend/app/core/config.py)。AI 模型以[共享模型配置](backend/app/core/ai_models.py)为准。
+
+### 3. 启动后端
+
+在仓库根目录打开终端：
 
 ```bash
-# 前端
-cd frontend && npm install && npm run dev     # http://localhost:3000
-
-# 后端
-cd backend && source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload                 # http://localhost:8000
+cd backend
+python3.12 -m venv venv
+source venv/bin/activate
+python -m pip install -r requirements.txt
+uvicorn app.main:app --reload
 ```
 
-API 文档：http://localhost:8000/docs（OpenAPI 自动生成）
+API 文档：[http://localhost:8000/docs](http://localhost:8000/docs)。
 
-### 常用命令
+### 4. 启动前端
+
+在仓库根目录另开一个终端：
 
 ```bash
-# 前端
-npm run build && npm run lint     # 构建 + lint
-npm test                          # Vitest 单元测试
-npm run test:e2e                  # Playwright E2E（需后端运行）
-
-# 后端
-pytest                            # 默认测试 (e2e + integration)
-pytest -v --run-generate          # 包含 AI 生成测试（慢）
+cd frontend
+npm ci
+npm run dev
 ```
 
-### 开发规范
+打开 [http://localhost:3000](http://localhost:3000)。
 
-- **AI Agent**: 使用 Google ADK，交互式 Research/KOL 默认模型 `gemini-3.1-flash-lite`，可通过 `RESEARCH_AGENT_MODEL` / `KOL_RESEARCH_MODEL` 覆盖
-- **日志**: `get_logger(__name__)`，禁止 `print()`
-- **认证**: 用户端点 `Depends(verify_user_token)`，定时任务 `Depends(verify_cron_secret)`
-- **Git Hooks**: pre-commit 自动运行 ESLint + tsc（前端）和 AST 检查（后端）
-- **UI 语言**: 面向用户的文本统一使用中文
+## 验证与测试
 
-详细规范见 [CLAUDE.md](CLAUDE.md)。
+前端检查，在 `frontend/` 执行：
 
----
-
-## 文档导航
-
-| 想了解 | 读什么 |
-|--------|--------|
-| 系统架构（技术栈 + API + 缓存 + Agent 详解） | [docs/architecture.md](docs/architecture.md) |
-| 产品路线图（模块规划 + 商业模式 + 里程碑） | [docs/product/roadmap.md](docs/product/roadmap.md) |
-| 品牌叙事（定位 + 口号 + 转化策略） | [docs/product/brand.md](docs/product/brand.md) |
-| 活跃工程计划 | [docs/plans/active/](docs/plans/active/) |
-| 设计系统 | [docs/constraints/design-system.md](docs/constraints/design-system.md) |
-| 认证流程 | [docs/constraints/auth.md](docs/constraints/auth.md) |
-| 各模块详情 | 对应目录下的 `.context.md` |
-| Claude Code 开发指引 | [CLAUDE.md](CLAUDE.md) |
-| 其他 AI Agent 规则 | [AGENTS.md](AGENTS.md) |
-
-### 项目结构
-
+```bash
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
 ```
-backend/app/
-  core/           # 核心基础设施 (config/database/auth/rate_limit)
-  features/       # 14 个功能模块，每个独立封装
-  shared/         # 跨模块共享服务 (FMP/yfinance/OpenBB/data_tools)
-  edge_functions/ # Insforge Edge Functions (JavaScript)
 
-frontend/src/
-  app/            # Next.js App Router (31 个页面)
-  components/     # 共享组件库
-  contexts/       # Auth + Subscription Context
-  hooks/          # React Query hooks
-  lib/            # API 客户端 / 认证 / 工具
+后端按改动选择测试文件，在已激活虚拟环境的 `backend/` 执行，例如：
 
-docs/
-  architecture.md   # 系统架构 + Agent 架构
-  brand/            # 品牌叙事
-  product/          # 产品路线图
-  plans/            # 活跃工程计划
-  technical/        # 技术参考
-  reference/        # 历史参考
+```bash
+ENVIRONMENT=test pytest tests/test_agent_runtime_feedback_unit.py -v
 ```
+
+Playwright 使用 `npm run test:e2e`。后端部分 E2E / integration 测试会访问外部服务；运行前检查目标环境与 fixtures。`--run-generate` 会启用真实 AI 生成，`--allow-db-write` 会允许数据库写入，不应作为默认开发检查。
+
+CI 的具体检查与排除项见 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。
+
+## 仓库结构
+
+```text
+backend/
+  app/
+    core/             # 配置、认证、日志与功能开关
+    features/         # 按业务模块组织的 API、Agent 与数据逻辑
+    shared/           # 跨模块数据工具与公共能力
+    edge_functions/   # InsForge Edge Functions
+  migrations/         # 数据库变更
+  tests/              # 单元、集成与 E2E 测试
+frontend/
+  src/
+    app/              # Next.js 页面与 Route Handlers
+    components/       # 共享界面组件
+    contexts/         # 登录与订阅状态
+    hooks/            # 数据查询与交互逻辑
+    lib/              # API 客户端、认证与工具
+  e2e/                # Playwright 测试
+docs/                 # 架构、约束、模块索引与工程计划
+```
+
+后端活跃实现位于 `app/features/` 与 `app/shared/`；`app/services/` 和 `app/models/` 是重构前的遗留目录，不应新增引用。
+
+## 文档与贡献
+
+| 文档 | 用途 |
+| --- | --- |
+| [贡献指南](docs/contributing.md) | 协作流程、环境配置与权限边界 |
+| [工程规则](AGENTS.md) | 当前项目约束与 AI 编码协作规则 |
+| [系统架构](docs/architecture.md) | 系统组件、接口与数据流 |
+| [模块索引](docs/agents/module-index.md) | 定位各模块的 `.context.md` |
+| [开发参考](docs/agents/development-reference.md) | 开发命令、环境与测试说明 |
+| [认证约束](docs/constraints/auth.md) | 用户认证与定时任务认证 |
+| [设计系统](docs/constraints/design-system.md) | 界面风格与组件规范 |
+| [生产经验](docs/agents/production-gotchas.md) | 数据、邮件、环境等已知注意事项 |
+
+修改前阅读受影响模块的 `.context.md`；提交 PR 时说明问题、改动与验证结果。涉及接口、数据流或认证约束的修改，应同步对应文档。
+
+## 许可证
+
+仓库目前未声明开源许可证；如需复用或分发代码，请先联系维护者确认授权范围。
