@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { getAuthErrorPresentation } from '@/lib/auth-error-presentation';
 import { marketTodayStr } from '@/lib/timezone';
 import { trackScreenerFilterUsed } from '@/lib/screener-analytics';
+import { isFeaturePaused, isPersonaChatActive } from '@/lib/feature-pause';
 import type { ConversationSaveRequest, ConversationSummary, KolPersonaScope, ResearchRequest, ResearchResult } from '@/lib/api';
 import {
   researchReducer,
@@ -250,12 +251,6 @@ function getAgentErrorMessage(event: {
   if (event.code === 'model_schema_error') {
     return 'AI 助手输出格式异常，请重新发送一次。';
   }
-  if (event.code === 'provider_unavailable') {
-    return event.message || event.error || '模型服务暂时繁忙或限流，请稍后再试一次。';
-  }
-  if (event.code === 'provider_auth_error') {
-    return event.message || event.error || 'AI 模型服务鉴权失败，请检查后端模型配置。';
-  }
   if (event.code === 'agent_setup_error') {
     return 'AI 助手启动失败，请检查后端日志后再试一次。';
   }
@@ -309,7 +304,7 @@ function getPanelContentSignature(
 
 export function ResearchWorkspace({
   variant = 'research',
-  storageKey = STORAGE_KEY,
+  storageKey: requestedStorageKey = STORAGE_KEY,
   conversationScope = 'research',
   defaultPersonaUsername = null,
   lockedPersonaUsername = null,
@@ -318,6 +313,8 @@ export function ResearchWorkspace({
   showPersonaUpsell = true,
   useFullViewport = false,
 }: ResearchWorkspaceProps = {}) {
+  // Keep the post-pause workspace key so enabling personas preserves current drafts.
+  const storageKey = `${requestedStorageKey}:neutral`;
   const router = useRouter();
   const { isLoading: authLoading, signOut, user } = useAuth();
   const { isPro, isMax, isLoading: subLoading } = useSubscription();
@@ -327,7 +324,13 @@ export function ResearchWorkspace({
   const [state, dispatch] = useReducer(
     researchReducer,
     undefined,
-    () => loadState(storageKey, defaultPersonaUsername ? { personaUsername: defaultPersonaUsername } : {}),
+    () => {
+      const restored = loadState(storageKey, isPersonaChatActive(defaultPersonaUsername) ? { personaUsername: defaultPersonaUsername } : {});
+      if (restored.personaUsername && !isPersonaChatActive(restored.personaUsername)) {
+        return loadState(`${requestedStorageKey}:neutral-empty`, {});
+      }
+      return restored;
+    },
   );
   const isCommunityPanda = variant === 'community_panda';
   const quotaEnabled = !isCommunityPanda;
@@ -371,7 +374,7 @@ export function ResearchWorkspace({
   // user-flags backend for fast rollback: restore the gate by replacing the
   // line below with `hasFlag('kol_research_agent')`.
   void hasFlag;
-  const kolPersonaEnabled = true;
+  const kolPersonaEnabled = !isFeaturePaused('kol_chat');
   const stockContextRef = useRef<StockContextPayload | null>(null);
 
   useEffect(() => {
@@ -696,6 +699,7 @@ export function ResearchWorkspace({
     personaUsername: string | null;
   } | null>(null);
   useEffect(() => {
+    if (isFeaturePaused('kol_chat')) return;
     if (loadingConversationRef.current) return;
 
     const agentParam = searchParams.get('agent');
@@ -720,6 +724,10 @@ export function ResearchWorkspace({
     }
 
     if (agentParam !== 'kol' || !personaParam) return;
+    if (!isPersonaChatActive(personaParam)) {
+      router.replace('/research');
+      return;
+    }
     if (personaParam.toLowerCase() === 'pandacircle' && !isCommunityPanda) {
       router.replace('/panda');
       return;
@@ -787,6 +795,7 @@ export function ResearchWorkspace({
     agentKind: AgentKind;
     personaUsername: string | null;
   }) => {
+    if (next.personaUsername && !isPersonaChatActive(next.personaUsername)) return;
     if (lockedPersonaUsername) {
       dispatch({ type: 'SET_PERSONA', personaUsername: lockedPersonaUsername });
       return;
@@ -1423,6 +1432,10 @@ export function ResearchWorkspace({
   // Send message handler
   // KOL-mode send. Independent codepath: we don't touch screener candidates / filters.
   const handleKolSend = useCallback(async (message: string) => {
+    if (!isPersonaChatActive(personaUsername)) {
+      dispatch({ type: 'SET_ERROR', error: '该功能暂时停用' });
+      return;
+    }
     if (message.trim().length > KOL_MESSAGE_CHAR_LIMIT) {
       dispatch({ type: 'SET_ERROR', error: `问题太长了，请压缩到 ${KOL_MESSAGE_CHAR_LIMIT} 字以内再发送` });
       return;
@@ -1695,10 +1708,6 @@ export function ResearchWorkspace({
           } else if (event.type === 'tool_call_end') {
             // Don't dispatch end — let the description stay visible.
             // It gets replaced by the next tool_call_start or cleared by RECEIVE_RESPONSE.
-          } else if (event.type === 'message_delta' && event.text) {
-            dispatch({ type: 'STREAM_DELTA', kind: 'message', text: event.text, sessionId: conversationIdForTurn, turnId });
-          } else if (event.type === 'thinking' && event.text) {
-            dispatch({ type: 'STREAM_DELTA', kind: 'thinking', text: event.text, sessionId: conversationIdForTurn, turnId });
           } else if (event.type === 'done' && event.result) {
             streamResult = event.result as ResearchResult;
           } else if (event.type === 'error') {
@@ -1965,6 +1974,10 @@ export function ResearchWorkspace({
     // Restore persona via the LOAD_CONVERSATION dispatch (single source of
     // truth, persisted via sessionStorage). agentKind is derived from this.
     const savedPersona = lockedPersonaUsername ?? (data.persona_username as string | undefined) ?? null;
+    if ((savedPersona || data.agent_kind === 'kol_research') && !isPersonaChatActive(savedPersona)) {
+      dispatch({ type: 'SET_ERROR', error: '该功能暂时停用' });
+      return;
+    }
     syncUrlToLoadedConversation(savedPersona);
     dispatch({
       type: 'LOAD_CONVERSATION',

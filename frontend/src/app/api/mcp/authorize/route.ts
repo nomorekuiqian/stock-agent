@@ -1,3 +1,4 @@
+import { isFeaturePaused } from '@/lib/feature-pause';
 import { NextResponse } from 'next/server';
 import { getAuthCookies } from '@/lib/auth-cookies';
 
@@ -8,6 +9,7 @@ function redirectTo(request: Request, path: string) {
 }
 
 export async function POST(request: Request) {
+  if (isFeaturePaused('mcp')) return NextResponse.json({ error: 'feature_paused' }, { status: 403 });
   const formData = await request.formData();
   const userCode = String(formData.get('user_code') || '').trim().toUpperCase();
   const authorizePath = `/mcp/authorize?user_code=${encodeURIComponent(userCode)}`;

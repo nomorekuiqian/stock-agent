@@ -1,5 +1,6 @@
 'use client';
 
+import { isFeaturePaused } from '@/lib/feature-pause';
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -51,7 +52,7 @@ function isOnboardingExempt(pathname: string): boolean {
   );
 }
 
-export function OnboardingGate({ children }: { children: React.ReactNode }) {
+function ActiveOnboardingGate({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const pathname = usePathname() || '/';
   const router = useRouter();
@@ -86,4 +87,9 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, exempt, completed, data, router]);
 
   return <>{children}</>;
+}
+
+export function OnboardingGate({ children }: { children: React.ReactNode }) {
+  if (isFeaturePaused('onboarding')) return <>{children}</>;
+  return <ActiveOnboardingGate>{children}</ActiveOnboardingGate>;
 }

@@ -14,6 +14,7 @@ import {
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { isFeaturePaused } from '@/lib/feature-pause';
 import { PRICING, STRIPE_LIVE } from "@/lib/pricing";
 
 type Tier = "pro" | "max";
@@ -151,7 +152,7 @@ export default function PricingPage() {
             选择你需要的投研能力
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-8 text-muted-foreground">
-            价格透明，按月订阅，随时取消。先免费体验，再按需解锁邮件、研究助手和博主研究室。
+            {isFeaturePaused('kol_research') ? '价格透明，按月订阅，随时取消。先免费体验，再按需解锁邮件和研究助手。' : '价格透明，按月订阅，随时取消。先免费体验，再按需解锁邮件、研究助手和博主研究室。'}
           </p>
         </section>
 
@@ -200,7 +201,11 @@ export default function PricingPage() {
           {PLANS.map((planItem) => (
             <PlanCard
               key={planItem.tier}
-              planItem={planItem}
+              planItem={isFeaturePaused('kol_research') ? {
+                ...planItem,
+                summary: planItem.summary.replace('和博主研究室', ''),
+                features: planItem.features.filter((feature) => !feature.includes('博主研究室')),
+              } : planItem}
               loading={loading}
               checkoutTier={checkoutTier}
               isAuthenticated={isAuthenticated}
@@ -256,7 +261,7 @@ export default function PricingPage() {
           <div>
             <h2 className="text-lg font-semibold text-foreground">怎么选</h2>
             <p className="mt-2 text-sm leading-7 text-muted-foreground">
-              只想接收邮件选 Pro；需要自己提问、做个股研究和使用博主研究室选
+              {isFeaturePaused('kol_research') ? '只想接收邮件选 Pro；需要自己提问、做个股研究选' : '只想接收邮件选 Pro；需要自己提问、做个股研究和使用博主研究室选'}
               Max。
             </p>
           </div>

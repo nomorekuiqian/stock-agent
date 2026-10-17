@@ -1,5 +1,6 @@
 "use client";
 
+import { isFeaturePaused } from '@/lib/feature-pause';
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -296,7 +297,7 @@ export function ForYouPageContentV2() {
       {isAuthenticated && !dataLoading && symbols.length > 0 && <ActionBar />}
 
       {/* Nudge: has stocks but hasn't completed profile */}
-      {!dataLoading && symbols.length > 0 && !profileData?.onboarded_at && (
+      {!isFeaturePaused('onboarding') && !dataLoading && symbols.length > 0 && !profileData?.onboarded_at && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 pt-4">
           <Link
             href="/for-you/onboarding"

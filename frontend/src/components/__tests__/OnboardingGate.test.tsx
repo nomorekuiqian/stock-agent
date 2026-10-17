@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OnboardingGate } from '../OnboardingGate';
 
 const mocks = vi.hoisted(() => ({
+  paused: false,
   useAuth: vi.fn(),
   onboardingStatus: vi.fn(),
   replace: vi.fn(),
@@ -22,6 +23,8 @@ vi.mock('@/lib/api', () => ({
     },
   },
 }));
+
+vi.mock('@/lib/feature-pause', () => ({ isFeaturePaused: () => mocks.paused }));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mocks.pathname,
@@ -44,6 +47,7 @@ function renderGate(children: ReactNode = <div>content</div>) {
 describe('OnboardingGate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.paused = false;
     localStorage.clear();
     mocks.pathname = '/today';
     mocks.useAuth.mockReturnValue({
@@ -97,4 +101,12 @@ describe('OnboardingGate', () => {
     expect(mocks.onboardingStatus).not.toHaveBeenCalled();
     expect(mocks.replace).not.toHaveBeenCalled();
   });
+});
+
+it('paused onboarding renders children without even mounting its data hooks', () => {
+  mocks.paused = true;
+  mocks.onboardingStatus.mockClear();
+  const view = renderGate(<div>Core content</div>);
+  expect(view.getByText('Core content')).toBeInTheDocument();
+  expect(mocks.onboardingStatus).not.toHaveBeenCalled();
 });

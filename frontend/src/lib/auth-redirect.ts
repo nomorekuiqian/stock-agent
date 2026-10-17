@@ -1,5 +1,6 @@
+import { isFeaturePaused, pausedPageRedirect } from '@/lib/feature-pause';
 export const DEFAULT_AUTH_REDIRECT = '/today';
-export const SIGNUP_TOUR_REDIRECT = '/?tour=1';
+export const SIGNUP_TOUR_REDIRECT = isFeaturePaused('onboarding') ? DEFAULT_AUTH_REDIRECT : '/?tour=1';
 
 export function sanitizeRedirectPath(
   input: string | null | undefined,
@@ -14,7 +15,7 @@ export function sanitizeRedirectPath(
 
   try {
     const parsed = new URL(candidate, 'https://example.com');
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return pausedPageRedirect(parsed.pathname, parsed.searchParams) ?? `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return fallback;
   }

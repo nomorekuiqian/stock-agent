@@ -3101,7 +3101,6 @@ export const api = {
         detail?: string;
         status?: number;
         code?: string;
-        text?: string;
         quota_exceeded?: boolean;
         required_product?: string;
       }) => void,

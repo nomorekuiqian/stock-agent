@@ -1,3 +1,5 @@
+import { pausedPageRedirect } from '@/lib/feature-pause';
+
 export interface NavChild {
   href: string;
   label: string;
@@ -98,7 +100,12 @@ export function getMainNavSections({
     });
   }
 
-  return sections;
+  return sections
+    .filter((section) => !pausedPageRedirect(section.href))
+    .map((section) => ({
+      ...section,
+      children: section.children?.filter((child) => !pausedPageRedirect(child.href)),
+    }));
 }
 
 export function isNavHrefActive(pathname: string, href: string, exact = false): boolean {

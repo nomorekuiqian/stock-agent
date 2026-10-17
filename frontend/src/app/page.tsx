@@ -1,5 +1,6 @@
 "use client";
 
+import { isFeaturePaused } from '@/lib/feature-pause';
 import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -116,7 +117,7 @@ function PricingCard({ tier }: { tier: (typeof PRICING_TIERS)[number] }) {
       <div className="pr-20">
         <h3 className="text-lg font-semibold text-foreground">{tier.name}</h3>
         <p className="mt-2 min-h-12 text-sm leading-relaxed text-muted-foreground">
-          {tier.description}
+          {isFeaturePaused('kol_research') ? tier.description.replace('、博主研究室', '') : tier.description}
         </p>
       </div>
 
@@ -135,7 +136,7 @@ function PricingCard({ tier }: { tier: (typeof PRICING_TIERS)[number] }) {
       </div>
 
       <div className="mt-6 space-y-3">
-        {tier.features.map((feature) => (
+        {tier.features.filter((feature) => !isFeaturePaused('kol_research') || !feature.includes('博主研究室')).map((feature) => (
           <div key={feature} className="flex gap-2.5">
             <Check
               className="mt-0.5 h-4 w-4 shrink-0 text-primary"
