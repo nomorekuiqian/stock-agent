@@ -1,0 +1,273 @@
+{
+  "checked_at": "2026-09-05T03:26:01.692800+00:00",
+  "checks": [
+    {
+      "surface": "backend",
+      "path": "/api/portfolio-health/generate",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/portfolio-health/generate",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/research-kb/chat",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/research-kb/chat",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/kol_research/chat/stream",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/kol_research/chat/stream",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/community/panda/chat",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/community/panda/chat",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/zsxq/ingest",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/zsxq/ingest",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/watchlist-monitor/for-you",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/watchlist-monitor/for-you",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/admin/watchlist-monitor/start-paid-universe",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/admin/watchlist-monitor/start-paid-universe",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/frank/mcp",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/frank/mcp",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/mcp/auth/exchange",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/mcp/auth/exchange",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/okx-mcp/persona-context",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/okx-mcp/persona-context",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/user/onboarding-status",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/user/onboarding-status",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/user/onboarding/complete",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/user/onboarding/complete",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/cron/onboarding-emails",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/cron/onboarding-emails",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/vector/index-kol-tweets",
+      "mode": "anonymous",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "backend",
+      "path": "/api/vector/index-kol-tweets",
+      "mode": "stale_token",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "surface": "frontend",
+      "path": "/for-you/health",
+      "status": 307,
+      "location": "https://www.themarketbrew.com/for-you/health"
+    },
+    {
+      "surface": "frontend",
+      "path": "/for-you/monitor",
+      "status": 307,
+      "location": "https://www.themarketbrew.com/for-you/monitor"
+    },
+    {
+      "surface": "frontend",
+      "path": "/research/kb",
+      "status": 307,
+      "location": "https://www.themarketbrew.com/research/kb"
+    },
+    {
+      "surface": "frontend",
+      "path": "/kol",
+      "status": 307,
+      "location": "https://www.themarketbrew.com/kol"
+    },
+    {
+      "surface": "frontend",
+      "path": "/panda",
+      "status": 307,
+      "location": "https://www.themarketbrew.com/panda"
+    },
+    {
+      "surface": "frontend",
+      "path": "/mcp",
+      "status": 307,
+      "location": "https://www.themarketbrew.com/mcp"
+    },
+    {
+      "surface": "frontend",
+      "path": "/for-you/onboarding",
+      "status": 307,
+      "location": "https://www.themarketbrew.com/for-you/onboarding"
+    },
+    {
+      "surface": "core_health",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "surface": "core_health",
+      "path": "/health",
+      "status": 200
+    },
+    {
+      "surface": "core_health",
+      "path": "/ready",
+      "status": 200
+    },
+    {
+      "surface": "stopped_mcp",
+      "url": "https://okx-mcp.themarketbrew.com",
+      "status": 404
+    },
+    {
+      "surface": "stopped_mcp",
+      "url": "https://themarketbrew-okx-mcp-production-production.up.railway.app",
+      "status": 404
+    },
+    {
+      "surface": "stopped_mcp",
+      "url": "https://themarketbrew-okx-mcp-staging-staging.up.railway.app",
+      "status": 404
+    }
+  ]
+}

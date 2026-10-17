@@ -1,0 +1,135 @@
+{
+  "checked_at": "2026-09-05T03:31:29.560554+00:00",
+  "checks": [
+    {
+      "environment": "production",
+      "path": "/api/vector/search",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/api/vector/context",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/api/vector/index",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/api/portfolio-health/latest",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/api/research-kb/chat",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/api/kol_research/chat/stream",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/api/community/panda/chat",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/api/watchlist-monitor/for-you",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/api/user/onboarding-status",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/frank/mcp",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "production",
+      "path": "/health",
+      "status": 200
+    },
+    {
+      "environment": "staging",
+      "path": "/api/vector/search",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/api/vector/context",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/api/vector/index",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/api/portfolio-health/latest",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/api/research-kb/chat",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/api/kol_research/chat/stream",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/api/community/panda/chat",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/api/watchlist-monitor/for-you",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/api/user/onboarding-status",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/frank/mcp",
+      "status": 403,
+      "paused": true
+    },
+    {
+      "environment": "staging",
+      "path": "/health",
+      "status": 200
+    }
+  ]
+}

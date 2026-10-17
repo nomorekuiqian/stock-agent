@@ -1,0 +1,238 @@
+{
+  "retrieved_at_utc": "2026-09-17T01:25:03.770248+00:00",
+  "source": "Resend broadcast recipients GET, all pages; external accounts only",
+  "editions": [
+    {
+      "name": "Twitter Digest 2026-09-16",
+      "sent_at": "2026-09-16 22:15:42.613828+00",
+      "delivered": 37,
+      "opened": 15,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-15",
+      "sent_at": "2026-09-15 22:15:38.992845+00",
+      "delivered": 37,
+      "opened": 18,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-14",
+      "sent_at": "2026-09-14 22:15:38.979569+00",
+      "delivered": 38,
+      "opened": 20,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-11",
+      "sent_at": "2026-09-11 22:15:40.284214+00",
+      "delivered": 38,
+      "opened": 22,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-10",
+      "sent_at": "2026-09-10 22:15:48.241435+00",
+      "delivered": 39,
+      "opened": 21,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-09-09",
+      "sent_at": "2026-09-09 22:15:39.152727+00",
+      "delivered": 39,
+      "opened": 22,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-08",
+      "sent_at": "2026-09-08 22:15:39.791802+00",
+      "delivered": 39,
+      "opened": 24,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-07",
+      "sent_at": "2026-09-07 22:15:37.817714+00",
+      "delivered": 39,
+      "opened": 21,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-04",
+      "sent_at": "2026-09-04 22:15:40.03104+00",
+      "delivered": 40,
+      "opened": 25,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-03",
+      "sent_at": "2026-09-03 22:15:42.309471+00",
+      "delivered": 40,
+      "opened": 21,
+      "clicked": 0,
+      "content_clickers": 0
+    },
+    {
+      "name": "Twitter Digest 2026-09-02",
+      "sent_at": "2026-09-02 22:15:41.568436+00",
+      "delivered": 40,
+      "opened": 24,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-09-01",
+      "sent_at": "2026-09-01 22:15:37.155756+00",
+      "delivered": 40,
+      "opened": 23,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-08-31",
+      "sent_at": "2026-08-31 22:15:39.952148+00",
+      "delivered": 40,
+      "opened": 24,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-08-28",
+      "sent_at": "2026-08-28 22:15:39.014235+00",
+      "delivered": 40,
+      "opened": 21,
+      "clicked": 2,
+      "content_clickers": 2
+    },
+    {
+      "name": "Twitter Digest 2026-08-27",
+      "sent_at": "2026-08-27 22:15:39.395528+00",
+      "delivered": 40,
+      "opened": 22,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-08-26",
+      "sent_at": "2026-08-26 22:15:41.20052+00",
+      "delivered": 39,
+      "opened": 20,
+      "clicked": 2,
+      "content_clickers": 2
+    },
+    {
+      "name": "Twitter Digest 2026-08-25",
+      "sent_at": "2026-08-25 22:15:36.218258+00",
+      "delivered": 41,
+      "opened": 22,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-08-24",
+      "sent_at": "2026-08-24 22:15:37.393756+00",
+      "delivered": 41,
+      "opened": 24,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-08-21",
+      "sent_at": "2026-08-21 22:15:37.711455+00",
+      "delivered": 41,
+      "opened": 25,
+      "clicked": 2,
+      "content_clickers": 2
+    },
+    {
+      "name": "Twitter Digest 2026-08-20",
+      "sent_at": "2026-08-20 22:15:39.11833+00",
+      "delivered": 41,
+      "opened": 25,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-08-19",
+      "sent_at": "2026-08-19 22:15:43.51515+00",
+      "delivered": 41,
+      "opened": 24,
+      "clicked": 1,
+      "content_clickers": 1
+    },
+    {
+      "name": "Twitter Digest 2026-08-18",
+      "sent_at": "2026-08-18 22:15:37.8148+00",
+      "delivered": 40,
+      "opened": 24,
+      "clicked": 1,
+      "content_clickers": 1
+    }
+  ],
+  "windows": {
+    "30d": {
+      "editions": 22,
+      "delivered_messages": 870,
+      "delivered_people": 42,
+      "delivered_2plus_editions": 42,
+      "delivered_3plus_editions": 42,
+      "delivered_5plus_editions": 41,
+      "opened_messages": 487,
+      "opened_people": 31,
+      "opened_2plus_editions": 29,
+      "opened_3plus_editions": 29,
+      "opened_5plus_editions": 27,
+      "clicked_messages": 16,
+      "clicked_people": 6,
+      "clicked_2plus_editions": 1,
+      "clicked_3plus_editions": 1,
+      "clicked_5plus_editions": 1
+    },
+    "7d": {
+      "editions": 5,
+      "delivered_messages": 189,
+      "delivered_people": 39,
+      "delivered_2plus_editions": 38,
+      "delivered_3plus_editions": 38,
+      "delivered_5plus_editions": 37,
+      "opened_messages": 96,
+      "opened_people": 24,
+      "opened_2plus_editions": 23,
+      "opened_3plus_editions": 22,
+      "opened_5plus_editions": 11,
+      "clicked_messages": 1,
+      "clicked_people": 1,
+      "clicked_2plus_editions": 0,
+      "clicked_3plus_editions": 0,
+      "clicked_5plus_editions": 0
+    },
+    "prior7d": {
+      "editions": 5,
+      "delivered_messages": 197,
+      "delivered_people": 40,
+      "delivered_2plus_editions": 40,
+      "delivered_3plus_editions": 39,
+      "delivered_5plus_editions": 39,
+      "opened_messages": 113,
+      "opened_people": 28,
+      "opened_2plus_editions": 25,
+      "opened_3plus_editions": 22,
+      "opened_5plus_editions": 17,
+      "clicked_messages": 0,
+      "clicked_people": 0,
+      "clicked_2plus_editions": 0,
+      "clicked_3plus_editions": 0,
+      "clicked_5plus_editions": 0
+    }
+  }
+}

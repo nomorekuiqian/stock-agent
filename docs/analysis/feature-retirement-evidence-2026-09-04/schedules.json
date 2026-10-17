@@ -1,0 +1,121 @@
+[
+  {
+    "id": "7cfa27da-0eab-4d02-a335-aad26f9ae05a",
+    "name": "Cron - zsxq Panda Ingestion",
+    "cronSchedule": "30 1,5,9,13,17,21 * * *",
+    "isActive": false,
+    "lastExecutedAt": "2026-07-30T09:30:00.043Z"
+  },
+  {
+    "id": "64209838-470b-440e-aa84-1eeba5e0394d",
+    "name": "Cron - Watchlist Monitor Paid Universe",
+    "cronSchedule": "45 23 * * 1-5",
+    "isActive": false,
+    "lastExecutedAt": "2026-08-07T23:45:00.051Z"
+  },
+  {
+    "id": "bdd60d1a-0db1-4b28-ac99-9df97fe27e57",
+    "name": "Cron - Payment Reconcile Expired Grants",
+    "cronSchedule": "10 8 * * *",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T08:10:00.022Z"
+  },
+  {
+    "id": "49ee46f5-2300-40f6-8a63-6dd5d1af13be",
+    "name": "Cron - Twitter Digest Broadcast",
+    "cronSchedule": "15 22 * * 1-5",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T22:15:00.075Z"
+  },
+  {
+    "id": "58df517a-89e6-4b0f-90a5-1929c1d8fbd9",
+    "name": "Cron - Twitter Digest Generate",
+    "cronSchedule": "30 20 * * 1-5",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T20:30:00.105Z"
+  },
+  {
+    "id": "7aa01b1d-54a6-4b7d-9004-192af0e008b5",
+    "name": "Cron - KOL List Sync",
+    "cronSchedule": "0 20 * * *",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T20:00:00.057Z"
+  },
+  {
+    "id": "f6f023f6-9a94-4421-a4fa-afdd9bd3efa7",
+    "name": "Cron - Macro Cache Tier 3",
+    "cronSchedule": "0 3 * * *",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T03:00:00.076Z"
+  },
+  {
+    "id": "243b7721-e77f-4ba4-a0c6-7730f5475703",
+    "name": "Cron - Macro Cache Tier 2",
+    "cronSchedule": "0 2,14 * * *",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-05T02:00:00.095Z"
+  },
+  {
+    "id": "9412e60d-a9d5-4687-81bb-9d82cf179851",
+    "name": "Cron - Macro Cache Tier 1",
+    "cronSchedule": "0 1,5,9,13,17 * * *",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-05T01:00:00.049Z"
+  },
+  {
+    "id": "f236991b-6678-46eb-a24a-1e7b1a7d8a07",
+    "name": "Cron - Screener Universe Refresh",
+    "cronSchedule": "0 23 * * 1-5",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T23:00:00.061Z"
+  },
+  {
+    "id": "29f09615-aacd-4d3b-a31c-8d8bbae2df07",
+    "name": "Cron - Onboarding Drip",
+    "cronSchedule": "0 23 * * *",
+    "isActive": false,
+    "lastExecutedAt": "2026-07-29T23:00:00.089Z"
+  },
+  {
+    "id": "cca2235d-05b1-43e7-aa8d-4032519d418b",
+    "name": "Cron - Weekly Macro Report",
+    "cronSchedule": "0 2 * * 0",
+    "isActive": true,
+    "lastExecutedAt": "2026-08-30T02:00:00.062Z"
+  },
+  {
+    "id": "8658badd-6537-44ac-bebb-4aa45352af78",
+    "name": "Cron - Daily Personal Digest",
+    "cronSchedule": "30 22 * * 1-5",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T22:30:00.058Z"
+  },
+  {
+    "id": "4df141ee-d090-4292-a784-f49feeef34a0",
+    "name": "Cron - Daily Market Report",
+    "cronSchedule": "0 22 * * 1-5",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T22:00:00.102Z"
+  },
+  {
+    "id": "e07d6f04-c5fc-4206-9d44-489cf97ff16a",
+    "name": "KOL Tweet Embeddings - Frank + Serenity + Panda",
+    "cronSchedule": "15 5,11,17,23 * * *",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T23:15:00.114Z"
+  },
+  {
+    "id": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+    "name": "Cron - KOL Tweets Ingestion",
+    "cronSchedule": "0 * * * *",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-05T02:00:00.098Z"
+  },
+  {
+    "id": "22a3e4cc-a5ac-4836-b724-2f8127de9276",
+    "name": "Morning Report (EST)",
+    "cronSchedule": "0 13 * * 1-5",
+    "isActive": true,
+    "lastExecutedAt": "2026-09-04T13:00:00.086Z"
+  }
+]

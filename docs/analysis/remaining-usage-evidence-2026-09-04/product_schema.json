@@ -1,0 +1,38 @@
+[
+  {
+    "table_name": "email_broadcast_runs",
+    "columns": "id:uuid, run_key:text, channel:text, broadcast_date:date, status:text, lock_token:text, broadcast_id:text, details:jsonb, started_at:timestamp with time zone, completed_at:timestamp with time zone, updated_at:timestamp with time zone"
+  },
+  {
+    "table_name": "email_events",
+    "columns": "id:uuid, svix_id:text, event_type:text, event_created_at:timestamp with time zone, email_id:text, broadcast_id:text, recipient_email:text, subject:text, channel:text, raw_payload:jsonb, created_at:timestamp with time zone"
+  },
+  {
+    "table_name": "email_feedback",
+    "columns": "id:uuid, report_id:uuid, report_date:date, email:text, rating:text, created_at:timestamp with time zone"
+  },
+  {
+    "table_name": "kol_daily_digests",
+    "columns": "id:uuid, date:date, tracked_kols:jsonb, window_hours:integer, input_tweet_count:integer, generated_at:timestamp with time zone, model_version:text, created_at:timestamp with time zone, updated_at:timestamp with time zone, headline:text, intro:text, hot_sectors:jsonb, hot_tickers:jsonb, hot_events:jsonb, ticker_theses:jsonb, macro_threads:jsonb, other_tickers:jsonb, notable_tweets:jsonb, watchpoints:jsonb"
+  },
+  {
+    "table_name": "market_reports",
+    "columns": "id:uuid, created_at:timestamp with time zone, report_date:date, timestamp:text, indices:jsonb, market_data:jsonb, title:text, summary:text, calendar:jsonb, macro:jsonb, news:jsonb, intro:text, report_summary:text"
+  },
+  {
+    "table_name": "morning_reports",
+    "columns": "id:uuid, report_date:date, timestamp:text, title:text, market_pulse:text, futures:jsonb, global_markets:jsonb, overnight_news:jsonb, today_focus:jsonb, summary:jsonb, market_data:jsonb, created_at:timestamp with time zone, updated_at:timestamp with time zone, futures_analysis:text, global_markets_analysis:text"
+  },
+  {
+    "table_name": "personal_digests",
+    "columns": "id:uuid, user_id:uuid, digest_date:date, symbols:ARRAY, analysis:text, news_data:jsonb, created_at:timestamp with time zone, digest_data:jsonb, greeting:text, one_line_summary:text, bottom_line:text, preferences:jsonb"
+  },
+  {
+    "table_name": "portfolio_health_reports",
+    "columns": "id:uuid, user_id:text, cache_key:text, generated_at:timestamp with time zone, score_total:smallint, score_dispersion:smallint, score_performance:smallint, score_macro_fit:smallint, score_stability:smallint, holdings_snapshot:jsonb, profile_snapshot:jsonb, diagnosis_markdown:text, one_line:text, top_risk:text, sector_dna:text, macro_sensitivity_tag:text, next_action:jsonb, created_at:timestamp with time zone, updated_at:timestamp with time zone"
+  },
+  {
+    "table_name": "weekly_macro_reports",
+    "columns": "id:uuid, week_label:text, generated_at:timestamp with time zone, narrative:text, signal_lights:jsonb, liquidity_analysis:jsonb, economy_analysis:jsonb, inflation_analysis:jsonb, sentiment_analysis:jsonb, takeaway:text, week_ahead:jsonb, raw_data:jsonb, created_at:timestamp with time zone, verdict:text, landscape:text, title:text"
+  }
+]

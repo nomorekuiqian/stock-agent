@@ -1,0 +1,47 @@
+[
+  {
+    "event_type": "email.bounced",
+    "events": "26",
+    "messages": "26",
+    "first": "2026-08-09T16:03:27.531Z",
+    "last": "2026-09-04T22:02:46.581Z",
+    "has_broadcast_id": "26",
+    "has_subject": "26"
+  },
+  {
+    "event_type": "email.clicked",
+    "events": "114",
+    "messages": "62",
+    "first": "2026-08-06T06:54:49.914Z",
+    "last": "2026-09-05T01:15:29.515Z",
+    "has_broadcast_id": "108",
+    "has_subject": "114"
+  },
+  {
+    "event_type": "email.delivered",
+    "events": "6571",
+    "messages": "6571",
+    "first": "2026-08-06T06:25:54.846Z",
+    "last": "2026-09-04T22:41:06.483Z",
+    "has_broadcast_id": "5707",
+    "has_subject": "6571"
+  },
+  {
+    "event_type": "email.opened",
+    "events": "4841",
+    "messages": "3209",
+    "first": "2026-08-06T04:15:29.516Z",
+    "last": "2026-09-05T03:22:51.291Z",
+    "has_broadcast_id": "3866",
+    "has_subject": "4841"
+  },
+  {
+    "event_type": "email.suppressed",
+    "events": "12",
+    "messages": "12",
+    "first": "2026-09-03T22:02:03.913Z",
+    "last": "2026-09-04T22:00:57.264Z",
+    "has_broadcast_id": "12",
+    "has_subject": "12"
+  }
+]

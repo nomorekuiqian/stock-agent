@@ -1,0 +1,23 @@
+{
+  "rows": [
+    {
+      "proname": "admin_llm_usage_daily",
+      "result_type": "TABLE(day date, feature text, model text, calls bigint, prompt_tokens bigint, output_tokens bigint, cached_tokens bigint, thoughts_tokens bigint, total_tokens bigint)"
+    },
+    {
+      "proname": "admin_llm_usage_summary",
+      "result_type": "TABLE(feature text, model text, calls bigint, prompt_tokens bigint, output_tokens bigint, cached_tokens bigint, thoughts_tokens bigint, total_tokens bigint)"
+    }
+  ],
+  "rowCount": 2,
+  "fields": [
+    {
+      "name": "proname",
+      "dataTypeID": 19
+    },
+    {
+      "name": "result_type",
+      "dataTypeID": 25
+    }
+  ]
+}

@@ -1,0 +1,349 @@
+{
+  "audit_date": "2026-10-13",
+  "timezone": "Asia/Taipei",
+  "scope": "read-only supplier billing, production aggregate usage and deployment status",
+  "google_billing_ui": {
+    "september_2026": {
+      "project": "Stock-Agent",
+      "subtotal_usd": 82.95,
+      "tax_usd": 8.75,
+      "invoice_usd": 91.7
+    },
+    "october_2026_as_displayed": {
+      "range": "2026-10-01 to 2026-10-13",
+      "project": "Stock-Agent",
+      "service": "Gemini API",
+      "subtotal_usd": 21.96,
+      "month_forecast_usd_excluding_tax": 56.92
+    }
+  },
+  "monthly_bills_usd": {
+    "fmp_premium": 69,
+    "resend_marketing_pro": 40,
+    "twitterapi_starter": 29,
+    "railway_pro": 20,
+    "vercel_pro_including_tax": 22.11
+  },
+  "annual_bills_usd": {
+    "domain_registration_historical_not_renewal_quote": 12.18,
+    "private_email": 14.88
+  },
+  "railway_last_period_usage_usd": {
+    "period": "2026-09-04 to 2026-10-04",
+    "memory": 11.01,
+    "cpu": 0.08,
+    "network": 0.15,
+    "total_before_credit": 11.24,
+    "actual_plan_payment": 20
+  },
+  "railway_services": [
+    {
+      "environment": "production",
+      "service": "themarketbrew-okx-mcp-production",
+      "active_deployment_count": 0,
+      "sleep_application": null,
+      "replicas": null
+    },
+    {
+      "environment": "production",
+      "service": "stock-agent",
+      "active_deployment_count": 1,
+      "sleep_application": false,
+      "replicas": 1
+    },
+    {
+      "environment": "staging",
+      "service": "stock-agent",
+      "active_deployment_count": 1,
+      "sleep_application": false,
+      "replicas": 1
+    },
+    {
+      "environment": "staging",
+      "service": "themarketbrew-okx-mcp-staging",
+      "active_deployment_count": 0,
+      "sleep_application": null,
+      "replicas": null
+    }
+  ],
+  "resend_contacts": {
+    "total_contacts": 1898,
+    "unsubscribed": 215,
+    "has_more": false,
+    "pages": 19
+  },
+  "insforge": {
+    "organization_plan_api": "starter",
+    "invoice_amount": "unknown",
+    "database_size_pg_size_pretty": "1310 MB",
+    "enabled_kols": 354,
+    "other_projects": {
+      "active": [
+        "atoms-demo"
+      ],
+      "paused": [
+        "Craftly Studio",
+        "Craftly Studio II"
+      ]
+    }
+  },
+  "twitter_fetch_runs": {
+    "2026-09": {
+      "runs": 1442,
+      "pages": 9223,
+      "tweets_returned": 184154
+    },
+    "2026-10-01_to_12_UTC": {
+      "runs": 576,
+      "pages": 3608,
+      "tweets_returned": 71740
+    }
+  },
+  "schedules": [
+    {
+      "name": "Cron - zsxq Panda Ingestion",
+      "isActive": false,
+      "cronSchedule": "30 1,5,9,13,17,21 * * *"
+    },
+    {
+      "name": "Cron - Watchlist Monitor Paid Universe",
+      "isActive": false,
+      "cronSchedule": "45 23 * * 1-5"
+    },
+    {
+      "name": "Cron - Payment Reconcile Expired Grants",
+      "isActive": true,
+      "cronSchedule": "10 8 * * *"
+    },
+    {
+      "name": "Cron - Twitter Digest Broadcast",
+      "isActive": true,
+      "cronSchedule": "15 22 * * 1-5"
+    },
+    {
+      "name": "Cron - Twitter Digest Generate",
+      "isActive": true,
+      "cronSchedule": "30 20 * * 1-5"
+    },
+    {
+      "name": "Cron - KOL List Sync",
+      "isActive": true,
+      "cronSchedule": "0 20 * * *"
+    },
+    {
+      "name": "Cron - Macro Cache Tier 3",
+      "isActive": true,
+      "cronSchedule": "0 3 * * *"
+    },
+    {
+      "name": "Cron - Macro Cache Tier 2",
+      "isActive": true,
+      "cronSchedule": "0 2,14 * * *"
+    },
+    {
+      "name": "Cron - Macro Cache Tier 1",
+      "isActive": true,
+      "cronSchedule": "0 1,5,9,13,17 * * *"
+    },
+    {
+      "name": "Cron - Screener Universe Refresh",
+      "isActive": true,
+      "cronSchedule": "0 23 * * 1-5"
+    },
+    {
+      "name": "Cron - Onboarding Drip",
+      "isActive": false,
+      "cronSchedule": "0 23 * * *"
+    },
+    {
+      "name": "Cron - Weekly Macro Report",
+      "isActive": true,
+      "cronSchedule": "0 2 * * 0"
+    },
+    {
+      "name": "Cron - Daily Personal Digest",
+      "isActive": true,
+      "cronSchedule": "30 22 * * 1-5"
+    },
+    {
+      "name": "Cron - Daily Market Report",
+      "isActive": true,
+      "cronSchedule": "0 22 * * 1-5"
+    },
+    {
+      "name": "KOL Tweet Embeddings - Frank + Serenity + Panda",
+      "isActive": false,
+      "cronSchedule": "15 5,11,17,23 * * *"
+    },
+    {
+      "name": "Cron - KOL Tweets Ingestion",
+      "isActive": true,
+      "cronSchedule": "0 * * * *"
+    },
+    {
+      "name": "Morning Report (EST)",
+      "isActive": true,
+      "cronSchedule": "0 13 * * 1-5"
+    }
+  ],
+  "llm_metering": {
+    "from_utc": "2026-10-01T00:00:00Z",
+    "until_utc_exclusive": "2026-10-13T00:00:00Z",
+    "days": 12,
+    "billing_reconciled": false,
+    "features": [
+      {
+        "feature": "brew.digest_paid",
+        "model": "gemini-3.8-flash",
+        "calls": 245,
+        "estimated_token_usd": 10.908044,
+        "prompt_tokens": 6001937,
+        "output_tokens": 1556149,
+        "cached_tokens": 22192,
+        "thoughts_tokens": 156270,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "twitter_digest.enrich",
+        "model": "gemini-3.5-flash-lite",
+        "calls": 1773,
+        "estimated_token_usd": 8.145472,
+        "prompt_tokens": 13250130,
+        "output_tokens": 1669906,
+        "cached_tokens": 16046,
+        "thoughts_tokens": 0,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "kol_research",
+        "model": "gemini-3.8-flash",
+        "calls": 421,
+        "estimated_token_usd": 6.858392,
+        "prompt_tokens": 7670343,
+        "output_tokens": 318290,
+        "cached_tokens": 130300,
+        "thoughts_tokens": 0,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "screener.research",
+        "model": "gemini-3.8-flash",
+        "calls": 203,
+        "estimated_token_usd": 1.427526,
+        "prompt_tokens": 1627465,
+        "output_tokens": 56621,
+        "cached_tokens": 8002,
+        "thoughts_tokens": 0,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "twitter_digest.curate",
+        "model": "gemini-3.8-flash",
+        "calls": 8,
+        "estimated_token_usd": 1.229227,
+        "prompt_tokens": 1286394,
+        "output_tokens": 68121,
+        "cached_tokens": 0,
+        "thoughts_tokens": 2394,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "morning_report",
+        "model": "gemini-3.8-flash",
+        "calls": 8,
+        "estimated_token_usd": 0.375277,
+        "prompt_tokens": 231149,
+        "output_tokens": 18794,
+        "cached_tokens": 0,
+        "thoughts_tokens": 35050,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "daily_report",
+        "model": "gemini-3.8-flash",
+        "calls": 8,
+        "estimated_token_usd": 0.324589,
+        "prompt_tokens": 285141,
+        "output_tokens": 24098,
+        "cached_tokens": 0,
+        "thoughts_tokens": 5431,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "stock.technical",
+        "model": "gemini-3.8-flash",
+        "calls": 6,
+        "estimated_token_usd": 0.082971,
+        "prompt_tokens": 15863,
+        "output_tokens": 9568,
+        "cached_tokens": 0,
+        "thoughts_tokens": 9385,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "stock.market_overview",
+        "model": "gemini-3.8-flash",
+        "calls": 6,
+        "estimated_token_usd": 0.072919,
+        "prompt_tokens": 24186,
+        "output_tokens": 6696,
+        "cached_tokens": 0,
+        "thoughts_tokens": 7912,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "macro.weekly",
+        "model": "gemini-3.8-flash",
+        "calls": 2,
+        "estimated_token_usd": 0.056037,
+        "prompt_tokens": 34261,
+        "output_tokens": 8091,
+        "cached_tokens": 0,
+        "thoughts_tokens": 0,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "stock.earnings",
+        "model": "gemini-3.8-flash",
+        "calls": 2,
+        "estimated_token_usd": 0.028016,
+        "prompt_tokens": 14275,
+        "output_tokens": 3083,
+        "cached_tokens": 0,
+        "thoughts_tokens": 1533,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "kol_research.follow_up_options",
+        "model": "gemini-3.8-flash",
+        "calls": 5,
+        "estimated_token_usd": 0.019959,
+        "prompt_tokens": 14357,
+        "output_tokens": 398,
+        "cached_tokens": 0,
+        "thoughts_tokens": 2053,
+        "missing_token_rows": 0
+      },
+      {
+        "feature": "stock.fundamental",
+        "model": "gemini-3.8-flash",
+        "calls": 1,
+        "estimated_token_usd": 0.008896,
+        "prompt_tokens": 3872,
+        "output_tokens": 1598,
+        "cached_tokens": 0,
+        "thoughts_tokens": 0,
+        "missing_token_rows": 0
+      }
+    ]
+  },
+  "gaps": [
+    "InsForge legacy Starter invoice and project allocation",
+    "Stripe primary and legacy processing and Billing fees; no live local keys available",
+    "TwitterAPI credits balance, extra top-ups and exact list-endpoint charges",
+    "Current Vercel Speed Insights Plus switch and storage usage",
+    "Transactional Resend current plan",
+    "Other shared-provider usage and project allocations"
+  ],
+  "mutations_performed": false
+}

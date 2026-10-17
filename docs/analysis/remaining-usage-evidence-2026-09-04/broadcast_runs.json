@@ -1,0 +1,34 @@
+[
+  {
+    "channel": "daily_report",
+    "status": "completed",
+    "runs": "2",
+    "first_date": "2026-09-03T00:00:00.000Z",
+    "last_date": "2026-09-04T00:00:00.000Z",
+    "with_broadcast_id": "2"
+  },
+  {
+    "channel": "daily_report",
+    "status": "failed",
+    "runs": "20",
+    "first_date": "2026-08-06T00:00:00.000Z",
+    "last_date": "2026-09-02T00:00:00.000Z",
+    "with_broadcast_id": "0"
+  },
+  {
+    "channel": "morning_report",
+    "status": "completed",
+    "runs": "22",
+    "first_date": "2026-08-06T00:00:00.000Z",
+    "last_date": "2026-09-04T00:00:00.000Z",
+    "with_broadcast_id": "22"
+  },
+  {
+    "channel": "personal_digest",
+    "status": "completed",
+    "runs": "22",
+    "first_date": "2026-08-06T00:00:00.000Z",
+    "last_date": "2026-09-04T00:00:00.000Z",
+    "with_broadcast_id": "0"
+  }
+]

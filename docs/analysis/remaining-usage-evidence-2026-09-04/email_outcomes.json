@@ -1,0 +1,138 @@
+[
+  {
+    "period": "30d",
+    "channel": "daily_report",
+    "delivered": "3323",
+    "bounced": "21",
+    "suppressed": "12",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "30d",
+    "channel": "morning_report",
+    "delivered": "907",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "30d",
+    "channel": "personal_digest",
+    "delivered": "724",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "30d",
+    "channel": "twitter_digest",
+    "delivered": "893",
+    "bounced": "1",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "30d",
+    "channel": "weekly_report",
+    "delivered": "356",
+    "bounced": "4",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "30d",
+    "channel": "welcome_email",
+    "delivered": "30",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "7d",
+    "channel": "daily_report",
+    "delivered": "3323",
+    "bounced": "21",
+    "suppressed": "12",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "7d",
+    "channel": "morning_report",
+    "delivered": "200",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "7d",
+    "channel": "personal_digest",
+    "delivered": "160",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "7d",
+    "channel": "twitter_digest",
+    "delivered": "200",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "7d",
+    "channel": "weekly_report",
+    "delivered": "88",
+    "bounced": "1",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "7d",
+    "channel": "welcome_email",
+    "delivered": "4",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "previous7d",
+    "channel": "morning_report",
+    "delivered": "202",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "previous7d",
+    "channel": "personal_digest",
+    "delivered": "165",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "previous7d",
+    "channel": "twitter_digest",
+    "delivered": "201",
+    "bounced": "1",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "previous7d",
+    "channel": "weekly_report",
+    "delivered": "90",
+    "bounced": "1",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  },
+  {
+    "period": "previous7d",
+    "channel": "welcome_email",
+    "delivered": "6",
+    "bounced": "0",
+    "suppressed": "0",
+    "engagement_without_delivery": "0"
+  }
+]

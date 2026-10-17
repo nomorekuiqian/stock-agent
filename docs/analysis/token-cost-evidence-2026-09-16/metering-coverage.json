@@ -1,0 +1,12 @@
+[
+  {
+    "total_calls": "2894",
+    "null_thinking": "1344",
+    "null_cached": "2863",
+    "with_source": "0",
+    "with_user": "0",
+    "with_request": "0",
+    "min": "2026-09-01T00:00:46.000Z",
+    "max": "2026-09-16T10:01:48.000Z"
+  }
+]

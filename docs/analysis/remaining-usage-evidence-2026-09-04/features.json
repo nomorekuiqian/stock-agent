@@ -1,0 +1,233 @@
+[
+  {
+    "period": "30d",
+    "feature": "checkout_completion_endpoint",
+    "users": "2",
+    "calls": "2",
+    "repeat_users": "0"
+  },
+  {
+    "period": "30d",
+    "feature": "checkout_started",
+    "users": "20",
+    "calls": "23",
+    "repeat_users": "2"
+  },
+  {
+    "period": "30d",
+    "feature": "email_preferences_update",
+    "users": "3",
+    "calls": "5",
+    "repeat_users": "0"
+  },
+  {
+    "period": "30d",
+    "feature": "feedback",
+    "users": "1",
+    "calls": "1",
+    "repeat_users": "0"
+  },
+  {
+    "period": "30d",
+    "feature": "morning_read",
+    "users": "29",
+    "calls": "306",
+    "repeat_users": "5"
+  },
+  {
+    "period": "30d",
+    "feature": "personal_digest_read",
+    "users": "10",
+    "calls": "74",
+    "repeat_users": "4"
+  },
+  {
+    "period": "30d",
+    "feature": "portfolio_read",
+    "users": "16",
+    "calls": "24",
+    "repeat_users": "1"
+  },
+  {
+    "period": "30d",
+    "feature": "stock_generate",
+    "users": "6",
+    "calls": "57",
+    "repeat_users": "4"
+  },
+  {
+    "period": "30d",
+    "feature": "stock_read",
+    "users": "7",
+    "calls": "90",
+    "repeat_users": "4"
+  },
+  {
+    "period": "30d",
+    "feature": "twitter_digest_read",
+    "users": "31",
+    "calls": "96",
+    "repeat_users": "9"
+  },
+  {
+    "period": "30d",
+    "feature": "watchlist_read",
+    "users": "47",
+    "calls": "150",
+    "repeat_users": "12"
+  },
+  {
+    "period": "30d",
+    "feature": "watchlist_update",
+    "users": "7",
+    "calls": "43",
+    "repeat_users": "1"
+  },
+  {
+    "period": "7d",
+    "feature": "checkout_started",
+    "users": "1",
+    "calls": "1",
+    "repeat_users": "0"
+  },
+  {
+    "period": "7d",
+    "feature": "email_preferences_update",
+    "users": "1",
+    "calls": "1",
+    "repeat_users": "0"
+  },
+  {
+    "period": "7d",
+    "feature": "morning_read",
+    "users": "8",
+    "calls": "47",
+    "repeat_users": "1"
+  },
+  {
+    "period": "7d",
+    "feature": "personal_digest_read",
+    "users": "3",
+    "calls": "6",
+    "repeat_users": "1"
+  },
+  {
+    "period": "7d",
+    "feature": "portfolio_read",
+    "users": "3",
+    "calls": "4",
+    "repeat_users": "0"
+  },
+  {
+    "period": "7d",
+    "feature": "stock_generate",
+    "users": "1",
+    "calls": "1",
+    "repeat_users": "0"
+  },
+  {
+    "period": "7d",
+    "feature": "stock_read",
+    "users": "2",
+    "calls": "6",
+    "repeat_users": "1"
+  },
+  {
+    "period": "7d",
+    "feature": "twitter_digest_read",
+    "users": "6",
+    "calls": "10",
+    "repeat_users": "0"
+  },
+  {
+    "period": "7d",
+    "feature": "watchlist_read",
+    "users": "8",
+    "calls": "9",
+    "repeat_users": "0"
+  },
+  {
+    "period": "previous7d",
+    "feature": "checkout_completion_endpoint",
+    "users": "1",
+    "calls": "1",
+    "repeat_users": "0"
+  },
+  {
+    "period": "previous7d",
+    "feature": "checkout_started",
+    "users": "5",
+    "calls": "7",
+    "repeat_users": "1"
+  },
+  {
+    "period": "previous7d",
+    "feature": "email_preferences_update",
+    "users": "1",
+    "calls": "1",
+    "repeat_users": "0"
+  },
+  {
+    "period": "previous7d",
+    "feature": "feedback",
+    "users": "1",
+    "calls": "1",
+    "repeat_users": "0"
+  },
+  {
+    "period": "previous7d",
+    "feature": "morning_read",
+    "users": "9",
+    "calls": "86",
+    "repeat_users": "4"
+  },
+  {
+    "period": "previous7d",
+    "feature": "personal_digest_read",
+    "users": "3",
+    "calls": "20",
+    "repeat_users": "2"
+  },
+  {
+    "period": "previous7d",
+    "feature": "portfolio_read",
+    "users": "1",
+    "calls": "3",
+    "repeat_users": "0"
+  },
+  {
+    "period": "previous7d",
+    "feature": "stock_generate",
+    "users": "4",
+    "calls": "22",
+    "repeat_users": "1"
+  },
+  {
+    "period": "previous7d",
+    "feature": "stock_read",
+    "users": "4",
+    "calls": "36",
+    "repeat_users": "1"
+  },
+  {
+    "period": "previous7d",
+    "feature": "twitter_digest_read",
+    "users": "7",
+    "calls": "13",
+    "repeat_users": "2"
+  },
+  {
+    "period": "previous7d",
+    "feature": "watchlist_read",
+    "users": "11",
+    "calls": "35",
+    "repeat_users": "3"
+  },
+  {
+    "period": "previous7d",
+    "feature": "watchlist_update",
+    "users": "2",
+    "calls": "13",
+    "repeat_users": "0"
+  }
+]

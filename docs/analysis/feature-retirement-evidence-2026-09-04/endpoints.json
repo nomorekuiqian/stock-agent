@@ -1,0 +1,218 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/community/panda/chat/stream",
+    "status": "200",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "2",
+    "users60": "1"
+  },
+  {
+    "method": "GET",
+    "path": "/api/community/panda/conversations",
+    "status": "200",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "4",
+    "users60": "1"
+  },
+  {
+    "method": "POST",
+    "path": "/api/community/panda/conversations",
+    "status": "201",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "1",
+    "users60": "1"
+  },
+  {
+    "method": "GET",
+    "path": "/api/community/panda/conversations/{id}",
+    "status": "200",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "2",
+    "users60": "1"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/community/panda/conversations/{id}",
+    "status": "200",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "1",
+    "users60": "1"
+  },
+  {
+    "method": "GET",
+    "path": "/api/community/panda/me",
+    "status": "200",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "18",
+    "users60": "2"
+  },
+  {
+    "method": "GET",
+    "path": "/api/digests",
+    "status": "200",
+    "calls30": "74",
+    "users30": "10",
+    "calls60": "194",
+    "users60": "20"
+  },
+  {
+    "method": "GET",
+    "path": "/api/morning/reports/*",
+    "status": "200",
+    "calls30": "306",
+    "users30": "29",
+    "calls60": "1051",
+    "users60": "86"
+  },
+  {
+    "method": "GET",
+    "path": "/api/morning/reports/*",
+    "status": "404",
+    "calls30": "39",
+    "users30": "19",
+    "calls60": "147",
+    "users60": "51"
+  },
+  {
+    "method": "GET",
+    "path": "/api/portfolio",
+    "status": "200",
+    "calls30": "24",
+    "users30": "16",
+    "calls60": "78",
+    "users60": "49"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/analysis",
+    "status": "200",
+    "calls30": "20",
+    "users30": "6",
+    "calls60": "68",
+    "users60": "13"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/analysis",
+    "status": "400",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "2",
+    "users60": "1"
+  },
+  {
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/analysis/cache",
+    "status": "200",
+    "calls30": "71",
+    "users30": "7",
+    "calls60": "265",
+    "users60": "19"
+  },
+  {
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/analysis/cache",
+    "status": "400",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "2",
+    "users60": "1"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/earnings",
+    "status": "200",
+    "calls30": "6",
+    "users30": "3",
+    "calls60": "14",
+    "users60": "8"
+  },
+  {
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/market-analysis",
+    "status": "200",
+    "calls30": "19",
+    "users30": "3",
+    "calls60": "53",
+    "users60": "7"
+  },
+  {
+    "method": "GET",
+    "path": "/api/stocks/{symbol}/market-analysis",
+    "status": "400",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "1",
+    "users60": "1"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/market-analysis",
+    "status": "200",
+    "calls30": "8",
+    "users30": "3",
+    "calls60": "23",
+    "users60": "7"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/market-analysis",
+    "status": "400",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "1",
+    "users60": "1"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/technical",
+    "status": "200",
+    "calls30": "23",
+    "users30": "4",
+    "calls60": "81",
+    "users60": "9"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stocks/{symbol}/technical",
+    "status": "400",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "4",
+    "users60": "1"
+  },
+  {
+    "method": "GET",
+    "path": "/api/twitter-digest/*",
+    "status": "200",
+    "calls30": "97",
+    "users30": "31",
+    "calls60": "334",
+    "users60": "73"
+  },
+  {
+    "method": "GET",
+    "path": "/api/twitter-digest/*",
+    "status": "404",
+    "calls30": "0",
+    "users30": "0",
+    "calls60": "2",
+    "users60": "1"
+  },
+  {
+    "method": "GET",
+    "path": "/api/twitter-digest/*",
+    "status": "503",
+    "calls30": "1",
+    "users30": "1",
+    "calls60": "1",
+    "users60": "1"
+  }
+]

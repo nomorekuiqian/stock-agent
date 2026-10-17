@@ -1,0 +1,276 @@
+{
+  "captured_at": 1791896195.214066,
+  "processes": [
+    {
+      "Name": "sh",
+      "Pid": "1",
+      "PPid": "0",
+      "VmRSS": "1600 kB",
+      "VmHWM": "1696 kB",
+      "RssAnon": "120 kB",
+      "RssFile": "1480 kB",
+      "Threads": "1"
+    },
+    {
+      "Name": "uvicorn",
+      "Pid": "2",
+      "PPid": "1",
+      "VmRSS": "1521924 kB",
+      "VmHWM": "1521924 kB",
+      "RssAnon": "1491728 kB",
+      "RssFile": "30196 kB",
+      "Threads": "85"
+    },
+    {
+      "Name": "sh",
+      "Pid": "40208",
+      "PPid": "0",
+      "VmRSS": "1900 kB",
+      "VmHWM": "1900 kB",
+      "RssAnon": "128 kB",
+      "RssFile": "1772 kB",
+      "Threads": "1"
+    },
+    {
+      "Name": "python",
+      "Pid": "40209",
+      "PPid": "40208",
+      "VmRSS": "11304 kB",
+      "VmHWM": "11304 kB",
+      "RssAnon": "5068 kB",
+      "RssFile": "6236 kB",
+      "Threads": "1"
+    }
+  ],
+  "cgroup": {
+    "memory.current": "1765367808\n",
+    "memory.peak": "1766752256\n",
+    "memory.max": "32000000000\n",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n",
+    "memory.stat": "anon 1532973056\nfile 18579456\nkernel 20754432\nkernel_stack 1425408\npagetables 0\nsec_pagetables 0\npercpu 6800\nsock 614400\nvmalloc 24576\nshmem 0\nfile_mapped 2154496\nfile_dirty 0\nfile_writeback 0\nswapcached 0\nanon_thp 253755392\nfile_thp 0\nshmem_thp 0\ninactive_anon 1238282240\nactive_anon 486817792\ninactive_file 16982016\nactive_file 1605632\nunevictable 0\nslab_reclaimable 11779072\nslab_unreclaimable 2084448\nslab 13863520\nworkingset_refault_anon 0\nworkingset_refault_file 336\nworkingset_activate_anon 0\nworkingset_activate_file 212\nworkingset_restore_anon 0\nworkingset_restore_file 0\nworkingset_nodereclaim 0\npgdemote_kswapd 0\npgdemote_direct 0\npgdemote_khugepaged 0\npgdemote_proactive 0\npgpromote_success 0\npgscan 4375\npgsteal 4318\npswpin 0\npswpout 0\npgscan_kswapd 4286\npgscan_direct 86\npgscan_khugepaged 3\npgscan_proactive 0\npgsteal_kswapd 4230\npgsteal_direct 85\npgsteal_khugepaged 3\npgsteal_proactive 0\npgfault 2927911\npgmajfault 62\npgrefill 498\npgactivate 51\npgdeactivate 0\npglazyfree 0\npglazyfreed 0\nswpin_zero 0\nswpout_zero 0\nthp_fault_alloc 306\nthp_collapse_alloc 154\nthp_swpout 0\nthp_swpout_fallback 0\nnuma_pages_migrated 0\nnuma_pte_updates 0\nnuma_hint_faults 0\n",
+    "cpu.stat": "usage_usec 4545476273\nuser_usec 4180052532\nsystem_usec 365423741\nnice_usec 0\nnr_periods 5999016\nnr_throttled 3\nthrottled_usec 2652747\nnr_bursts 0\nburst_usec 0\n",
+    "cpu.max": "3200000 100000\n"
+  },
+  "runtime_env": {
+    "WEB_CONCURRENCY": null,
+    "UVICORN_WORKERS": null,
+    "MALLOC_ARENA_MAX": null,
+    "OPENBLAS_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null
+  },
+  "production_source_markers": {
+    "app/features/twitter_digest/agents.py": [
+      {
+        "line": 2,
+        "text": "LlmAgent + InMemoryRunner singletons for the twitter digest pipeline."
+      },
+      {
+        "line": 23,
+        "text": "from google.adk.runners import InMemoryRunner"
+      },
+      {
+        "line": 87,
+        "text": "_runners: dict[str, InMemoryRunner] = {}"
+      },
+      {
+        "line": 90,
+        "text": "def get_runner(agent: LlmAgent) -> InMemoryRunner:"
+      },
+      {
+        "line": 91,
+        "text": "\"\"\"Return a process-singleton InMemoryRunner for the given agent.\"\"\""
+      },
+      {
+        "line": 93,
+        "text": "runner = _runners.get(key)"
+      },
+      {
+        "line": 95,
+        "text": "runner = InMemoryRunner(agent=agent, app_name=APP_NAME)"
+      },
+      {
+        "line": 96,
+        "text": "_runners[key] = runner"
+      }
+    ],
+    "app/features/twitter_digest/enrichment.py": [
+      {
+        "line": 138,
+        "text": "session = await runner.session_service.create_session("
+      }
+    ],
+    "app/features/twitter_digest/service.py": [
+      {
+        "line": 371,
+        "text": "session = await runner.session_service.create_session("
+      }
+    ],
+    "app/features/brew/agent.py": [
+      {
+        "line": 25,
+        "text": "from google.adk.runners import InMemoryRunner"
+      },
+      {
+        "line": 452,
+        "text": "self._runner_free = InMemoryRunner("
+      },
+      {
+        "line": 455,
+        "text": "self._runner_paid = InMemoryRunner("
+      },
+      {
+        "line": 772,
+        "text": "session = await runner.session_service.create_session("
+      },
+      {
+        "line": 928,
+        "text": "def get_personal_digest() -> PersonalDigest:"
+      },
+      {
+        "line": 930,
+        "text": "global _personal_digest_instance"
+      }
+    ],
+    "app/features/daily_report/agent.py": [
+      {
+        "line": 32,
+        "text": "from google.adk.runners import InMemoryRunner"
+      },
+      {
+        "line": 430,
+        "text": "self.runner = InMemoryRunner(agent=market_report_agent, app_name=\"stock_agent\")"
+      },
+      {
+        "line": 491,
+        "text": "session = await self.runner.session_service.create_session("
+      }
+    ],
+    "app/features/morning_report/agent.py": [
+      {
+        "line": 30,
+        "text": "from google.adk.runners import InMemoryRunner"
+      },
+      {
+        "line": 250,
+        "text": "self.runner = InMemoryRunner("
+      },
+      {
+        "line": 305,
+        "text": "session = await self.runner.session_service.create_session("
+      }
+    ],
+    "app/features/macro/weekly/agent.py": [
+      {
+        "line": 7,
+        "text": "- Class wrapper with InMemoryRunner"
+      },
+      {
+        "line": 27,
+        "text": "from google.adk.runners import InMemoryRunner"
+      },
+      {
+        "line": 427,
+        "text": "self.runner = InMemoryRunner(agent=weekly_analyst, app_name=\"weekly_report\")"
+      },
+      {
+        "line": 442,
+        "text": "session = await self.runner.session_service.create_session("
+      }
+    ],
+    "app/core/activity.py": [],
+    "adk_in_memory_session_service": [
+      {
+        "line": 72,
+        "text": "self.sessions: dict[str, dict[str, dict[str, Session]]] = {}"
+      },
+      {
+        "line": 79,
+        "text": "async def create_session("
+      },
+      {
+        "line": 143,
+        "text": "if app_name not in self.sessions:"
+      },
+      {
+        "line": 144,
+        "text": "self.sessions[app_name] = {}"
+      },
+      {
+        "line": 145,
+        "text": "if user_id not in self.sessions[app_name]:"
+      },
+      {
+        "line": 146,
+        "text": "self.sessions[app_name][user_id] = {}"
+      },
+      {
+        "line": 147,
+        "text": "self.sessions[app_name][user_id][session_id] = session"
+      },
+      {
+        "line": 192,
+        "text": "if app_name not in self.sessions:"
+      },
+      {
+        "line": 194,
+        "text": "if user_id not in self.sessions[app_name]:"
+      },
+      {
+        "line": 196,
+        "text": "if session_id not in self.sessions[app_name][user_id]:"
+      },
+      {
+        "line": 199,
+        "text": "session = self.sessions[app_name][user_id][session_id]"
+      },
+      {
+        "line": 262,
+        "text": "if app_name not in self.sessions:"
+      },
+      {
+        "line": 264,
+        "text": "if user_id is not None and user_id not in self.sessions[app_name]:"
+      },
+      {
+        "line": 270,
+        "text": "for uid in list(self.sessions[app_name].keys()):"
+      },
+      {
+        "line": 271,
+        "text": "for session in list(self.sessions[app_name][uid].values()):"
+      },
+      {
+        "line": 277,
+        "text": "for session in list(self.sessions[app_name][user_id].values()):"
+      },
+      {
+        "line": 289,
+        "text": "async def delete_session("
+      },
+      {
+        "line": 315,
+        "text": "self.sessions[app_name][user_id].pop(session_id)"
+      },
+      {
+        "line": 332,
+        "text": "if session_id not in self.sessions.get(app_name, {}).get(user_id, {}):"
+      },
+      {
+        "line": 344,
+        "text": "storage_session = self.sessions[app_name][user_id][session_id]"
+      }
+    ]
+  },
+  "railway_chart_observation": {
+    "window": "7 days ending 2026-10-13 21:00 Asia/Taipei",
+    "memory": "Visually rises from roughly 1.3-1.4 GB to roughly 1.6-1.7 GB; not a numerical timeseries export.",
+    "cpu": "Near zero at displayed scale.",
+    "requests_total_display": "8.2K"
+  },
+  "limitations": [
+    "No live heap inspected and no code injected into running process.",
+    "Single /proc snapshot plus dashboard trend do not attribute all memory to sessions.",
+    "Direct public GraphQL introspection returned 403; dashboard was used for metrics.",
+    "No deployments, restarts, resource limits, feature switches or background schedules changed."
+  ]
+}

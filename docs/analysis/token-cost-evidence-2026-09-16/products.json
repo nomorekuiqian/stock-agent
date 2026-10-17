@@ -1,0 +1,139 @@
+[
+  {
+    "kind": "accounts",
+    "data": {
+      "all": 362,
+      "enabled": 345
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-01",
+      "tracked_kols": 343,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.1-flash-lite/digest=gemini-3.5-flash",
+      "input_tweet_count": 4218
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-03",
+      "tracked_kols": 343,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.1-flash-lite/digest=gemini-3.5-flash",
+      "input_tweet_count": 4575
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-02",
+      "tracked_kols": 343,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.1-flash-lite/digest=gemini-3.5-flash",
+      "input_tweet_count": 4247
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-15",
+      "tracked_kols": 345,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.8-flash/digest=gemini-3.8-flash",
+      "input_tweet_count": 4088
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-14",
+      "tracked_kols": 345,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.8-flash/digest=gemini-3.8-flash",
+      "input_tweet_count": 4200
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-11",
+      "tracked_kols": 112,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.8-flash/digest=gemini-3.8-flash",
+      "input_tweet_count": 1145
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-10",
+      "tracked_kols": 132,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.8-flash/digest=gemini-3.8-flash",
+      "input_tweet_count": 1335
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-09",
+      "tracked_kols": 345,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.8-flash/digest=gemini-3.8-flash",
+      "input_tweet_count": 3883
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-08",
+      "tracked_kols": 345,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.8-flash/digest=gemini-3.8-flash",
+      "input_tweet_count": 2333
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-07",
+      "tracked_kols": 192,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.8-flash/digest=gemini-3.8-flash",
+      "input_tweet_count": 430
+    }
+  },
+  {
+    "kind": "digest",
+    "data": {
+      "date": "2026-09-04",
+      "tracked_kols": 343,
+      "window_hours": 24,
+      "model_version": "enrich=gemini-3.1-flash-lite/digest=gemini-3.5-flash",
+      "input_tweet_count": 4417
+    }
+  },
+  {
+    "kind": "tweet_month",
+    "data": {
+      "drop": 31282,
+      "keep": 18189,
+      "count": 49471,
+      "month": "2026-09-01T00:00:00+00:00",
+      "authors": 317
+    }
+  },
+  {
+    "kind": "tweet_month",
+    "data": {
+      "drop": 60622,
+      "keep": 52704,
+      "count": 113326,
+      "month": "2026-08-01T00:00:00+00:00",
+      "authors": 327
+    }
+  }
+]

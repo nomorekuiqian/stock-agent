@@ -1,0 +1,44 @@
+[
+  {
+    "feature": "portfolio_health_reports",
+    "total": "10",
+    "rows30": "0",
+    "users": "1",
+    "latest": "2026-05-29 01:08:05.822114+00"
+  },
+  {
+    "feature": "user_portfolios",
+    "total": "7",
+    "rows30": "0",
+    "users": "1",
+    "latest": "2026-05-28 03:45:29.927627+00"
+  },
+  {
+    "feature": "user_watchlists_nonempty",
+    "total": "1079",
+    "rows30": "7",
+    "users": "1079",
+    "latest": "2026-08-29 01:59:54.588+00"
+  },
+  {
+    "feature": "ticker_daily_briefs",
+    "total": "6385",
+    "rows30": "328",
+    "users": "230",
+    "latest": "2026-08-07 23:56:25+00"
+  },
+  {
+    "feature": "personal_digests",
+    "total": "6868",
+    "rows30": "834",
+    "users": "44",
+    "latest": "2026-09-04 22:36:12.358615+00"
+  },
+  {
+    "feature": "frank_lens_usage",
+    "total": "52",
+    "rows30": "0",
+    "users": "1",
+    "latest": "2026-06-08 23:18:29.698464+00"
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "model": "gemini-3.8-flash",
+  "paused_features": [
+    "kol_index",
+    "kol_research",
+    "mcp",
+    "onboarding",
+    "panda",
+    "portfolio_health",
+    "research_kb",
+    "watchlist_monitor"
+  ],
+  "vector_api_paused": true,
+  "policy_sha256": "bfbb18144a4c7a4e4c202acb49f265394a20342f1c9f862b167a6ae13cc5e8de"
+}

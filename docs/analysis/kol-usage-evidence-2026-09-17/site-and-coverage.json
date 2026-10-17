@@ -1,0 +1,129 @@
+{
+  "cutoff_utc": "2026-09-17T01:20:47Z",
+  "excluded_explicit_accounts": 6,
+  "site_routes": [
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/2026-08-10",
+      "hits": "1",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/2026-08-11",
+      "hits": "1",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/2026-08-12",
+      "hits": "1",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/2026-08-13",
+      "hits": "1",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/2026-08-14",
+      "hits": "1",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/2026-08-21",
+      "hits": "1",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/2026-09-01",
+      "hits": "1",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/2026-09-02",
+      "hits": "2",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/archive",
+      "hits": "2",
+      "users": "1"
+    },
+    {
+      "w": "30d",
+      "path": "/api/twitter-digest/latest",
+      "hits": "51",
+      "users": "19"
+    },
+    {
+      "w": "7d",
+      "path": "/api/twitter-digest/latest",
+      "hits": "7",
+      "users": "4"
+    },
+    {
+      "w": "prior7d",
+      "path": "/api/twitter-digest/latest",
+      "hits": "3",
+      "users": "3"
+    }
+  ],
+  "site_repeat": [
+    {
+      "w": "30d",
+      "users": "21",
+      "hits": "62",
+      "repeat_users": "6",
+      "max_days": "7"
+    },
+    {
+      "w": "7d",
+      "users": "4",
+      "hits": "7",
+      "repeat_users": "1",
+      "max_days": "2"
+    },
+    {
+      "w": "prior7d",
+      "users": "3",
+      "hits": "3",
+      "repeat_users": "0",
+      "max_days": "1"
+    }
+  ],
+  "event_coverage": [
+    {
+      "event_type": "email.bounced",
+      "events": "1",
+      "first_event": "2026-08-26T22:15:39.751Z",
+      "last_event": "2026-08-26T22:15:39.751Z"
+    },
+    {
+      "event_type": "email.clicked",
+      "events": "19",
+      "first_event": "2026-08-18T06:16:36.431Z",
+      "last_event": "2026-09-02T23:20:47.158Z"
+    },
+    {
+      "event_type": "email.delivered",
+      "events": "634",
+      "first_event": "2026-08-18T22:15:36.278Z",
+      "last_event": "2026-09-04T22:15:57.348Z"
+    },
+    {
+      "event_type": "email.opened",
+      "events": "669",
+      "first_event": "2026-08-18T01:53:34.881Z",
+      "last_event": "2026-09-05T02:50:08.659Z"
+    }
+  ],
+  "resend_webhook_status": "disabled",
+  "database_all_email_events_latest_utc": "2026-09-05T03:22:51.291Z"
+}

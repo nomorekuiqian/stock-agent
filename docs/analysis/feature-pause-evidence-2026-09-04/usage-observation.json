@@ -1,0 +1,29 @@
+{
+  "rows": [
+    {
+      "window_started_at": "2026-09-05T03:26:02.000Z",
+      "observed_at": "2026-09-05T03:32:58.649Z",
+      "calls": "0",
+      "total_tokens": "0"
+    }
+  ],
+  "rowCount": 1,
+  "fields": [
+    {
+      "name": "window_started_at",
+      "dataTypeID": 1184
+    },
+    {
+      "name": "observed_at",
+      "dataTypeID": 1184
+    },
+    {
+      "name": "calls",
+      "dataTypeID": 20
+    },
+    {
+      "name": "total_tokens",
+      "dataTypeID": 20
+    }
+  ]
+}

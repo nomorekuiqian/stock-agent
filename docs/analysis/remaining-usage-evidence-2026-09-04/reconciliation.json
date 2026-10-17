@@ -1,0 +1,9 @@
+{
+  "broadcast_campaigns": 52,
+  "all_campaign_delivery_counts_match": true,
+  "provider_sent_including_internal": 5733,
+  "provider_delivered_including_internal": 5707,
+  "sql_delivered_including_internal": 5707,
+  "provider_bounced": 26,
+  "provider_suppressed": 12
+}

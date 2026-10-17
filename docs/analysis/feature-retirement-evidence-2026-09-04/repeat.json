@@ -1,0 +1,16 @@
+[
+  {
+    "agent_id": "kol_research_agent",
+    "users": "3",
+    "repeated_users": "1",
+    "turns": "23",
+    "current_entitled_users": "2"
+  },
+  {
+    "agent_id": "research_agent",
+    "users": "27",
+    "repeated_users": "5",
+    "turns": "94",
+    "current_entitled_users": "5"
+  }
+]

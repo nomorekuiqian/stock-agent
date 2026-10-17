@@ -1,0 +1,100 @@
+[
+  {
+    "feature": "twitter_digest.enrich",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 4997,
+    "replay_3_8_usd": 41.2201,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "kol_research",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 1056,
+    "replay_3_8_usd": 16.7524,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "brew.digest_paid",
+    "historical_model": "gemini-3-flash-preview",
+    "calls_30": 832,
+    "replay_3_8_usd": 34.8169,
+    "thinking_unreported": false
+  },
+  {
+    "feature": "screener.research",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 522,
+    "replay_3_8_usd": 3.0744,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "stock.technical",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 24,
+    "replay_3_8_usd": 0.1835,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "kol_research.follow_up_options",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 23,
+    "replay_3_8_usd": 0.0487,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "morning_report",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 22,
+    "replay_3_8_usd": 0.6564,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "daily_report",
+    "historical_model": "gemini-3.5-flash",
+    "calls_30": 22,
+    "replay_3_8_usd": 1.335,
+    "thinking_unreported": false
+  },
+  {
+    "feature": "stock.fundamental",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 22,
+    "replay_3_8_usd": 0.155,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "twitter_digest.curate",
+    "historical_model": "gemini-3.5-flash",
+    "calls_30": 21,
+    "replay_3_8_usd": 4.1462,
+    "thinking_unreported": false
+  },
+  {
+    "feature": "stock.market_overview",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 8,
+    "replay_3_8_usd": 0.049,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "stock.earnings",
+    "historical_model": "gemini-3.1-flash-lite",
+    "calls_30": 7,
+    "replay_3_8_usd": 0.0727,
+    "thinking_unreported": true
+  },
+  {
+    "feature": "macro.weekly",
+    "historical_model": "gemini-3.5-flash",
+    "calls_30": 4,
+    "replay_3_8_usd": 0.3001,
+    "thinking_unreported": false
+  },
+  {
+    "feature": "brew.digest_free",
+    "historical_model": "gemini-3-flash-preview",
+    "calls_30": 2,
+    "replay_3_8_usd": 0.0833,
+    "thinking_unreported": false
+  }
+]

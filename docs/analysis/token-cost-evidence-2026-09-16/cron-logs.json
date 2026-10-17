@@ -1,0 +1,115 @@
+{
+  "logs": [
+    {
+      "id": "1bb19c75-739b-4876-80f0-d77759543663",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T10:00:00.037Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30209,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "d115b2dd-f498-4d0d-8965-a9e7ced490fb",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T09:00:00.115Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30306,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "42ce7d74-e6e2-4308-8b75-bff06d090ef9",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T08:00:00.076Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30234,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "5b1e39b3-c0fc-4176-b0d5-77b24b81b325",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T07:00:00.045Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30219,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "31f20653-cb40-4aa3-8eeb-e4ecbbb73f69",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T06:00:00.034Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30320,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "7e307235-df47-4511-82ca-c0f19f863ed7",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T05:00:00.106Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30176,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "abede864-1842-433f-bcf9-0c15f8514cbc",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T04:00:00.099Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30237,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "aeddf7f4-e687-41a2-866c-eeb2aa6d3784",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T03:00:00.070Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30182,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "51e05664-e07f-43ba-86c9-f92feb5facc4",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T02:00:00.053Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30338,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "03d6c5ea-e76a-4b8e-80ec-036258872d71",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T01:00:00.087Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30383,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "21d84fc1-b5c2-43b9-b608-00b2efe891e8",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-16T00:00:00.066Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30190,
+      "message": "HTTP 504"
+    },
+    {
+      "id": "c6bd1b47-4aa2-4fb1-814e-cf8fe360f67f",
+      "scheduleId": "694a6eb6-3f20-43e8-83f9-197aefcdbe85",
+      "executedAt": "2026-09-15T23:00:00.091Z",
+      "statusCode": 504,
+      "success": false,
+      "durationMs": 30165,
+      "message": "HTTP 504"
+    }
+  ],
+  "totalCount": 169,
+  "limit": 12,
+  "offset": 0
+}

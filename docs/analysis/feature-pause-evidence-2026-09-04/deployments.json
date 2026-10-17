@@ -1,0 +1,46 @@
+{
+  "railway": [
+    {
+      "environment": "production",
+      "service": "themarketbrew-okx-mcp-production",
+      "service_id": "94ceadf6-90b8-4fa2-8f02-88742827c712",
+      "deployment_id": null,
+      "status": null,
+      "active_deployments": 0
+    },
+    {
+      "environment": "production",
+      "service": "stock-agent",
+      "service_id": "f6766863-84f2-4019-b667-fb987098bfc4",
+      "deployment_id": "aa9fcfd7-7606-460d-935f-34902682146e",
+      "status": "SUCCESS",
+      "active_deployments": 1
+    },
+    {
+      "environment": "staging",
+      "service": "stock-agent",
+      "service_id": "f6766863-84f2-4019-b667-fb987098bfc4",
+      "deployment_id": "00f23062-ca99-45ff-9646-1efc0d22a143",
+      "status": "SUCCESS",
+      "active_deployments": 1
+    },
+    {
+      "environment": "staging",
+      "service": "themarketbrew-okx-mcp-staging",
+      "service_id": "6f495c77-1a68-40de-9c13-49bc4987846c",
+      "deployment_id": null,
+      "status": null,
+      "active_deployments": 0
+    }
+  ],
+  "vercel": {
+    "deployment_id": "dpl_7Y4bW2PzG2HSmJxouxNcBrwZgmny",
+    "url": "https://stock-agent-d8z1wtpca-the-market-brew.vercel.app",
+    "production_domain": "https://www.themarketbrew.com",
+    "status": "READY, promoted"
+  },
+  "edge_functions": [
+    "cron-trigger",
+    "picker-conversations"
+  ]
+}

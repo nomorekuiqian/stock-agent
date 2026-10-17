@@ -1,0 +1,344 @@
+{
+  "cutoff_utc": "2026-09-16T10:01:48Z",
+  "timezone": "UTC",
+  "rate_source": "https://ai.google.dev/gemini-api/docs/pricing",
+  "rate_order": [
+    "uncached_input_per_million",
+    "cached_input_per_million",
+    "output_including_thinking_per_million"
+  ],
+  "rates": {
+    "gemini-3.8-flash": [
+      0.75,
+      0.075,
+      3.75
+    ],
+    "gemini-3.1-flash-lite": [
+      0.25,
+      0.025,
+      1.5
+    ],
+    "gemini-3-flash-preview": [
+      0.5,
+      0.05,
+      3
+    ],
+    "gemini-3.5-flash": [
+      1.5,
+      0.15,
+      9
+    ]
+  },
+  "null_token_fields": "treated as zero for estimate; not proof of absence",
+  "september": {
+    "brew.digest_paid": {
+      "calls": 395,
+      "input": 9006721,
+      "output": 2326132,
+      "thinking": 387302,
+      "cached": 36869,
+      "total": 11720155,
+      "estimated_usd": 15.292366925
+    },
+    "daily_report": {
+      "calls": 11,
+      "input": 382426,
+      "output": 33412,
+      "thinking": 33059,
+      "cached": 0,
+      "total": 448897,
+      "estimated_usd": 0.8310839999999999
+    },
+    "macro.weekly": {
+      "calls": 2,
+      "input": 32431,
+      "output": 9485,
+      "thinking": 0,
+      "cached": 0,
+      "total": 41916,
+      "estimated_usd": 0.059892
+    },
+    "morning_report": {
+      "calls": 11,
+      "input": 338616,
+      "output": 24126,
+      "thinking": 26589,
+      "cached": 0,
+      "total": 389331,
+      "estimated_usd": 0.364295
+    },
+    "screener.research": {
+      "calls": 284,
+      "input": 2392893,
+      "output": 84748,
+      "thinking": 9615,
+      "cached": 80574,
+      "total": 2487256,
+      "estimated_usd": 1.94249985
+    },
+    "stock.earnings": {
+      "calls": 4,
+      "input": 20550,
+      "output": 5653,
+      "thinking": 3980,
+      "cached": 0,
+      "total": 30183,
+      "estimated_usd": 0.04727275
+    },
+    "stock.fundamental": {
+      "calls": 8,
+      "input": 29355,
+      "output": 12195,
+      "thinking": 802,
+      "cached": 0,
+      "total": 42352,
+      "estimated_usd": 0.05787175
+    },
+    "stock.market_overview": {
+      "calls": 4,
+      "input": 16800,
+      "output": 3944,
+      "thinking": 3206,
+      "cached": 0,
+      "total": 23950,
+      "estimated_usd": 0.0394125
+    },
+    "stock.technical": {
+      "calls": 2,
+      "input": 5304,
+      "output": 3184,
+      "thinking": 3630,
+      "cached": 0,
+      "total": 12118,
+      "estimated_usd": 0.0295305
+    },
+    "twitter_digest.curate": {
+      "calls": 11,
+      "input": 1789007,
+      "output": 86773,
+      "thinking": 36961,
+      "cached": 0,
+      "total": 1912741,
+      "estimated_usd": 2.59842075
+    },
+    "twitter_digest.enrich": {
+      "calls": 2162,
+      "input": 16369058,
+      "output": 1679944,
+      "thinking": 4586946,
+      "cached": 11162,
+      "total": 22635948,
+      "estimated_usd": 31.67983565
+    }
+  },
+  "post_model_upgrade": {
+    "brew.digest_paid": {
+      "calls": 247,
+      "input": 5546703,
+      "output": 1588959,
+      "thinking": 126928,
+      "cached": 36869,
+      "total": 7262590,
+      "estimated_usd": 10.569716925
+    },
+    "daily_report": {
+      "calls": 7,
+      "input": 244168,
+      "output": 21184,
+      "thinking": 8848,
+      "cached": 0,
+      "total": 274200,
+      "estimated_usd": 0.295746
+    },
+    "macro.weekly": {
+      "calls": 2,
+      "input": 32431,
+      "output": 9485,
+      "thinking": 0,
+      "cached": 0,
+      "total": 41916,
+      "estimated_usd": 0.059892
+    },
+    "morning_report": {
+      "calls": 7,
+      "input": 212296,
+      "output": 16709,
+      "thinking": 26589,
+      "cached": 0,
+      "total": 255594,
+      "estimated_usd": 0.3215895
+    },
+    "screener.research": {
+      "calls": 244,
+      "input": 2072475,
+      "output": 72440,
+      "thinking": 9615,
+      "cached": 0,
+      "total": 2154530,
+      "estimated_usd": 1.8620625
+    },
+    "stock.earnings": {
+      "calls": 3,
+      "input": 15434,
+      "output": 4895,
+      "thinking": 3980,
+      "cached": 0,
+      "total": 24309,
+      "estimated_usd": 0.04485675
+    },
+    "stock.fundamental": {
+      "calls": 5,
+      "input": 18515,
+      "output": 8878,
+      "thinking": 802,
+      "cached": 0,
+      "total": 28195,
+      "estimated_usd": 0.05018625
+    },
+    "stock.market_overview": {
+      "calls": 4,
+      "input": 16800,
+      "output": 3944,
+      "thinking": 3206,
+      "cached": 0,
+      "total": 23950,
+      "estimated_usd": 0.0394125
+    },
+    "stock.technical": {
+      "calls": 2,
+      "input": 5304,
+      "output": 3184,
+      "thinking": 3630,
+      "cached": 0,
+      "total": 12118,
+      "estimated_usd": 0.0295305
+    },
+    "twitter_digest.curate": {
+      "calls": 7,
+      "input": 1109094,
+      "output": 59716,
+      "thinking": 10165,
+      "cached": 0,
+      "total": 1178975,
+      "estimated_usd": 1.09387425
+    },
+    "twitter_digest.enrich": {
+      "calls": 1385,
+      "input": 10474266,
+      "output": 1172004,
+      "thinking": 4586946,
+      "cached": 11162,
+      "total": 16233216,
+      "estimated_usd": 29.44422765
+    }
+  },
+  "baseline_2026_09_06_through_15": {
+    "brew.digest_paid": {
+      "calls": 247,
+      "input": 5546703,
+      "output": 1588959,
+      "thinking": 126928,
+      "cached": 36869,
+      "total": 7262590,
+      "estimated_usd": 10.569716925
+    },
+    "daily_report": {
+      "calls": 7,
+      "input": 244168,
+      "output": 21184,
+      "thinking": 8848,
+      "cached": 0,
+      "total": 274200,
+      "estimated_usd": 0.295746
+    },
+    "macro.weekly": {
+      "calls": 2,
+      "input": 32431,
+      "output": 9485,
+      "thinking": 0,
+      "cached": 0,
+      "total": 41916,
+      "estimated_usd": 0.059892
+    },
+    "morning_report": {
+      "calls": 7,
+      "input": 212296,
+      "output": 16709,
+      "thinking": 26589,
+      "cached": 0,
+      "total": 255594,
+      "estimated_usd": 0.3215895
+    },
+    "screener.research": {
+      "calls": 244,
+      "input": 2072475,
+      "output": 72440,
+      "thinking": 9615,
+      "cached": 0,
+      "total": 2154530,
+      "estimated_usd": 1.8620625
+    },
+    "stock.earnings": {
+      "calls": 2,
+      "input": 8789,
+      "output": 2961,
+      "thinking": 2933,
+      "cached": 0,
+      "total": 14683,
+      "estimated_usd": 0.028694249999999998
+    },
+    "stock.fundamental": {
+      "calls": 5,
+      "input": 18515,
+      "output": 8878,
+      "thinking": 802,
+      "cached": 0,
+      "total": 28195,
+      "estimated_usd": 0.05018625
+    },
+    "stock.market_overview": {
+      "calls": 4,
+      "input": 16800,
+      "output": 3944,
+      "thinking": 3206,
+      "cached": 0,
+      "total": 23950,
+      "estimated_usd": 0.0394125
+    },
+    "stock.technical": {
+      "calls": 2,
+      "input": 5304,
+      "output": 3184,
+      "thinking": 3630,
+      "cached": 0,
+      "total": 12118,
+      "estimated_usd": 0.0295305
+    },
+    "twitter_digest.curate": {
+      "calls": 7,
+      "input": 1109094,
+      "output": 59716,
+      "thinking": 10165,
+      "cached": 0,
+      "total": 1178975,
+      "estimated_usd": 1.09387425
+    },
+    "twitter_digest.enrich": {
+      "calls": 1232,
+      "input": 9262508,
+      "output": 1044237,
+      "thinking": 4045196,
+      "cached": 11162,
+      "total": 14351941,
+      "estimated_usd": 26.0247204
+    }
+  },
+  "monthly_scenarios": {
+    "baseline_10_complete_days_times_3": 121.126275225,
+    "enrich_current": 78.07416119999999,
+    "enrich_same_io_lite_zero_recorded_thinking": 11.63841315,
+    "lite_only_total": 54.69052717500001,
+    "no_kol_total": 39.77049127500001
+  },
+  "scenario_caveat": "Counterfactual pricing of existing tokens, not a measured result on another model; excludes grounding, explicit cache storage, taxes, other projects and unmetered calls."
+}

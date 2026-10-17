@@ -1,0 +1,119 @@
+{
+  "checkedAt": "2026-10-13T12:30:12.656833+00:00",
+  "vercel": {
+    "project": "stock-agent",
+    "teamId": "team_J1mEKcI9ejmoMYMCCOYt4sy6",
+    "speedInsights": {
+      "id": "OlMcnIftZDI40LL2XmbDI4wPM7Q",
+      "hasData": true,
+      "enabledAt": 1775097953961,
+      "disabledAt": 1790691522607,
+      "canceledAt": 1791961200000,
+      "dataReceivedAt": 1790694061250
+    },
+    "action": "No mutation; downgrade was already scheduled on 2026-09-29",
+    "effectiveAtTaipei": "2026-10-14T15:00:00+08:00",
+    "uiEvidence": [
+      "Speed Insights Plus",
+      "Ends Today",
+      "Upgrade to Speed Insights Plus"
+    ],
+    "teamPlanUnchanged": "Pro"
+  },
+  "railway": {
+    "workspaceId": "0e8b9d97-524c-49c1-b45e-86b7e21301e5",
+    "planAfter": "Hobby",
+    "uiEvidence": "You're on the Hobby Plan",
+    "prerequisiteAction": "Removed one failed Trusted Domain auto-join rule; no members removed",
+    "stagingAction": "Removed active staging deployment; service and environment preserved",
+    "stagingAutoDeploy": "Disabled through staging service Settings; UI confirmed Auto deploy is disabled",
+    "services": [
+      {
+        "environment": "production",
+        "service": "themarketbrew-okx-mcp-production",
+        "activeDeployments": [],
+        "latestDeployment": {
+          "id": null,
+          "status": null,
+          "deploymentStopped": null
+        },
+        "source": {
+          "repo": null,
+          "image": null
+        }
+      },
+      {
+        "environment": "production",
+        "service": "stock-agent",
+        "activeDeployments": [
+          {
+            "id": "1bfdd20b-6471-44b4-ad67-d47ae9d0936c",
+            "status": "SUCCESS"
+          }
+        ],
+        "latestDeployment": {
+          "id": "1bfdd20b-6471-44b4-ad67-d47ae9d0936c",
+          "status": "SUCCESS",
+          "deploymentStopped": false
+        },
+        "source": {
+          "repo": "nomorekuiqian/stock-agent",
+          "image": null
+        }
+      },
+      {
+        "environment": "staging",
+        "service": "stock-agent",
+        "activeDeployments": [],
+        "latestDeployment": {
+          "id": "ff51e9e2-ddd3-4be4-af29-4ff429589617",
+          "status": "FAILED",
+          "deploymentStopped": true
+        },
+        "source": {
+          "repo": "nomorekuiqian/stock-agent",
+          "image": null
+        }
+      },
+      {
+        "environment": "staging",
+        "service": "themarketbrew-okx-mcp-staging",
+        "activeDeployments": [],
+        "latestDeployment": {
+          "id": null,
+          "status": null,
+          "deploymentStopped": null
+        },
+        "source": {
+          "repo": null,
+          "image": null
+        }
+      }
+    ]
+  },
+  "health": {
+    "checkedAt": "2026-10-13T12:29:32.437157+00:00",
+    "endpoints": [
+      {
+        "url": "https://stock-agent-production.up.railway.app/health",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "timestamp": 1791894579.233354
+        }
+      },
+      {
+        "url": "https://stock-agent-production.up.railway.app/ready",
+        "status": 200,
+        "body": {
+          "status": "ready",
+          "checks": {
+            "insforge": "ok",
+            "google_api_key": "ok",
+            "fmp_api_key": "ok"
+          }
+        }
+      }
+    ]
+  }
+}

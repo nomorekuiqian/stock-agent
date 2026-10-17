@@ -1,0 +1,617 @@
+{
+  "review_date": "2026-10-13",
+  "timezone": "Asia/Taipei",
+  "scope": "Read-only follow-up verification of 12 proposed cost optimizations; no service or application changes in this review.",
+  "usage_window": {
+    "from_utc": "2026-10-01T00:00:00Z",
+    "until_utc_exclusive": "2026-10-13T00:00:00Z",
+    "days": 12,
+    "monthly_multiplier": 2.5,
+    "billing_reconciled": false
+  },
+  "previous_authorized_actions_record": "service-cost-actions-2026-10-13/evidence.json",
+  "railway_okx_services": {
+    "production_active_deployments": 0,
+    "staging_active_deployments": 0,
+    "source": "same-session Railway state in original audit and action verification"
+  },
+  "vercel_projects": {
+    "projects": [
+      {
+        "name": "stock-agent",
+        "framework": "nextjs",
+        "rootDirectory": "frontend"
+      }
+    ],
+    "next_page": null
+  },
+  "insforge_schedules": [
+    {
+      "name": "Cron - zsxq Panda Ingestion",
+      "cronSchedule": "30 1,5,9,13,17,21 * * *",
+      "isActive": false
+    },
+    {
+      "name": "Cron - Watchlist Monitor Paid Universe",
+      "cronSchedule": "45 23 * * 1-5",
+      "isActive": false
+    },
+    {
+      "name": "Cron - Payment Reconcile Expired Grants",
+      "cronSchedule": "10 8 * * *",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Twitter Digest Broadcast",
+      "cronSchedule": "15 22 * * 1-5",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Twitter Digest Generate",
+      "cronSchedule": "30 20 * * 1-5",
+      "isActive": true
+    },
+    {
+      "name": "Cron - KOL List Sync",
+      "cronSchedule": "0 20 * * *",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Macro Cache Tier 3",
+      "cronSchedule": "0 3 * * *",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Macro Cache Tier 2",
+      "cronSchedule": "0 2,14 * * *",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Macro Cache Tier 1",
+      "cronSchedule": "0 1,5,9,13,17 * * *",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Screener Universe Refresh",
+      "cronSchedule": "0 23 * * 1-5",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Onboarding Drip",
+      "cronSchedule": "0 23 * * *",
+      "isActive": false
+    },
+    {
+      "name": "Cron - Weekly Macro Report",
+      "cronSchedule": "0 2 * * 0",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Daily Personal Digest",
+      "cronSchedule": "30 22 * * 1-5",
+      "isActive": true
+    },
+    {
+      "name": "Cron - Daily Market Report",
+      "cronSchedule": "0 22 * * 1-5",
+      "isActive": true
+    },
+    {
+      "name": "KOL Tweet Embeddings - Frank + Serenity + Panda",
+      "cronSchedule": "15 5,11,17,23 * * *",
+      "isActive": false
+    },
+    {
+      "name": "Cron - KOL Tweets Ingestion",
+      "cronSchedule": "0 * * * *",
+      "isActive": true
+    },
+    {
+      "name": "Morning Report (EST)",
+      "cronSchedule": "0 13 * * 1-5",
+      "isActive": true
+    }
+  ],
+  "research_kb_read_only_probe": {
+    "method": "GET",
+    "url": "https://stock-agent-production.up.railway.app/api/research-kb/chat",
+    "status": 403,
+    "response": {
+      "detail": {
+        "code": "feature_paused",
+        "feature": "research_kb",
+        "message": "该功能暂时停用"
+      }
+    }
+  },
+  "production_source_markers": {
+    "app/features/twitter/service.py": [
+      {
+        "line": 234,
+        "text": "lookback_hours: float = 1.5,"
+      },
+      {
+        "line": 414,
+        "text": "\"enabled\": True,"
+      },
+      {
+        "line": 436,
+        "text": "list_lookback_hours: float = 1.5,"
+      },
+      {
+        "line": 479,
+        "text": "lookback_hours=list_lookback_hours,"
+      }
+    ],
+    "app/features/brew/agent.py": [
+      {
+        "line": 13,
+        "text": "from app.core.ai_models import GENERATIVE_MODEL"
+      },
+      {
+        "line": 343,
+        "text": "FREE_TIER_MODEL = GENERATIVE_MODEL"
+      },
+      {
+        "line": 344,
+        "text": "PAID_TIER_MODEL = GENERATIVE_MODEL"
+      }
+    ],
+    "app/features/twitter_digest/agents.py": [
+      {
+        "line": 26,
+        "text": "from app.core.ai_models import CLASSIFICATION_MODEL, GENERATIVE_MODEL"
+      },
+      {
+        "line": 35,
+        "text": "CURATE_MODEL = GENERATIVE_MODEL"
+      },
+      {
+        "line": 36,
+        "text": "ENRICH_MODEL = CLASSIFICATION_MODEL"
+      },
+      {
+        "line": 62,
+        "text": "thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),"
+      }
+    ],
+    "app/features/research_kb/agent.py": [
+      {
+        "line": 15,
+        "text": "from app.core.ai_models import GENERATIVE_MODEL"
+      },
+      {
+        "line": 38,
+        "text": "MODEL_NAME = GENERATIVE_MODEL"
+      }
+    ],
+    "app/shared/llm_clients/gemini.py": [
+      {
+        "line": 12,
+        "text": "from app.core.ai_models import GENERATIVE_MODEL"
+      },
+      {
+        "line": 34,
+        "text": "if model != GENERATIVE_MODEL:"
+      },
+      {
+        "line": 35,
+        "text": "raise ValueError(\"Structured generation must use %s\" % GENERATIVE_MODEL)"
+      },
+      {
+        "line": 52,
+        "text": "thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),"
+      }
+    ],
+    "app/main.py": [
+      {
+        "line": 20,
+        "text": "from app.core.feature_pause import FeaturePauseMiddleware, is_paused"
+      },
+      {
+        "line": 22,
+        "text": "ALLOWED_ORIGINS,"
+      },
+      {
+        "line": 23,
+        "text": "CORS_ALLOWED_ORIGIN_REGEX,"
+      },
+      {
+        "line": 41,
+        "text": "from app.core.langfuse import configure_langfuse"
+      },
+      {
+        "line": 42,
+        "text": "configure_langfuse()"
+      },
+      {
+        "line": 68,
+        "text": "app.add_middleware(FeaturePauseMiddleware)"
+      },
+      {
+        "line": 78,
+        "text": "allow_origins=ALLOWED_ORIGINS,"
+      },
+      {
+        "line": 79,
+        "text": "allow_origin_regex=CORS_ALLOWED_ORIGIN_REGEX,"
+      },
+      {
+        "line": 132,
+        "text": "logger.warning(log_msg + \" [SLOW]\", *log_args)"
+      }
+    ]
+  },
+  "production_safe_flags": {
+    "LANGFUSE_ENABLED": "true",
+    "LANGFUSE_TRACING_ENABLED": null,
+    "LANGFUSE_SAMPLE_RATE": null
+  },
+  "production_credential_presence_only": {
+    "LANGFUSE_PUBLIC_KEY": true,
+    "LANGFUSE_SECRET_KEY": true,
+    "OPENAI_API_KEY": true,
+    "OPENROUTER_API_KEY": false,
+    "DEEPSEEK_API_KEY": true,
+    "RESEND_API_KEY": true
+  },
+  "langfuse_initialization": {
+    "enabled": true,
+    "explicit_sampling_argument": false,
+    "google_adk_instrumentation_present": true,
+    "google_genai_instrumentation_present": true,
+    "successful_export_not_verified": true,
+    "current_plan_and_bill": "unknown"
+  },
+  "twitter_runs": [
+    {
+      "username": "_list:1800707969811894542",
+      "runs": "288",
+      "pages": "3153",
+      "fetched": "62720",
+      "stored": "57697",
+      "failed": "1"
+    },
+    {
+      "username": "_list:2056895311109562638",
+      "runs": "288",
+      "pages": "455",
+      "fetched": "9020",
+      "stored": "7178",
+      "failed": "0"
+    }
+  ],
+  "enabled_kols": 354,
+  "email_event_coverage": [
+    {
+      "event_type": "email.bounced",
+      "events": "412",
+      "first_event": "2026-06-08T22:02:14.829Z",
+      "last_event": "2026-09-04T22:02:46.581Z",
+      "last_30d_events": "0"
+    },
+    {
+      "event_type": "email.clicked",
+      "events": "1608",
+      "first_event": "2026-06-07T07:29:32.280Z",
+      "last_event": "2026-09-05T01:15:29.515Z",
+      "last_30d_events": "0"
+    },
+    {
+      "event_type": "email.complained",
+      "events": "1",
+      "first_event": "2026-06-15T09:44:08.258Z",
+      "last_event": "2026-06-15T09:44:08.258Z",
+      "last_30d_events": "0"
+    },
+    {
+      "event_type": "email.delivered",
+      "events": "63720",
+      "first_event": "2026-06-07T07:18:33.371Z",
+      "last_event": "2026-09-04T22:41:06.483Z",
+      "last_30d_events": "0"
+    },
+    {
+      "event_type": "email.opened",
+      "events": "35767",
+      "first_event": "2026-06-07T07:23:37.561Z",
+      "last_event": "2026-09-05T03:22:51.291Z",
+      "last_30d_events": "0"
+    },
+    {
+      "event_type": "email.suppressed",
+      "events": "238",
+      "first_event": "2026-06-07T17:02:52.554Z",
+      "last_event": "2026-09-04T22:00:57.264Z",
+      "last_30d_events": "0"
+    }
+  ],
+  "resend_webhooks": [
+    {
+      "id": "340e30e5-ae8c-4969-9049-2109b34c15fa",
+      "status": "disabled",
+      "endpoint": "https://stock-agent-production.up.railway.app/api/webhooks/resend",
+      "events": [
+        "email.delivered",
+        "email.opened",
+        "email.clicked",
+        "email.bounced",
+        "email.complained",
+        "email.suppressed",
+        "email.failed"
+      ]
+    }
+  ],
+  "resend_contacts": {
+    "total_contacts": 1898,
+    "unsubscribed": 215,
+    "has_more": false,
+    "pages": 19
+  },
+  "llm_token_record_completeness": [
+    {
+      "feature": "twitter_digest.enrich",
+      "model": "gemini-3.5-flash-lite",
+      "calls": "1773",
+      "null_thoughts": "1773",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "1773",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": null
+    },
+    {
+      "feature": "kol_research",
+      "model": "gemini-3.8-flash",
+      "calls": "421",
+      "null_thoughts": "421",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "421",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": null
+    },
+    {
+      "feature": "brew.digest_paid",
+      "model": "gemini-3.8-flash",
+      "calls": "245",
+      "null_thoughts": "155",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "155",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": "156270"
+    },
+    {
+      "feature": "screener.research",
+      "model": "gemini-3.8-flash",
+      "calls": "203",
+      "null_thoughts": "203",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "203",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": null
+    },
+    {
+      "feature": "morning_report",
+      "model": "gemini-3.8-flash",
+      "calls": "8",
+      "null_thoughts": "1",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "1",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": "35050"
+    },
+    {
+      "feature": "twitter_digest.curate",
+      "model": "gemini-3.8-flash",
+      "calls": "8",
+      "null_thoughts": "7",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "7",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": "2394"
+    },
+    {
+      "feature": "daily_report",
+      "model": "gemini-3.8-flash",
+      "calls": "8",
+      "null_thoughts": "7",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "7",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": "5431"
+    },
+    {
+      "feature": "stock.technical",
+      "model": "gemini-3.8-flash",
+      "calls": "6",
+      "null_thoughts": "1",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "1",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": "9385"
+    },
+    {
+      "feature": "stock.market_overview",
+      "model": "gemini-3.8-flash",
+      "calls": "6",
+      "null_thoughts": "2",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "2",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": "7912"
+    },
+    {
+      "feature": "kol_research.follow_up_options",
+      "model": "gemini-3.8-flash",
+      "calls": "5",
+      "null_thoughts": "1",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "1",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": "2053"
+    },
+    {
+      "feature": "stock.earnings",
+      "model": "gemini-3.8-flash",
+      "calls": "2",
+      "null_thoughts": "0",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "0",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": "1533"
+    },
+    {
+      "feature": "macro.weekly",
+      "model": "gemini-3.8-flash",
+      "calls": "2",
+      "null_thoughts": "2",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "2",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": null
+    },
+    {
+      "feature": "stock.fundamental",
+      "model": "gemini-3.8-flash",
+      "calls": "1",
+      "null_thoughts": "1",
+      "null_total": "0",
+      "null_thoughts_zero_residual": "1",
+      "null_thoughts_positive_residual": "0",
+      "unlabelled_residual_tokens": "0",
+      "recorded_thoughts": null
+    }
+  ],
+  "monthly_token_cost_components_estimates": [
+    {
+      "feature": "brew.digest_paid",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 245,
+      "monthly_input_estimate_usd": 11.216183,
+      "monthly_output_estimate_usd": 14.588897,
+      "monthly_thinking_estimate_usd": 1.465031
+    },
+    {
+      "feature": "twitter_digest.enrich",
+      "model": "gemini-3.5-flash-lite",
+      "calls_12_days": 1773,
+      "monthly_input_estimate_usd": 9.926766,
+      "monthly_output_estimate_usd": 10.436913,
+      "monthly_thinking_estimate_usd": 0.0
+    },
+    {
+      "feature": "kol_research",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 421,
+      "monthly_input_estimate_usd": 14.162012,
+      "monthly_output_estimate_usd": 2.983969,
+      "monthly_thinking_estimate_usd": 0.0
+    },
+    {
+      "feature": "screener.research",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 203,
+      "monthly_input_estimate_usd": 3.037993,
+      "monthly_output_estimate_usd": 0.530822,
+      "monthly_thinking_estimate_usd": 0.0
+    },
+    {
+      "feature": "twitter_digest.curate",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 8,
+      "monthly_input_estimate_usd": 2.411989,
+      "monthly_output_estimate_usd": 0.638634,
+      "monthly_thinking_estimate_usd": 0.022444
+    },
+    {
+      "feature": "morning_report",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 8,
+      "monthly_input_estimate_usd": 0.433404,
+      "monthly_output_estimate_usd": 0.176194,
+      "monthly_thinking_estimate_usd": 0.328594
+    },
+    {
+      "feature": "daily_report",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 8,
+      "monthly_input_estimate_usd": 0.534639,
+      "monthly_output_estimate_usd": 0.225919,
+      "monthly_thinking_estimate_usd": 0.050916
+    },
+    {
+      "feature": "stock.technical",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 6,
+      "monthly_input_estimate_usd": 0.029743,
+      "monthly_output_estimate_usd": 0.0897,
+      "monthly_thinking_estimate_usd": 0.087984
+    },
+    {
+      "feature": "stock.market_overview",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 6,
+      "monthly_input_estimate_usd": 0.045349,
+      "monthly_output_estimate_usd": 0.062775,
+      "monthly_thinking_estimate_usd": 0.074175
+    },
+    {
+      "feature": "macro.weekly",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 2,
+      "monthly_input_estimate_usd": 0.064239,
+      "monthly_output_estimate_usd": 0.075853,
+      "monthly_thinking_estimate_usd": 0.0
+    },
+    {
+      "feature": "stock.earnings",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 2,
+      "monthly_input_estimate_usd": 0.026766,
+      "monthly_output_estimate_usd": 0.028903,
+      "monthly_thinking_estimate_usd": 0.014372
+    },
+    {
+      "feature": "kol_research.follow_up_options",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 5,
+      "monthly_input_estimate_usd": 0.026919,
+      "monthly_output_estimate_usd": 0.003731,
+      "monthly_thinking_estimate_usd": 0.019247
+    },
+    {
+      "feature": "stock.fundamental",
+      "model": "gemini-3.8-flash",
+      "calls_12_days": 1,
+      "monthly_input_estimate_usd": 0.00726,
+      "monthly_output_estimate_usd": 0.014981,
+      "monthly_thinking_estimate_usd": 0.0
+    }
+  ],
+  "monthly_thinking_cost_estimate_usd": 2.062763,
+  "gaps": [
+    "Render account access not completed; no recent receipt found does not prove no charges.",
+    "Langfuse current usage and paid plan not accessible without sign-in.",
+    "Tavily and standalone model-provider account-wide usage and auto-recharge unverified.",
+    "Internal token estimates and Google supplier billing not reconciled.",
+    "Twitter credits balance and endpoint-specific account charges not retrieved."
+  ],
+  "official_sources": [
+    "https://vercel.com/docs/speed-insights/limits-and-pricing",
+    "https://site.financialmodelingprep.com/developer/docs/pricing",
+    "https://ai.google.dev/gemini-api/docs/pricing",
+    "https://twitterapi.io/pricing/details",
+    "https://langfuse.com/docs/observability/features/sampling"
+  ]
+}
