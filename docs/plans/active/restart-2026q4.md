@@ -121,10 +121,10 @@ KOL 抓取 + enrichment（已有：twitter_digest / kol_research）
 
 **0.3 修复度量**
 1. [ ] 在 Resend 后台重新启用 webhook（发向 `/api/webhooks/resend`），确认 `email_events` 恢复写入。判断是否需要用 Resend API 回填 9/05 以来的打开和点击记录。
-2. [ ] 记录注册来源：
+2. [~] 记录注册来源（2026-10-17 代码完成，待应用迁移 + 发布；实现与原设计的差异：写入时机改为首次登录同步而非 `signUpAction`，以覆盖邮箱验证、OAuth、微信等所有注册路径）：
    - 前端首次访问时，把 `utm_*`、`ref`、落地路径、`document.referrer` 写进一个首方 cookie
    - `signUpAction` 带上这个 cookie，注册成功后写入新表 `user_acquisition`（user_id、first_touch、last_touch、created_at）。不再塞进 auth metadata，避免再出现 `[object Object]`
-3. [ ] 统一 UTM 规范（source=平台、medium=organic/seo/email/kol、campaign=内容 id），写进 `docs/guides/`。
+3. [x] 统一 UTM 规范（`docs/guides/utm-conventions.md`）（source=平台、medium=organic/seo/email/kol、campaign=内容 id），写进 `docs/guides/`。
 4. [ ] 恢复 PostHog 访问，定义漏斗：落地 → 注册 → 邮箱验证 → 首封邮件打开 → checkout → 付费。
 5. [ ] 做一个每周增长报表（admin 页面或脚本）：按来源统计注册和付费、各邮件打开情况、各内容带来的注册。
 

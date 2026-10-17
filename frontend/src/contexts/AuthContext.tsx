@@ -13,6 +13,7 @@ import {
 } from '@/app/actions/auth';
 import type { User } from '@/app/actions/auth';
 import { api } from '@/lib/api';
+import { readAcquisitionPayload } from '@/lib/acquisition';
 import { getPendingVerification } from '@/lib/auth-verification';
 
 export type { User } from '@/app/actions/auth';
@@ -143,7 +144,7 @@ async function syncUserWithSubscriptions(user: User): Promise<void> {
   const effectiveName = user.name || getPendingVerification()?.name || undefined;
 
   try {
-    const result = await api.subscriptions.syncUser(user.id, user.email, effectiveName);
+    const result = await api.subscriptions.syncUser(user.id, user.email, effectiveName, readAcquisitionPayload());
     if (!hasBeenAutoSubscribed(user.id)) {
       try {
         const status = await api.subscriptions.getStatus('daily_report', user.email);
@@ -315,7 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await updateProfileAction(profile);
     if (result.success && result.user) {
       setUser(result.user);
-      api.subscriptions.syncUser(result.user.id, result.user.email, result.user.name).catch(() => {});
+      api.subscriptions.syncUser(result.user.id, result.user.email, result.user.name, readAcquisitionPayload()).catch(() => {});
     }
     return { success: result.success, error: result.error };
   }, []);

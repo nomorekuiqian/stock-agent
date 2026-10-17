@@ -1,4 +1,5 @@
 import { getAccessTokenAsync as getAccessToken, refreshSession } from '@/contexts/AuthContext';
+import type { AcquisitionPayload } from '@/lib/acquisition';
 import type { DailyDigest } from '@/app/twitter-digest/_components/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
@@ -2295,7 +2296,12 @@ export const api = {
      * Call this when user logs in or registers to link their account
      * with any existing email subscriptions.
      */
-    syncUser: async (userId: string, email: string, firstName?: string): Promise<SyncUserResponse> => {
+    syncUser: async (
+      userId: string,
+      email: string,
+      firstName?: string,
+      acquisition?: AcquisitionPayload,
+    ): Promise<SyncUserResponse> => {
       try {
         const response = await fetch(`${API_BASE_URL}/subscriptions/sync-user`, {
           method: 'POST',
@@ -2306,6 +2312,7 @@ export const api = {
             user_id: userId,
             email: email,
             first_name: firstName,
+            acquisition,
           }),
         });
         if (!response.ok) {

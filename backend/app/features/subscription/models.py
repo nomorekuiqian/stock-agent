@@ -1,6 +1,6 @@
 """Subscription feature models."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Dict, Optional, Any, List
 
 
@@ -53,11 +53,35 @@ class SubscriptionUpdateRequest(BaseModel):
         }
 
 
+class AcquisitionTouch(BaseModel):
+    """One attribution touch captured by the frontend middleware cookie."""
+    model_config = ConfigDict(extra="ignore")
+
+    utm_source: Optional[str] = Field(None, max_length=200)
+    utm_medium: Optional[str] = Field(None, max_length=200)
+    utm_campaign: Optional[str] = Field(None, max_length=200)
+    utm_content: Optional[str] = Field(None, max_length=200)
+    utm_term: Optional[str] = Field(None, max_length=200)
+    ref: Optional[str] = Field(None, max_length=200)
+    landing_path: Optional[str] = Field(None, max_length=200)
+    referrer_host: Optional[str] = Field(None, max_length=200)
+    ts: Optional[str] = Field(None, max_length=40)
+
+
+class AcquisitionPayload(BaseModel):
+    """First/last touch attribution sent with the first login sync."""
+    first_touch: Optional[AcquisitionTouch] = None
+    last_touch: Optional[AcquisitionTouch] = None
+
+
 class SyncUserRequest(BaseModel):
     """Request model for syncing website user with Resend subscriptions"""
     user_id: str = Field(..., description="Website user ID from Insforge auth")
     email: str = Field(..., description="User email address")
     first_name: Optional[str] = Field(None, description="User first name")
+    acquisition: Optional[AcquisitionPayload] = Field(
+        None, description="First/last touch attribution from the tmb_ft/tmb_lt cookies"
+    )
 
     class Config:
         json_schema_extra = {

@@ -1,6 +1,6 @@
 """Unit tests for authenticated Resend user sync endpoint."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -59,6 +59,9 @@ def test_sync_user_uses_token_identity():
     with patch(
         "app.features.subscription.router.get_subscription_service",
         return_value=service,
+    ), patch(
+        "app.features.subscription.router.record_user_acquisition",
+        new=AsyncMock(return_value=False),
     ):
         resp = client.post(
             "/api/subscriptions/sync-user",
@@ -73,3 +76,60 @@ def test_sync_user_uses_token_identity():
         email="token@example.com",
         first_name="Token",
     )
+
+
+def test_sync_user_forwards_acquisition_with_token_identity():
+    app.dependency_overrides[verify_user_token_with_email] = lambda: {
+        "user_id": "u-token",
+        "email": "token@example.com",
+    }
+    service = MagicMock()
+    service.sync_user.return_value = {"success": True, "synced_channels": [], "errors": []}
+    record = AsyncMock(return_value=True)
+
+    with patch(
+        "app.features.subscription.router.get_subscription_service",
+        return_value=service,
+    ), patch("app.features.subscription.router.record_user_acquisition", new=record):
+        resp = client.post(
+            "/api/subscriptions/sync-user",
+            json={
+                "user_id": "u-token",
+                "email": "token@example.com",
+                "acquisition": {
+                    "first_touch": {"utm_source": "x", "landing_path": "/", "bogus": "dropped"},
+                    "last_touch": {"ref": "frank"},
+                },
+            },
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+    assert resp.status_code == 200
+    user_id, payload = record.await_args.args
+    assert user_id == "u-token"
+    assert payload.first_touch.utm_source == "x"
+    assert not hasattr(payload.first_touch, "bogus")
+    assert payload.last_touch.ref == "frank"
+
+
+def test_sync_user_still_succeeds_without_acquisition():
+    app.dependency_overrides[verify_user_token_with_email] = lambda: {
+        "user_id": "u-token",
+        "email": "token@example.com",
+    }
+    service = MagicMock()
+    service.sync_user.return_value = {"success": True, "synced_channels": [], "errors": []}
+    record = AsyncMock(return_value=False)
+
+    with patch(
+        "app.features.subscription.router.get_subscription_service",
+        return_value=service,
+    ), patch("app.features.subscription.router.record_user_acquisition", new=record):
+        resp = client.post(
+            "/api/subscriptions/sync-user",
+            json={"user_id": "u-token", "email": "token@example.com"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+    assert resp.status_code == 200
+    assert record.await_args.args == ("u-token", None)

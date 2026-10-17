@@ -1,4 +1,11 @@
 import { pausedPageRedirect } from './src/lib/feature-pause';
+import {
+  ACQUISITION_COOKIE_MAX_AGE,
+  FIRST_TOUCH_COOKIE,
+  LAST_TOUCH_COOKIE,
+  buildTouch,
+  hasSourceSignal,
+} from './src/lib/acquisition';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_ROUTES = [
@@ -35,7 +42,31 @@ function isPublicRoute(pathname: string) {
   return PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
 
+function withAcquisitionCookies(request: NextRequest, response: NextResponse): NextResponse {
+  // Client-side navigations and prefetches are internal; only document loads carry a source.
+  if (request.headers.get('next-router-prefetch') || request.headers.get('rsc')) return response;
+
+  const touch = buildTouch(request.nextUrl, request.headers.get('referer'));
+  const options = {
+    maxAge: ACQUISITION_COOKIE_MAX_AGE,
+    path: '/',
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+  };
+  if (!request.cookies.get(FIRST_TOUCH_COOKIE)) {
+    response.cookies.set(FIRST_TOUCH_COOKIE, JSON.stringify(touch), options);
+  }
+  if (hasSourceSignal(touch)) {
+    response.cookies.set(LAST_TOUCH_COOKIE, JSON.stringify(touch), options);
+  }
+  return response;
+}
+
 export default function middleware(request: NextRequest) {
+  return withAcquisitionCookies(request, route(request));
+}
+
+function route(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   const pausedRedirect = pausedPageRedirect(pathname, request.nextUrl.searchParams);

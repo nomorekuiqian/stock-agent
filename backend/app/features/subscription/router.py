@@ -25,6 +25,7 @@ from app.features.subscription.service import (
     get_subscription_service,
     SubscriptionChannel,
 )
+from app.features.subscription.acquisition import record_user_acquisition
 from app.features.subscription.email_service import get_email_service
 from app.features.subscription.broadcast_runs import (
     acquire_broadcast_run,
@@ -594,6 +595,8 @@ async def sync_user_subscriptions(
             first_name=request.first_name,
         )
 
+        is_first_record = await record_user_acquisition(user_id, request.acquisition)
+
         if posthog.posthog_client and request.user_id:
             person_props: dict = {}
             if request.first_name:
@@ -602,6 +605,16 @@ async def sync_user_subscriptions(
                 distinct_id=request.user_id,
                 properties=person_props,
             )
+            first_touch = request.acquisition.first_touch if request.acquisition else None
+            if is_first_record and first_touch:
+                posthog.posthog_client.set_once(
+                    distinct_id=request.user_id,
+                    properties={
+                        f"initial_{k}": v
+                        for k, v in first_touch.model_dump().items()
+                        if v and k != "ts"
+                    },
+                )
 
         return SyncUserResponse(
             success=result.get("success", False),

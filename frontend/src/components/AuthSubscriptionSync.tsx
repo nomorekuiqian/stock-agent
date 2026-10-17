@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { readAcquisitionPayload } from '@/lib/acquisition';
 import { api } from '@/lib/api';
 
 function getAutoSubscribedKey(userId: string): string {
@@ -51,7 +52,7 @@ export function AuthSubscriptionSync() {
 
     async function syncUserWithSubscriptions() {
       try {
-        const result = await api.subscriptions.syncUser(userId, userEmail, userName);
+        const result = await api.subscriptions.syncUser(userId, userEmail, userName, readAcquisitionPayload());
         if (!cancelled && result.success && result.synced_channels.length > 0) {
           console.log('[AuthSubscriptionSync] Synced subscriptions:', result.synced_channels.map((channel) => channel.channel));
         }
