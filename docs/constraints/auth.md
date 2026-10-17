@@ -412,3 +412,7 @@ MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，
 - middleware 对 `/robots.txt`、`/sitemap.xml` 做精确放行，不设置来源 cookie；不按文件扩展名扩大公开范围。
 - 登录、验证、重置密码、个人页面、后台、支付成功回跳等功能路由返回 `X-Robots-Tag: noindex, follow`。这不是权限控制；原有 cookie gate 与后端鉴权继续生效。
 - robots.txt 允许抓取功能页以读取 noindex；只禁止 `/api/`。
+
+### SEO 与公开路由（2026-10-17）
+
+robots、sitemap 索引及严格匹配的子 sitemap 路径匿名可读；不能按任意 `.xml` 后缀放行。research/login 与带参数的普通页面禁止索引，不改变访问权限。旧早晚报 UUID 的 308 仅读取匿名公开响应中的日期，不传用户凭证。早报公开摘要只使用已有公开行情，不包含 gated AI 正文。

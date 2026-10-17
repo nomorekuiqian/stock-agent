@@ -1,5 +1,6 @@
 'use client';
 
+import { reportPath } from '@/lib/report-url';
 import { useState } from 'react';
 import Link from 'next/link';
 import { formatDateChinese, formatDateShort, formatTimePacific } from '@/lib/timezone';
@@ -68,7 +69,7 @@ export default function ArchivePage() {
             {reports.map((report) => (
               <Link
                 key={report.id || report.report_date}
-                href={`/today/${report.id}`}
+                href={reportPath('today', report)}
                 className="group bg-card rounded-xl border border-border p-5 hover:border-primary/50 transition-all"
               >
                 {/* Date Badge */}

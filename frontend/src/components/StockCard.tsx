@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { X } from 'lucide-react';
 import { formatStockPrice } from '@/lib/currency';
 
@@ -47,6 +48,7 @@ export interface StockCardProps {
   isLoading?: boolean;
   onRemove?: () => void;
   onClick?: () => void;
+  href?: string;
 }
 
 export default function StockCard({
@@ -55,6 +57,7 @@ export default function StockCard({
   displayName,
   onRemove,
   onClick,
+  href,
   isLoading,
   index
 }: StockCardProps) {
@@ -89,8 +92,9 @@ export default function StockCard({
     <div
       className={`group relative animate-fade-in-up ${onClick ? 'cursor-pointer' : ''}`}
       style={{ animationDelay: `${index * 40}ms` }}
-      onClick={onClick}
+      onClick={href ? undefined : onClick}
     >
+      {href && <Link prefetch={false} href={href} onClick={onClick} aria-label={`${symbol} ${displayName} 个股分析`} className="absolute inset-0 z-10 rounded-xl focus-visible:outline-2 focus-visible:outline-primary" />}
       <div className="relative bg-card border border-border/50 rounded-xl p-4 group-hover:translate-y-[-1px]">
         {onRemove && (
           // Hover-capable pointers reveal the X on group-hover only.

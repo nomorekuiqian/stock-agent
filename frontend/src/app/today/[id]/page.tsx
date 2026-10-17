@@ -1,7 +1,8 @@
+import { reportPath, reportSlugDate, reportTitle } from '@/lib/report-url';
 import { SITE_URL, serializeJsonLd } from '@/lib/seo';
 import { cache } from 'react';
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Link from 'next/link';
 import { api, MarketData } from '@/lib/api';
 import { ReportContent } from '@/components/ReportContent';
@@ -12,7 +13,7 @@ export const revalidate = 3600;
 
 // cache() deduplicates this fetch across generateMetadata + page component
 // in the same render pass — prevents two separate backend calls for the same id
-const getReport = cache((id: string) => api.reports.getById(id));
+const getReport = cache((id: string) => reportSlugDate('today', id) ? api.reports.getByDate(reportSlugDate('today', id)!) : api.reports.getById(id));
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const title = report.title || `${formatDateForSEO(report.report_date || '')} 美股日报`;
+  const title = reportTitle('today', report);
   const description = report.summary || 'AI 生成的美股每日分析报告，深度解读市场动态与投资机会。';
 
   return {
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: 'article',
-      url: `/today/${id}`,
+      url: reportPath('today', { ...report, id }),
       images: ['/logo-avatar.png'],
       publishedTime: report.timestamp || report.report_date || '',
       siteName: 'TheMarketBrew',
@@ -52,25 +53,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
     },
     alternates: {
-      canonical: `/today/${id}`,
+      canonical: reportPath('today', { ...report, id }),
     },
   };
 }
 
-function formatDateForSEO(dateStr: string): string {
-  try {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return `${year}年${month}月${day}日`;
-  } catch {
-    return dateStr;
-  }
-}
+
 
 function generateJsonLd(report: MarketData, id: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: report.title || `${formatDateForSEO(report.report_date || '')} 美股日报`,
+    headline: reportTitle('today', report),
     description: report.summary || 'AI 生成的美股每日分析报告',
     datePublished: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
     dateModified: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
@@ -86,7 +80,7 @@ function generateJsonLd(report: MarketData, id: string) {
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `${SITE_URL}/today/${id}`,
+      '@id': `${SITE_URL}${reportPath('today', { ...report, id })}`,
     },
     articleSection: '美股市场分析',
     inLanguage: 'zh-CN',
@@ -106,6 +100,9 @@ export default async function ReportDetailPage({ params }: PageProps) {
   if (!report) {
     notFound();
   }
+
+  const canonicalPath = reportPath('today', { ...report, id });
+  if (canonicalPath !== `/today/${id}`) permanentRedirect(canonicalPath);
 
   const jsonLd = generateJsonLd(report, id);
 
@@ -140,7 +137,7 @@ export default async function ReportDetailPage({ params }: PageProps) {
               {formatReportDate(report.report_date || '')}
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-              {report.title || '市场报告'}
+              {reportTitle('today', report)}
             </h1>
             {report.summary && (
               <p className="text-base text-muted-foreground max-w-2xl mx-auto">

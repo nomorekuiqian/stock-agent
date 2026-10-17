@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { relatedStocks } from '@/lib/stock-directory';
 import type { Metadata } from 'next';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { getQueryClient } from '@/hooks/queries/query-client';
@@ -94,9 +96,15 @@ export default async function StockPage({ params }: PageProps) {
     }),
   ]);
 
+  const profile = await fetchProfile(upperSymbol);
+  const related = relatedStocks(upperSymbol, profile?.classification?.sector);
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <StockDetailContent symbol={upperSymbol} />
+      {related.length > 0 && <nav aria-label="同板块股票" className="mx-auto max-w-5xl px-4 py-8">
+        <h2 className="mb-4 text-xl font-medium">同板块股票</h2>
+        <div className="flex flex-wrap gap-4">{related.map(item => <Link prefetch={false} className="text-primary hover:underline" key={item} href={`/stock/${item}`}>{item}</Link>)}</div>
+      </nav>}
     </HydrationBoundary>
   );
 }

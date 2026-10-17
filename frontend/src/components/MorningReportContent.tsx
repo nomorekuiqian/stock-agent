@@ -1,5 +1,7 @@
 'use client';
 
+import { StockLinkedText } from '@/components/StockLinkedText';
+
 import type {
   MorningFuturesQuote,
   MorningGlobalSnapshot,
@@ -149,7 +151,7 @@ export function MorningReportContent({
             futures_analysis && (
               <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
                 <p className="text-sm text-foreground leading-relaxed">
-                  {futures_analysis}
+                  <StockLinkedText text={futures_analysis} />
                 </p>
               </div>
             )
@@ -198,7 +200,7 @@ export function MorningReportContent({
             global_markets_analysis && (
               <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
                 <p className="text-sm text-foreground leading-relaxed">
-                  {global_markets_analysis}
+                  <StockLinkedText text={global_markets_analysis} />
                 </p>
               </div>
             )
@@ -245,7 +247,7 @@ export function MorningReportContent({
                   <NewsTimestamp timestamp={item.published_at} />
                   <div className="bg-muted/60 rounded-lg p-3 border border-border/30">
                     <p className="text-sm text-foreground leading-relaxed">
-                      {item.analysis}
+                      <StockLinkedText text={item.analysis} />
                     </p>
                   </div>
                 </div>
@@ -296,7 +298,7 @@ export function MorningReportContent({
                         {item.title}
                       </h4>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        {item.analysis}
+                        <StockLinkedText text={item.analysis} />
                       </p>
                     </div>
                   </div>
@@ -320,7 +322,7 @@ export function MorningReportContent({
                 ) : (
                   section.content.split('\n\n').map((paragraph, j) => (
                     <p key={j} className="text-sm text-foreground leading-relaxed mb-3 last:mb-0">
-                      {paragraph}
+                      <StockLinkedText text={paragraph} />
                     </p>
                   ))
                 )}

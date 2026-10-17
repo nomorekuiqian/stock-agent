@@ -1,5 +1,7 @@
 'use client';
 
+import { StockLinkedText } from '@/components/StockLinkedText';
+
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -98,7 +100,7 @@ export function MorningReportBody({ report: initialReport, targetPath }: Props) 
             {report.market_pulse && (
               <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
                 <p className="text-muted-foreground leading-relaxed text-sm">
-                  {report.market_pulse}
+                  <StockLinkedText text={report.market_pulse} />
                 </p>
               </div>
             )}

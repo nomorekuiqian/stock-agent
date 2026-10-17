@@ -1,5 +1,7 @@
 'use client';
 
+import { StockLinkedText } from '@/components/StockLinkedText';
+
 import { useMemo } from 'react';
 import { CalendarEvent, NewsSection, SummarySection } from '@/lib/api';
 import { isTodayPacific, formatCalendarDate, formatCompactTimestamp } from '@/lib/timezone';
@@ -22,7 +24,7 @@ interface ReportContentProps {
 }
 
 // Key indices to display (matching email format)
-const KEY_INDICES = ['S&P 500', 'Nasdaq', '10Y Treasury', 'VIX', 'Gold', 'US Dollar'];
+const KEY_INDICES = ['S&P 500', 'Nasdaq', '10Y Treasury', 'VIX', 'Gold', 'US Dollar', 'Oil'];
 
 // Indicator display names
 const INDICATOR_NAMES: Record<string, string> = {
@@ -31,6 +33,7 @@ const INDICATOR_NAMES: Record<string, string> = {
   '10Y Treasury': '10Y TREASURY',
   'VIX': 'VIX',
   'Gold': 'GOLD',
+  'Oil': '原油',
   'US Dollar': 'US DOLLAR',
 };
 
@@ -86,7 +89,8 @@ export function ReportContent({
         const targetName = name.toLowerCase();
         // Exact match or starts with the target name
         return idxName === targetName || idxName.startsWith(targetName.split(' ')[0] + ' ') ||
-               (targetName === 'us dollar' && idxName.includes('dollar'));
+               (targetName === 'us dollar' && idxName.includes('dollar')) ||
+               (targetName === 'oil' && /oil|crude|brent|wti|原油/i.test(idx.name));
       });
       return found ? { ...found, displayName: INDICATOR_NAMES[name] || name } : null;
     }).filter(Boolean) as (IndexData & { displayName: string })[];
@@ -132,7 +136,7 @@ export function ReportContent({
         <section className="rounded-xl border border-border/40 bg-card/50 p-5 animate-fade-in-up">
           <SectionHeader>今日要点</SectionHeader>
           <p className="text-base text-foreground leading-relaxed whitespace-pre-line">
-            {intro.replace(/\\n/g, '\n')}
+            <StockLinkedText text={intro.replace(/\\n/g, '\n')} />
           </p>
         </section>
       )}
@@ -158,10 +162,10 @@ export function ReportContent({
                       {headline.title}
                     </a>
                     <NewsTimestamp timestamp={headline.published_at} />
-                    <p className="mb-3 text-sm leading-relaxed text-muted-foreground">{headline.fact_summary}</p>
+                    <p className="mb-3 text-sm leading-relaxed text-muted-foreground"><StockLinkedText text={headline.fact_summary} /></p>
                     <div className="rounded-lg border border-border/30 bg-card/40 p-3">
                       <p className="text-sm leading-relaxed text-foreground">
-                        {headline.deep_analysis}
+                        <StockLinkedText text={headline.deep_analysis} />
                       </p>
                     </div>
                   </div>
@@ -186,7 +190,7 @@ export function ReportContent({
                       {brief.title}
                     </a>
                     <NewsTimestamp timestamp={brief.published_at} />
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{brief.summary}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground"><StockLinkedText text={brief.summary} /></p>
                   </div>
                 ))}
               </div>
@@ -223,8 +227,8 @@ export function ReportContent({
 
                   {/* Event Details */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground mb-1">{event.event}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{event.analysis}</p>
+                    <h3 className="text-sm font-semibold text-foreground mb-1"><StockLinkedText text={event.event} /></h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed"><StockLinkedText text={event.analysis} /></p>
                   </div>
                 </div>
               );
@@ -248,7 +252,7 @@ export function ReportContent({
                   <div className="space-y-3">
                     {section.content.replace(/\\n/g, '\n').split('\n').filter(p => p.trim()).map((paragraph, pIdx) => (
                       <p key={pIdx} className="text-base text-foreground leading-relaxed">
-                        {paragraph}
+                        <StockLinkedText text={paragraph} />
                       </p>
                     ))}
                   </div>
@@ -277,7 +281,7 @@ export function ReportContent({
                         <div className="space-y-3">
                           {section.content.replace(/\\n/g, '\n').split('\n').filter(p => p.trim()).map((paragraph, pIdx) => (
                             <p key={pIdx} className="text-base text-foreground leading-relaxed">
-                              {paragraph}
+                              <StockLinkedText text={paragraph} />
                             </p>
                           ))}
                         </div>
@@ -291,7 +295,7 @@ export function ReportContent({
                 <div className="space-y-4">
                   {report_summary.replace(/\\n/g, '\n').split('\n').filter((p: string) => p.trim()).map((paragraph: string, idx: number) => (
                     <p key={idx} className="text-base text-foreground leading-relaxed">
-                      {paragraph}
+                      <StockLinkedText text={paragraph} />
                     </p>
                   ))}
                 </div>

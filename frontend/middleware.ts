@@ -1,3 +1,4 @@
+import { reportPath } from './src/lib/report-url';
 import { pausedPageRedirect } from './src/lib/feature-pause';
 import {
   ACQUISITION_COOKIE_MAX_AGE,
@@ -40,7 +41,7 @@ const PUBLIC_ROUTES = [
 
 const SEO_FILES = new Set(['/robots.txt', '/sitemap.xml']);
 const NOINDEX_ROUTES = [
-  '/login', '/auth', '/forgot-password', '/reset-password', '/verify-email',
+  '/research', '/login', '/auth', '/forgot-password', '/reset-password', '/verify-email',
   '/unsubscribe', '/feedback', '/email-test', '/webview-check', '/pricing/success',
   '/for-you', '/profile', '/settings', '/admin', '/request-access', '/dev', '/mcp',
 ];
@@ -72,21 +73,46 @@ function withAcquisitionCookies(request: NextRequest, response: NextResponse): N
   return response;
 }
 
-export default function middleware(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
+  if (request.nextUrl.hostname === 'themarketbrew.com') {
+    const target = request.nextUrl.clone();
+    target.hostname = 'www.themarketbrew.com';
+    target.protocol = 'https:';
+    return NextResponse.redirect(target, 308);
+  }
   // Exact files only: never expose private routes by file extension.
-  if (SEO_FILES.has(request.nextUrl.pathname)) return NextResponse.next();
-  const response = withAcquisitionCookies(request, route(request));
-  if (NOINDEX_ROUTES.some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))) {
+  if (SEO_FILES.has(request.nextUrl.pathname) || /^\/sitemaps\/(static|stock-\d+|today-\d+|morning-\d+|twitter-digest-\d+)\.xml$/.test(request.nextUrl.pathname)) return NextResponse.next();
+  const response = withAcquisitionCookies(request, await route(request));
+  if (request.nextUrl.searchParams.size > 0 || NOINDEX_ROUTES.some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))) {
     response.headers.set('X-Robots-Tag', 'noindex, follow');
   }
   return response;
 }
 
-function route(request: NextRequest) {
+async function route(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   const pausedRedirect = pausedPageRedirect(pathname, request.nextUrl.searchParams);
   if (pausedRedirect) return NextResponse.redirect(new URL(pausedRedirect, request.url));
+
+  // Resolve legacy IDs before Next.js starts streaming, so the HTTP status is 308.
+  const legacy = /^\/(today|morning)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(pathname);
+  if (legacy) {
+    const kind = legacy[1] as 'today' | 'morning';
+    const endpoint = kind === 'today' ? 'market' : 'morning';
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/${endpoint}/reports/${legacy[2]}`, { signal: AbortSignal.timeout(10000) });
+      if (response.ok) {
+        const { data } = await response.json();
+        const path = reportPath(kind, { id: legacy[2], report_date: data?.report_date });
+        if (path !== pathname) return NextResponse.redirect(new URL(`${path}${search}`, request.url), 308);
+      } else if (response.status !== 404) {
+        return new NextResponse('Report temporarily unavailable', { status: 503, headers: { 'Retry-After': '300', 'Cache-Control': 'no-store' } });
+      }
+    } catch {
+      return new NextResponse('Report temporarily unavailable', { status: 503, headers: { 'Retry-After': '300', 'Cache-Control': 'no-store' } });
+    }
+  }
 
   if (isPublicRoute(pathname)) {
     return NextResponse.next();

@@ -1,4 +1,6 @@
+import { MarketSummary } from '@/components/MarketSummary';
 import Link from 'next/link';
+import { reportPath } from '@/lib/report-url';
 import { ReportHeroBanner } from '@/components/ReportHeroBanner';
 import { ReportTabs } from '@/components/ReportTabs';
 import { MorningActions } from './_components/MorningActions';
@@ -119,6 +121,7 @@ export default async function MorningPage() {
             </div>
           </div>
 
+          {report && <MarketSummary morning={report} />}
           <ReportHeroBanner src="/report-banners/morning-brief-banner.png" priority />
         </div>
       </section>
@@ -173,7 +176,7 @@ export default async function MorningPage() {
               {historicalReports.map((r, i) => (
                 <Link
                   key={r.id}
-                  href={`/morning/${r.id}`}
+                  href={reportPath('morning', r)}
                   className="group terminal-card p-6 hover:bg-card/80 hover:-translate-y-0.5 animate-fade-in-up"
                   style={{ animationDelay: `${200 + i * 100}ms` }}
                 >

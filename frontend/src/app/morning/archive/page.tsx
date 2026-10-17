@@ -1,5 +1,6 @@
 'use client';
 
+import { reportPath } from '@/lib/report-url';
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Crown, LockKeyhole } from 'lucide-react';
@@ -113,7 +114,7 @@ export default function MorningArchivePage() {
             {reports.map((report) => (
               <Link
                 key={report.id || report.report_date}
-                href={`/morning/${report.id}`}
+                href={reportPath('morning', report)}
                 className="group bg-card rounded-xl border border-border p-5 hover:border-amber-500/50 transition-all"
               >
                 {/* Date Badge */}

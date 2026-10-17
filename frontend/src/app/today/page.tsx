@@ -1,4 +1,6 @@
+import { MarketSummary } from '@/components/MarketSummary';
 import Link from 'next/link';
+import { reportPath } from '@/lib/report-url';
 import { ReportContent } from '@/components/ReportContent';
 import { ReportHeroBanner } from '@/components/ReportHeroBanner';
 import { ReportTabs } from '@/components/ReportTabs';
@@ -130,6 +132,7 @@ export default async function TodayPage() {
             </div>
           </div>
 
+          {report && <MarketSummary daily={report} />}
           <ReportHeroBanner src="/report-banners/evening-report-banner.png" priority />
         </section>
 
@@ -183,7 +186,7 @@ export default async function TodayPage() {
               {historicalReports.map((r, i) => (
                 <Link
                   key={r.id}
-                  href={`/today/${r.id}`}
+                  href={reportPath('today', r)}
                   className="group grid gap-2 px-4 py-4 transition-colors hover:bg-card/60 sm:grid-cols-[1fr_auto] sm:items-center md:px-5 animate-fade-in-up"
                   style={{ animationDelay: `${200 + i * 100}ms` }}
                 >

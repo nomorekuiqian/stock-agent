@@ -1,6 +1,7 @@
+import { reportPath, reportSlugDate, reportTitle } from '@/lib/report-url';
 import { SITE_URL, serializeJsonLd } from '@/lib/seo';
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Link from 'next/link';
 import { getAuthCookies } from '@/lib/auth-cookies';
 import type { MorningReport } from '@/lib/api';
@@ -20,7 +21,7 @@ async function getMorningReport(id: string): Promise<MorningReport | null> {
     headers.Authorization = `Bearer ${accessToken}`;
   }
   try {
-    const res = await fetch(`${API_BASE}/morning/reports/${id}`, {
+    const res = await fetch(`${API_BASE}/morning/reports/${reportSlugDate('morning', id) ? `date/${reportSlugDate('morning', id)}` : encodeURIComponent(id)}`, {
       headers,
       cache: 'no-store',
     });
@@ -39,14 +40,7 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-function formatDateForSEO(dateStr: string): string {
-  try {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return `${year}年${month}月${day}日`;
-  } catch {
-    return dateStr;
-  }
-}
+
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
@@ -59,7 +53,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const title = report.title || `${formatDateForSEO(report.report_date || '')} 盘前早报`;
+  const title = reportTitle('morning', report);
   const description = report.market_pulse || '盘前市场简报，快速了解隔夜要闻与今日焦点。';
 
   return {
@@ -69,7 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: 'article',
-      url: `/morning/${id}`,
+      url: reportPath('morning', { ...report, id }),
       images: ['/logo-avatar.png'],
       publishedTime: report.timestamp || report.report_date || '',
       siteName: 'TheMarketBrew',
@@ -82,7 +76,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
     },
     alternates: {
-      canonical: `/morning/${id}`,
+      canonical: reportPath('morning', { ...report, id }),
     },
   };
 }
@@ -91,7 +85,7 @@ function generateJsonLd(report: { title?: string; report_date?: string; timestam
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: report.title || `${formatDateForSEO(report.report_date || '')} 盘前早报`,
+    headline: reportTitle('morning', report),
     description: report.market_pulse || '盘前市场简报',
     datePublished: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
     dateModified: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
@@ -107,7 +101,7 @@ function generateJsonLd(report: { title?: string; report_date?: string; timestam
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `${SITE_URL}/morning/${id}`,
+      '@id': `${SITE_URL}${reportPath('morning', { ...report, id })}`,
     },
     articleSection: '盘前早报',
     inLanguage: 'zh-CN',
@@ -121,6 +115,9 @@ export default async function MorningReportDetailPage({ params }: PageProps) {
   if (!report) {
     notFound();
   }
+
+  const canonicalPath = reportPath('morning', { ...report, id });
+  if (canonicalPath !== `/morning/${id}`) permanentRedirect(canonicalPath);
 
   const jsonLd = generateJsonLd(report, id);
 
@@ -147,7 +144,7 @@ export default async function MorningReportDetailPage({ params }: PageProps) {
         </div>
 
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          <MorningReportBody report={report} targetPath={`/morning/${id}`} />
+          <MorningReportBody report={report} targetPath={reportPath('morning', { ...report, id })} />
         </div>
       </main>
     </>

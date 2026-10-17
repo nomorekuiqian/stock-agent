@@ -1,3 +1,4 @@
+import { MacroText } from '../_components/MacroText';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -12,5 +13,5 @@ export default function EconomyLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <>{children}<MacroText kind="economy" /></>;
 }
