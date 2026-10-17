@@ -23,6 +23,25 @@ module.exports = async function(request) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
 
+  function clampDays(value) {
+    const parsed = parseInt(value || "7", 10);
+    return Math.max(1, Math.min(90, isNaN(parsed) ? 7 : parsed));
+  }
+
+  function windowParams() {
+    const days = clampDays(url.searchParams.get("days"));
+    const until = url.searchParams.get("until") || new Date().toISOString();
+    const since = url.searchParams.get("since") ||
+      new Date(new Date(until).getTime() - days * 86400000).toISOString();
+    return { days, since, until };
+  }
+
+  async function rpc(name, args) {
+    const { data, error } = await client.database.rpc(name, args);
+    if (error) return { data: null, error };
+    return { data: data || [], error: null };
+  }
+
   try {
     if (request.method === "POST") {
       const body = await request.json();
@@ -36,6 +55,15 @@ module.exports = async function(request) {
           feature: r.feature,
           agent_name: r.agent_name,
           model: r.model || null,
+          request_id: r.request_id || null,
+          invocation_id: r.invocation_id || null,
+          metering_version: r.metering_version || null,
+          usage_signature: r.usage_signature || null,
+          user_id: r.user_id || null,
+          user_tier: r.user_tier || null,
+          route: r.route || null,
+          request_method: r.request_method || null,
+          source: r.source || null,
           prompt_tokens: r.prompt_tokens || null,
           output_tokens: r.output_tokens || null,
           cached_tokens: r.cached_tokens || null,
@@ -52,47 +80,90 @@ module.exports = async function(request) {
     }
 
     if (request.method === "GET" && (action === "summary" || action === "daily")) {
-      const daysRaw = parseInt(url.searchParams.get("days") || "7", 10);
-      const days = Math.max(1, Math.min(90, isNaN(daysRaw) ? 7 : daysRaw));
-      const since = new Date(Date.now() - days * 86400000).toISOString();
-      const { data, error } = await client.database
-        .from("llm_usage")
-        .select("ts, feature, model, prompt_tokens, output_tokens, cached_tokens, thoughts_tokens, total_tokens")
-        .gte("ts", since);
-      if (error) {
-        return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500, headers: jsonHeaders });
+      const { days, since, until } = windowParams();
+      const args = { since_ts: since, until_ts: until };
+      const mainRpc = action === "daily"
+        ? "admin_llm_usage_daily"
+        : "admin_llm_usage_summary";
+      const [
+        mainRes,
+        userRes,
+        userFeatureRes,
+        routeRes,
+        reliabilityRes,
+        reliableDailyRes,
+        reliableUserFeatureRes,
+        reliableRouteRes,
+      ] = await Promise.all([
+        rpc(mainRpc, args),
+        rpc("admin_llm_usage_user_summary", args),
+        rpc("admin_llm_usage_user_feature_summary", args),
+        rpc("admin_llm_usage_route_summary", args),
+        rpc("admin_llm_usage_metering_reliability", args),
+        rpc("admin_llm_usage_reliable_daily", args),
+        rpc("admin_llm_usage_reliable_user_feature_summary", args),
+        rpc("admin_llm_usage_reliable_route_summary", args),
+      ]);
+      const firstError = mainRes.error || userRes.error || userFeatureRes.error || routeRes.error ||
+        reliabilityRes.error || reliableDailyRes.error || reliableUserFeatureRes.error || reliableRouteRes.error;
+      if (firstError) {
+        return new Response(JSON.stringify({ success: false, error: firstError.message }), { status: 500, headers: jsonHeaders });
       }
-      const includeDay = action === "daily";
-      const buckets = new Map();
-      const rowsData = data || [];
-      for (let i = 0; i < rowsData.length; i++) {
-        const row = rowsData[i];
-        const day = includeDay ? (row.ts || "").slice(0, 10) : "";
-        const key = day + "|" + (row.feature || "") + "|" + (row.model || "");
-        const b = buckets.get(key) || {
-          day: day || undefined,
-          feature: row.feature,
-          model: row.model || null,
-          calls: 0,
-          prompt_tokens: 0,
-          output_tokens: 0,
-          cached_tokens: 0,
-          thoughts_tokens: 0,
-          total_tokens: 0,
+      function normalizeUsageRows(data) {
+        return (data || []).map(function (row) {
+          return {
+            day: row.day || undefined,
+            feature: row.feature,
+            model: row.model || null,
+            calls: Number(row.calls || 0),
+            prompt_tokens: Number(row.prompt_tokens || 0),
+            output_tokens: Number(row.output_tokens || 0),
+            cached_tokens: Number(row.cached_tokens || 0),
+            thoughts_tokens: Number(row.thoughts_tokens || 0),
+            total_tokens: Number(row.total_tokens || 0),
+          };
+        });
+      }
+      const summary = normalizeUsageRows(mainRes.data);
+      const reliableSummary = normalizeUsageRows(reliableDailyRes.data);
+      function normalizeSummaryRows(data) {
+        return (data || []).map(function (row) {
+          return {
+            ...row,
+            calls: Number(row.calls || 0),
+            prompt_tokens: Number(row.prompt_tokens || 0),
+            output_tokens: Number(row.output_tokens || 0),
+            cached_tokens: Number(row.cached_tokens || 0),
+            thoughts_tokens: Number(row.thoughts_tokens || 0),
+            total_tokens: Number(row.total_tokens || 0),
+          };
+        });
+      }
+      const userSummary = normalizeSummaryRows(userRes.data);
+      const userFeatureSummary = normalizeSummaryRows(userFeatureRes.data);
+      const routeSummary = normalizeSummaryRows(routeRes.data);
+      const reliableUserFeatureSummary = normalizeSummaryRows(reliableUserFeatureRes.data);
+      const reliableRouteSummary = normalizeSummaryRows(reliableRouteRes.data);
+      const meteringReliability = normalizeSummaryRows(reliabilityRes.data).map(function (row) {
+        return {
+          ...row,
+          metering_version: Number(row.metering_version || 1),
         };
-        b.calls += 1;
-        b.prompt_tokens += row.prompt_tokens || 0;
-        b.output_tokens += row.output_tokens || 0;
-        b.cached_tokens += row.cached_tokens || 0;
-        b.thoughts_tokens += row.thoughts_tokens || 0;
-        b.total_tokens += row.total_tokens || 0;
-        buckets.set(key, b);
-      }
-      const summary = Array.from(buckets.values()).sort(function (a, b) {
-        if (includeDay && a.day !== b.day) return a.day < b.day ? 1 : -1;
-        return b.total_tokens - a.total_tokens;
       });
-      return new Response(JSON.stringify({ success: true, days: days, since: since, summary: summary }), { status: 200, headers: jsonHeaders });
+      return new Response(JSON.stringify({
+        success: true,
+        days: days,
+        since: since,
+        until: until,
+        summary: summary,
+        user_summary: userSummary,
+        user_feature_summary: userFeatureSummary,
+        route_summary: routeSummary,
+        metering_reliability: meteringReliability,
+        reliable_summary: reliableSummary,
+        reliable_user_feature_summary: reliableUserFeatureSummary,
+        reliable_route_summary: reliableRouteSummary,
+      }), { status: 200, headers: jsonHeaders });
     }
 
     return new Response(JSON.stringify({ success: false, error: "Invalid action" }), { status: 400, headers: jsonHeaders });
