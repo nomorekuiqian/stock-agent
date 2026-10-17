@@ -1,0 +1,17 @@
+{
+  "mode": "built-in imagegen edit",
+  "edits": [
+    {
+      "key": "a",
+      "prompt": "Edit this UI concept screenshot, preserving the entire layout, emerald/ivory palette, all spatial relationships, main headline and visual identity. Make only these precise corrections: (1) In the bottom status line change '其余 6 只持仓' to '其余 5 只持仓' because three out of eight holdings are involved in the two events. (2) Replace the two specific calendar date/time strings with '示例 · 下一交易周' and '示例 · 下一交易周' so no real schedule is implied. (3) Use clean modern sans-serif Chinese for body paragraphs, status/meta text, navigation, and small labels; preserve expressive serif type ONLY for the wordmark, main headline and article headings. (4) add small legible '设计概念 · 示意数据' at the top right on the A caption row. Keep footer demo label and all other content. Do not add controls or imagery. Output a crisp full landscape screenshot."
+    },
+    {
+      "key": "b",
+      "prompt": "Edit this UI screenshot preserving all layout, colors, typography, text and controls except the following narrow corrections. In the muted third inbox row replace '如有重要变化，我们会及时提醒' with '每个交易日盘后检查更新'. In the right sources section replace the first long source description with '示例公司公告' and the second with '示例财报资料', and replace both specific timestamp strings with '示例日 · 盘后'. Keep both top and footer demo labels. This is a proposed once-daily portfolio brief, not real-time alerts. Do not add any features. Keep crisp Chinese text and full screenshot."
+    },
+    {
+      "key": "c",
+      "prompt": "Edit this UI concept screenshot preserving its layout, typography, colors, content and controls. Make only these precise consistency corrections: change the top status '8 只持仓' to '5 只持仓', matching the table's five holdings whose illustrative weights sum to 100%. In the bottom three calendar items, replace numeric date text '6/10', '6/11', '6/13' with the word '示例', preserving the weekday labels and all visual alignment. Keep the top and footer '示意数据' labels. Do not change anything else. Output crisp complete landscape screenshot."
+    }
+  ]
+}

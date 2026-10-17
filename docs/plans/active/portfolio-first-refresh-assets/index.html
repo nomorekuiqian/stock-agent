@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TheMarketBrew · 持仓优先改版方案</title>
+<style>
+:root{--paper:#f7f5ef;--ink:#222d27;--muted:#636f66;--line:#d9ddd5;--green:#176b52;--soft:#e9eee7}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}button,select{font:inherit}button,a,select{-webkit-tap-highlight-color:transparent}button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #bf8e34;outline-offset:4px}.wrap{max-width:1280px;margin:auto;padding:0 32px}header{border-bottom:1px solid var(--line);padding:20px 0}header .wrap{display:flex;justify-content:space-between;align-items:center;gap:16px}.brand{font:27px Georgia,serif;color:var(--green)}.date,.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--muted)}.hero{padding:56px 0 30px;max-width:830px}.eyebrow{color:var(--green);font-weight:600}h1{font:clamp(32px,4.5vw,54px)/1.25 "Songti SC","STSong",Georgia,serif;margin:15px 0 18px;letter-spacing:-.02em}.lead{font-size:18px;color:#516055;max-width:730px}.recommendation{border-left:3px solid var(--green);padding:7px 18px;margin:26px 0 0}.chooser{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}.concept-btn{cursor:pointer;background:transparent;text-align:left;padding:18px 20px;border:1px solid var(--line);border-radius:8px;min-height:110px;color:var(--ink)}.concept-btn[aria-pressed=true]{background:var(--green);color:white;border-color:var(--green)}.letter{font-family:Georgia,serif;font-size:24px;margin-right:10px}.concept-btn strong{font-size:19px}.concept-btn small{display:block;margin-top:6px;opacity:.83;font-size:14px}.preview-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:0 0 10px}.preview-head a{color:var(--green);min-height:44px;display:inline-flex;align-items:center}.demo{font-size:13px;color:var(--muted)}figure{margin:0;border:1px solid var(--line);background:white;border-radius:8px;overflow:hidden}figure img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:contain;background:#fff}.detail{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:28px;padding:26px 0 34px;border-bottom:1px solid var(--line)}.detail h2{font-size:20px;margin:0 0 8px}.detail h3{font-size:14px;color:var(--muted);margin:0 0 8px}.detail p{margin:0}.swatches{display:flex;gap:7px;margin-top:15px}.swatch{width:26px;height:26px;border:1px solid #0002;border-radius:50%}section{padding:36px 0}.section-title{font:30px/1.3 "Songti SC",Georgia,serif;margin:0 0 12px}.section-intro{color:var(--muted);margin:0 0 24px;max-width:790px}.options{display:grid;grid-template-columns:repeat(2,1fr);column-gap:36px}.option{padding:20px 0;border-top:1px solid var(--line)}.option label{display:block;font-size:17px;font-weight:600;margin-bottom:10px}.option select{border:1px solid #bfc8bd;border-radius:5px;background:#fff;color:var(--ink);padding:10px 38px 10px 12px;width:100%;min-height:48px}.option p{color:var(--muted);font-size:14px;margin:12px 0 0;min-height:46px}.selection{background:var(--soft);border:1px solid #cbd6c7;border-radius:8px;padding:22px;margin-top:20px}.selection strong{color:var(--green)}.selection p{margin:8px 0}.selection small{color:var(--muted)}.cuts{display:grid;grid-template-columns:repeat(3,1fr);gap:30px}.cuts h3{font-size:18px;margin:0 0 10px}.cuts p{color:var(--muted);margin:0}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding:24px 0}.flow>div{border-top:2px solid var(--green);padding-top:12px}.flow b{display:block;margin-bottom:8px}.flow p{font-size:14px;color:var(--muted);margin:0}footer{border-top:1px solid var(--line);padding:25px 0 40px;color:var(--muted);font-size:13px}.footlinks{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px}.footlinks a{color:var(--green);min-height:44px;display:flex;align-items:center}@media(max-width:760px){.wrap{padding:0 20px}.hero{padding-top:36px}.chooser{gap:8px}.concept-btn{padding:12px;min-height:128px}.concept-btn strong{font-size:16px}.concept-btn small{font-size:12px}.letter{display:block;font-size:23px}.detail{grid-template-columns:1fr;gap:20px}.options,.cuts{grid-template-columns:1fr}.cuts{gap:24px}.flow{grid-template-columns:repeat(2,1fr)}header .date{font-size:10px}.preview-head{display:block}.preview-head a{font-size:14px}.option p{min-height:0}.section-title{font-size:26px}.brand{font-size:22px}}@media(prefers-reduced-motion:no-preference){button{transition:background .15s ease}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="brand">TheMarketBrew</div><div class="date">DESIGN PROPOSAL · 2026.09.04</div></div></header>
+<main class="wrap">
+<div class="hero"><div class="eyebrow">HOLDINGS FIRST / 持仓优先</div><h1>让服务变轻，<br>让重要的信息更清楚。</h1><p class="lead">用户添加持仓，Agent 筛选与他有关的新变化。把每天的信息处理收敛成一份短简报，读完即可继续生活。</p><p class="recommendation"><strong>推荐起点：</strong>A 持仓简报 + 持仓影响排序 + 每日一次检查。<br>三个界面是替代方案，先选择一个方向。</p></div>
+<div class="chooser" aria-label="选择要查看的设计方向">
+<button class="concept-btn" type="button" data-concept="a" aria-pressed="true"><span class="letter">A</span><strong>持仓简报</strong><small>安静阅读 · 推荐 · 维护最轻</small></button>
+<button class="concept-btn" type="button" data-concept="b" aria-pressed="false"><span class="letter">B</span><strong>信息收件箱</strong><small>逐条处理 · 反馈更直接</small></button>
+<button class="concept-btn" type="button" data-concept="c" aria-pressed="false"><span class="letter">C</span><strong>持仓观察台</strong><small>逐股检查 · 专业信息密度</small></button>
+</div>
+<div class="preview-head"><span class="demo">高保真设计概念 · 股票、事件和日期均为示意 · 不是已上线页面</span><a id="full-image" href="concept-a-v2.png" target="_blank" rel="noopener">查看完整大图 ↗</a></div>
+<figure><img id="concept-image" src="concept-a-v2.png" width="1536" height="1024" alt="方案 A：暖白底、绿色强调的持仓简报，主阅读栏配右侧持仓和日程旁注。"></figure>
+<div class="detail" aria-live="polite">
+<div><h2 id="direction-title">A · 一封值得读完的持仓简报</h2><p id="direction-text"></p><div id="swatches" class="swatches" aria-hidden="true"></div></div>
+<div><h3>具体怎么改</h3><p id="direction-layout"></p></div>
+<div><h3>需要接受的取舍</h3><p id="direction-tradeoff"></p></div>
+</div>
+<section>
+<h2 class="section-title">其他模块，也有不同做法。</h2><p class="section-intro">切换下面的方向，看看能力和维护负担如何变化。默认选项是建议组合，选择仅用于比较。</p>
+<div class="options">
+<div class="option"><label for="holdings">01 / 用户怎样添加持仓</label><select id="holdings"><option value="light">轻录入：代码 + 可选权重/理由（推荐）</option><option value="import">导入优先：已有截图识别 + 逐行确认</option><option value="broker">券商同步：自动更新持仓</option></select><p id="holdings-note"></p></div>
+<div class="option"><label for="filter">02 / Agent 根据什么筛选</label><select id="filter"><option value="impact">按持仓影响排序（推荐）</option><option value="ticker">只筛标的相关新闻</option><option value="thesis">追踪持有理由是否发生变化</option></select><p id="filter-note"></p></div>
+<div class="option"><label for="delivery">03 / 什么时候交付</label><select id="delivery"><option value="daily">每日一次检查（推荐）</option><option value="events">仅有重要事件时通知</option><option value="intraday">盘中及时提醒</option></select><p id="delivery-note"></p></div>
+<div class="option"><label for="agent">04 / 模型与生成方式</label><select id="agent"><option value="shared">共享事实 + 个性化筛选（推荐目标）</option><option value="minimal">先升级模型与 prompt，建立基线</option><option value="multiple">跨模型对照与困难问题复核</option></select><p id="agent-note"></p></div>
+<div class="option"><label for="pricing">05 / 怎样收费</label><select id="pricing"><option value="single">免费样例/试用 + 单一套餐（推荐）</option><option value="two">基础简报 + 深度追问两档</option><option value="legacy">保留多档与博主/社群包</option></select><p id="pricing-note"></p></div>
+</div>
+<div class="selection" aria-live="polite"><strong>当前比较组合</strong><p id="combination"></p><small id="burden"></small></div>
+</section>
+<section style="border-top:1px solid var(--line)">
+<h2 class="section-title">减法要同时发生在页面与后台。</h2>
+<div class="cuts"><div><h3>保留并贯通</h3><p>持仓、短简报、事件来源、历史、邮件、反馈。登录后的主导航只有今日简报、我的持仓、历史。</p></div><div><h3>合并或降级</h3><p>关注与持仓统一管理；宏观、KOL、个股研究按持仓相关性进入内容，独立入口列为退出候选。</p></div><div><h3>先核实依赖</h3><p>按使用与已售权益确定停用顺序。保留账户、账单、退订、历史和失败记录；只删导航不会节省生成成本。</p></div></div>
+</section>
+<section style="border-top:1px solid var(--line)">
+<h2 class="section-title">升级的重点，是会筛选，也会保持安静。</h2>
+<div class="flow"><div><b>01 可信事实</b><p>同一事件处理一次，合并转载；保留来源、时间与实质更新。</p></div><div><b>02 关联持仓</b><p>说明为什么与你有关；没有提供权重或理由，就承认未知。</p></div><div><b>03 简短交付</b><p>默认展示 1–3 条重点；无重大新增可为空，关键事件不因条数上限漏掉。</p></div><div><b>04 检查结果</b><p>无重要新增、覆盖不全、处理失败分开；用漏报、误报、复用与成本验证。</p></div></div>
+<p class="section-intro">代码核对：专属日报仍使用 gemini-3-flash-preview；研究助手和通用日报已使用 gemini-3.5-flash。先升级核心链路的模型、prompt、语义缓存与质量验证。</p>
+</section>
+</main>
+<footer><div class="wrap"><div class="footlinks"><a href="concept-a-v2.png" target="_blank" rel="noopener" id="link-a">A 大图</a><a href="concept-b-v2.png" target="_blank" rel="noopener" id="link-b">B 大图</a><a href="concept-c-v2.png" target="_blank" rel="noopener" id="link-c">C 大图</a><a href="image-prompts.json" target="_blank" rel="noopener">生成提示词</a><a href="taste-profile.json" target="_blank" rel="noopener">Taste 规则</a></div>根据公开首页和本地代码形成的讨论稿。当前未核实生产使用率和成本；概念图不代表实际市场信息，具体功能以完整方案为准。</div></footer>
+<script>
+const concepts={
+a:{name:'持仓简报',title:'A · 一封值得读完的持仓简报',text:'暖白、墨色与深绿，细分隔线组织内容。把“今天有什么与你有关”放在首屏。',layout:'桌面：短简报 + 持仓旁注。手机：单列阅读，来源展开。一次结果同时用于网站和邮件。',tradeoff:'最符合轻运营。按股票逐只深挖的效率不如观察台，优先服务每天读几分钟的用户。',colors:['#f7f5ef','#242821','#176b52','#dddcd4'],alt:'方案 A：暖白底、绿色强调的持仓简报，主阅读栏配右侧持仓和日程旁注。'},
+b:{name:'信息收件箱',title:'B · 把重要信息逐条看清',text:'明亮白底、明确选中态。事件列表与阅读区并排，方便标记已读、追问和反馈。',layout:'桌面：导航 / 列表 / 详情三栏。手机：列表进入详情。反馈围绕单条事件，便于改进筛选。',tradeoff:'需要维护已读、筛选和详情恢复。适合持仓较多的人，也要避免制造清空未读的压力。',colors:['#fafbfa','#18231e','#147d5a','#e5e9e6'],alt:'方案 B：白色三栏重要信息收件箱，中间事件列表、右侧来源与持仓关联解释。'},
+c:{name:'持仓观察台',title:'C · 从每只持仓出发观察变化',text:'暖黑与灰绿色，紧凑的持仓表旁边显示选中股票的事件和证据。',layout:'桌面：持仓表 / 证据详情，底部小日程。手机：持仓列表进入详情。保留批次检查时间。',tradeoff:'专业用户更熟悉，但容易引出实时盯盘和更多图表需求。三种方向中最容易增加维护负担。',colors:['#121611','#1b211c','#eef2e9','#7ac5a6'],alt:'方案 C：深色持仓观察台，左侧股票变化表，右侧证据解释，底部相关日程。'}
+};
+const choices={
+holdings:{light:['轻录入','先输入股票代码；明确持有/关注。权重和理由选填，但需调整现有 ghost 行与权限逻辑。',0],import:['截图导入','复用已有识别与确认流程；处理识别失败和同名持仓接管。其他格式当前未全部开启。',1],broker:['券商同步','用户操作少，但连接失效、覆盖范围、费用和客服负担高。建议后续另立项。',3]},
+filter:{impact:['持仓影响排序','综合重要性、关联、新增程度和已知偏好。先做可靠筛选，再逐步加入持有理由。',1],ticker:['标的新闻','最快上线，适合作为基线；个性化较弱，容易变成普通新闻摘要。',0],thesis:['理由变化追踪','更有差异化，但依赖真实理由和持续证据。不能每天硬判“逻辑未破”。',2]},
+delivery:{daily:['每日检查','每个美股交易日盘后处理；网站有检查记录，邮件频率可选。时效最容易验证。',0],events:['重要事件通知','降低邮件噪音；仍需让用户看到服务正在工作，明确这是批次检查后通知。',1],intraday:['盘中提醒','需要更快数据、更强去重与告警保障，和长期轻运营的目标存在张力。',3]},
+agent:{shared:['共享事实与筛选','公共事件缓存一次，用户层做关联和重点解释。仍可用一个模型，不必维护多 Agent。',1],minimal:['模型与 prompt 基线','先将专属日报迁到项目标准 gemini-3.5-flash，取消固定篇幅，校验来源与缺失状态。',0],multiple:['跨模型复核','用固定样例盲评，只在效果收益清楚时增加供应商或困难问题复核。',3]},
+pricing:{single:['单一套餐','免费样例或短试用后，一个付费产品。存量账单与已售权益另行安排。',0],two:['基础与深度两档','已有明显用户分层后再做；增加权益、配额和客服解释成本。',1],legacy:['多档与合作包','保留已有商业关系，但不要继续扩大主站功能树；合作入口可隔离维护。',2]}
+};
+let current='a';
+function refreshCombination(){let total=0;const labels=[concepts[current].name];Object.entries(choices).forEach(([id,values])=>{const data=values[document.getElementById(id).value];labels.push(data[0]);total+=data[2];document.getElementById(id+'-note').textContent=data[1]});document.getElementById('combination').textContent=labels.join(' · ');document.getElementById('burden').textContent=total>=7?'这个组合明显增加维护面。建议减少同步、实时性、多供应商或多档权限中的至少一项。':'这个组合适合分步验证。先看真实用户是否持续觉得相关，再决定要不要增加能力。'}
+function selectConcept(key){current=key;const c=concepts[key];document.querySelectorAll('[data-concept]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.concept===key)));document.getElementById('concept-image').src='concept-'+key+'-v2.png';document.getElementById('concept-image').alt=c.alt;document.getElementById('full-image').href='concept-'+key+'-v2.png';document.getElementById('direction-title').textContent=c.title;document.getElementById('direction-text').textContent=c.text;document.getElementById('direction-layout').textContent=c.layout;document.getElementById('direction-tradeoff').textContent=c.tradeoff;const swatches=document.getElementById('swatches');swatches.replaceChildren(...c.colors.map(color=>{const s=document.createElement('span');s.className='swatch';s.style.background=color;return s}));refreshCombination()}
+document.querySelectorAll('[data-concept]').forEach(b=>b.addEventListener('click',()=>selectConcept(b.dataset.concept)));document.querySelectorAll('select').forEach(s=>s.addEventListener('change',refreshCombination));selectConcept('a');
+</script>
+</body></html>
+

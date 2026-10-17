@@ -1,0 +1,127 @@
+{
+  "profile_version": "1.0",
+  "source": {
+    "label": "TheMarketBrew public homepage, visually inspected 2026-09-04 PDT",
+    "kind": "design",
+    "name": "Owned current homepage",
+    "uri": "https://www.themarketbrew.com/",
+    "ownership": "owned"
+  },
+  "jobs": [
+    "color",
+    "typography",
+    "restraint",
+    "hierarchy",
+    "spacing"
+  ],
+  "context": {
+    "scope": "Proposal only; no production implementation",
+    "reference_boundary": "One owned homepage screenshot and local brand specification; proposed alternatives are not confirmed user preferences",
+    "product_override": "Holdings first, selective information, sustainable light operation"
+  },
+  "tags": [
+    "holdings",
+    "Chinese UI",
+    "editorial",
+    "emerald",
+    "quiet-service"
+  ],
+  "observations": [
+    {
+      "dimension": "lighting",
+      "evidence": "Soft green haze sits behind the upper left region; warm haze sits lower right.",
+      "interpretation": "These are decorative atmosphere, not content hierarchy; omit them in the working view.",
+      "confidence": 0.9
+    },
+    {
+      "dimension": "palette",
+      "evidence": "Warm near black covers most pixels; green marks the title, active navigation and primary button.",
+      "interpretation": "Keep green as a scarce functional brand accent.",
+      "confidence": 0.95
+    },
+    {
+      "dimension": "material",
+      "evidence": "The main controls are flat rectangles; the background alone carries blurred color.",
+      "interpretation": "Favor flat surfaces and thin rules over layered visual effects.",
+      "confidence": 0.87
+    },
+    {
+      "dimension": "spatial_geometry",
+      "evidence": "A centered large headline and button occupy the viewport while the product result is absent.",
+      "interpretation": "Transfer focal discipline but move the daily result into the first viewport.",
+      "confidence": 0.93
+    },
+    {
+      "dimension": "mood_tension",
+      "evidence": "Expressive Chinese headline is paired with small neutral navigation and ample empty margins.",
+      "interpretation": "Keep expressive type in the brand moment, use readable sans serif for the actual brief.",
+      "confidence": 0.88
+    }
+  ],
+  "signature": {
+    "focal_dominance": 85,
+    "negative_space_generosity": 85,
+    "alignment_formality": 80,
+    "palette_breadth": 20,
+    "accent_scarcity": 85,
+    "information_density": 25,
+    "lighting_drama": null
+  },
+  "rules": [
+    {
+      "job": "color",
+      "rule": "Use one emerald accent for brand and selection; separate event priority with text and sparse amber.",
+      "evidence": "Green currently marks title and primary button; task requires distinguishing important information.",
+      "strength": "high",
+      "transferable": true
+    },
+    {
+      "job": "hierarchy",
+      "rule": "Make the most important portfolio change the focal event of the signed in first viewport.",
+      "evidence": "Current homepage fills the first viewport with a promise rather than a result.",
+      "strength": "high",
+      "transferable": true
+    },
+    {
+      "job": "typography",
+      "rule": "Reserve editorial type for one heading and set Chinese reading text at sixteen to eighteen pixels.",
+      "evidence": "The current expressive headline coexists with neutral navigation; existing design specification uses sans serif prose.",
+      "strength": "high",
+      "transferable": true
+    },
+    {
+      "job": "restraint",
+      "rule": "Use flat planes and thin separators; support quiet and incomplete coverage states explicitly.",
+      "evidence": "Current interface already uses flat controls; the user asks for fewer features and light operation.",
+      "strength": "high",
+      "transferable": true
+    },
+    {
+      "job": "spacing",
+      "rule": "Default to a single reading column on phones and limit the desktop brief to a narrow readable measure.",
+      "evidence": "Large empty homepage regions show room to prioritize a compact readable service output.",
+      "strength": "medium",
+      "transferable": true
+    }
+  ],
+  "anti_rules": [
+    "Do not inherit the all-in-one feature inventory.",
+    "Do not imply real-time monitoring from a daily batch UI.",
+    "Do not add ornamental charts, glow, glass, particles or AI mascots.",
+    "Do not treat absent source coverage as an all-clear.",
+    "Do not present generated sample events as market facts.",
+    "Do not infer permanent user taste from these unselected variants."
+  ],
+  "similarity_guard": {
+    "copy_risk": "low",
+    "protected_elements": [
+      "Retain only the user's own TheMarketBrew wordmark and brand association."
+    ],
+    "must_transform": [
+      "Centered marketing hero must become result-first working layout.",
+      "The three concepts use original layouts rather than replicating external trade dress."
+    ]
+  },
+  "confidence": 0.87
+}
+
