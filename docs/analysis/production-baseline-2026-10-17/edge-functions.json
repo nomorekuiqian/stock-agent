@@ -1,0 +1,224 @@
+[
+  {
+    "slug": "access-requests",
+    "status": "active",
+    "createdAt": "2026-03-23T04:11:25.271Z",
+    "updatedAt": "2026-04-15T02:15:56.502Z"
+  },
+  {
+    "slug": "admin-activity",
+    "status": "active",
+    "createdAt": "2026-05-21T04:02:20.791Z",
+    "updatedAt": "2026-06-23T06:06:50.757Z"
+  },
+  {
+    "slug": "agent-sessions",
+    "status": "active",
+    "createdAt": "2026-06-02T04:17:20.505Z",
+    "updatedAt": "2026-06-17T05:42:31.914Z"
+  },
+  {
+    "slug": "community-access",
+    "status": "active",
+    "createdAt": "2026-06-18T22:58:32.189Z",
+    "updatedAt": "2026-06-18T22:58:32.192Z"
+  },
+  {
+    "slug": "crm",
+    "status": "active",
+    "createdAt": "2026-04-14T20:26:33.141Z",
+    "updatedAt": "2026-04-14T20:26:33.145Z"
+  },
+  {
+    "slug": "cron-trigger",
+    "status": "active",
+    "createdAt": "2026-06-05T23:45:30.143Z",
+    "updatedAt": "2026-09-05T03:23:12.491Z"
+  },
+  {
+    "slug": "earnings-analyses",
+    "status": "active",
+    "createdAt": "2026-01-29T05:25:42.322Z",
+    "updatedAt": "2026-01-29T05:25:42.324Z"
+  },
+  {
+    "slug": "email-broadcast-runs",
+    "status": "active",
+    "createdAt": "2026-06-12T22:24:10.150Z",
+    "updatedAt": "2026-06-12T22:24:10.154Z"
+  },
+  {
+    "slug": "email-events",
+    "status": "active",
+    "createdAt": "2026-06-07T06:50:18.079Z",
+    "updatedAt": "2026-06-23T06:16:59.974Z"
+  },
+  {
+    "slug": "email-feedback",
+    "status": "active",
+    "createdAt": "2026-01-08T00:17:50.735Z",
+    "updatedAt": "2026-03-22T00:08:50.780Z"
+  },
+  {
+    "slug": "feature-flags",
+    "status": "active",
+    "createdAt": "2026-04-24T04:03:16.565Z",
+    "updatedAt": "2026-05-17T00:22:51.602Z"
+  },
+  {
+    "slug": "frank-lens-beta",
+    "status": "active",
+    "createdAt": "2026-06-07T22:07:28.391Z",
+    "updatedAt": "2026-06-08T23:17:50.535Z"
+  },
+  {
+    "slug": "kol-methodology-conversations",
+    "status": "active",
+    "createdAt": "2026-05-14T04:04:47.209Z",
+    "updatedAt": "2026-05-14T04:04:47.213Z"
+  },
+  {
+    "slug": "kol-tweets",
+    "status": "active",
+    "createdAt": "2026-04-23T06:12:53.286Z",
+    "updatedAt": "2026-06-17T23:51:48.591Z"
+  },
+  {
+    "slug": "llm-usage",
+    "status": "active",
+    "createdAt": "2026-05-20T00:43:02.346Z",
+    "updatedAt": "2026-06-11T18:23:22.326Z"
+  },
+  {
+    "slug": "macro-data-cache",
+    "status": "active",
+    "createdAt": "2026-02-09T01:18:19.445Z",
+    "updatedAt": "2026-02-09T01:18:19.447Z"
+  },
+  {
+    "slug": "market-reports",
+    "status": "active",
+    "createdAt": "2025-12-29T00:08:22.837Z",
+    "updatedAt": "2026-02-09T00:22:59.084Z"
+  },
+  {
+    "slug": "memory",
+    "status": "active",
+    "createdAt": "2026-04-24T05:07:47.282Z",
+    "updatedAt": "2026-06-14T20:49:24.940Z"
+  },
+  {
+    "slug": "morning-reports",
+    "status": "active",
+    "createdAt": "2026-02-28T20:28:13.671Z",
+    "updatedAt": "2026-02-28T20:28:13.674Z"
+  },
+  {
+    "slug": "picker-conversations",
+    "status": "active",
+    "createdAt": "2026-03-06T00:10:22.861Z",
+    "updatedAt": "2026-09-05T03:23:19.391Z"
+  },
+  {
+    "slug": "portfolio",
+    "status": "active",
+    "createdAt": "2026-04-23T00:47:38.099Z",
+    "updatedAt": "2026-05-23T06:57:01.247Z"
+  },
+  {
+    "slug": "portfolio-health",
+    "status": "active",
+    "createdAt": "2026-04-24T04:58:53.704Z",
+    "updatedAt": "2026-04-25T05:10:02.019Z"
+  },
+  {
+    "slug": "research-quota",
+    "status": "active",
+    "createdAt": "2026-04-19T21:50:05.497Z",
+    "updatedAt": "2026-05-23T07:32:48.383Z"
+  },
+  {
+    "slug": "screener-universe-cache",
+    "status": "active",
+    "createdAt": "2026-02-28T20:55:29.421Z",
+    "updatedAt": "2026-02-28T20:55:29.423Z"
+  },
+  {
+    "slug": "stock-analyses",
+    "status": "active",
+    "createdAt": "2026-01-22T06:34:53.133Z",
+    "updatedAt": "2026-04-18T04:14:00.782Z"
+  },
+  {
+    "slug": "stock-data",
+    "status": "active",
+    "createdAt": "2026-01-25T04:07:38.586Z",
+    "updatedAt": "2026-01-25T04:07:38.589Z"
+  },
+  {
+    "slug": "subscriptions",
+    "status": "active",
+    "createdAt": "2026-02-15T05:33:07.120Z",
+    "updatedAt": "2026-08-01T00:05:49.867Z"
+  },
+  {
+    "slug": "symbol-cache",
+    "status": "active",
+    "createdAt": "2026-05-23T07:03:04.014Z",
+    "updatedAt": "2026-05-23T07:04:41.113Z"
+  },
+  {
+    "slug": "user-activities",
+    "status": "active",
+    "createdAt": "2026-04-14T20:30:35.679Z",
+    "updatedAt": "2026-04-14T20:30:35.680Z"
+  },
+  {
+    "slug": "user-digests",
+    "status": "active",
+    "createdAt": "2025-12-28T23:56:30.328Z",
+    "updatedAt": "2025-12-29T00:47:33.568Z"
+  },
+  {
+    "slug": "user-feedback",
+    "status": "active",
+    "createdAt": "2026-01-26T04:48:25.714Z",
+    "updatedAt": "2026-04-15T02:15:47.171Z"
+  },
+  {
+    "slug": "user-holdings",
+    "status": "active",
+    "createdAt": "2026-05-05T05:39:24.134Z",
+    "updatedAt": "2026-05-05T05:39:24.138Z"
+  },
+  {
+    "slug": "user-watchlists",
+    "status": "active",
+    "createdAt": "2026-03-06T20:23:59.157Z",
+    "updatedAt": "2026-03-06T20:23:59.160Z"
+  },
+  {
+    "slug": "vector-store",
+    "status": "active",
+    "createdAt": "2026-05-16T23:21:15.467Z",
+    "updatedAt": "2026-05-16T23:21:15.475Z"
+  },
+  {
+    "slug": "watchlist-monitor",
+    "status": "active",
+    "createdAt": "2026-06-15T20:51:49.883Z",
+    "updatedAt": "2026-06-17T21:43:35.866Z"
+  },
+  {
+    "slug": "weekly-macro-reports",
+    "status": "active",
+    "createdAt": "2026-02-08T04:35:16.626Z",
+    "updatedAt": "2026-02-15T05:58:55.835Z"
+  },
+  {
+    "slug": "zsxq-ingest-store",
+    "status": "active",
+    "createdAt": "2026-06-23T04:42:16.745Z",
+    "updatedAt": "2026-06-24T18:51:40.913Z"
+  }
+]

@@ -93,8 +93,9 @@ KOL 抓取 + enrichment（已有：twitter_digest / kol_research）
    - 2026-10-17 完成：后端 commit `e69b155`（71 个文件，489/489 哈希一致）；前端 commit `50651cb`（31 个文件，416/416 哈希一致；仓库独有的 `e2e/`、`.claude/` 保留）。尚未推送。
 3. [x] 用 Insforge CLI 拉取所有线上 Edge Functions 的源码，覆盖 `backend/app/edge_functions/`。特别核对 `llm-usage.js`、`cron-trigger.js`、`picker-conversations.js`。
    - 2026-10-17 完成：37 个线上函数全部写入 `backend/app/edge_functions/<slug>.js` 并逐字节核对；旧目录 `backend/edge_functions/` 已合并删除。发现的问题：`vector-store` 的 `search_text` 从未部署（后端有 REST 回退）；`mcp-auth`、`wechat-users` 只在仓库里。详见该目录的 `.context.md`。
-4. [ ] 导出线上 schedules 列表（应为 17 项：13 项启用、4 项暂停）和数据库 schema，作为基线证据存入 `docs/analysis/`。
-5. [ ] 用文件哈希和 `release-manifest.json` / `production-hashes.txt` 对照，确认重建的代码等于线上。
+4. [x] 导出线上 schedules 列表（应为 17 项：13 项启用、4 项暂停）和数据库 schema，作为基线证据存入 `docs/analysis/`。
+   - 2026-10-17 完成：`docs/analysis/production-baseline-2026-10-17/`（17 个 schedules：13 个启用、4 个停用；48 张表、38 个函数；只有结构）。
+5. [x] 用文件哈希和 `release-manifest.json` / `production-hashes.txt` 对照，确认重建的代码等于线上。
 6. [ ] 对比 `wip/2026-09-local` 与基线，逐个文件分成三类：
    - 已在线上：丢弃
    - 本地独有且有价值：单独提交
