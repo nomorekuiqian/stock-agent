@@ -435,6 +435,16 @@ Critical lessons from production incidents. **Read these before making changes t
 - **Use `logger.exception` not `logger.error`**: Only `exception` captures full traceback.
 - **Production domain**: Brand domain is `themarketbrew.com` (frontend Vercel). Backend Railway: `stock-agent-production.up.railway.app`. No other domains should appear in code.
 
+## Cursor Cloud specific instructions
+
+- Backend virtualenv path is `backend/venv`, created with `python3 -m venv`. Husky pre-commit runs `source venv/bin/activate` from `backend/`. `docs/contributing.md` also mentions `uv` and `.venv`; that path does not satisfy the hook.
+- `python3 -m venv` needs the apt package `python3.12-venv`. Node.js 22 and Python 3.12 are already on the default image.
+- Seed `backend/.env` and `frontend/.env.local` from the example files, and drop blank `KEY=` lines. `load_dotenv()` stores those keys as empty strings. WeChat unit tests call `os.environ.setdefault("WECHAT_JWT_SECRET", ...)`, which does not replace an existing empty value. Keep non-empty defaults from the examples, including the public Insforge URL and anon key.
+- Leave `ENVIRONMENT=development`. Non-production email broadcasts are forced to the Resend test segment.
+- Dev servers, from the repo root: `backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000` with cwd `backend/`, and `npm run dev -- --hostname 0.0.0.0 --port 3000` in `frontend/`.
+- `GET /health` returns ok without extra API keys. `GET /ready` stays `degraded` until `GOOGLE_API_KEY` and `FMP_API_KEY` are set. Cached report reads such as `GET /api/market/reports/latest` work with the public Insforge values.
+- Checks that match CI: in `frontend/`, `npm test`, `npm run lint`, and `npx tsc --noEmit`. In `backend/`, the unit-test command in `.github/workflows/ci.yml`.
+
 ### Insforge Auth API Reference
 
 - Login: `POST /api/auth/sessions` -> `{ accessToken, user, csrfToken }`
