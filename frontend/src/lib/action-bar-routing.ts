@@ -8,7 +8,7 @@
  *   digest:<uuid>       → push /for-you/<uuid>
  *   section:<id>        → anchor #section-<id>
  *   portfolio           → push /for-you/portfolio
- *   health              → push /for-you/health
+ *   health              → push /for-you (portfolio health was removed)
  *   watchlist           → push /for-you/watchlist
  */
 
@@ -36,7 +36,7 @@ export function resolveChipUrl(target: string): ChipRoute | null {
     case 'portfolio':
       return { kind: 'push', href: '/for-you/portfolio' };
     case 'health':
-      return { kind: 'push', href: '/for-you/health' };
+      return { kind: 'push', href: '/for-you' };
     case 'watchlist':
       return { kind: 'push', href: '/for-you/watchlist' };
     default:

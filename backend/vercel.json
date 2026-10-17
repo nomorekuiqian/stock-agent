@@ -1,7 +1,0 @@
-{
-  "experimentalServices": {
-    "web": {
-      "routePrefix": "/"
-    }
-  }
-}

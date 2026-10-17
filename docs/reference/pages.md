@@ -28,16 +28,13 @@
 | `/kol/[username]/stocks` | KOL 个股观点 | Backend (kolResearch tickers) | 否 |
 | `/kol/serenity` | Serenity persona 入口 | redirect(`/kol/aleabitoreddit`) | 否 |
 | `/kol/serenity/[...path]` | Serenity persona 子路径别名 | redirect(`/kol/aleabitoreddit/[...path]`) | 否 |
-| `/panda` | Panda 私域社群 Agent | Backend (`/api/community/panda/*`) + Panda KOL Agent | 是 + Panda email grant |
 | `/stock` | 个股研究 | Backend (searchStocks, getStockQuotes) | 否 |
 | `/stock/[symbol]` | 个股详情 | Backend (stock API 多端点) | 否 |
 | `/for-you` | 个性化摘要 | Insforge (watchlist/digests) + Backend (generateDigest) | 是 |
-| `/for-you/monitor` | AI 关注列表监控台（软退休，保留直达页） | Backend (watchlist-monitor API) | 是 + `for_you_website` |
 | `/for-you/[id]` | 摘要详情 | Insforge (getUserDigestById) | 是 |
 | `/for-you/archive` | 摘要存档 | Backend (digests API) | 是 |
 | `/for-you/watchlist` | 自选股管理 | Backend (watchlist API) + StockQuotes | 是 |
 | `/for-you/portfolio` | 投资组合管理 | Backend (portfolio API) | 是 |
-| `/for-you/health` | 持仓健康度 | Backend (portfolio_health API) | 是 |
 | `/for-you/onboarding` | For-You 引导 | Backend (portfolio API) | 是 |
 | `/macro` | 宏观仪表盘 | Backend (macro-risk + weekly-report API) | 否 |
 | `/macro/liquidity` | 流动性 | Backend (liquidity API) | 否 |
@@ -66,7 +63,6 @@
 | `/admin/activity` | 活跃趋势后台 | Backend (admin/activity API) | 是 (admin) |
 | `/admin/users/[id]` | 用户管理详情 | Backend (admin API) | 是 (admin) |
 | `/admin/flags` | Feature Flag 管理 | Backend (admin/flags API) | 是 (admin) |
-| `/admin/panda` | Panda Agent 授权管理 | Backend (admin/community/panda/grants API) | 是 (admin) |
 | `/admin/llm-usage` | LLM 用量与费用面板 | Backend (admin/llm-usage API) | 是 (admin) |
 | `/admin/feedback` | 用户反馈 dashboard | Backend (admin/feedback API) | 是 (admin) |
 | `/webview-check` | WebView 检测 | 无 API 调用 | 否 |
@@ -169,16 +165,6 @@
 - 调用 `api.generateDigest()` 生成摘要
 - Watchlist 保存到 Insforge (user_watchlists 表)
 - 摘要保存到 Insforge (personal_digests 表)
-
-### `/for-you/monitor` AI 关注列表监控台
-- 2026-08-10 起软退休：页面和 API 代码保留，但普通导航、专属日报内联 CTA、邮件 CTA 与自动生成 schedule 均已停用
-- Client Component，需要登录和 `for_you_website` entitlement，未登录重定向到 `/login?redirect=/for-you/monitor`，未开通时显示 Pro paywall
-- 调用 `api.getWatchlistMonitor()` -> `GET /api/watchlist-monitor`
-- 只读取 cached `ticker_daily_briefs`，页面读取不触发 LLM
-- 页面结构：顶部全局 summary、左侧 watchlist 选择器、右侧单 ticker 信号面板
-- 右侧面板：ticker summary + `useTechnicalData(symbol, "daily")` 价格图，下方用 3 个 Tab 归类详情：`新闻事件`（新闻总结、英文新闻来源、未来事件、财报）、`技术面`（现状总结、完整 K 线/RSI/MACD 图表、技术判断）、`市场讨论`（Twitter/KOL 中文摘要、主题讨论、原文 evidence）
-- 技术面板读取 `technical_monitor` 展示简短现状总结、关键价位和突破/跌破/假跌破/放量/均线/RSI/MACD/Bollinger 等 deterministic 硬信号；完整图表复用个股页 `TechnicalChart`，在 Tab 激活时通过 `useTechnicalData(symbol, "daily")` 读取 `/stocks/{symbol}/technical-data`
-- 面板提供 `/stock/{symbol}` 深挖入口
 
 ### `/macro` 宏观仪表盘
 - 公开浏览，所有 macro 数据端点公开

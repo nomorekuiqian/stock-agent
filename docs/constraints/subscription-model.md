@@ -54,7 +54,7 @@ TheMarketBrew freemium 模式的订阅 contract. Source of truth, 与代码实�
 - `weekly_report_email`
 - `personal_digest_email`
 - `watchlist_extended` (保留, 但 Free 也 25 后不再有差异; 未来可能 repurpose)
-- `today_website` / `for_you_website`（含 `/for-you` 和 `/for-you/monitor`） / `morning_website`
+- `today_website` / `for_you_website`（`/for-you`） / `morning_website`
 - `twitter_digest`
 
 **MAX_ONLY_FEATURES** (Pro 之外):

@@ -664,24 +664,7 @@ class PersonalDigest:
                 except Exception as e:
                     logger.warning("Could not load profile for user %s: %s", user_id, e)
 
-            # Fetch latest health check timestamp for action_context
             health_generated_at = None
-            if user_id and not is_paused("portfolio_health"):
-                try:
-                    from app.features.portfolio_health.service import (
-                        get_latest as get_latest_health,
-                    )
-
-                    h = await get_latest_health(user_id)
-                    if h and getattr(h, "generated_at", None):
-                        gen = h.generated_at
-                        health_generated_at = (
-                            gen.isoformat() if hasattr(gen, "isoformat") else str(gen)
-                        )
-                except Exception as e:
-                    logger.warning(
-                        "Could not load health latest for action_context: %s", e
-                    )
 
             # Step 5: Prepare data for agent
             report_date = format_report_date()

@@ -91,16 +91,6 @@ describe('OnboardingGate', () => {
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/?tour=1'));
   });
 
-  it('does not redirect focused Panda partner routes into the homepage guided tour', async () => {
-    mocks.pathname = '/panda';
-    mocks.onboardingStatus.mockResolvedValue({ completed: false });
-
-    renderGate();
-
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(mocks.onboardingStatus).not.toHaveBeenCalled();
-    expect(mocks.replace).not.toHaveBeenCalled();
-  });
 });
 
 it('paused onboarding renders children without even mounting its data hooks', () => {

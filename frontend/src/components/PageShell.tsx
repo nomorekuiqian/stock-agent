@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { Logo } from '@/components/Logo';
@@ -11,11 +11,8 @@ import { Logo } from '@/components/Logo';
  */
 function PageShellInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
-  const pathname = usePathname();
   const isWechatWebView = searchParams.get('from') === 'wechat';
-  const isFocusedPartnerRoute = pathname?.startsWith('/panda');
-
-  if (isWechatWebView || isFocusedPartnerRoute) {
+  if (isWechatWebView) {
     return <>{children}</>;
   }
 

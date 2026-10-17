@@ -67,12 +67,9 @@ async def test_actual_apps_deny_mcp_before_auth_or_payment(app_module):
 @pytest.mark.asyncio
 async def test_direct_generators_and_embeddings_have_no_outbound_calls(monkeypatch):
     from google import genai
-    from app.features.portfolio_health import agent as health, service as health_service
     from app.features.research_kb import agent as kb, service as kb_service
     from app.features.kol_research import agent as kol
-    from app.features.watchlist_monitor import service as monitor, ticker_brief_agent as ticker
     from app.features.vector import kol_tweets, service as vector
-    from app.features.zsxq_ingest import service as panda
     from app.features.vector.models import VectorIndexRequest, VectorDocumentInput
     from app.shared.llm_clients import structured
 
@@ -84,19 +81,13 @@ async def test_direct_generators_and_embeddings_have_no_outbound_calls(monkeypat
     monkeypatch.setattr(vector, 'embed_texts', embedding)
     monkeypatch.setattr(structured, 'create_chat_completion', network)
     calls = [
-        lambda: health.run_diagnosis(None, [], {}, None),
-        lambda: health_service.generate_health_check('u', [], None),
         lambda: kb.answer('test', []), lambda: kb_service.retrieve('test'),
         lambda: kol.answer_kol_research(message='test', persona_username='pandacircle'),
         lambda: anext(kol.stream_kol_research(message='test', persona_username='pandacircle')),
         lambda: kol.generate_kol_follow_up_options(
             user_message='test', assistant_message='test', persona_username='pandacircle',
         ),
-        lambda: monitor.generate_for_symbols(['AAPL']),
-        lambda: monitor.generate_paid_user_universe(),
-        lambda: ticker.generate_ticker_brief({}),
         lambda: kol_tweets.index_kol_tweets(None),
-        lambda: panda.run_ingest('group', run_id='test'),
     ]
     for source in ['kol_tweet', 'zsxq_thread', 'zsxq_article', 'zsxq_qa']:
         req = VectorIndexRequest(document=VectorDocumentInput(source_type=source, source_id='id', content='test'))

@@ -197,24 +197,6 @@ MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，
 - `POST /api/kol_research/mcp/auth/device/authorize`：必须是已登录网站用户，使用 `verify_user_token`。
 - Persona/material/evidence/data/context/workflow MCP endpoints：必须带 MCP bearer token；未授权时返回 `auth_required` 并提示 `market_lens_login`。
 
-## Panda 社群 Agent 授权
-
-`/panda` 使用正常网站登录态，但访问权不来自 Stripe entitlements。后端先用
-`verify_user_token_with_email` 验证用户，再用 normalized email 查询
-`community_access_grants(partner_id='panda', status='active')`。
-
-关键边界：
-
-- Panda access 只允许使用 Panda Agent，不开通 Max / Pro 或主站其它功能。
-- Admin 在 `/admin/panda` 从知识星球报名评论收集 email 后批量 grant。
-- 普通 `/api/kol_research/chat*` 会拒绝 `pandacircle`；只有
-  `/api/community/panda/chat/stream` 可以调用该 persona。
-- 未授权用户拿到 `/panda` 链接也无法访问 Agent；分享账号密码仍需通过设备/session
-  限制或人工 revoke 处理。
-- `/panda` 是 focused partner route，新注册用户完成登录/验证后必须留在 `/panda`。
-  `OnboardingGate` 不能把它重定向到首页 `/?tour=1`，Panda 页面自己的登录/权限 gate
-  负责首次体验。
-
 ## 手动 QA 计划
 
 下面这套 checklist 用于每次 auth 改动后的手测。目标不是只验证“主链路能跑通”，而是验证用户在不同入口、不同状态、不同异常情况下，都能最终顺利登录成功。

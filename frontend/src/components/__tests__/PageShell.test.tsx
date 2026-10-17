@@ -46,16 +46,6 @@ describe('PageShell', () => {
     expect(screen.getByText('TheMarketBrew')).toBeInTheDocument();
   });
 
-  it('skips global chrome for focused Panda partner routes', () => {
-    mocks.pathname = '/panda';
-
-    render(<PageShell><main>Panda content</main></PageShell>);
-
-    expect(screen.queryByTestId('navbar')).toBeNull();
-    expect(screen.getByText('Panda content')).toBeInTheDocument();
-    expect(screen.queryByText('TheMarketBrew')).toBeNull();
-  });
-
   it('continues to skip global chrome inside WeChat webview', () => {
     mocks.searchParams = new URLSearchParams('from=wechat');
 

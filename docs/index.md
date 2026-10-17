@@ -47,7 +47,6 @@
 
 - [feature-flags-playbook.md](guides/feature-flags-playbook.md) — Feature flag 新增 / 退役 / 灰度名单管理 / 故障速查（**flag 日常操作看这里，不是归档的 plan runbook**）
 - [llm-usage-metering.md](guides/llm-usage-metering.md) — LLM token 用量埋点：查 cost / 给新 agent 加 metering / 故障速查（**新 LlmAgent 必须挂 `meter()` callback**）
-- [panda-zsxq-automation.md](guides/panda-zsxq-automation.md) — Panda 知识星球抓取、deterministic enrichment、vector embedding 自动化设计手册
 
 ## Eval (docs/evals/)
 
@@ -82,7 +81,7 @@
 - `features/holdings_sync/.context.md` — 持仓同步
 - `features/kol_research/.context.md` — KOL persona research
 - `features/memory/.context.md` — 用户记忆/反馈
-- `features/portfolio/.context.md` + `features/portfolio_health/.context.md` — 持仓与体检
+- `features/portfolio/.context.md` — 持仓
 - `features/research_kb/.context.md` — 投研知识库
 - `features/stock/.context.md` — 个股投研
 - `features/stock/agent/.context.md` — 个股 AI agent 子模块

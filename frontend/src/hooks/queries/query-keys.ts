@@ -50,10 +50,6 @@ export const queryKeys = {
     all: ['watchlist'] as const,
     byUser: (userId: string) => ['watchlist', userId] as const,
   },
-  watchlistMonitor: {
-    all: ['watchlist-monitor'] as const,
-    current: (userId: string) => ['watchlist-monitor', userId] as const,
-  },
   twitter: {
     all: ['twitter'] as const,
     tickerDiscussion: (symbol: string, hours: number, limit: number) =>
@@ -70,11 +66,6 @@ export const queryKeys = {
   actionBar: {
     all: ['action-bar'] as const,
     current: () => ['action-bar', 'current'] as const,
-  },
-  health: {
-    all: ['health'] as const,
-    latest: () => ['health', 'latest'] as const,
-    report: () => ['health', 'report'] as const,
   },
   morningReports: {
     all: ['morning-reports'] as const,

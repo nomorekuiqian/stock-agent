@@ -83,7 +83,6 @@ type WorkspaceConversationApi = {
 };
 type WorkspaceKolChatStream = typeof api.kolResearch.chatStream;
 export interface ResearchWorkspaceProps {
-  variant?: 'research' | 'community_panda';
   storageKey?: string;
   conversationScope?: string;
   defaultPersonaUsername?: string | null;
@@ -303,7 +302,6 @@ function getPanelContentSignature(
 // ---------------------------------------------------------------------------
 
 export function ResearchWorkspace({
-  variant = 'research',
   storageKey: requestedStorageKey = STORAGE_KEY,
   conversationScope = 'research',
   defaultPersonaUsername = null,
@@ -332,17 +330,10 @@ export function ResearchWorkspace({
       return restored;
     },
   );
-  const isCommunityPanda = variant === 'community_panda';
-  const quotaEnabled = !isCommunityPanda;
-  const conversationApi = (
-    isCommunityPanda ? api.communityPanda.conversations : api.research.conversations
-  ) as WorkspaceConversationApi;
-  const kolConversationApi = (
-    isCommunityPanda ? api.communityPanda.conversations : api.kolResearch.conversations
-  ) as WorkspaceConversationApi;
-  const kolChatStream = (
-    isCommunityPanda ? api.communityPanda.chatStream : api.kolResearch.chatStream
-  ) as WorkspaceKolChatStream;
+  const quotaEnabled = true;
+  const conversationApi = api.research.conversations as WorkspaceConversationApi;
+  const kolConversationApi = api.kolResearch.conversations;
+  const kolChatStream = api.kolResearch.chatStream as WorkspaceKolChatStream;
   const shellFrameClass = useFullViewport
     ? 'research-typography fixed inset-0 bg-background z-10 flex'
     : 'research-typography fixed inset-x-0 top-16 bottom-0 bg-background z-10 flex';
@@ -728,10 +719,6 @@ export function ResearchWorkspace({
       router.replace('/research');
       return;
     }
-    if (personaParam.toLowerCase() === 'pandacircle' && !isCommunityPanda) {
-      router.replace('/panda');
-      return;
-    }
 
     // Seed gate fires once per (persona, q) tuple — prevents the same
     // starter URL from RESET-ing the conversation again if the user
@@ -789,7 +776,7 @@ export function ResearchWorkspace({
       pendingSeed.current = null;
       handleSendRef.current?.(msg);
     }, 250);
-  }, [isCommunityPanda, router, searchParams, state.phase, state.personaUsername, state.messages, userId]);
+  }, [router, searchParams, state.phase, state.personaUsername, state.messages, userId]);
 
   const handlePersonaChange = useCallback((next: {
     agentKind: AgentKind;

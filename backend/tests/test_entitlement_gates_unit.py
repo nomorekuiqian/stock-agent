@@ -63,52 +63,7 @@ class TestForYouEntitlementGate:
 # ---------------------------------------------------------------------------
 
 
-class TestWatchlistMonitorEntitlementGate:
-    """GET /api/watchlist-monitor."""
-
-    PATH = "/api/watchlist-monitor"
-
-    def test_rejects_anonymous_user(self):
-        resp = client.get(self.PATH)
-        assert resp.status_code == 401
-
-    def test_rejects_user_without_entitlement(self):
-        app.dependency_overrides[verify_user_token] = lambda: "free-user"
-
-        with patch(
-            "app.features.watchlist_monitor.router.has_feature_entitlement",
-            new_callable=AsyncMock,
-            return_value=False,
-        ) as mock_has_entitlement:
-            resp = client.get(self.PATH, headers={"Authorization": "Bearer t"})
-
-        assert resp.status_code == 403
-        mock_has_entitlement.assert_awaited_once_with("free-user", "for_you_website")
-
 
 # ---------------------------------------------------------------------------
 # Portfolio Health — requires portfolio_management
 # ---------------------------------------------------------------------------
-
-
-class TestPortfolioHealthEntitlementGate:
-    """GET /api/portfolio-health/latest."""
-
-    PATH = "/api/portfolio-health/latest"
-
-    def test_rejects_anonymous_user(self):
-        resp = client.get(self.PATH)
-        assert resp.status_code == 401
-
-    def test_rejects_user_without_entitlement(self):
-        app.dependency_overrides[verify_user_token] = lambda: "free-user"
-
-        with patch(
-            "app.features.portfolio_health.router.has_entitlement",
-            new_callable=AsyncMock,
-            return_value=False,
-        ) as mock_has_entitlement:
-            resp = client.get(self.PATH, headers={"Authorization": "Bearer t"})
-
-        assert resp.status_code == 403
-        mock_has_entitlement.assert_awaited_once_with("free-user", "portfolio_management")

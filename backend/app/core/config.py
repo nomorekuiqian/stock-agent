@@ -76,13 +76,6 @@ INSFORGE_SERVICE_KEY = os.getenv("INSFORGE_SERVICE_KEY", "")
 # Insforge project API key — FULL-ADMIN credential (DB/auth/storage/payments).
 # Kept for reference; storage uploads now use the least-privilege S3 keys below.
 INSFORGE_API_KEY = os.getenv("INSFORGE_API_KEY", "")
-# Insforge S3-compatible storage gateway credentials — LEAST PRIVILEGE: storage
-# only, not full-admin like INSFORGE_API_KEY. Created in the dashboard under
-# Storage → Settings → S3 Configuration. Used by zsxq_ingest.db.upload_binary to
-# write the private archive bucket via SigV4 (path-style) instead of the admin key.
-INSFORGE_S3_ACCESS_KEY_ID = os.getenv("INSFORGE_S3_ACCESS_KEY_ID", "")
-INSFORGE_S3_SECRET_ACCESS_KEY = os.getenv("INSFORGE_S3_SECRET_ACCESS_KEY", "")
-INSFORGE_S3_REGION = os.getenv("INSFORGE_S3_REGION", "us-east-2")
 EDGE_FUNCTION_SECRET = os.getenv("EDGE_FUNCTION_SECRET", CRON_SECRET)
 
 # Environment

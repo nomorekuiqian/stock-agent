@@ -206,14 +206,10 @@ class TestNoCrossFeatureImports:
         ("twitter_digest", "payment"),  # /latest endpoint gated by entitlement check
         ("brew", "payment"),            # digest model tier gated by entitlement check
         ("brew", "portfolio"),          # brew reads user portfolio/profile for personalization
-        ("brew", "portfolio_health"),   # brew reads last health check timestamp for action_context
         ("portfolio", "payment"),       # portfolio router checks entitlements
-        ("portfolio_health", "payment"), # portfolio health router checks entitlements
         ("stock", "payment"),           # stock AI endpoints are gated by entitlements
         ("notification", "for_you"),    # notification preferences checks action bar severity
         ("notification", "portfolio"),  # notification preferences reads user profile
-        ("portfolio_health", "portfolio"),   # health check reads portfolio data
-        ("portfolio_health", "macro"),       # health check reads macro risk data
         ("memory", "portfolio"),             # memory reads portfolio theses
         ("holdings_sync", "portfolio"),      # Track M writes user_portfolios ONLY via portfolio.db (single-owner) + reuses compute_effective_weights
         ("holdings_sync", "flags"),          # Track M extract/commit gated by holdings_sync_import flag
@@ -245,16 +241,6 @@ class TestNoCrossFeatureImports:
         # Same data-read pattern as twitter_digest->twitter. (Latent gap on
         # master surfaced when rebasing this branch onto the vector feature.)
         ("vector", "twitter"),
-        # community_access is a partner/community facade. It gates access, then
-        # delegates Panda chat to the existing KOL agent/runtime and conversation
-        # persistence instead of duplicating agent or session internals.
-        ("community_access", "kol_research"),
-        ("community_access", "screener"),
-        ("community_access", "agent_runtime"),
-        # ZSXQ ingest is an indexing pipeline: it writes/searches the shared
-        # vector store and reuses KOL ticker aliases for extraction parity.
-        ("zsxq_ingest", "vector"),
-        ("zsxq_ingest", "kol_research"),
     }
 
     def test_no_cross_feature_imports(self):

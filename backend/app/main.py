@@ -181,18 +181,12 @@ from app.features.vector.router import router as vector_router
 from app.features.portfolio.router import router as portfolio_router
 from app.features.holdings_sync.router import router as holdings_sync_router
 from app.features.for_you.router import router as for_you_router
-from app.features.portfolio_health.router import router as portfolio_health_router
 from app.features.memory.router import router as memory_router
 from app.features.flags.router import router as flags_router
 from app.features.flags.admin_router import router as flags_admin_router
 from app.features.onboarding.router import router as onboarding_router
 from app.features.agent_runtime.router import router as agent_runtime_router
 from app.features.webhooks.resend_router import router as resend_webhook_router
-from app.features.watchlist_monitor.router import router as watchlist_monitor_router
-from app.features.community_access.router import router as community_access_router
-from app.features.community_access.router import admin_router as community_access_admin_router
-from app.features.zsxq_ingest.router import router as zsxq_ingest_router
-from app.features.job_monitor.router import router as job_monitor_router
 
 app.include_router(daily_report_router)
 app.include_router(brew_router)
@@ -222,17 +216,11 @@ app.include_router(vector_router)
 app.include_router(portfolio_router)
 app.include_router(holdings_sync_router)
 app.include_router(for_you_router)
-app.include_router(portfolio_health_router)
 app.include_router(memory_router)
 app.include_router(flags_router)
 app.include_router(flags_admin_router)
-app.include_router(community_access_router)
-app.include_router(community_access_admin_router)
 app.include_router(onboarding_router)
 app.include_router(resend_webhook_router)
-app.include_router(watchlist_monitor_router)
-app.include_router(zsxq_ingest_router)
-app.include_router(job_monitor_router)
 
 
 # ---------------------------------------------------------------------------

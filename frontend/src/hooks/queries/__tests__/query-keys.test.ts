@@ -147,15 +147,6 @@ describe('queryKeys', () => {
     });
   });
 
-  describe('watchlistMonitor', () => {
-    it('current(userId) includes user id for cache isolation', () => {
-      expect(queryKeys.watchlistMonitor.current('user-123')).toEqual([
-        'watchlist-monitor',
-        'user-123',
-      ]);
-    });
-  });
-
   describe('twitter', () => {
     it('tickerDiscussion(symbol, hours, limit) includes lookup params', () => {
       expect(queryKeys.twitter.tickerDiscussion('AMD', 24, 200)).toEqual([
