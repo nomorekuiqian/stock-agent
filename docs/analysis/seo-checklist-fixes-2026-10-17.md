@@ -2,7 +2,7 @@
 
 ## 交付状态
 
-代码已在当前工作区修复并验证，尚未提交或部署。用户明确排除第 5、6 项，KOL 研究室继续下线；没有修改暂停开关。保留工作区原有的其他修改。
+代码已提交并推送至 `restart/prod-baseline`，提交 `4a6eba972c514b5210819cb775a0757684430f3e`；Vercel 生产部署 `dpl_47YbcsJdeRQgN9VkdPTuSm5iVoYE` 已 READY 并绑定正式域名，线上检查通过。用户明确排除第 5、6 项，KOL 研究室继续下线；没有修改暂停开关。保留工作区原有的其他修改。
 
 唯一已执行的线上设置变更：TheMarketBrew 团队的 stock-agent 项目中，`themarketbrew.com` → `www.themarketbrew.com` 的域名跳转改为 308。更新后 API 确认目标与状态码；HTTP 实测 `/` 和 `/today?utm_source=seo-check` 均为 308，路径与参数保留。API 更新必须同时发送 redirect 与 redirectStatusCode；只发状态码会清空 redirect，本次已立即纠正并验证最终状态。
 
@@ -40,3 +40,17 @@
 2. 抽查真实 UUID → 日期 slug 的 308、canonical/Article 一致性及匿名早报付费边界。
 3. GSC 登录后提交 www sitemap，核对旧提交；收录、排名和 AI 引用率需单独观察，本次未声称改善。
 4. 如需早报完整 10Y 快照，后续应在早报生成时保存带数据日期的收益率与 bp 变化，不能给历史早报拼接当前利率。
+
+## 生产验收（2026-10-17，部署后）
+
+- 仅提交本次 39 个 SEO 文件；另外 53 个原有改动路径逐项哈希核对，内容/删除状态不变。
+- 仅用暂存内容导出的隔离目录运行 79 项相关测试，全部通过。Vercel 预览与生产构建均通过，生产提交 SHA 与修复提交一致。
+- 正式域名 `https://www.themarketbrew.com` 上 25 项 HTTP/HTML/XML 检查全部通过。
+- sitemap 索引返回 200，包含 5 个分片：静态 19、股票 100、日报 216、早报 162、推特简报 121，共 618 个 URL，全部带 lastmod；日报按日期 canonical 去重。
+- 股票入口输出 100 个去重股票链接；NVDA 输出 10 个相关股票链接。
+- 日报旧 UUID `9d93e4ef-a418-4078-a510-acbc8611fe23` 返回 308 到 `/today/2026-10-16-market-report`；早报旧 UUID `3cbbffbd-ae7d-4561-ac17-a2adf80a4471` 返回 308 到 `/morning/2026-10-16-morning-brief`。两个新地址均 200，日期标题、canonical、Article mainEntityOfPage 一致。
+- `/research`、persona 参数页、`/login` 返回 noindex；日报归档 canonical 指向自身。
+- 早晚报原始 HTML 可见三个要点；经济/流动性原始 HTML 可见说明正文，流动性新标题生效。
+- 两个 KOL 页仍 307 到 research；profile 匿名请求仍 307 到 login。
+- 裸域名首页、带参数路径均 308 到 www，路径和参数完整保留。
+- 未完成项保持不变：GSC 无登录会话，未提交/删除地图记录；早报源数据缺美债收益率，不用其他日期数据补齐。上述结果证明技术配置生效，不代表 Google 已重新抓取或排名改善。
