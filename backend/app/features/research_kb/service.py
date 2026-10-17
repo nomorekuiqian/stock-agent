@@ -7,6 +7,7 @@ RPC). The edge function lives on Insforge and reuses pgvector + HNSW.
 
 from typing import Optional
 
+from app.core.feature_pause import require_active
 from app.core.config import EDGE_FUNCTION_SECRET
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
@@ -96,6 +97,7 @@ async def retrieve(
     source_types: Optional[list[str]] = None,
 ) -> list[RetrievedChunk]:
     """Embed query and return top-k chunks ordered by similarity."""
+    require_active("research_kb")
     embedding = await _embed(query)
     if embedding is None:
         return []

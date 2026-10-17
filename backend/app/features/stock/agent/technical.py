@@ -12,13 +12,14 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from pydantic import BaseModel, Field
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
 from app.utils.timezone import now_iso
 from app.shared.llm_metering import meter
 
 from ._base import run_agent_session
 
-TECHNICAL_MODEL = "gemini-3.1-flash-lite"
+TECHNICAL_MODEL = GENERATIVE_MODEL
 
 logger = get_logger(__name__)
 
@@ -389,7 +390,7 @@ class TechnicalAnalysisAgent:
                 "analysis": result,
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite",
+                    "model": GENERATIVE_MODEL,
                     "generated_at": now_iso(),
                 },
             }
@@ -401,7 +402,7 @@ class TechnicalAnalysisAgent:
                 "analysis": _empty_technical_analysis(),
                 "meta": {
                     "symbol": symbol,
-                    "model": "gemini-3.1-flash-lite",
+                    "model": GENERATIVE_MODEL,
                     "generated_at": now_iso(),
                     "error": str(e),
                 },

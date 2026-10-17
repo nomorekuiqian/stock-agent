@@ -19,6 +19,7 @@ from google.adk.plugins import LoggingPlugin
 from google.adk.runners import InMemoryRunner
 from pydantic import BaseModel, Field
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.config import AGENT_RUNTIME_RESEARCH_TIMEOUT_S
 from app.core.logging import get_logger
 from app.features.screener.agent import (
@@ -31,7 +32,7 @@ from app.features.screener.agent import (
 )
 from app.shared.llm_metering import meter
 
-PICKER_MODEL = "gemini-3.1-flash-lite"
+PICKER_MODEL = GENERATIVE_MODEL
 
 logger = get_logger(__name__)
 

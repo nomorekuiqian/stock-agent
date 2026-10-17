@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from app.core.feature_pause import FeaturePauseMiddleware, is_paused
 from app.core.config import (
     ALLOWED_ORIGINS,
     CORS_ALLOWED_ORIGIN_REGEX,
@@ -41,11 +42,13 @@ from app.core.langfuse import configure_langfuse
 configure_langfuse()
 
 # --- Market Lens MCP (Streamable HTTP sub-app, mounted at /frank/mcp/) ---
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
-from app.frank_mcp.server import mcp as market_mcp
+market_mcp_app = None
+if not is_paused("mcp"):
+    from app.frank_mcp.server import mcp as market_mcp
 
-market_mcp_app = market_mcp.http_app(path="/mcp")
+    market_mcp_app = market_mcp.http_app(path="/mcp")
 
 
 @asynccontextmanager
@@ -53,7 +56,9 @@ async def lifespan(app: FastAPI):
     # The FastMCP session manager must run for the mounted MCP endpoint. The app's
     # existing startup/shutdown logic runs inside this lifespan, because FastAPI
     # ignores @app.on_event handlers once a lifespan is provided.
-    async with market_mcp_app.lifespan(app):
+    async with AsyncExitStack() as stack:
+        if market_mcp_app is not None:
+            await stack.enter_async_context(market_mcp_app.lifespan(app))
         await _startup()
         try:
             yield
@@ -64,6 +69,7 @@ async def lifespan(app: FastAPI):
 # --- App ---
 app = FastAPI(title="Market Analysis API", lifespan=lifespan)
 app.state.limiter = limiter
+app.add_middleware(FeaturePauseMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Compress large JSON responses (the admin dashboard / list_all payloads are the
@@ -314,7 +320,8 @@ async def _startup():
         except Exception as e:  # noqa: BLE001
             logger.warning("KOL cache warm-up failed (non-fatal): %s", e)
 
-    asyncio.create_task(_warm_kol())
+    if not is_paused("kol_research"):
+        asyncio.create_task(_warm_kol())
 
 
 async def _shutdown():
@@ -350,4 +357,5 @@ async def root():
 
 
 # --- Mount Market Lens MCP (Streamable HTTP) at /frank/mcp/ ---
-app.mount("/frank", market_mcp_app)
+if market_mcp_app is not None:
+    app.mount("/frank", market_mcp_app)

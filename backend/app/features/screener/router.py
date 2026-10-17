@@ -26,9 +26,10 @@ import asyncio
 import time
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from app.core.feature_pause import is_paused, paused_conversation, require_active
 from app.core.config import AGENT_RUNTIME_REQUEST_HISTORY
 from app.core.deps import verify_cron_secret, verify_user_token, optional_user_token
 from app.core.rate_limit import _get_real_ip
@@ -144,6 +145,8 @@ async def _prepare_research_runtime_turn(
         )
         runtime = get_agent_runtime()
         session = await runtime.load_session(runtime_request)
+        if paused_conversation({"metadata": session.metadata}):
+            require_active("kol_research")
         session_history = session.chat_history()
         if session_history:
             effective_history = session_history
@@ -164,6 +167,8 @@ async def _prepare_research_runtime_turn(
             session=session,
             assembled_context=assembled,
         )
+    except HTTPException:
+        raise
     except Exception:  # noqa: BLE001
         logger.exception(
             "research runtime prepare failed session_id=%s",
@@ -778,7 +783,7 @@ async def list_conversations(
 
     result = await db_list(user_id, limit=limit, offset=offset, search=search)
     return {
-        "conversations": result["items"],
+        "conversations": [item for item in result["items"] if not paused_conversation(item)],
         "has_more": result["has_more"],
     }
 
@@ -798,6 +803,8 @@ async def get_conversation(
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if paused_conversation(conv):
+        require_active("kol_research")
     return conv
 
 
@@ -811,6 +818,8 @@ async def create_conversation(
         create_conversation as db_create,
     )
 
+    if paused_conversation({"data": req.data}):
+        require_active("kol_research")
     result = await db_create(
         user_id=user_id,
         title=req.title,
@@ -849,6 +858,9 @@ async def update_conversation(
         update_conversation as db_update,
     )
 
+    if paused_conversation({"data": req.data or {}}):
+        require_active("kol_research")
+    await get_conversation(conversation_id, user_id)
     ok = await db_update(
         conversation_id=conversation_id,
         user_id=user_id,
@@ -886,15 +898,26 @@ async def pin_conversation(
         get_conversation as db_get_conversation,
     )
 
+    if req.agent_id == "kol_research_agent":
+        require_active("kol_chat")
     result = None
     if req.agent_id:
         if req.agent_id not in _PINNABLE_RUNTIME_AGENT_IDS:
             raise HTTPException(status_code=400, detail="Unsupported agent_id")
         agent_ids = (req.agent_id,)
     else:
-        agent_ids = _PINNABLE_RUNTIME_AGENT_IDS
+        agent_ids = tuple(a for a in _PINNABLE_RUNTIME_AGENT_IDS if not (a == "kol_research_agent" and is_paused("kol_chat")))
 
     for agent_id in agent_ids:
+        if agent_id == "kol_research_agent":
+            payload = await agent_runtime_db.get_session(
+                user_id=user_id, agent_id=agent_id, session_id=conversation_id, limit=1,
+            )
+            stored_session = (payload or {}).get("session")
+            if not stored_session:
+                continue
+            if paused_conversation(stored_session):
+                require_active("kol_research")
         result = await agent_runtime_db.pin_session(
             user_id=user_id,
             agent_id=agent_id,
@@ -907,6 +930,8 @@ async def pin_conversation(
     if not result and req.is_pinned:
         legacy_conversation = await db_get_conversation(conversation_id, user_id)
         if legacy_conversation:
+            if paused_conversation(legacy_conversation):
+                require_active("kol_research")
             fallback_agent_id = req.agent_id or _legacy_conversation_agent_id(legacy_conversation)
             result = await agent_runtime_db.pin_session(
                 user_id=user_id,
@@ -942,6 +967,7 @@ async def delete_conversation(
         delete_conversation as db_delete,
     )
 
+    await get_conversation(conversation_id, user_id)
     ok = await db_delete(conversation_id, user_id)
     if not ok:
         from fastapi import HTTPException

@@ -18,6 +18,8 @@ from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 from pydantic import ValidationError
 
+from app.core.feature_pause import model_pause_guard
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
 from app.features.twitter import db
 from app.features.twitter.methodology_models import (
@@ -32,7 +34,7 @@ from app.features.twitter.methodology_prompts import (
 
 logger = get_logger(__name__)
 
-MODEL = "gemini-3.1-pro-preview"
+MODEL = GENERATIVE_MODEL
 APP_NAME = "twitter_methodology"
 EXTRACTOR_VERSION = "v1.0"
 
@@ -51,6 +53,7 @@ def build_extract_agent(instruction: str) -> LlmAgent:
         instruction=instruction,
         output_schema=CategoryMethodology,
         output_key="methodology",
+        before_model_callback=model_pause_guard("kol_research"),
     )
 
 

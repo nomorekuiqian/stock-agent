@@ -2,6 +2,8 @@
 
 import json
 
+from app.core.feature_pause import require_active
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
 from app.features.portfolio.models import ProfileView
 from app.features.portfolio_health.models import DiagnosisOutput, HealthScore
@@ -10,7 +12,7 @@ from app.shared.profile_context import inject_profile
 
 logger = get_logger(__name__)
 
-PORTFOLIO_HEALTH_MODEL = "gemini-3.1-flash-lite"
+PORTFOLIO_HEALTH_MODEL = GENERATIVE_MODEL
 
 DIAGNOSIS_INSTRUCTION = """
 你是用户的投资组合健康分析师。基于量化评分和用户画像，写出一段诊断性分析。
@@ -60,6 +62,7 @@ async def run_diagnosis(
     thesis_map: dict[str, str] | None = None,
 ) -> DiagnosisOutput | None:
     """Run the diagnosis agent. Returns None on failure (caller provides fallback)."""
+    require_active("portfolio_health")
     try:
         from google.adk.agents import LlmAgent
         from google.adk.runners import InMemoryRunner

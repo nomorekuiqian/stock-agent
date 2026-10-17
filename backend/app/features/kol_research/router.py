@@ -29,6 +29,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.deps import verify_user_token, verify_user_token_with_email
+from app.core.feature_pause import (
+    is_persona_chat_active, paused_conversation, require_active, require_persona_chat_active,
+)
 from app.core.logging import get_logger
 import app.core.posthog_client as posthog
 from app.core.rate_limit import _get_real_ip
@@ -158,6 +161,7 @@ def _persona_required_flag(persona_username: str | None) -> str | None:
 async def _ensure_persona_allowed(req_persona: str | None, user_info: dict) -> None:
     """Raise 403 if the requested persona is flag-gated and the caller lacks it."""
     persona = (req_persona or DEFAULT_PERSONA).lower()
+    require_persona_chat_active(persona)
     if persona in _COMMUNITY_ONLY_PERSONAS:
         raise HTTPException(status_code=403, detail="该助手请从专属社群入口使用")
     required = _persona_required_flag(req_persona)
@@ -188,6 +192,8 @@ async def list_kol_personas(
     flags = await _caller_flags(user_info)
     personas = []
     for p in list_personas():
+        if not is_persona_chat_active(p.username):
+            continue
         if scope_key == "research" and p.username in _COMMUNITY_ONLY_PERSONAS:
             continue
         allowed_scope = _PERSONA_SCOPES.get(scope_key)
@@ -2144,7 +2150,7 @@ async def kol_research_list_conversations(
     """
     result = await list_conversations(user_info["user_id"], limit=limit, offset=offset)
     return {
-        "conversations": result["items"],
+        "conversations": [item for item in result["items"] if not paused_conversation(item)],
         "has_more": result["has_more"],
     }
 
@@ -2157,6 +2163,8 @@ async def kol_research_get_conversation(
     conv = await get_conversation(conversation_id, user_info["user_id"])
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if paused_conversation(conv):
+        require_active("kol_research")
     return conv
 
 
@@ -2165,6 +2173,7 @@ async def kol_research_create_conversation(
     req: KolConversationSaveRequest,
     user_info: dict = Depends(require_kol_research_flag),
 ):
+    await _ensure_persona_allowed(req.persona_username, user_info)
     stamped = _stamp_kol_metadata(req.data, persona_username=req.persona_username)
     created = await create_conversation(
         user_id=user_info["user_id"],
@@ -2192,6 +2201,8 @@ async def kol_research_update_conversation(
     req: KolConversationSaveRequest,
     user_info: dict = Depends(require_kol_research_flag),
 ):
+    await _ensure_persona_allowed(req.persona_username, user_info)
+    await kol_research_get_conversation(conversation_id, user_info)
     stamped = _stamp_kol_metadata(req.data, persona_username=req.persona_username)
     ok = await update_conversation(
         conversation_id=conversation_id,
@@ -2219,6 +2230,7 @@ async def kol_research_delete_conversation(
     conversation_id: str,
     user_info: dict = Depends(require_kol_research_flag),
 ):
+    await kol_research_get_conversation(conversation_id, user_info)
     ok = await delete_conversation(conversation_id, user_info["user_id"])
     if not ok:
         raise HTTPException(status_code=500, detail="delete_conversation failed")

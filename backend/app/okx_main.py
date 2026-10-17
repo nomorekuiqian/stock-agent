@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 load_dotenv()
 
+from app.core.feature_pause import FeaturePauseMiddleware
 from app.core.config import ALLOWED_ORIGINS, CORS_ALLOWED_ORIGIN_REGEX, FMP_API_KEY
 from app.core.logging import get_logger, setup_logging
 from app.features.okx_mcp.payment import install_okx_payment_middleware, payment_status
@@ -41,6 +42,8 @@ app.add_middleware(
 
 app.include_router(okx_mcp_router)
 install_okx_payment_middleware(app)
+# Pause must run before x402 payment verification or any provider request.
+app.add_middleware(FeaturePauseMiddleware)
 
 
 @app.exception_handler(Exception)

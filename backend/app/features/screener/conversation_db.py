@@ -6,6 +6,7 @@ import asyncio
 import re
 from typing import Any, Optional
 
+from app.core.feature_pause import paused_conversation
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
 
@@ -94,7 +95,10 @@ def _to_conversation_summary(
     row: dict[str, Any],
     search_matches: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
+    data = row.get("data") if isinstance(row.get("data"), dict) else {}
     summary = {
+        "agent_kind": data.get("agent_kind"),
+        "persona_username": data.get("persona_username"),
         "id": row.get("id"),
         "user_id": row.get("user_id"),
         "title": row.get("title"),
@@ -335,7 +339,7 @@ async def list_conversations(
         if item.get("id") and str(item.get("id")) not in runtime_ids
     ]
     all_items = sorted(
-        [*runtime_items, *legacy_items],
+        [item for item in [*runtime_items, *legacy_items] if not paused_conversation(item)],
         key=_conversation_sort_key,
         reverse=True,
     )

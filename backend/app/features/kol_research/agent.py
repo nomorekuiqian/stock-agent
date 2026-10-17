@@ -38,6 +38,8 @@ from google.adk.tools.skill_toolset import SkillToolset
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from app.core.feature_pause import persona_chat_model_guard, require_persona_chat_active
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.config import (
     AGENT_RUNTIME_KOL_TIMEOUT_S,
     AGENT_RUNTIME_MAX_GOOGLE_SEARCH_PER_TURN,
@@ -100,8 +102,8 @@ _GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if _GOOGLE_API_KEY and not os.getenv("GOOGLE_GENAI_API_KEY"):
     os.environ["GOOGLE_GENAI_API_KEY"] = _GOOGLE_API_KEY
 
-MODEL = os.getenv("KOL_RESEARCH_MODEL", "gemini-3.1-flash-lite")
-FOLLOW_UP_MODEL = "gemini-3.1-flash-lite"
+MODEL = GENERATIVE_MODEL
+FOLLOW_UP_MODEL = GENERATIVE_MODEL
 APP_NAME = "kol_research_agent"
 FOLLOW_UP_APP_NAME = "kol_follow_up_options"
 DEFAULT_PERSONA = "qinbafrank"
@@ -909,7 +911,7 @@ def get_agent(persona_username: str = DEFAULT_PERSONA) -> LlmAgent:
     gen_config = types.GenerateContentConfig(
         thinking_config=types.ThinkingConfig(
             include_thoughts=True,
-            thinking_level=types.ThinkingLevel.MINIMAL,
+            thinking_level=types.ThinkingLevel.LOW,
         ),
     )
     agent = LlmAgent(
@@ -920,6 +922,7 @@ def get_agent(persona_username: str = DEFAULT_PERSONA) -> LlmAgent:
         generate_content_config=gen_config,
         before_tool_callback=_before_tool_callback,
         after_tool_callback=_after_tool_callback,
+        before_model_callback=persona_chat_model_guard(persona_username),
         after_model_callback=meter("kol_research", model=MODEL),
     )
     _agent_cache[persona_username] = agent
@@ -1138,6 +1141,7 @@ async def generate_kol_follow_up_options(
     callers return an empty list and the frontend falls back to deterministic
     chips so the main answer is never blocked by UI sugar.
     """
+    require_persona_chat_active(persona_username)
     payload = {
         "persona_username": persona_username,
         "recent_history": [
@@ -1345,6 +1349,7 @@ async def answer_kol_research(
     timeout: float | None = None,
 ) -> KolResearchResponse:
     """Unary entry — runs the agent and returns a complete response."""
+    require_persona_chat_active(persona_username)
     if timeout is None:
         timeout = AGENT_RUNTIME_KOL_TIMEOUT_S
     chunks_buf: List = []
@@ -1509,6 +1514,7 @@ async def stream_kol_research(
     Internally the agent run is launched in a background task; this generator
     forwards events from a contextvar queue until the agent finishes.
     """
+    require_persona_chat_active(persona_username)
     if timeout is None:
         timeout = AGENT_RUNTIME_KOL_TIMEOUT_S
     queue: asyncio.Queue = asyncio.Queue()

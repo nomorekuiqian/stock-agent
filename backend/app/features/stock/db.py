@@ -15,6 +15,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.config import STOCK_ANALYSIS_CACHE_HOURS
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
@@ -275,7 +276,7 @@ async def save_stock_analysis(
     analysis_type: str,
     content: Any,
     data_snapshot: Optional[dict[str, Any]] = None,
-    model: str = "gemini-3.1-flash-lite",
+    model: str = GENERATIVE_MODEL,
     expires_hours: int = STOCK_ANALYSIS_CACHE_HOURS,
 ) -> dict[str, Any]:
     """

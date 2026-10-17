@@ -6,6 +6,8 @@ import os
 
 from dotenv import load_dotenv
 
+from app.core.ai_models import GENERATIVE_MODEL
+
 load_dotenv()
 
 # API Keys
@@ -203,10 +205,8 @@ OKX_MCP_MAX_TIMEOUT_SECONDS = _int_env("OKX_MCP_MAX_TIMEOUT_SECONDS", 300)
 
 
 # Watchlist monitor offline generation settings.
-WATCHLIST_MONITOR_LLM_MODEL = os.getenv(
-    "WATCHLIST_MONITOR_LLM_MODEL",
-    "deepseek-v4-pro",
-)
+# Legacy model environment overrides are retired to prevent provider drift.
+WATCHLIST_MONITOR_LLM_MODEL = GENERATIVE_MODEL
 WATCHLIST_MONITOR_LLM_MAX_TOKENS = _int_env(
     "WATCHLIST_MONITOR_LLM_MAX_TOKENS", 2400
 )
@@ -214,10 +214,7 @@ WATCHLIST_MONITOR_LLM_RETRIES = _int_env("WATCHLIST_MONITOR_LLM_RETRIES", 2)
 WATCHLIST_MONITOR_LLM_TEMPERATURE = _float_env(
     "WATCHLIST_MONITOR_LLM_TEMPERATURE", 0.2
 )
-WATCHLIST_MONITOR_MODEL_VERSION = os.getenv(
-    "WATCHLIST_MONITOR_MODEL_VERSION",
-    "watchlist-monitor-v1-%s" % WATCHLIST_MONITOR_LLM_MODEL.replace("/", "-"),
-)
+WATCHLIST_MONITOR_MODEL_VERSION = "watchlist-monitor-v2-%s" % GENERATIVE_MODEL
 WATCHLIST_MONITOR_GENERATION_CONCURRENCY = _int_env(
     "WATCHLIST_MONITOR_GENERATION_CONCURRENCY", 3
 )

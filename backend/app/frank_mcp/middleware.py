@@ -11,6 +11,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_http_headers
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
+from app.core.feature_pause import is_paused
 from app.core.logging import get_logger
 
 logger = get_logger("frank_mcp")
@@ -45,7 +46,14 @@ class ToolCallLogMiddleware(Middleware):
 class AccessGateMiddleware(Middleware):
     """Soft 'unlisted' gate: require a shared token only when one is configured."""
 
+    async def on_request(self, context: MiddlewareContext, call_next):
+        if is_paused("mcp"):
+            raise ToolError("MCP is temporarily unavailable")
+        return await call_next(context)
+
     async def on_call_tool(self, context: MiddlewareContext, call_next):
+        if is_paused("mcp"):
+            raise ToolError("MCP is temporarily unavailable")
         if _ACCESS_TOKEN:
             headers = get_http_headers() or {}
             supplied = headers.get("x-frank-token", "").strip()

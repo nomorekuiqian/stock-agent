@@ -7,9 +7,10 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from app.core.feature_pause import require_generation_active
 from app.core.logging import get_logger
 from app.core.langfuse import start_langfuse_generation, update_observation
-from app.shared.llm_clients.deepseek import create_chat_completion
+from app.shared.llm_clients.gemini import create_chat_completion
 from app.shared.llm_metering import record_usage
 
 logger = get_logger(__name__)
@@ -37,10 +38,9 @@ def _usage(response: dict[str, Any]) -> dict[str, Any]:
     return {
         "prompt_tokens": usage.get("prompt_tokens"),
         "output_tokens": usage.get("completion_tokens"),
-        "cached_tokens": usage.get("prompt_cache_hit_tokens"),
+        "cached_tokens": usage.get("cached_tokens"),
+        "thoughts_tokens": usage.get("thoughts_tokens"),
         "total_tokens": usage.get("total_tokens"),
-        "prompt_cache_hit_tokens": usage.get("prompt_cache_hit_tokens"),
-        "prompt_cache_miss_tokens": usage.get("prompt_cache_miss_tokens"),
     }
 
 
@@ -63,7 +63,7 @@ def _trace_messages(
     return traceable
 
 
-def _record_deepseek_usage(
+def _record_generation_usage(
     *,
     feature: str,
     agent_name: str,
@@ -80,13 +80,12 @@ def _record_deepseek_usage(
         prompt_tokens=usage["prompt_tokens"],
         output_tokens=usage["output_tokens"],
         cached_tokens=usage["cached_tokens"],
+        thoughts_tokens=usage["thoughts_tokens"],
         total_tokens=usage["total_tokens"],
         extra={
-            "provider": "deepseek",
+            "provider": "google",
             "attempt": attempt,
             "outcome": outcome,
-            "prompt_cache_hit_tokens": usage["prompt_cache_hit_tokens"],
-            "prompt_cache_miss_tokens": usage["prompt_cache_miss_tokens"],
         },
     )
 
@@ -112,10 +111,11 @@ async def generate_structured_json(
 ) -> T:
     """Generate and validate one structured JSON object.
 
-    DeepSeek JSON Output guarantees syntactically valid JSON, not JSON Schema
-    conformance. We still validate locally and ask the model to repair invalid
+    Gemini JSON mode produces JSON; application schema conformance is still
+    validated locally. Ask the model to repair invalid
     output before surfacing a hard failure to the caller.
     """
+    require_generation_active(feature)
     schema = _schema_text(output_model)
     messages: list[dict[str, str]] = [
         {
@@ -148,7 +148,7 @@ async def generate_structured_json(
         trace_metadata = {
             "feature": feature,
             "agent_name": agent_name,
-            "provider": "deepseek",
+            "provider": "google",
             "attempt": attempt,
             "output_schema": output_model.__name__,
         }
@@ -157,7 +157,7 @@ async def generate_structured_json(
             model=model,
             input=trace_input,
             metadata=trace_metadata,
-            tags=["deepseek", "structured-json", feature],
+            tags=["google", "structured-json", feature],
         ) as generation:
             response = await create_chat_completion(
                 model=model,
@@ -175,19 +175,19 @@ async def generate_structured_json(
                 output=text[:8000],
                 usage_details={
                     "input": usage["prompt_tokens"],
-                    "output": usage["output_tokens"],
+                    "output": (usage["output_tokens"] or 0) + (usage["thoughts_tokens"] or 0),
                     "total": usage["total_tokens"],
-                    "cache_read_input_tokens": usage["prompt_cache_hit_tokens"],
-                    "cache_miss_input_tokens": usage["prompt_cache_miss_tokens"],
+                    "cache_read_input_tokens": usage["cached_tokens"],
+                    "reasoning_tokens": usage["thoughts_tokens"],
                 },
                 metadata={**trace_metadata, "outcome": outcome},
             )
             try:
                 if not text:
-                    raise RuntimeError("DeepSeek returned empty content")
+                    raise RuntimeError("Gemini returned empty content")
                 raw = json.loads(text)
                 parsed = output_model.model_validate(raw)
-                _record_deepseek_usage(
+                _record_generation_usage(
                     feature=feature,
                     agent_name=agent_name,
                     model=model,
@@ -203,7 +203,7 @@ async def generate_structured_json(
                     generation,
                     metadata={**trace_metadata, "outcome": outcome, "error": str(exc)[:500]},
                 )
-                _record_deepseek_usage(
+                _record_generation_usage(
                     feature=feature,
                     agent_name=agent_name,
                     model=model,

@@ -11,7 +11,9 @@ structured morning briefing for US stock investors.
 import json
 import os
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
+from app.shared.agent_sessions import temporary_agent_session
 from app.utils.timezone import now_iso, format_report_date, today_str
 
 logger = get_logger(__name__)
@@ -33,7 +35,7 @@ from app.features.morning_report.models import MorningReportOutput
 from app.features.morning_report import db as morning_db
 from app.shared.llm_metering import meter
 
-MORNING_REPORT_MODEL = "gemini-3.1-flash-lite"
+MORNING_REPORT_MODEL = GENERATIVE_MODEL
 
 # Import data fetching tools
 from app.shared.data_tools import get_premarket_data
@@ -301,97 +303,96 @@ class MorningReportAgent:
             # Step 4: Run the agent
             logger.info("Running morning analyst agent...")
 
-            session = await self.runner.session_service.create_session(
-                app_name="morning_report", user_id="morning_analyst"
-            )
-
-            message = Content(
-                parts=[
-                    Part(
-                        text=(
-                            "Please analyze the following pre-market data and provide "
-                            "a morning briefing:\n\n"
-                            + json.dumps(data_for_agent, ensure_ascii=False, indent=2, default=str)
+            async with temporary_agent_session(
+                self.runner, app_name="morning_report", user_id="morning_analyst"
+            ) as session:
+                message = Content(
+                    parts=[
+                        Part(
+                            text=(
+                                "Please analyze the following pre-market data and provide "
+                                "a morning briefing:\n\n"
+                                + json.dumps(data_for_agent, ensure_ascii=False, indent=2, default=str)
+                            )
                         )
-                    )
-                ],
-                role="user",
-            )
+                    ],
+                    role="user",
+                )
 
-            async for event in self.runner.run_async(
-                user_id="morning_analyst",
-                session_id=session.id,
-                new_message=message,
-            ):
-                pass
+                async for event in self.runner.run_async(
+                    user_id="morning_analyst",
+                    session_id=session.id,
+                    new_message=message,
+                ):
+                    pass
 
-            # Get structured output from session state
-            session_data = await self.runner.session_service.get_session(
-                app_name="morning_report",
-                user_id="morning_analyst",
-                session_id=session.id,
-            )
+                # Get structured output from session state
+                session_data = await self.runner.session_service.get_session(
+                    app_name="morning_report",
+                    user_id="morning_analyst",
+                    session_id=session.id,
+                )
 
-            # Extract report from state
-            title = ""
-            market_pulse = ""
-            futures = []
-            futures_analysis = ""
-            global_markets_analysis = ""
-            global_markets = {"asia": [], "europe": [], "other": []}
-            overnight_news = []
-            today_focus = []
-            summary = []
+                # Extract report from state
+                title = ""
+                market_pulse = ""
+                futures = []
+                futures_analysis = ""
+                global_markets_analysis = ""
+                global_markets = {"asia": [], "europe": [], "other": []}
+                overnight_news = []
+                today_focus = []
+                summary = []
 
-            if session_data and hasattr(session_data, "state"):
-                state = session_data.state or {}
-                report_data = state.get("morning_report", {})
+                if session_data and hasattr(session_data, "state"):
+                    state = session_data.state or {}
+                    report_data = state.get("morning_report", {})
 
-                if isinstance(report_data, str):
-                    try:
-                        report_data = json.loads(report_data)
-                    except json.JSONDecodeError:
-                        report_data = {}
+                    if isinstance(report_data, str):
+                        try:
+                            report_data = json.loads(report_data)
+                        except json.JSONDecodeError:
+                            report_data = {}
 
-                if isinstance(report_data, dict):
-                    title = report_data.get("title", "")
-                    market_pulse = report_data.get("market_pulse", "")
-                    futures = report_data.get("futures", [])
-                    futures_analysis = report_data.get("futures_analysis", "")
-                    global_markets_analysis = report_data.get("global_markets_analysis", "")
-                    global_markets = report_data.get("global_markets", global_markets)
-                    overnight_news = report_data.get("overnight_news", [])
-                    today_focus = report_data.get("today_focus", [])
-                    summary = report_data.get("summary", [])
+                    if isinstance(report_data, dict):
+                        title = report_data.get("title", "")
+                        market_pulse = report_data.get("market_pulse", "")
+                        futures = report_data.get("futures", [])
+                        futures_analysis = report_data.get("futures_analysis", "")
+                        global_markets_analysis = report_data.get("global_markets_analysis", "")
+                        global_markets = report_data.get("global_markets", global_markets)
+                        overnight_news = report_data.get("overnight_news", [])
+                        today_focus = report_data.get("today_focus", [])
+                        summary = report_data.get("summary", [])
 
-            # Resolve article_id references to real URLs in overnight_news
-            overnight_news = self._resolve_article_urls(overnight_news, raw_news)
+                # Resolve article_id references to real URLs in overnight_news
+                overnight_news = self._resolve_article_urls(overnight_news, raw_news)
 
-            logger.info(
-                "Morning analysis complete. Title: %s, News: %d, Focus: %d",
-                title[:30] if title else "N/A",
-                len(overnight_news),
-                len(today_focus),
-            )
+                logger.info(
+                    "Morning analysis complete. Title: %s, News: %d, Focus: %d",
+                    title[:30] if title else "N/A",
+                    len(overnight_news),
+                    len(today_focus),
+                )
 
-            return {
-                "timestamp": now_iso(),
-                "title": title,
-                "market_pulse": market_pulse,
-                "futures": futures,
-                "futures_analysis": futures_analysis,
-                "global_markets": global_markets,
-                "global_markets_analysis": global_markets_analysis,
-                "overnight_news": overnight_news,
-                "today_focus": today_focus,
-                "summary": summary,
-                "market_data": {
-                    "premarket": premarket_data,
-                    "news_count": news_result.get("news_count", 0),
-                    "calendar_count": calendar_result.get("events_count", 0),
-                    "earnings_count": earnings_result.get("earnings_count", 0),
-                },
-            }
+                return {
+                    "timestamp": now_iso(),
+                    "title": title,
+                    "market_pulse": market_pulse,
+                    "futures": futures,
+                    "futures_analysis": futures_analysis,
+                    "global_markets": global_markets,
+                    "global_markets_analysis": global_markets_analysis,
+                    "overnight_news": overnight_news,
+                    "today_focus": today_focus,
+                    "summary": summary,
+                    "market_data": {
+                        "premarket": premarket_data,
+                        "news_count": news_result.get("news_count", 0),
+                        "calendar_count": calendar_result.get("events_count", 0),
+                        "earnings_count": earnings_result.get("earnings_count", 0),
+                    },
+                }
 
         except Exception as e:
             logger.exception("Error in morning analysis")

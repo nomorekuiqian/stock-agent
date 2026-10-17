@@ -9,6 +9,7 @@ import threading
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 import app.core.posthog_client as posthog
@@ -412,7 +413,7 @@ async def generate_stock_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-flash-lite"),
+                        "model": cached.get("model") or "unknown",
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -470,7 +471,7 @@ async def generate_stock_analysis_endpoint(
                 "quote": stock_data.get("quote", {}),
                 "fundamentals": stock_data.get("fundamentals", {}),
             },
-            model=meta.get("model", "gemini-3.1-flash-lite"),
+            model=meta.get("model", GENERATIVE_MODEL),
         )
         logger.info("Save result: %s", save_result)
 
@@ -586,7 +587,7 @@ async def generate_technical_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-flash-lite"),
+                        "model": cached.get("model") or "unknown",
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                         "timeframe": timeframe,
@@ -626,7 +627,7 @@ async def generate_technical_analysis_endpoint(
             analysis_type=analysis_type,
             content=analysis,
             data_snapshot=technical_data,
-            model=meta.get("model", "gemini-3.1-flash-lite"),
+            model=meta.get("model", GENERATIVE_MODEL),
             expires_hours=8,
         )
         logger.info("Save result: %s", save_result)
@@ -700,7 +701,7 @@ async def generate_news_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-flash-lite"),
+                        "model": cached.get("model") or "unknown",
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -791,7 +792,7 @@ async def generate_news_analysis_endpoint(
             analysis_type="news_context",
             content=analysis,
             data_snapshot={"quote": quote_snapshot},
-            model=meta.get("model", "gemini-3.1-flash-lite"),
+            model=meta.get("model", GENERATIVE_MODEL),
             expires_hours=8,
         )
         logger.info("News analysis save result: %s", save_result)
@@ -852,7 +853,7 @@ async def generate_macro_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-flash-lite"),
+                        "model": cached.get("model") or "unknown",
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -939,7 +940,7 @@ async def generate_macro_analysis_endpoint(
             analysis_type="macro_sector",
             content=analysis,
             data_snapshot={"quote": quote_snapshot},
-            model=meta.get("model", "gemini-3.1-flash-lite"),
+            model=meta.get("model", GENERATIVE_MODEL),
             expires_hours=24,
         )
         logger.info("Macro analysis save result: %s", save_result)
@@ -986,7 +987,7 @@ async def get_market_analysis_cache_endpoint(
             "analysis": cached.get("content"),
             "meta": {
                 "symbol": symbol,
-                "model": cached.get("model", "gemini-3.1-flash-lite"),
+                "model": cached.get("model") or "unknown",
                 "generated_at": cached.get("generated_at"),
                 "from_cache": True,
             },
@@ -1024,7 +1025,7 @@ async def generate_market_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-flash-lite"),
+                        "model": cached.get("model") or "unknown",
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -1158,7 +1159,7 @@ async def generate_market_analysis_endpoint(
                 "press_count": len(press_list),
                 "grade_changes_count": len(analyst.get("grades_recent") or []),
             },
-            model=meta.get("model", "gemini-3.1-flash-lite"),
+            model=meta.get("model", GENERATIVE_MODEL),
             expires_hours=8,
         )
         logger.info("Market overview save result: %s", save_result)
@@ -1218,7 +1219,7 @@ async def generate_earnings_analysis_endpoint(
                     "analysis": cached.get("content"),
                     "meta": {
                         "symbol": symbol,
-                        "model": cached.get("model", "gemini-3.1-flash-lite"),
+                        "model": cached.get("model") or "unknown",
                         "generated_at": cached.get("generated_at"),
                         "from_cache": True,
                     },
@@ -1341,7 +1342,7 @@ async def generate_earnings_analysis_endpoint(
             analysis_type="earnings",
             content=analysis,
             data_snapshot={"quote": quote_snapshot},
-            model=meta.get("model", "gemini-3.1-flash-lite"),
+            model=meta.get("model", GENERATIVE_MODEL),
             expires_hours=cache_hours,
         )
         logger.info("Earnings analysis save result: %s", save_result)

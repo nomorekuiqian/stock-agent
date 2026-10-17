@@ -19,11 +19,12 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai.types import Content, Part
 
+from app.core.ai_models import GENERATIVE_MODEL
 from app.core.logging import get_logger
 from app.features.subscription.models import NewsletterOutput
 from app.shared.llm_metering import meter
 
-NEWSLETTER_MODEL = "gemini-3.1-flash-lite"
+NEWSLETTER_MODEL = GENERATIVE_MODEL
 
 logger = get_logger(__name__)
 

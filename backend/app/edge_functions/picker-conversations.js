@@ -84,6 +84,8 @@ module.exports = async function(request) {
 
   function toConversationSummary(row, searchMatches) {
     const summary = {
+      agent_kind: row.data?.agent_kind || row.agent_kind || null,
+      persona_username: row.data?.persona_username || row.persona_username || null,
       id: row.id,
       user_id: row.user_id,
       title: row.title,
@@ -144,7 +146,7 @@ module.exports = async function(request) {
 
       const { data, error } = await client.database
         .from(TABLE)
-        .select("id, user_id, title, message_count, created_at, updated_at")
+        .select("id, user_id, title, data, message_count, created_at, updated_at")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .range(offset, offset + limit - 1);

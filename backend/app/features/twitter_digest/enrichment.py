@@ -18,6 +18,7 @@ from typing import Optional
 from app.core.config import EDGE_FUNCTION_SECRET
 from app.core.database import get_insforge_service
 from app.core.logging import get_logger
+from app.shared.agent_sessions import temporary_agent_session
 from app.features.twitter_digest.agents import (
     APP_NAME,
     ENRICH_MODEL,
@@ -135,56 +136,55 @@ async def _run_enrich_batch(tweets: list[dict]) -> list[EnrichmentOutput]:
 
     runner = get_runner(enrich_agent)
     user_id = f"{enrich_agent.name}_caller"
-    session = await runner.session_service.create_session(
-        app_name=APP_NAME, user_id=user_id,
-    )
+    async with temporary_agent_session(
+        runner, app_name=APP_NAME, user_id=user_id
+    ) as session:
+        payload = {"tweets": [_slim_for_enrichment(t) for t in tweets]}
+        payload_text = json.dumps(payload, ensure_ascii=False, default=str)
+        message = Content(parts=[Part(text=payload_text)], role="user")
 
-    payload = {"tweets": [_slim_for_enrichment(t) for t in tweets]}
-    payload_text = json.dumps(payload, ensure_ascii=False, default=str)
-    message = Content(parts=[Part(text=payload_text)], role="user")
+        async for _ in runner.run_async(
+            user_id=user_id, session_id=session.id, new_message=message,
+        ):
+            pass
 
-    async for _ in runner.run_async(
-        user_id=user_id, session_id=session.id, new_message=message,
-    ):
-        pass
-
-    session_data = await runner.session_service.get_session(
-        app_name=APP_NAME, user_id=user_id, session_id=session.id,
-    )
-    state = (session_data.state if session_data else {}) or {}
-    raw = state.get(enrich_agent.output_key)
-
-    if raw is None:
-        raise RuntimeError(f"{enrich_agent.name} produced no output")
-
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(
-                f"{enrich_agent.name} output was not valid JSON: {raw[:200]}"
-            ) from exc
-
-    try:
-        wrapper = _EnrichmentBatchOutput.model_validate(raw)
-    except ValidationError as exc:
-        raise RuntimeError(f"{enrich_agent.name} output did not match schema: {exc}") from exc
-
-    enrichments = wrapper.enrichments
-    if len(enrichments) != len(tweets):
-        # Pad / truncate to match input length so position-based pairing stays
-        # valid. The mismatch itself is a strong signal of LLM degradation,
-        # so log a warning that ops can monitor.
-        logger.warning(
-            "enrich batch length mismatch: input=%d output=%d (padding/truncating)",
-            len(tweets), len(enrichments),
+        session_data = await runner.session_service.get_session(
+            app_name=APP_NAME, user_id=user_id, session_id=session.id,
         )
-        enrichments = list(enrichments)
-        while len(enrichments) < len(tweets):
-            enrichments.append(EnrichmentOutput(quality="drop"))
-        enrichments = enrichments[: len(tweets)]
+        state = (session_data.state if session_data else {}) or {}
+        raw = state.get(enrich_agent.output_key)
 
-    return enrichments
+        if raw is None:
+            raise RuntimeError(f"{enrich_agent.name} produced no output")
+
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(
+                    f"{enrich_agent.name} output was not valid JSON: {raw[:200]}"
+                ) from exc
+
+        try:
+            wrapper = _EnrichmentBatchOutput.model_validate(raw)
+        except ValidationError as exc:
+            raise RuntimeError(f"{enrich_agent.name} output did not match schema: {exc}") from exc
+
+        enrichments = wrapper.enrichments
+        if len(enrichments) != len(tweets):
+            # Pad / truncate to match input length so position-based pairing stays
+            # valid. The mismatch itself is a strong signal of LLM degradation,
+            # so log a warning that ops can monitor.
+            logger.warning(
+                "enrich batch length mismatch: input=%d output=%d (padding/truncating)",
+                len(tweets), len(enrichments),
+            )
+            enrichments = list(enrichments)
+            while len(enrichments) < len(tweets):
+                enrichments.append(EnrichmentOutput(quality="drop"))
+            enrichments = enrichments[: len(tweets)]
+
+        return enrichments
 
 
 # ---------------------------------------------------------------------------

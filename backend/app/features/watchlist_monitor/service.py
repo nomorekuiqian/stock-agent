@@ -6,6 +6,7 @@ import asyncio
 from datetime import date, timedelta
 from typing import Any
 
+from app.core.feature_pause import require_active
 from app.core.config import (
     WATCHLIST_MONITOR_GENERATION_CONCURRENCY,
     WATCHLIST_MONITOR_MODEL_VERSION,
@@ -541,6 +542,7 @@ async def _generate_one_symbol(
 
 async def generate_for_symbols(symbols: list[str], *, force: bool = False) -> tuple[list[GenerateTickerResult], list[GenerateTickerResult]]:
     """Generate and persist ticker briefs for the provided symbols."""
+    require_active("watchlist_monitor")
     normalized = _normalize_symbols(symbols)
     if not normalized:
         return [], []
@@ -592,6 +594,7 @@ async def generate_test_user_universe(
     dry_run: bool = False,
 ) -> GenerateTestUniverseResponse:
     """Generate the monitor for the limited dry-run test-user universe."""
+    require_active("watchlist_monitor")
     target_user_ids = [
         user_id
         for user_id in dict.fromkeys(user_ids or list(_DEFAULT_TEST_UNIVERSE_USER_IDS))
@@ -648,6 +651,7 @@ async def generate_paid_user_universe(
     dry_run: bool = False,
 ) -> GeneratePaidUniverseResponse:
     """Generate monitor briefs for the union of paid/entitled users' watchlists."""
+    require_active("watchlist_monitor")
     entitled_rows = await list_users_with_entitlement(_MONITOR_FEATURE)
     user_ids: list[str] = []
     seen_user_ids: set[str] = set()

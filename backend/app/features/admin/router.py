@@ -18,6 +18,7 @@ from app.features.feedback.db import (
     get_feedback_stats,
     get_user_feedback_list,
 )
+from app.shared.llm_pricing import estimate_usd as _estimate_usd
 from app.utils.timezone import days_ago, today_str
 
 logger = get_logger(__name__)
@@ -808,18 +809,6 @@ async def get_dashboard(
     return dashboard
 
 
-def _estimate_usd(model: str | None, prompt_tokens: int, output_tokens: int) -> float:
-    """Rough USD estimate from token counts. Update when Google pricing changes."""
-    m = (model or "").lower()
-    if "flash-lite" in m:
-        in_rate, out_rate = 0.10, 0.40
-    elif "flash" in m:
-        in_rate, out_rate = 0.30, 2.50
-    else:
-        in_rate, out_rate = 1.25, 5.00
-    return prompt_tokens / 1_000_000 * in_rate + output_tokens / 1_000_000 * out_rate
-
-
 @router.get("/llm-usage")
 async def get_llm_usage(
     days: int = Query(14, ge=1, le=90),
@@ -849,7 +838,11 @@ async def get_llm_usage(
 
     rows = data.get("summary", []) or []
     enriched = [
-        {**r, "est_usd": round(_estimate_usd(r.get("model"), r.get("prompt_tokens", 0), r.get("output_tokens", 0)), 4)}
+        {**r, "est_usd": round(_estimate_usd(
+            r.get("model"), r.get("prompt_tokens", 0), r.get("output_tokens", 0),
+            thoughts_tokens=r.get("thoughts_tokens", 0),
+            cached_tokens=r.get("cached_tokens", 0), usage_day=r.get("day"),
+        ), 4)}
         for r in rows
     ]
 

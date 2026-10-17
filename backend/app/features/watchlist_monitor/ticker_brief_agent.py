@@ -7,6 +7,7 @@ import json
 import re
 from typing import Any
 
+from app.core.feature_pause import require_active
 from app.core.config import (
     WATCHLIST_MONITOR_LLM_MAX_TOKENS,
     WATCHLIST_MONITOR_LLM_MODEL,
@@ -744,6 +745,7 @@ async def _compose_final_brief(
 
 async def generate_ticker_brief(context: dict) -> TickerBriefAgentOutput:
     """Run the split DeepSeek pipeline and return the combined brief output."""
+    require_active("watchlist_monitor")
     payload = _json_safe(context)
     news_events, technical, discussion = await asyncio.gather(
         _synthesize_news_and_events(payload),
