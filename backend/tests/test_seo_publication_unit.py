@@ -38,6 +38,18 @@ def test_production_requires_persistent_content_path(monkeypatch):
     with pytest.raises(RuntimeError, match='persistent'):
         content_store.initialize_storage()
 
+@pytest.mark.asyncio
+async def test_calendar_projection_uses_the_production_fmp_contract():
+    from app.shared.fmp_service import FMPService
+    provider = object.__new__(FMPService)
+    with patch.object(provider, '_request', return_value=[]) as request, patch('app.shared.fmp_service.get_fmp_service', return_value=provider):
+        upcoming = await service.earnings_calendar()
+        reported = await service.reported_earnings()
+    assert upcoming['status'] == 'success' and upcoming['earnings'] == []
+    assert reported == []
+    assert request.call_count == 2
+    assert all(call.args[0] == '/stable/earnings-calendar' for call in request.call_args_list)
+
 @pytest.mark.parametrize('template,facts,ids',[('收益一定增加',{},['s']),('价格 {missing}',{},['s']),('价格 {x}',{'x':None},['s']),('价格 {x}',{'x':float('nan')},['s']),('价格 {x}',{'x':1},['wrong']),('价格 {x.__class__}',{'x':1},['s'])])
 def test_source_and_numeric_guards(template,facts,ids):
     with pytest.raises(ValueError):policy.render_generated(template,facts,ids,['s'])

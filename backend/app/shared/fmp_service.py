@@ -1068,6 +1068,20 @@ class FMPService:
             "source": "fmp",
         }
 
+    def get_earnings_calendar_range(self, from_date: str, to_date: str) -> dict:
+        """Read an explicit date range for public upcoming and reported earnings."""
+        data = self._request("/stable/earnings-calendar", {"from": from_date, "to": to_date})
+        if not isinstance(data, list):
+            return self._empty_earnings_response("Earnings calendar unavailable")
+        earnings = sorted(self._parse_earnings(data), key=lambda item: item.get("date", ""))
+        return {
+            "status": "success",
+            "earnings_count": len(earnings),
+            "earnings": earnings,
+            "date_range": {"from": from_date, "to": to_date},
+            "source": "fmp",
+        }
+
     def get_recent_earnings_for_symbol(
         self, symbol: str, days_back: int = 3, days_forward: int = 1
     ) -> dict | None:
