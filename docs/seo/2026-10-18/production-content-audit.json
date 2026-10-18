@@ -1,0 +1,1148 @@
+{
+  "source": "Final Vercel production build dpl_8L634SnnF4aHoXQ4HS8WMp6esGQc; live backend",
+  "rows": [
+    {
+      "symbol": "SPCX",
+      "unique": 1086,
+      "total": 3302,
+      "ratio": 0.329,
+      "robots": "index,follow",
+      "in_sitemap": true,
+      "temporary_exception": true
+    },
+    {
+      "symbol": "TSLA",
+      "unique": 1364,
+      "total": 3324,
+      "ratio": 0.41,
+      "robots": "index,follow",
+      "in_sitemap": true,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NVDA",
+      "unique": 1234,
+      "total": 3253,
+      "ratio": 0.379,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "MSFT",
+      "unique": 864,
+      "total": 2722,
+      "ratio": 0.317,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "AMD",
+      "unique": 1212,
+      "total": 3226,
+      "ratio": 0.376,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "INTC",
+      "unique": 955,
+      "total": 3123,
+      "ratio": 0.306,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "MU",
+      "unique": 1398,
+      "total": 3333,
+      "ratio": 0.419,
+      "robots": "index,follow",
+      "in_sitemap": true,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "GOOGL",
+      "unique": 817,
+      "total": 2515,
+      "ratio": 0.325,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ORCL",
+      "unique": 817,
+      "total": 2918,
+      "ratio": 0.28,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SNDK",
+      "unique": 201,
+      "total": 1932,
+      "ratio": 0.104,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "AAPL",
+      "unique": 1017,
+      "total": 2784,
+      "ratio": 0.365,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "META",
+      "unique": 1284,
+      "total": 3263,
+      "ratio": 0.394,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "AMZN",
+      "unique": 1023,
+      "total": 2901,
+      "ratio": 0.353,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "CRCL",
+      "unique": 244,
+      "total": 1995,
+      "ratio": 0.122,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "PLTR",
+      "unique": 696,
+      "total": 2348,
+      "ratio": 0.296,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SOFI",
+      "unique": 284,
+      "total": 2117,
+      "ratio": 0.134,
+      "robots": "index,follow",
+      "in_sitemap": true,
+      "temporary_exception": true
+    },
+    {
+      "symbol": "NBIS",
+      "unique": 915,
+      "total": 2981,
+      "ratio": 0.307,
+      "robots": "index,follow",
+      "in_sitemap": true,
+      "temporary_exception": true
+    },
+    {
+      "symbol": "RKLB",
+      "unique": 377,
+      "total": 2111,
+      "ratio": 0.179,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "AVGO",
+      "unique": 1285,
+      "total": 3284,
+      "ratio": 0.391,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "CRWV",
+      "unique": 961,
+      "total": 3045,
+      "ratio": 0.316,
+      "robots": "index,follow",
+      "in_sitemap": true,
+      "temporary_exception": true
+    },
+    {
+      "symbol": "SMR",
+      "unique": 383,
+      "total": 2088,
+      "ratio": 0.183,
+      "robots": "index,follow",
+      "in_sitemap": true,
+      "temporary_exception": true
+    },
+    {
+      "symbol": "MSTR",
+      "unique": 379,
+      "total": 2274,
+      "ratio": 0.167,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "OKLO",
+      "unique": 302,
+      "total": 1893,
+      "ratio": 0.16,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "TSM",
+      "unique": 1344,
+      "total": 3157,
+      "ratio": 0.426,
+      "robots": "index,follow",
+      "in_sitemap": true,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NFLX",
+      "unique": 792,
+      "total": 2345,
+      "ratio": 0.338,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "JPM",
+      "unique": 445,
+      "total": 2019,
+      "ratio": 0.22,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ASML",
+      "unique": 1066,
+      "total": 2861,
+      "ratio": 0.373,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "LITE",
+      "unique": 879,
+      "total": 2924,
+      "ratio": 0.301,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SMCI",
+      "unique": 501,
+      "total": 2202,
+      "ratio": 0.228,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "MRVL",
+      "unique": 735,
+      "total": 2640,
+      "ratio": 0.278,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "UNH",
+      "unique": 264,
+      "total": 1508,
+      "ratio": 0.175,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "IONQ",
+      "unique": 266,
+      "total": 1789,
+      "ratio": 0.149,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "VRT",
+      "unique": 284,
+      "total": 1953,
+      "ratio": 0.145,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ALAB",
+      "unique": 256,
+      "total": 1938,
+      "ratio": 0.132,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "RGTI",
+      "unique": 248,
+      "total": 1872,
+      "ratio": 0.132,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "HIMS",
+      "unique": 303,
+      "total": 1921,
+      "ratio": 0.158,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NOW",
+      "unique": 676,
+      "total": 2327,
+      "ratio": 0.291,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "TEM",
+      "unique": 319,
+      "total": 1994,
+      "ratio": 0.16,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "RIVN",
+      "unique": 224,
+      "total": 1802,
+      "ratio": 0.124,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "QBTS",
+      "unique": 271,
+      "total": 1921,
+      "ratio": 0.141,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "VST",
+      "unique": 497,
+      "total": 2411,
+      "ratio": 0.206,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "APP",
+      "unique": 296,
+      "total": 1987,
+      "ratio": 0.149,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "GEV",
+      "unique": 210,
+      "total": 1899,
+      "ratio": 0.111,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "BABA",
+      "unique": 539,
+      "total": 2281,
+      "ratio": 0.236,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "HOOD",
+      "unique": 367,
+      "total": 2239,
+      "ratio": 0.164,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "GS",
+      "unique": 738,
+      "total": 2356,
+      "ratio": 0.313,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "CEG",
+      "unique": 579,
+      "total": 2648,
+      "ratio": 0.219,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ARM",
+      "unique": 459,
+      "total": 2137,
+      "ratio": 0.215,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NVO",
+      "unique": 496,
+      "total": 2099,
+      "ratio": 0.236,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "PDD",
+      "unique": 383,
+      "total": 1790,
+      "ratio": 0.214,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ANET",
+      "unique": 323,
+      "total": 2019,
+      "ratio": 0.16,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SHOP",
+      "unique": 308,
+      "total": 2155,
+      "ratio": 0.143,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "BIDU",
+      "unique": 270,
+      "total": 1520,
+      "ratio": 0.178,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "UBER",
+      "unique": 666,
+      "total": 2216,
+      "ratio": 0.301,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "JD",
+      "unique": 345,
+      "total": 1654,
+      "ratio": 0.209,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "COIN",
+      "unique": 525,
+      "total": 2513,
+      "ratio": 0.209,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "LLY",
+      "unique": 554,
+      "total": 2235,
+      "ratio": 0.248,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NIO",
+      "unique": 470,
+      "total": 2311,
+      "ratio": 0.203,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "RTX",
+      "unique": 449,
+      "total": 1993,
+      "ratio": 0.225,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "DELL",
+      "unique": 314,
+      "total": 2001,
+      "ratio": 0.157,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "COST",
+      "unique": 260,
+      "total": 1382,
+      "ratio": 0.188,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "BRK.B",
+      "unique": 257,
+      "total": 1197,
+      "ratio": 0.215,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "CRWD",
+      "unique": 816,
+      "total": 2061,
+      "ratio": 0.396,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SNOW",
+      "unique": 660,
+      "total": 1758,
+      "ratio": 0.375,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "CRM",
+      "unique": 529,
+      "total": 1597,
+      "ratio": 0.331,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "QCOM",
+      "unique": 521,
+      "total": 1578,
+      "ratio": 0.33,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "XPEV",
+      "unique": 223,
+      "total": 1016,
+      "ratio": 0.219,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ADBE",
+      "unique": 427,
+      "total": 1490,
+      "ratio": 0.287,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "LI",
+      "unique": 214,
+      "total": 1079,
+      "ratio": 0.198,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NET",
+      "unique": 583,
+      "total": 1680,
+      "ratio": 0.347,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "DDOG",
+      "unique": 0,
+      "total": 662,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "MS",
+      "unique": 0,
+      "total": 632,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "C",
+      "unique": 176,
+      "total": 1047,
+      "ratio": 0.168,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "WFC",
+      "unique": 0,
+      "total": 686,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "BAC",
+      "unique": 0,
+      "total": 699,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "BLK",
+      "unique": 0,
+      "total": 631,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SCHW",
+      "unique": 242,
+      "total": 905,
+      "ratio": 0.267,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "AXP",
+      "unique": 0,
+      "total": 693,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "MA",
+      "unique": 0,
+      "total": 648,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "V",
+      "unique": 0,
+      "total": 638,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "PYPL",
+      "unique": 0,
+      "total": 659,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "AFRM",
+      "unique": 0,
+      "total": 710,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "FI",
+      "unique": 0,
+      "total": 260,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "GPN",
+      "unique": 0,
+      "total": 639,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SBUX",
+      "unique": 0,
+      "total": 650,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "MCD",
+      "unique": 0,
+      "total": 648,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "HD",
+      "unique": 0,
+      "total": 640,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NKE",
+      "unique": 265,
+      "total": 1099,
+      "ratio": 0.241,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ABNB",
+      "unique": 0,
+      "total": 652,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "TGT",
+      "unique": 0,
+      "total": 654,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "PG",
+      "unique": 0,
+      "total": 677,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "WMT",
+      "unique": 0,
+      "total": 635,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "KO",
+      "unique": 0,
+      "total": 647,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "F",
+      "unique": 0,
+      "total": 627,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "PEP",
+      "unique": 0,
+      "total": 611,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "GM",
+      "unique": 0,
+      "total": 680,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "PFE",
+      "unique": 0,
+      "total": 623,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "JNJ",
+      "unique": 0,
+      "total": 619,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "LCID",
+      "unique": 0,
+      "total": 654,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "MRK",
+      "unique": 0,
+      "total": 640,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ABBV",
+      "unique": 0,
+      "total": 649,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "TMO",
+      "unique": 0,
+      "total": 685,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "GILD",
+      "unique": 0,
+      "total": 657,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "AMGN",
+      "unique": 0,
+      "total": 630,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ISRG",
+      "unique": 0,
+      "total": 697,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "COP",
+      "unique": 0,
+      "total": 648,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "XOM",
+      "unique": 0,
+      "total": 667,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "CVX",
+      "unique": 0,
+      "total": 644,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SLB",
+      "unique": 0,
+      "total": 667,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "EOG",
+      "unique": 0,
+      "total": 643,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "OXY",
+      "unique": 0,
+      "total": 666,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "PSX",
+      "unique": 0,
+      "total": 673,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "VLO",
+      "unique": 0,
+      "total": 704,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "MPC",
+      "unique": 0,
+      "total": 675,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NOC",
+      "unique": 0,
+      "total": 718,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "LMT",
+      "unique": 0,
+      "total": 708,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "GD",
+      "unique": 0,
+      "total": 662,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "BA",
+      "unique": 0,
+      "total": 636,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "HII",
+      "unique": 0,
+      "total": 694,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "LHX",
+      "unique": 0,
+      "total": 700,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "TDG",
+      "unique": 0,
+      "total": 635,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "SPOT",
+      "unique": 0,
+      "total": 705,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "DIS",
+      "unique": 0,
+      "total": 645,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "TME",
+      "unique": 0,
+      "total": 667,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "NTES",
+      "unique": 0,
+      "total": 589,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "ROKU",
+      "unique": 0,
+      "total": 587,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    },
+    {
+      "symbol": "BILI",
+      "unique": 0,
+      "total": 627,
+      "ratio": 0.0,
+      "robots": "noindex,follow",
+      "in_sitemap": false,
+      "temporary_exception": false
+    }
+  ]
+}

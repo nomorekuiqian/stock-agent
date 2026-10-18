@@ -1,0 +1,41 @@
+{
+  "verified_at": "2026-10-18T16:40:07.145824+00:00",
+  "branch": "codex/seo-production",
+  "frontend_commit": "2bc3a0bc9ef416220a2003874fd322f536f42f29",
+  "frontend_deployment": "dpl_8L634SnnF4aHoXQ4HS8WMp6esGQc",
+  "frontend_status": "READY",
+  "formal_domain": "https://www.themarketbrew.com",
+  "backend_commit": "a20832312050bfd2b28326987e18e48170510984",
+  "backend_deployment": "195fdde3-bd77-423d-8a41-3a67fe303bd5",
+  "backend_status": "SUCCESS",
+  "checks": {
+    "http_pages_routes": 46,
+    "sitemap_shards": 6,
+    "sitemap_urls_passed": 280,
+    "browser_scenarios": 18,
+    "crawler_parity_cases": 24,
+    "backend_api_cases": 12,
+    "local_frontend_tests": 83,
+    "local_backend_tests": 29,
+    "timezone_regressions": 4
+  },
+  "original_worktree_unchanged": true,
+  "original_paths_checked": 446,
+  "content": {
+    "companies_in_persistent_storage": 70,
+    "build_stock_audit": 127,
+    "sitemap_eligible_stocks": 8,
+    "temporary_stock_exceptions": 5
+  },
+  "boundaries": [
+    "No GSC indexing/ranking or AI citation claim",
+    "No authenticated paid-account acceptance or checkout",
+    "Normal production content worker enabled; rejected candidates await human review",
+    "Upstream FMP rate limits were observed during the build; optional data remains provider-dependent"
+  ],
+  "resolved_findings": [
+    "Missing baseline earnings date-range adapter",
+    "NVDA mobile related-author link overflow",
+    "Liquidity SSR/browser timezone mismatch"
+  ]
+}

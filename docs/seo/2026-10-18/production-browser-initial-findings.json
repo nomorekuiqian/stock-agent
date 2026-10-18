@@ -1,0 +1,33 @@
+{
+  "deployment": "dpl_AqJ4JCLUeSDkZ1h6hcGvJTccUJ58",
+  "resolved_by_commit": "2bc3a0b",
+  "findings": [
+    {
+      "path": "/stock/NVDA",
+      "width": 390,
+      "actualChars": 3253,
+      "modeledChars": 3253,
+      "h1": 1,
+      "overflow": true,
+      "answer": "英伟达（NVDA）设计 GPU 与 AI 加速芯片。近 30 天已收录 55 位博主的 126 条相关观点，偏多 73、偏空 25；下方摘要保留来源，观点不代表公司未来表现。",
+      "title": "英伟达(NVDA)股票：博主观点、涨跌原因与财报解读｜TheMarketBrew",
+      "paywalls": 1,
+      "ratio": "0.37934214571165076",
+      "errors": []
+    },
+    {
+      "path": "/macro/liquidity",
+      "width": 390,
+      "actualChars": null,
+      "modeledChars": null,
+      "h1": 1,
+      "overflow": false,
+      "answer": "美联储总资产 $6.76T，TGA $835B，逆回购 $100M，净流动性 $5.91T。这些序列共同描述美元资金环境，需结合观察日期与统计口径理解，不能直接推断股价方向。",
+      "title": "美联储资产负债表与美元流动性状况：TGA、逆回购每周更新｜TheMarketBrew",
+      "paywalls": 0,
+      "errors": [
+        "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+      ]
+    }
+  ]
+}

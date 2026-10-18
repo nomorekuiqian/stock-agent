@@ -32,12 +32,12 @@ def check(base,path):
  html=response.read().decode();p=PlanPage();p.feed(html);text=''.join(p.all_text)
  return {'path':path,'status':response.status,'redirect':response.headers.get('Location'),'content_type':response.headers.get('Content-Type'),'robots_header':response.headers.get('X-Robots-Tag'),'answer_text':''.join(p.answer_text),'disclaimer':'不构成任何投资建议' in text,'h1':p.h1,'jsonld':len(p.jsonld),'graph':all('@graph' in d for d in p.jsonld),'schemas':p.jsonld,'han':len(re.findall(r'[\u4e00-\u9fff]',text)),'title':''.join(p.title),'canonical':p.canonical,'robots':p.robots,'banned':re.findall('必涨|推荐买入|稳赚|保证收益|喊单|目标价必达|抄底|闭眼买|翻倍',text),'answer':'class="answer' in html,'updated':'数据更新：' in text,'empty_values':re.findall(r'\bNaN\b|\bundefined\b|\bnull\b',text)}
 if __name__=='__main__':
- parser=argparse.ArgumentParser();parser.add_argument('--base',required=True);parser.add_argument('--output',default='docs/seo/2026-10-18/plan-http-acceptance.json');args=parser.parse_args()
+ parser=argparse.ArgumentParser();parser.add_argument('--base',required=True);parser.add_argument('--production',action='store_true');parser.add_argument('--output',default='docs/seo/2026-10-18/plan-http-acceptance.json');args=parser.parse_args()
  paths=['/','/stock','/kol','/kol/serenity','/kol/qinbafrank','/today','/morning','/today/archive','/morning/archive','/twitter-digest','/twitter-digest/archive','/twitter-digest/2026-10-16','/macro/sentiment','/macro/liquidity','/guide/us-market-hours','/morning/2026-10-16-morning-brief','/morning/2026-10-01-morning-brief','/today/2026-10-16-market-report','/liquidity','/kol/aleabitoreddit','/llms.txt','/stock/ZZZZQ','/this-path-does-not-exist-123','/ai-stock-research','/earnings-calendar','/stock/NVDA/earnings']
  paths += ['/stock/'+s for s in ['CRWV','SOFI','NBIS','SMR','PLTR','NVDA','GOOGL','MSFT','AMZN','SPCX','BRK.B','QBTS']]
  paths += [f'/kol/{name}/{tab}' for name in ['qinbafrank','serenity'] for tab in ['latest','highlights','sectors','stocks']]
  with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:results=list(pool.map(lambda path:check(args.base,path),paths))
- Path(args.output).write_text(json.dumps({'environment':'isolated fixture API; not live market evidence','base':args.base,'pages':results},ensure_ascii=False,indent=2)+'\n')
+ Path(args.output).write_text(json.dumps({'environment':'production public read-only checks' if args.production else 'isolated fixture API; not live market evidence','base':args.base,'pages':results},ensure_ascii=False,indent=2)+'\n')
  redirects={'/liquidity':'/macro/liquidity','/kol/aleabitoreddit':'/kol/serenity','/ai-stock-research':'/','/earnings-calendar':'/today#events','/stock/NVDA/earnings':'/stock/NVDA#earnings'}
  errors=[]
  for r in results:
@@ -46,7 +46,7 @@ if __name__=='__main__':
   if path in redirects and not (r['redirect'] or '').endswith(redirects[path]):errors.append(f'{path} redirect target')
   if r['status']==200 and r['path']!='/llms.txt':
    if r['canonical']!=['https://www.themarketbrew.com'+('' if path=='/' else path)]:errors.append(f'{path} canonical mismatch')
-   if '/kol/' in path and path.count('/')==3 or path in ['/twitter-digest/2026-10-16','/morning/2026-10-01-morning-brief']:
+   if '/kol/' in path and path.count('/')==3 or (not args.production and path in ['/twitter-digest/2026-10-16','/morning/2026-10-01-morning-brief']):
     if not any('noindex' in value for value in r['robots']):errors.append(f'{path} thin page not noindex')
    answer=r['answer_text']
    if len(answer)>140 or len(re.findall(r'[\u4e00-\u9fff]',answer))>80:errors.append(f'{path} oversized answer')

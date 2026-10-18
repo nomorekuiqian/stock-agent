@@ -1,0 +1,77 @@
+[
+  {
+    "path": "/",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "path": "/api/seo/kol/qinbafrank",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "path": "/api/seo/kol/aleabitoreddit",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "path": "/api/seo/stock/NVDA",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "path": "/api/seo/stock/SMR",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "path": "/api/seo/stock/SPCX",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "path": "/api/seo/stock/ZZZZQ",
+    "status": 404,
+    "expected": 404,
+    "passed": true
+  },
+  {
+    "path": "/api/seo/sentiment",
+    "status": 200,
+    "expected": 200,
+    "passed": true
+  },
+  {
+    "path": "/api/kol_research/personas/qinbafrank/profile",
+    "status": 401,
+    "expected": 401,
+    "passed": true
+  },
+  {
+    "path": "/api/kol_research/personas/pandacircle/profile",
+    "status": 403,
+    "expected": 403,
+    "passed": true
+  },
+  {
+    "path": "/api/kol_research/personas/qinbafrank/mcp/status",
+    "status": 403,
+    "expected": 403,
+    "passed": true
+  },
+  {
+    "path": "/api/morning/reports/latest",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "locked": true,
+    "full_narrative_stripped": true,
+    "excerpt_chars": 180
+  }
+]

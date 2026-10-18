@@ -1,6 +1,6 @@
 # SEO_IMPLEMENTATION_PLAN 执行与验收
 
-范围：`docs/seo/SEO_IMPLEMENTATION_PLAN.md`，2026-10-18 定稿。该文档覆盖旧 handoff 的冲突要求。代码与本地隔离验收完成；未提交、推送或部署。所有验收使用合成 API、mock 或既有本地快照，未调用付费 API、发送邮件、付款或写生产数据。
+范围：`docs/seo/SEO_IMPLEMENTATION_PLAN.md`，2026-10-18 定稿。该文档覆盖旧 handoff 的冲突要求。SEO 已在隔离分支 `codex/seo-production` 提交并部署；线上验收见 [release-verification.md](release-verification.md)。下文保留实现阶段的本地隔离验收证据；这些本地检查使用合成 API、mock 或既有快照。上线后的生产内容生成及验收边界以发布记录为准。
 
 ## P0 逐项
 

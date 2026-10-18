@@ -1,0 +1,30 @@
+[
+  {
+    "timezoneId": "UTC",
+    "path": "/stock/NVDA",
+    "overflow": false,
+    "answer": "英伟达（NVDA）设计 GPU 与 AI 加速芯片。近 30 天已收录 55 位博主的 126 条相关观点，偏多 73、偏空 25；下方摘要保留来源，观点不代表公司未来表现。",
+    "errors": []
+  },
+  {
+    "timezoneId": "UTC",
+    "path": "/macro/liquidity",
+    "overflow": false,
+    "answer": "美联储总资产 $6.76T，TGA $835B，逆回购 $100M，净流动性 $5.91T。这些序列共同描述美元资金环境，需结合观察日期与统计口径理解，不能直接推断股价方向。",
+    "errors": []
+  },
+  {
+    "timezoneId": "Asia/Shanghai",
+    "path": "/stock/NVDA",
+    "overflow": false,
+    "answer": "英伟达（NVDA）设计 GPU 与 AI 加速芯片。近 30 天已收录 55 位博主的 126 条相关观点，偏多 73、偏空 25；下方摘要保留来源，观点不代表公司未来表现。",
+    "errors": []
+  },
+  {
+    "timezoneId": "Asia/Shanghai",
+    "path": "/macro/liquidity",
+    "overflow": false,
+    "answer": "美联储总资产 $6.76T，TGA $835B，逆回购 $100M，净流动性 $5.91T。这些序列共同描述美元资金环境，需结合观察日期与统计口径理解，不能直接推断股价方向。",
+    "errors": []
+  }
+]
