@@ -14,7 +14,7 @@ import { useLiquidityMetrics, useLiquidityHistory, useGlobalLiquidity, useGlobal
 import { useWeeklyReport } from '@/hooks/queries/use-weekly-report';
 import { queryKeys } from '@/hooks/queries/query-keys';
 import { InsightBanner } from '@/components/InsightBanner';
-import { formatDateTimePacific } from '@/lib/timezone';
+import { formatET } from '@/lib/seo-public';
 import {
   formatLiquidityValue,
   getLatestNonNullObservation,
@@ -278,7 +278,7 @@ export default function LiquidityPage() {
         section="Liquidity"
         title="美元流动性状况"
         question="市场上的钱是多了还是少了?"
-        lastUpdated={lastUpdated ? formatDateTimePacific(lastUpdated) : null}
+        lastUpdated={lastUpdated ? `${formatET(lastUpdated)} ET` : null}
         loading={loading}
         onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.liquidity.all })}
       />
