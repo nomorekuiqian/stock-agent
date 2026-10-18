@@ -24,9 +24,9 @@ export function MarketSummary({ daily, morning }: { daily?: MarketData; morning?
   ].map(quote => ({ ...quote, change_percent: quote.daily_change }));
   const values = groups.map(group => ({ ...group, quote: quotes.find(quote => group.pattern.test(quote.name)) }));
   const describe = (indices: number[]) => indices.map(i => `${values[i].label}：${values[i].quote ? change(values[i].quote) : '本期未提供'}`).join('；');
-  const points = daily?.news?.headlines?.slice(0, 3).map(item => item.title) || [];
+  const points = morning?.public_event_points?.slice(0,3).map(item=>item.title) || daily?.news?.headlines?.slice(0, 3).map(item => item.title) || [];
   const fallbacks = [describe([0, 1, 2]), describe([3, 4]), describe([5, 6])];
-  while (points.length < 3) points.push(fallbacks[points.length]);
+  while (!morning && points.length < 3) points.push(fallbacks[points.length]);
   return <section aria-label="市场摘要" className="my-6 rounded-xl border border-border/40 bg-card/50 p-5 space-y-4">
     <h2 className="text-lg font-medium">{morning ? '盘前' : '收盘'}市场摘要 · {report.report_date}</h2>
     <p className="text-xs text-muted-foreground">本期快照，非实时行情；{morning ? '指数为股指期货。' : '指数为现货指数。'}生成时间：<time dateTime={report.timestamp}>{report.timestamp}</time></p>
@@ -34,7 +34,7 @@ export function MarketSummary({ daily, morning }: { daily?: MarketData; morning?
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-data text-sm">{quote && Number.isFinite(quote.value) ? `${quote.value.toLocaleString('en-US', { maximumFractionDigits: 2 })}${label.includes('收益率') ? '%' : ''}（${change(quote)}）` : '本期未提供'}</dd>
     </div>)}</dl>
-    <h3 className="font-medium text-sm">三个要点</h3>
+    <h3 className="font-medium text-sm">事件要点</h3>
     <ol className="list-decimal pl-5 space-y-2 text-sm leading-6">{points.map((point, i) => <li key={i}><StockLinkedText text={point} /></li>)}</ol>
   </section>;
 }

@@ -36,6 +36,7 @@ Read the affected module context when changing behavior, interfaces, or data flo
 - `backend/app/features/quota/.context.md` -- Usage quota enforcement
 - `backend/app/features/research_kb/.context.md` -- Research knowledge-base chat
 - `backend/app/features/screener/.context.md` -- Stock Screener data layer
+- `backend/app/features/seo/.context.md` -- Public SEO projections, authored content and IndexNow
 - `backend/app/features/stock/.context.md` -- Individual stock research
 - `backend/app/features/stock/agent/.context.md` -- Stock AI analysis agents
 - `backend/app/features/subscription/.context.md` -- Email subscription management

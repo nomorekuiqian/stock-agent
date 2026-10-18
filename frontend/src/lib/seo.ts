@@ -5,7 +5,7 @@ export const SITE_URL = 'https://www.themarketbrew.com';
 
 export function pageMetadata(path: string, title: string, description: string): Metadata {
   return {
-    title, description,
+    title: { absolute: title.includes('TheMarketBrew') ? title : `${title}｜TheMarketBrew` }, description,
     alternates: { canonical: path },
     openGraph: { type: 'website', url: path, title, description, siteName: 'TheMarketBrew', locale: 'zh_CN', images: ['/logo-avatar.png'] },
     twitter: { card: 'summary', title, description, images: ['/logo-avatar.png'] },

@@ -235,6 +235,20 @@ async def get_latest_teaser(
     return _digest_to_teaser(digest)
 
 
+@router.get("/teaser/{date}", response_model=TwitterDigestTeaser)
+@limiter.limit("30/minute")
+async def get_date_teaser(request: Request, date: str):
+    from datetime import date as Date
+    try:
+        Date.fromisoformat(date)
+    except ValueError:
+        raise HTTPException(404,"Invalid date")
+    digest=await db.get_digest_by_date(date)
+    if not digest:
+        raise HTTPException(404,"No digest available")
+    return _digest_to_teaser(digest)
+
+
 @router.get("/archive", response_model=DailyDigestArchiveResponse)
 @limiter.limit("30/minute")
 async def list_archive(

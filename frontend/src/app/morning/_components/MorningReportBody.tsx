@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { percent } from '@/lib/seo-public';
 import { StockLinkedText } from '@/components/StockLinkedText';
 
 import { useEffect, useState } from 'react';
@@ -66,6 +68,11 @@ export function MorningReportBody({ report: initialReport, targetPath }: Props) 
 
   return (
     <>
+      {report.public_excerpt && <section aria-label="公开盘前解读" className="space-y-3"><h2 className="text-xl font-medium">期货走势解读</h2><p className="whitespace-pre-line text-sm leading-7">{report.public_excerpt}</p></section>}
+      {report.today_focus?.length>0&&<section><h2 className="text-xl">今日关注</h2>{report.today_focus.map((r,i)=><article key={i}><h3>{r.title}</h3><p>{r.analysis}</p></article>)}</section>}
+      {!!report.public_event_points?.length&&<section><h2 className="text-xl">隔夜事件要点</h2>{report.public_event_points.map((r,i)=><p key={i}>{r.title}</p>)}</section>}
+      {!!report.public_movers?.length&&<section><h2 className="text-xl">盘前异动个股</h2><ul>{report.public_movers.slice(0,5).map(row=><li key={row.symbol}><Link href={`/stock/${row.symbol}#why`}>{row.symbol}</Link> · {row.price} 美元 · {percent(row.change_percent)}</li>)}</ul></section>}
+      <div>
       {locked && !ctaResolving && (
         <UpgradeBanner
           isAuthenticated={isAuthenticated}
@@ -73,7 +80,7 @@ export function MorningReportBody({ report: initialReport, targetPath }: Props) 
         />
       )}
 
-      <section className="animate-fade-in-up delay-150">
+      <section className="morning-paywall animate-fade-in-up delay-150">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border/50">
             <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,6 +125,7 @@ export function MorningReportBody({ report: initialReport, targetPath }: Props) 
         summary={report.summary || []}
         locked={locked}
       />
+      </div>
     </>
   );
 }

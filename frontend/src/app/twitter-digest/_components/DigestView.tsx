@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatHeaderDate } from './formatHeaderDate';
 
 import { ReportHeroBanner } from '@/components/ReportHeroBanner';
 import { ReportTabs } from '@/components/ReportTabs';
@@ -19,18 +20,6 @@ interface Props {
   digest: DailyDigest | null;
   /** Used to build the login-redirect URL on the locked-mode upgrade banner. */
   isAuthenticated?: boolean;
-}
-
-const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-
-function formatHeaderDate(date: string): string {
-  try {
-    const [y, m, d] = date.split('-').map(Number);
-    const dt = new Date(`${date}T08:00:00+08:00`);
-    return `${y} 年 ${m} 月 ${d} 日 · ${WEEKDAYS[dt.getDay()]}`;
-  } catch {
-    return date;
-  }
 }
 
 function isEmpty(d: DailyDigest): boolean {
@@ -191,9 +180,9 @@ function DigestPageHeader({ showSubscribe }: { showSubscribe: boolean }) {
               <div className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-sky-400 to-transparent animate-line-expand" />
               <span className="text-sky-400 text-xs font-semibold tracking-[0.25em] uppercase">Twitter Digest</span>
             </div>
-            <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
+            <h2 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
               推特 KOL 日报
-            </h1>
+            </h2>
             <p className="text-muted-foreground text-sm md:text-base max-w-lg leading-relaxed animate-fade-in-up delay-200">
               每天 5 分钟带你看清美股高质量 KOL 观点
             </p>

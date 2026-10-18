@@ -1,0 +1,17 @@
+# Brief 03：/kol/serenity 恢复 + /kol hub
+- **URL**：/kol/serenity（恢复为公开 200）、/kol/qinbafrank、/kol（新 hub）
+- **证据（GSC 实测）**：/kol/serenity 1,621 次展示，/kol/qinbafrank 892 次（全站非品牌展示最多的两页）。触达距离词：
+  - serenity aleabitoreddit 瓶颈 供应链 涨价 短缺 最新：135 次展示，排名 8.31
+  - qinbafrank：82 次，排名 3.88
+  - serenity @aleabitoreddit 白毛股神 aleabitoreddit 最新 2026：43 次，排名 8.47
+  - serenity 瓶颈理论 最新观点：22 次，排名 9.68
+  - 白毛股神 serenity 激光 inp wf6 硅光子 cpo 瓶颈：5 次
+- **关键词量**：白毛股神 美国 110/月；aleabitoreddit 美国 590/月（英文 token，含非中文需求，仅作参考）；qinbafrank 10/月。
+- **当前问题**：两页 307 跳到 /research；/kol 不在 sitemap。
+- **Title**：`白毛股神 Serenity（@aleabitoreddit）最新观点：瓶颈理论、供应链与提及个股 | TheMarketBrew`
+- **H1**：`Serenity（@aleabitoreddit）最新观点`
+- **首屏直接答案**：`Serenity（推特 @aleabitoreddit，中文圈常称「白毛股神」）是关注 AI 供应链「瓶颈」的美股博主。过去 30 天提及最多的个股：{top5_tickers}。最近更新：{date}。`
+- **模块**：观点时间线（每天 1 条摘要 + 原帖链接）｜「瓶颈理论」框架解释（300 字，常青）｜提及个股排行（链接到 /stock/{T}#kol）｜按主题分组（光模块/CPO、激光、存储等，取自真实提及数据）｜FAQ。
+- **FAQ**：白毛股神 Serenity 是谁？｜什么是瓶颈理论？｜Serenity 最近在关注哪些股票？｜TheMarketBrew 如何整理这些观点？（答：自动抓取公开推文，用 AI 摘要，不代表推荐）
+- **合规**：不用「喊单」「推荐」作标题或 H2；观点方向写「看多/看空/中性（博主观点）」；页脚放免责声明。
+- **验收**：200 + index；正文 ≥800 字；在 sitemap 中；2 周内 GSC 展示恢复到下线前的水平。

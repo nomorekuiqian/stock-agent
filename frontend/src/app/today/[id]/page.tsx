@@ -1,3 +1,6 @@
+import { Answer, SourceStamp, PublicDisclaimer } from '@/components/PublicSeo';
+import { dailyText, dailyAnswer } from '@/lib/report-seo';
+import { han } from '@/lib/seo-public';
 import { reportPath, reportSlugDate, reportTitle } from '@/lib/report-url';
 import { SITE_URL, serializeJsonLd } from '@/lib/seo';
 import { cache } from 'react';
@@ -34,8 +37,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const description = report.summary || 'AI 生成的美股每日分析报告，深度解读市场动态与投资机会。';
 
   return {
-    title,
+    title:{absolute:`${title}｜TheMarketBrew`},
     description,
+    robots:{index:han(dailyText(report))>=300,follow:true},
     openGraph: {
       title,
       description,
@@ -110,7 +114,7 @@ export default async function ReportDetailPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd({'@context':'https://schema.org','@graph':[jsonLd]}) }}
       />
 
       <main className="min-h-screen bg-background">
@@ -146,7 +150,7 @@ export default async function ReportDetailPage({ params }: PageProps) {
             )}
           </section>
 
-          <ReportContent
+          <Answer at={report.timestamp}>{dailyAnswer(report)}</Answer><SourceStamp at={report.timestamp} source="收盘日报"/><PublicDisclaimer at={report.timestamp}/><ReportContent
             indices={report.indices as IndexData[] | undefined}
             intro={report.intro}
             news={report.news}

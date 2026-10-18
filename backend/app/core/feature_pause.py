@@ -6,6 +6,7 @@ retained. Restoring a feature requires an explicit release and schedule review.
 
 from __future__ import annotations
 
+import re
 from urllib.parse import parse_qs
 
 from fastapi import HTTPException
@@ -128,6 +129,10 @@ class FeaturePauseMiddleware:
                     or path == "/api/kol_research/conversations"
                     or path.startswith("/api/kol_research/conversations/")):
                 feature = "kol_chat"
+            # SEO plan explicitly restores two paid, read-only cockpit surfaces.
+            # Authentication + Max entitlement remain enforced by router dependencies.
+            if scope.get("method")=="GET" and re.fullmatch(r"/api/kol_research/personas/(qinbafrank|aleabitoreddit)/(profile|high-conviction|feed|topics|tweets/by-ids|sectors(?:/[^/]+)?|industry_chain/[^/]+|tickers(?:/[^/]+(?:/timeline)?)?)",path):
+                feature = None
             query = parse_qs(scope.get("query_string", b"").decode("utf-8", "replace"))
             if path.startswith("/api/agent-runtime/") and query.get("agent_id") == ["kol_research_agent"]:
                 feature = "kol_chat"

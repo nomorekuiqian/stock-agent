@@ -76,6 +76,13 @@ async def save_morning_report(report_data: Dict[str, Any]) -> Dict[str, Any]:
                 if data.get("success"):
                     report_id = data.get("data", {}).get("id")
                     logger.info("Morning report saved, ID: %s", report_id)
+                    try:
+                        from app.features.seo.generation import enqueue_report
+                        enqueue_report("morning", db_report)
+                    except Exception:
+                        logger.exception("Unable to queue SEO public copy")
+                    from app.features.seo.indexnow import notify
+                    await notify(["/morning", f"/morning/{report_date}-morning-brief"])
                     return {
                         "success": True,
                         "report_id": report_id,

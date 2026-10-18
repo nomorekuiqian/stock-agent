@@ -5,40 +5,17 @@ import { useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { SiteFooter } from '@/components/SiteFooter';
 
-/**
- * Inner component that reads searchParams (must be inside Suspense).
- */
-function PageShellInner({ children }: { children: React.ReactNode }) {
+function ShellChrome({ footer = false }: { footer?: boolean }) {
   const searchParams = useSearchParams();
-  const isWechatWebView = searchParams.get('from') === 'wechat';
-  if (isWechatWebView) {
-    return <>{children}</>;
-  }
-
-  return (
-    <>
-      <Navbar />
-      {/* Spacer for fixed navbar */}
-      <div className="h-16" />
-
-      {children}
-
-      <SiteFooter />
-    </>
-  );
+  if (searchParams.get('from') === 'wechat') return null;
+  return footer ? <SiteFooter /> : <><Navbar /><div className="h-16" /></>;
 }
 
-/**
- * PageShell wraps all pages with Navbar + Footer.
- * When ?from=wechat is present (WebView in mini program),
- * skip the shell entirely for a clean fullscreen experience.
- * Focused WebView flows skip global chrome.
- * Wrapped in Suspense to support static generation.
- */
+/** Render the page once, outside query-dependent chrome's Suspense boundaries. */
 export function PageShell({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense fallback={<>{children}</>}>
-      <PageShellInner>{children}</PageShellInner>
-    </Suspense>
-  );
+  return <>
+    <Suspense fallback={null}><ShellChrome /></Suspense>
+    {children}
+    <Suspense fallback={null}><ShellChrome footer /></Suspense>
+  </>;
 }

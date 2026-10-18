@@ -1,0 +1,48 @@
+[
+  {
+    "path": "/stock/NVDA",
+    "h1": [
+      "英伟达（NVDA）"
+    ],
+    "overflow": false
+  },
+  {
+    "path": "/today",
+    "h1": [
+      "美股今日行情复盘"
+    ],
+    "overflow": false
+  },
+  {
+    "path": "/kol/serenity",
+    "h1": [
+      "白毛股神 Serenity（@aleabitoreddit）观点与研究框架"
+    ],
+    "overflow": false
+  },
+  {
+    "path": "/guide/us-market-hours",
+    "h1": [
+      "美股交易时间与休市日历"
+    ],
+    "overflow": false
+  },
+  {
+    "path": "/earnings-calendar",
+    "h1": [
+      "美股财报日历"
+    ],
+    "overflow": false
+  },
+  {
+    "path": "/macro/liquidity",
+    "h1": [
+      "美元流动性状况"
+    ],
+    "overflow": false
+  },
+  {
+    "path": "/stock/NVDA mobile",
+    "overflow": false
+  }
+]

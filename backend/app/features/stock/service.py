@@ -718,6 +718,13 @@ class StockService:
             matched_income_stmt,
         )
 
+        if recent_ec and recent_ec.get("epsActual") is not None:
+            try:
+                from app.features.seo.generation import enqueue
+                enqueue('earnings:'+symbol.upper(), {'actual':recent_ec,'segments':rev_seg_result.get('segments',[])[:1]}, 'earnings public first paragraph; facts only, do not invent transcript remarks',150,250)
+            except Exception:
+                logger.exception('Unable to queue earnings public summary: %s',symbol)
+
         # Compute TRUE YoY growth from quarterly income statements.
         # Stub statements (calendar-only, no detailed line items) are skipped
         # automatically since YoY needs revenue from the same quarter last year.

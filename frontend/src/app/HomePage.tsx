@@ -168,7 +168,7 @@ function PricingCard({ tier }: { tier: (typeof PRICING_TIERS)[number] }) {
   );
 }
 
-export default function Home() {
+export default function Home({children}:{children?:React.ReactNode}) {
   const { isAuthenticated, isLoading } = useAuth();
 
   return (
@@ -196,8 +196,10 @@ export default function Home() {
           </div>
 
           <h1 className="mb-7 font-editorial text-5xl leading-[1.05] tracking-tight text-foreground md:text-6xl lg:text-7xl">
-            你的 AI <span className="text-primary">投研团队</span>
+            中文 AI 美股研报<br/><span className="text-primary">与每日美股日报</span>
           </h1>
+          <p className="text-lg">你的 AI 投研团队</p>
+          <p className="answer text-base leading-8" data-updated="2026-10-18T12:00:00Z">TheMarketBrew 是面向华人投资者的中文 AI 美股研究网站：每个交易日生成盘前早报和收盘复盘，追踪 qinbafrank、Serenity 等推特博主观点，并提供 AI 个股研报与宏观仪表盘。免费版可看每日市场日报。</p><p className="text-sm text-muted-foreground">仅供研究参考，不构成投资建议。</p>
 
           <p className="mx-auto mb-9 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
             从日报到个股、从持仓到宏观 -- 一个平台，覆盖你的全部投研需求。
@@ -366,6 +368,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      {children}
     </main>
   );
 }

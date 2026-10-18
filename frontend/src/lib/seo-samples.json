@@ -1,0 +1,352 @@
+[
+  {
+    "symbol": "TSLA",
+    "name": "特斯拉",
+    "traditional": "特斯拉"
+  },
+  {
+    "symbol": "NVDA",
+    "name": "英伟达",
+    "traditional": "輝達"
+  },
+  {
+    "symbol": "SPCX",
+    "name": "SpaceX",
+    "traditional": "SpaceX"
+  },
+  {
+    "symbol": "AMD",
+    "name": "AMD",
+    "traditional": "超微"
+  },
+  {
+    "symbol": "INTC",
+    "name": "英特尔",
+    "traditional": "英特爾"
+  },
+  {
+    "symbol": "MSFT",
+    "name": "微软",
+    "traditional": "微軟"
+  },
+  {
+    "symbol": "MU",
+    "name": "美光",
+    "traditional": "美光"
+  },
+  {
+    "symbol": "ORCL",
+    "name": "甲骨文",
+    "traditional": "甲骨文"
+  },
+  {
+    "symbol": "GOOGL",
+    "name": "谷歌",
+    "traditional": "谷歌"
+  },
+  {
+    "symbol": "SNDK",
+    "name": "闪迪",
+    "traditional": "SanDisk"
+  },
+  {
+    "symbol": "META",
+    "name": "Meta",
+    "traditional": "Meta"
+  },
+  {
+    "symbol": "AAPL",
+    "name": "苹果",
+    "traditional": "蘋果"
+  },
+  {
+    "symbol": "AMZN",
+    "name": "亚马逊",
+    "traditional": "亞馬遜"
+  },
+  {
+    "symbol": "CRCL",
+    "name": "Circle",
+    "traditional": "Circle"
+  },
+  {
+    "symbol": "PLTR",
+    "name": "Palantir",
+    "traditional": "Palantir"
+  },
+  {
+    "symbol": "SOFI",
+    "name": "SoFi",
+    "traditional": "SoFi"
+  },
+  {
+    "symbol": "NBIS",
+    "name": "Nebius",
+    "traditional": "Nebius"
+  },
+  {
+    "symbol": "RKLB",
+    "name": "Rocket Lab",
+    "traditional": "Rocket Lab"
+  },
+  {
+    "symbol": "AVGO",
+    "name": "博通",
+    "traditional": "博通"
+  },
+  {
+    "symbol": "SMR",
+    "name": "NuScale Power",
+    "traditional": "NuScale Power"
+  },
+  {
+    "symbol": "CRWV",
+    "name": "CoreWeave",
+    "traditional": "CoreWeave"
+  },
+  {
+    "symbol": "OKLO",
+    "name": "Oklo",
+    "traditional": "Oklo"
+  },
+  {
+    "symbol": "TSM",
+    "name": "台积电",
+    "traditional": "台積電"
+  },
+  {
+    "symbol": "MSTR",
+    "name": "微策略",
+    "traditional": "微策略"
+  },
+  {
+    "symbol": "NFLX",
+    "name": "奈飞",
+    "traditional": "Netflix"
+  },
+  {
+    "symbol": "JPM",
+    "name": "摩根大通",
+    "traditional": "摩根大通"
+  },
+  {
+    "symbol": "ASML",
+    "name": "阿斯麦",
+    "traditional": "艾司摩爾"
+  },
+  {
+    "symbol": "LITE",
+    "name": "Lumentum",
+    "traditional": "Lumentum"
+  },
+  {
+    "symbol": "SMCI",
+    "name": "超微电脑",
+    "traditional": "美超微"
+  },
+  {
+    "symbol": "MRVL",
+    "name": "迈威尔",
+    "traditional": "邁威爾"
+  },
+  {
+    "symbol": "UNH",
+    "name": "联合健康",
+    "traditional": "聯合健康"
+  },
+  {
+    "symbol": "IONQ",
+    "name": "IonQ",
+    "traditional": "IonQ"
+  },
+  {
+    "symbol": "VRT",
+    "name": "Vertiv",
+    "traditional": "Vertiv"
+  },
+  {
+    "symbol": "RGTI",
+    "name": "Rigetti",
+    "traditional": "Rigetti"
+  },
+  {
+    "symbol": "HIMS",
+    "name": "Hims",
+    "traditional": "Hims"
+  },
+  {
+    "symbol": "ALAB",
+    "name": "Astera Labs",
+    "traditional": "Astera Labs"
+  },
+  {
+    "symbol": "NOW",
+    "name": "ServiceNow",
+    "traditional": "ServiceNow"
+  },
+  {
+    "symbol": "RIVN",
+    "name": "Rivian",
+    "traditional": "Rivian"
+  },
+  {
+    "symbol": "TEM",
+    "name": "Tempus",
+    "traditional": "Tempus"
+  },
+  {
+    "symbol": "APP",
+    "name": "AppLovin",
+    "traditional": "AppLovin"
+  },
+  {
+    "symbol": "QBTS",
+    "name": "D-Wave",
+    "traditional": "D-Wave"
+  },
+  {
+    "symbol": "VST",
+    "name": "Vistra",
+    "traditional": "Vistra"
+  },
+  {
+    "symbol": "GEV",
+    "name": "GE Vernova",
+    "traditional": "GE Vernova"
+  },
+  {
+    "symbol": "BABA",
+    "name": "阿里巴巴",
+    "traditional": "阿里巴巴"
+  },
+  {
+    "symbol": "HOOD",
+    "name": "Robinhood",
+    "traditional": "Robinhood"
+  },
+  {
+    "symbol": "CEG",
+    "name": "星座能源",
+    "traditional": "星座能源"
+  },
+  {
+    "symbol": "GS",
+    "name": "高盛",
+    "traditional": "高盛"
+  },
+  {
+    "symbol": "ARM",
+    "name": "ARM",
+    "traditional": "安謀"
+  },
+  {
+    "symbol": "PDD",
+    "name": "拼多多",
+    "traditional": "拼多多"
+  },
+  {
+    "symbol": "NVO",
+    "name": "诺和诺德",
+    "traditional": "諾和諾德"
+  },
+  {
+    "symbol": "ANET",
+    "name": "Arista",
+    "traditional": "Arista"
+  },
+  {
+    "symbol": "UBER",
+    "name": "Uber",
+    "traditional": "Uber"
+  },
+  {
+    "symbol": "SHOP",
+    "name": "Shopify",
+    "traditional": "Shopify"
+  },
+  {
+    "symbol": "BIDU",
+    "name": "百度",
+    "traditional": "百度"
+  },
+  {
+    "symbol": "COIN",
+    "name": "Coinbase",
+    "traditional": "Coinbase"
+  },
+  {
+    "symbol": "JD",
+    "name": "京东",
+    "traditional": "京東"
+  },
+  {
+    "symbol": "LLY",
+    "name": "礼来",
+    "traditional": "禮來"
+  },
+  {
+    "symbol": "DELL",
+    "name": "戴尔",
+    "traditional": "戴爾"
+  },
+  {
+    "symbol": "RTX",
+    "name": "雷神技术",
+    "traditional": "雷神技術"
+  },
+  {
+    "symbol": "NIO",
+    "name": "蔚来",
+    "traditional": "蔚來"
+  },
+  {
+    "symbol": "BRK.B",
+    "name": "伯克希尔",
+    "traditional": "波克夏"
+  },
+  {
+    "symbol": "COST",
+    "name": "好市多",
+    "traditional": "好市多"
+  },
+  {
+    "symbol": "CRWD",
+    "name": "CrowdStrike",
+    "traditional": "CrowdStrike"
+  },
+  {
+    "symbol": "QCOM",
+    "name": "高通",
+    "traditional": "高通"
+  },
+  {
+    "symbol": "SNOW",
+    "name": "Snowflake",
+    "traditional": "Snowflake"
+  },
+  {
+    "symbol": "CRM",
+    "name": "Salesforce",
+    "traditional": "Salesforce"
+  },
+  {
+    "symbol": "ADBE",
+    "name": "Adobe",
+    "traditional": "Adobe"
+  },
+  {
+    "symbol": "XPEV",
+    "name": "小鹏汽车",
+    "traditional": "小鵬汽車"
+  },
+  {
+    "symbol": "LI",
+    "name": "理想汽车",
+    "traditional": "理想汽車"
+  },
+  {
+    "symbol": "NET",
+    "name": "Cloudflare",
+    "traditional": "Cloudflare"
+  }
+]

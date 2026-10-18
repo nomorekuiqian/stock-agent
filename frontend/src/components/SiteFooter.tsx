@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 
 const groups = [
-  { title: '产品', links: [['盘前情报', '/morning'], ['盘后总览', '/today'], ['AI 研究助手', '/research'], ['个股研究', '/stock'], ['宏观研究', '/macro'], ['定价与订阅', '/pricing']] },
+  { title: '产品', links: [['盘前情报', '/morning'], ['盘后总览', '/today'], ['AI 研究助手', '/research'], ['个股研究', '/stock'], ['宏观研究', '/macro'], ['定价与订阅', '/pricing'], ['交易时间与休市', '/guide/us-market-hours']] },
   { title: '了解我们', links: [['关于 TheMarketBrew', '/about'], ['联系与支持', '/contact'], ['历史日报', '/today/archive']] },
   { title: '条款与隐私', links: [['服务条款', '/terms'], ['隐私政策', '/privacy'], ['投资与 AI 风险', '/terms#investment-risk'], ['订阅与退款', '/terms#billing']] },
 ];
@@ -25,7 +25,7 @@ export function SiteFooter() {
           ))}
         </div>
         <div className="mt-10 space-y-4 border-t border-border/50 pt-6 text-sm leading-7 text-muted-foreground">
-          <p>本平台内容仅供信息参考，不构成投资建议。AI 生成内容可能存在错误或遗漏，请核实原始来源。投资有风险，过往表现不代表未来收益。</p>
+          <p>本页内容由 TheMarketBrew 基于公开数据与 AI 生成，仅供研究与信息参考，不构成任何投资建议或买卖推荐。美股投资有风险，请独立判断。数据更新时间见各内容模块（ET）。</p>
           <p>© {new Date().getFullYear()} TheMarketBrew</p>
         </div>
       </div>

@@ -1,0 +1,165 @@
+{
+  "source": "https://www.nyse.com/trade/hours-calendars",
+  "retrieved_at": "2026-10-18T12:45:15.041265+00:00",
+  "years": {
+    "2026": {
+      "holidays": [
+        {
+          "date": "2026-01-01",
+          "name": "New Year’s Day"
+        },
+        {
+          "date": "2026-01-19",
+          "name": "Martin Luther King, Jr. Day"
+        },
+        {
+          "date": "2026-02-16",
+          "name": "Washington's Birthday"
+        },
+        {
+          "date": "2026-04-03",
+          "name": "Good Friday"
+        },
+        {
+          "date": "2026-05-25",
+          "name": "Memorial Day"
+        },
+        {
+          "date": "2026-06-19",
+          "name": "Juneteenth National Independence Day"
+        },
+        {
+          "date": "2026-07-03",
+          "name": "Independence Day"
+        },
+        {
+          "date": "2026-09-07",
+          "name": "Labor Day"
+        },
+        {
+          "date": "2026-11-26",
+          "name": "Thanksgiving Day"
+        },
+        {
+          "date": "2026-12-25",
+          "name": "Christmas Day"
+        }
+      ],
+      "early_closes": [
+        {
+          "date": "2026-11-27",
+          "close": "13:00",
+          "late_close": "17:00"
+        },
+        {
+          "date": "2026-12-24",
+          "close": "13:00",
+          "late_close": "17:00"
+        }
+      ]
+    },
+    "2027": {
+      "holidays": [
+        {
+          "date": "2027-01-01",
+          "name": "New Year’s Day"
+        },
+        {
+          "date": "2027-01-18",
+          "name": "Martin Luther King, Jr. Day"
+        },
+        {
+          "date": "2027-02-15",
+          "name": "Washington's Birthday"
+        },
+        {
+          "date": "2027-03-26",
+          "name": "Good Friday"
+        },
+        {
+          "date": "2027-05-31",
+          "name": "Memorial Day"
+        },
+        {
+          "date": "2027-06-18",
+          "name": "Juneteenth National Independence Day"
+        },
+        {
+          "date": "2027-07-05",
+          "name": "Independence Day"
+        },
+        {
+          "date": "2027-09-06",
+          "name": "Labor Day"
+        },
+        {
+          "date": "2027-11-25",
+          "name": "Thanksgiving Day"
+        },
+        {
+          "date": "2027-12-24",
+          "name": "Christmas Day"
+        }
+      ],
+      "early_closes": [
+        {
+          "date": "2027-11-26",
+          "close": "13:00",
+          "late_close": "17:00"
+        }
+      ]
+    },
+    "2028": {
+      "holidays": [
+        {
+          "date": "2028-01-17",
+          "name": "Martin Luther King, Jr. Day"
+        },
+        {
+          "date": "2028-02-21",
+          "name": "Washington's Birthday"
+        },
+        {
+          "date": "2028-04-14",
+          "name": "Good Friday"
+        },
+        {
+          "date": "2028-05-29",
+          "name": "Memorial Day"
+        },
+        {
+          "date": "2028-06-19",
+          "name": "Juneteenth National Independence Day"
+        },
+        {
+          "date": "2028-07-04",
+          "name": "Independence Day"
+        },
+        {
+          "date": "2028-09-04",
+          "name": "Labor Day"
+        },
+        {
+          "date": "2028-11-23",
+          "name": "Thanksgiving Day"
+        },
+        {
+          "date": "2028-12-25",
+          "name": "Christmas Day"
+        }
+      ],
+      "early_closes": [
+        {
+          "date": "2028-07-03",
+          "close": "13:00",
+          "late_close": "17:00"
+        },
+        {
+          "date": "2028-11-24",
+          "close": "13:00",
+          "late_close": "17:00"
+        }
+      ]
+    }
+  }
+}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 interface MacroPageHeaderProps {
   section: string;
   title: string;
+  headingLevel?: 1 | 2;
   question: string;
   lastUpdated?: string | null;
   loading?: boolean;
@@ -15,6 +16,7 @@ interface MacroPageHeaderProps {
 }
 
 export function MacroPageHeader({
+  headingLevel = 1,
   section,
   title,
   question,
@@ -25,6 +27,7 @@ export function MacroPageHeader({
   onTimeRangeChange,
   timeRanges = ['1M', '3M', '6M', '1Y', 'ALL'],
 }: MacroPageHeaderProps) {
+  const Heading = headingLevel === 1 ? 'h1' : 'h2';
   return (
     <header className="relative overflow-hidden">
       {/* Subtle background gradient for depth */}
@@ -92,9 +95,9 @@ export function MacroPageHeader({
 
         {/* Row 2: Title block */}
         <div className="rounded-lg border border-primary/20 bg-primary/[0.025] px-5 py-4 md:px-6">
-          <h1 className="font-editorial text-2xl md:text-3xl text-foreground leading-[1.15] tracking-tight">
+          <Heading className="font-editorial text-2xl md:text-3xl text-foreground leading-[1.15] tracking-tight">
             {title}
-          </h1>
+          </Heading>
           <p className="font-editorial text-base md:text-lg text-foreground/80 mt-2 font-medium">
             {question}
           </p>

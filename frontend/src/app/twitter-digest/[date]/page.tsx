@@ -1,92 +1,13 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-
-import { useAuth } from '@/contexts/AuthContext';
-import { useEntitlements } from '@/contexts/EntitlementsContext';
-import { api } from '@/lib/api';
-
-import { DigestView } from '../_components/DigestView';
-import type { DailyDigest } from '../_components/types';
-
-export default function TwitterDigestDetailPage() {
-  const params = useParams<{ date: string }>();
-  const date = typeof params?.date === 'string' ? params.date : '';
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { has: hasEntitlement, isLoading: entitlementLoading } = useEntitlements();
-  const hasTwitterDigestAccess = isAuthenticated && hasEntitlement('twitter_digest');
-  const [digest, setDigest] = useState<DailyDigest | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loadedKey, setLoadedKey] = useState('');
-  const requestKey = `${hasTwitterDigestAccess ? 'full' : 'locked'}:${date}`;
-
-  useEffect(() => {
-    if (authLoading || (isAuthenticated && entitlementLoading) || !date) return;
-
-    let cancelled = false;
-
-    api.twitterDigest
-      .getByDate(date)
-      .then((result) => {
-        if (cancelled) return;
-        setDigest(result);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setDigest(null);
-        setError(err instanceof Error ? err.message : '加载失败');
-      })
-      .finally(() => {
-        if (!cancelled) setLoadedKey(requestKey);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, entitlementLoading, hasTwitterDigestAccess, isAuthenticated, date, requestKey]);
-
-  if (!date) {
-    return (
-      <main className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20 text-center">
-          <h1 className="text-xl font-editorial">日期无效</h1>
-          <Link href="/twitter-digest" className="inline-block mt-6 text-sky-400 hover:underline">
-            查看最新一期
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  if (authLoading || (isAuthenticated && entitlementLoading) || loadedKey !== requestKey) {
-    return (
-      <main className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-sky-400/20 border-t-sky-400 animate-spin" />
-            <p className="text-muted-foreground text-sm">加载中...</p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20 text-center">
-          <h1 className="text-xl font-editorial">加载失败</h1>
-          <p className="text-muted-foreground mt-2 text-sm">{error}</p>
-          <Link href="/today" className="inline-block mt-6 text-sky-400 hover:underline">
-            返回日报
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  return <DigestView date={date} digest={digest} isAuthenticated={isAuthenticated} />;
-}
+import { notFound } from 'next/navigation';
+import { publicFetch } from '@/lib/public-fetch';
+import type { TwitterDigestTeaser } from '@/lib/api';
+import { pageMetadata, serializeJsonLd, SITE_URL } from '@/lib/seo';
+import { Answer, PublicDisclaimer, SourceStamp } from '@/components/PublicSeo';
+import { han, cleanPublic, breadcrumbs } from '@/lib/seo-public';
+import { PaidDateAccess } from './PaidDateAccess';
+export const dynamic='force-dynamic';
+type Props={params:Promise<{date:string}>};
+async function data(date:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return null;return publicFetch<TwitterDigestTeaser>(`/twitter-digest/teaser/${date}`);}
+export async function generateMetadata({params}:Props){const {date}=await params;const d=await data(date);return {...pageMetadata(`/twitter-digest/${date}`,`${date} 美股博主观点简报`,cleanPublic(d?.intro_preview,80)||'公开摘要与来源入口。'),robots:{index:!!d&&han(cleanPublic(d.intro_preview))>=300,follow:true}};}
+export default async function Page({params}:Props){const {date}=await params;const d=await data(date);if(!d)notFound();return <main className="mx-auto max-w-5xl px-4 py-10 space-y-6"><h1 className="text-3xl font-editorial">{date} · {cleanPublic(d.headline)||'美股博主观点简报'}</h1><Answer at={d.generated_at}>{cleanPublic(d.intro_preview)}</Answer><section><h2 className="text-xl">公开观点摘要</h2><p>{cleanPublic(d.intro_preview)}</p></section><SourceStamp at={d.generated_at} source="美股博主观点简报"/><div className="flex flex-wrap gap-4">{d.hot_tickers.map(r=><Link key={r.label} href={`/stock/${r.label.replace(/^\$/,'')}#kol`}>{r.label} · {r.count} 次提及</Link>)}</div><nav className="flex gap-4"><Link href="/twitter-digest">最新简报</Link><Link href="/kol/serenity">Serenity 观点</Link><Link href="/kol/qinbafrank">qinbafrank 观点</Link></nav><section className="paywalled-content"><h2 className="text-xl">完整观点与来源证据</h2><Link href="/pricing">Pro 订阅权益</Link><PaidDateAccess/></section><PublicDisclaimer at={d.generated_at}/><script type="application/ld+json" dangerouslySetInnerHTML={{__html:serializeJsonLd({'@context':'https://schema.org','@graph':[{'@type':'Article',headline:cleanPublic(d.headline),url:`${SITE_URL}/twitter-digest/${date}`,datePublished:d.generated_at,dateModified:d.generated_at,isAccessibleForFree:false,hasPart:{'@type':'WebPageElement',isAccessibleForFree:false,cssSelector:'.paywalled-content'}},breadcrumbs([{name:'博主观点简报',path:'/twitter-digest'},{name:date,path:`/twitter-digest/${date}`}])]})}}/></main>}

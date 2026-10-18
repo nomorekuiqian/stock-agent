@@ -4,6 +4,7 @@ Stock feature router - All stock-related API endpoints.
 
 from __future__ import annotations
 
+import json
 import re
 import threading
 from datetime import datetime, timedelta
@@ -155,7 +156,7 @@ async def get_stock_profile_quick(symbol: str):
             }
 
         # 2. Check DB cache (fast)
-        db_cached = await db_get_profile(upper_symbol)
+        db_cached = await db_get_profile(upper_symbol, strict=True)
         if db_cached:
             logger.info("Profile quick: DB cache HIT for %s", upper_symbol)
             # Also warm up memory cache
@@ -166,6 +167,12 @@ async def get_stock_profile_quick(symbol: str):
                 "profile": db_cached,
                 "source": "db_cache",
             }
+
+        # Curated SEO profiles are sourced offline, never generated in a page request.
+        from app.features.seo.content_store import get_profile as get_seo_profile
+        seo_profile = get_seo_profile(upper_symbol)
+        if seo_profile:
+            return {"success": True, "profile": seo_profile, "source": "seo_snapshot"}
 
         # 3. No cache - return minimal placeholder
         logger.info("Profile quick: cache MISS for %s", upper_symbol)
@@ -336,6 +343,24 @@ async def get_stock_valuation_comparison(symbol: str):
     except Exception as e:
         logger.exception("Error getting valuation comparison for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{symbol}/analysis/preview")
+async def get_stock_analysis_preview(symbol: str):
+    """Public first paragraph only; no generation and no full cached payload."""
+    symbol = symbol.upper()
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", symbol):
+        raise HTTPException(status_code=400, detail="Invalid stock symbol format")
+    cached = await get_stock_analysis(symbol, analysis_type="comprehensive")
+    content = (cached or {}).get("content") or {}
+    if isinstance(content, str):
+        try:
+            content = json.loads(content)
+        except (ValueError, TypeError):
+            content = {}
+    summary = content.get("investment_summary", "") if isinstance(content, dict) else ""
+    excerpt = summary.strip().split("\n\n")[0][:250] if isinstance(summary, str) else ""
+    return {"excerpt": excerpt, "generated_at": (cached or {}).get("generated_at")}
 
 
 @router.get("/{symbol}/analysis/cache")
@@ -1345,6 +1370,12 @@ async def generate_earnings_analysis_endpoint(
             model=meta.get("model", GENERATIVE_MODEL),
             expires_hours=cache_hours,
         )
+        if save_result.get("success") and transcript_text:
+            try:
+                from app.features.seo.generation import enqueue
+                enqueue('transcript-points:'+symbol.upper(), {'transcript':transcript_text[:18000]}, 'three distinct factual management remarks, one sentence per line, each at most fifty Chinese characters; omit projections about stock prices',0,150)
+            except Exception:
+                logger.exception('Unable to queue public transcript points: %s',symbol)
         logger.info("Earnings analysis save result: %s", save_result)
 
         return {

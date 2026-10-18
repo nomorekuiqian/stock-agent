@@ -362,6 +362,11 @@ async def refresh_universe() -> dict:
         import json
         universe = json.loads(df.to_json(orient="records", default_handler=str))
 
+        for row in universe:
+            dividend_yield = row.get("dividend_yield")
+            if isinstance(dividend_yield, (int, float)) and dividend_yield > 25:
+                logger.warning("Dividend yield requires review: symbol=%s percent=%s", row.get("symbol"), dividend_yield)
+
         # Compute sector statistics
         sector_stats = _compute_sector_stats(df)
 

@@ -149,7 +149,7 @@ export function MorningReportContent({
             </>
           ) : (
             futures_analysis && (
-              <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
+              <div className="morning-paywall mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
                 <p className="text-sm text-foreground leading-relaxed">
                   <StockLinkedText text={futures_analysis} />
                 </p>
@@ -198,7 +198,7 @@ export function MorningReportContent({
             </>
           ) : (
             global_markets_analysis && (
-              <div className="mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
+              <div className="morning-paywall mt-4 bg-muted/60 rounded-lg p-3 border border-border/30">
                 <p className="text-sm text-foreground leading-relaxed">
                   <StockLinkedText text={global_markets_analysis} />
                 </p>
@@ -210,7 +210,7 @@ export function MorningReportContent({
 
       {/* Overnight News */}
       {overnight_news.length > 0 && (
-        <section className="bg-card rounded-xl border border-border p-5">
+        <section className="morning-paywall bg-card rounded-xl border border-border p-5">
           <SectionHeader count={overnight_news.length}>隔夜要闻</SectionHeader>
           {locked ? (
             <>
@@ -259,7 +259,7 @@ export function MorningReportContent({
 
       {/* Today Focus */}
       {today_focus.length > 0 && (
-        <section className="bg-card rounded-xl border border-border p-5">
+        <section className="morning-paywall bg-card rounded-xl border border-border p-5">
           <SectionHeader count={today_focus.length}>今日焦点</SectionHeader>
           {locked ? (
             <>
@@ -311,7 +311,7 @@ export function MorningReportContent({
 
       {/* Summary */}
       {summary.length > 0 && (
-        <section className="bg-card rounded-xl border border-border p-5">
+        <section className="morning-paywall bg-card rounded-xl border border-border p-5">
           <SectionHeader>总结与展望</SectionHeader>
           <div className="space-y-5">
             {summary.map((section, i) => (

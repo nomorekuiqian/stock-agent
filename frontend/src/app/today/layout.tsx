@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '美股每日报告 - AI 智能市场分析',
+  title: '美股今天为什么涨跌？今日收盘复盘与大跌原因（每日更新）',
   description: 'AI 生成的美股每日分析报告。涵盖三大指数、VIX、国债收益率、黄金等核心指标，深度解读市场动态，每日更新。',
   keywords: [
     '美股日报', '美股每日报告', 'AI 美股分析', '今日美股',
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     canonical: '/today',
   },
   openGraph: {
-    title: '美股每日报告 - TheMarketBrew',
+    title: '美股今天为什么涨跌？今日收盘复盘与大跌原因（每日更新）',
     description: 'AI 生成的美股每日分析报告，深度解读市场动态',
     type: 'website',
   },

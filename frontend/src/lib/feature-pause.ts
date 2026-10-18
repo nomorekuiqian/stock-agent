@@ -24,6 +24,8 @@ const pausedPages: [string, string, string][] = [
 ];
 
 export function pausedPageRedirect(pathname: string, params = new URLSearchParams()): string | null {
+  // Public editorial summaries only; studio subpages and backend gates stay paused.
+  if (/^\/kol(?:\/(?:serenity|qinbafrank|aleabitoreddit)(?:\/(?:latest|highlights|sectors|stocks))?)?\/?$/.test(pathname)) return null;
   const match = pausedPages.find(([prefix, feature]) =>
     isFeaturePaused(feature) && (pathname === prefix || pathname.startsWith(`${prefix}/`)),
   );

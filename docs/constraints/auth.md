@@ -416,3 +416,11 @@ MCP token 不是网站 access token。后端生成 `tmb_mcp_...` opaque token，
 ### SEO 与公开路由（2026-10-17）
 
 robots、sitemap 索引及严格匹配的子 sitemap 路径匿名可读；不能按任意 `.xml` 后缀放行。research/login 与带参数的普通页面禁止索引，不改变访问权限。旧早晚报 UUID 的 308 仅读取匿名公开响应中的日期，不传用户凭证。早报公开摘要只使用已有公开行情，不包含 gated AI 正文。
+
+## SEO implementation plan — 2026-10-18
+
+Anonymous `/api/seo/stock` returns only the bounded investment and earnings opening paragraphs (250 characters each), public figures, licensed KOL summaries and sourced editorial facts; no guidance/full analysis. `/api/seo/kol` supports qinbafrank/aleabitoreddit. `/api/seo/ticker-discussion` excludes full tweets and hides fewer-than-two-author discussions. The sentiment projection never fetches CNN unless `SENTIMENT_USE_CNN=true`; unavailable scores are not replaced with neutral values. Refresh writes require the existing cron secret.
+
+The user-requested SEO plan narrowly restores two authors' existing paid studio GETs. `FeaturePauseMiddleware` allows only their profile/tickers/high-conviction/feed/topics/sectors/industry_chain/tweet-evidence read paths. Every allowed handler requires `verify_user_token` and `has_entitlement(user_id, "stock_research")`, rejects prohibited licenses, and never bypasses auth for crawlers. MCP, other authors, mutations and dedicated schedules remain paused. Public frontend roots are indexable; preserved studio subpages are 200 + noindex + public teaser, with the paid client mounted only for Max.
+
+Morning endpoints expose only the bounded futures paragraph, sanitized today-focus and three event points to anonymous readers; full global analysis remains stripped before SSR/RSC serialization. Date metadata and sitemaps count this public subset. Public twitter-digest teaser-by-date is a separate route; full digest APIs retain Pro checks. Generation jobs run in the production lifespan after successful existing saves, never on public GETs.

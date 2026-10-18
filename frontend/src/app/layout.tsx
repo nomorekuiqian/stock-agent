@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   title: {
     default: "TheMarketBrew - AI 美股分析 | 每日行情、宏观研究、个股投研",
-    template: "%s | TheMarketBrew",
+    template: "%s｜TheMarketBrew",
   },
   description: "AI 驱动的美股分析平台。每日市场日报、宏观经济周报、个股深度投研、估值对比，中文解读助力投资决策。",
   keywords: [
@@ -71,8 +71,6 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
     googleBot: {
-      index: true,
-      follow: true,
       "max-video-preview": -1,
       "max-image-preview": "large",
       "max-snippet": -1,

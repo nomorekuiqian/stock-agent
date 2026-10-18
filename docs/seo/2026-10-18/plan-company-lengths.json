@@ -1,0 +1,422 @@
+[
+  {
+    "symbol": "SPCX",
+    "han": 225,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/SPCX/profile",
+    "updated_at": "2026-10-18T12:49:58.776617+00:00"
+  },
+  {
+    "symbol": "TSLA",
+    "han": 219,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/TSLA/profile",
+    "updated_at": "2026-10-18T12:50:03.833321+00:00"
+  },
+  {
+    "symbol": "AMD",
+    "han": 183,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/AMD/profile",
+    "updated_at": "2026-10-18T12:50:07.489923+00:00"
+  },
+  {
+    "symbol": "INTC",
+    "han": 198,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/INTC/profile",
+    "updated_at": "2026-10-18T12:50:15.985030+00:00"
+  },
+  {
+    "symbol": "MU",
+    "han": 194,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/MU/profile",
+    "updated_at": "2026-10-18T12:50:16.323407+00:00"
+  },
+  {
+    "symbol": "MSFT",
+    "han": 163,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/MSFT/profile",
+    "updated_at": "2026-10-18T12:50:18.772695+00:00"
+  },
+  {
+    "symbol": "SNDK",
+    "han": 200,
+    "source": "https://www.sandisk.com/company/about-us",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "AAPL",
+    "han": 192,
+    "source": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "META",
+    "han": 155,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/META/profile",
+    "updated_at": "2026-10-18T12:56:51.896895+00:00"
+  },
+  {
+    "symbol": "AMZN",
+    "han": 199,
+    "source": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000004/amzn-20251231.htm",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "CRCL",
+    "han": 169,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/CRCL/profile",
+    "updated_at": "2026-10-18T12:50:46.591597+00:00"
+  },
+  {
+    "symbol": "SOFI",
+    "han": 189,
+    "source": "https://tech.sofi.com/blog/how-sofi-and-galileo-work-together-to-help-people-get-their-money-right/",
+    "updated_at": "2026-10-18T13:37:41.610186+00:00"
+  },
+  {
+    "symbol": "NBIS",
+    "han": 172,
+    "source": "https://nebius.com/newsroom/nebius-group-announces-planned-resumption-of-trading-on-nasdaq-and-provides-investor-update",
+    "updated_at": "2026-10-18T13:37:41.610186+00:00"
+  },
+  {
+    "symbol": "RKLB",
+    "han": 229,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/RKLB/profile",
+    "updated_at": "2026-10-18T12:51:03.076600+00:00"
+  },
+  {
+    "symbol": "AVGO",
+    "han": 228,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/AVGO/profile",
+    "updated_at": "2026-10-18T12:51:04.653072+00:00"
+  },
+  {
+    "symbol": "SMR",
+    "han": 204,
+    "source": "https://www.nrc.gov/facilities-safety/new-reactors/advanced-reactors/who-were-working-with/past-licensing-activities/nuscale-us460",
+    "updated_at": "2026-10-18T13:37:41.610186+00:00"
+  },
+  {
+    "symbol": "CRWV",
+    "han": 181,
+    "source": "https://www.coreweave.com/about-us",
+    "updated_at": "2026-10-18T13:37:41.610186+00:00"
+  },
+  {
+    "symbol": "OKLO",
+    "han": 200,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/OKLO/profile",
+    "updated_at": "2026-10-18T12:51:18.100060+00:00"
+  },
+  {
+    "symbol": "MSTR",
+    "han": 201,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/MSTR/profile",
+    "updated_at": "2026-10-18T12:51:21.629058+00:00"
+  },
+  {
+    "symbol": "TSM",
+    "han": 221,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/TSM/profile",
+    "updated_at": "2026-10-18T12:51:22.682826+00:00"
+  },
+  {
+    "symbol": "NFLX",
+    "han": 165,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/NFLX/profile",
+    "updated_at": "2026-10-18T12:51:27.865385+00:00"
+  },
+  {
+    "symbol": "ASML",
+    "han": 179,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/ASML/profile",
+    "updated_at": "2026-10-18T12:51:34.467424+00:00"
+  },
+  {
+    "symbol": "JPM",
+    "han": 243,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/JPM/profile",
+    "updated_at": "2026-10-18T12:51:37.082072+00:00"
+  },
+  {
+    "symbol": "LITE",
+    "han": 235,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/LITE/profile",
+    "updated_at": "2026-10-18T12:51:39.751076+00:00"
+  },
+  {
+    "symbol": "SMCI",
+    "han": 230,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/SMCI/profile",
+    "updated_at": "2026-10-18T12:51:46.601695+00:00"
+  },
+  {
+    "symbol": "MRVL",
+    "han": 224,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/MRVL/profile",
+    "updated_at": "2026-10-18T12:51:48.066073+00:00"
+  },
+  {
+    "symbol": "VRT",
+    "han": 181,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/VRT/profile",
+    "updated_at": "2026-10-18T12:51:56.835614+00:00"
+  },
+  {
+    "symbol": "IONQ",
+    "han": 214,
+    "source": "https://www.ionq.com/quantum-cloud",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "ORCL",
+    "han": 178,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/ORCL/profile",
+    "updated_at": "2026-10-18T12:52:08.371547+00:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "han": 205,
+    "source": "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000018/goog-20251231.htm",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "ALAB",
+    "han": 197,
+    "source": "https://www.asteralabs.com/solutions/ai-servers-and-clustering/",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "HIMS",
+    "han": 228,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/HIMS/profile",
+    "updated_at": "2026-10-18T12:52:12.390685+00:00"
+  },
+  {
+    "symbol": "RIVN",
+    "han": 152,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/RIVN/profile",
+    "updated_at": "2026-10-18T12:52:16.311841+00:00"
+  },
+  {
+    "symbol": "RGTI",
+    "han": 160,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/RGTI/profile",
+    "updated_at": "2026-10-18T12:52:17.527775+00:00"
+  },
+  {
+    "symbol": "NOW",
+    "han": 184,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/NOW/profile",
+    "updated_at": "2026-10-18T12:52:18.703114+00:00"
+  },
+  {
+    "symbol": "APP",
+    "han": 206,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/APP/profile",
+    "updated_at": "2026-10-18T12:52:19.663292+00:00"
+  },
+  {
+    "symbol": "TEM",
+    "han": 199,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/TEM/profile",
+    "updated_at": "2026-10-18T12:52:20.465215+00:00"
+  },
+  {
+    "symbol": "VST",
+    "han": 184,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/VST/profile",
+    "updated_at": "2026-10-18T12:52:23.371350+00:00"
+  },
+  {
+    "symbol": "GEV",
+    "han": 151,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/GEV/profile",
+    "updated_at": "2026-10-18T12:52:24.914413+00:00"
+  },
+  {
+    "symbol": "CEG",
+    "han": 189,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/CEG/profile",
+    "updated_at": "2026-10-18T12:52:26.685806+00:00"
+  },
+  {
+    "symbol": "HOOD",
+    "han": 206,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/HOOD/profile",
+    "updated_at": "2026-10-18T12:52:29.670134+00:00"
+  },
+  {
+    "symbol": "ARM",
+    "han": 191,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/ARM/profile",
+    "updated_at": "2026-10-18T12:52:32.660368+00:00"
+  },
+  {
+    "symbol": "GS",
+    "han": 249,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/GS/profile",
+    "updated_at": "2026-10-18T12:52:32.867535+00:00"
+  },
+  {
+    "symbol": "NVO",
+    "han": 228,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/NVO/profile",
+    "updated_at": "2026-10-18T12:52:36.788450+00:00"
+  },
+  {
+    "symbol": "PDD",
+    "han": 202,
+    "source": "https://www.sec.gov/Archives/edgar/data/1737806/000110465926050727/pdd-20251231x20f.htm",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "ANET",
+    "han": 223,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/ANET/profile",
+    "updated_at": "2026-10-18T12:52:37.781091+00:00"
+  },
+  {
+    "symbol": "SHOP",
+    "han": 154,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/SHOP/profile",
+    "updated_at": "2026-10-18T12:52:40.549031+00:00"
+  },
+  {
+    "symbol": "BIDU",
+    "han": 223,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/BIDU/profile",
+    "updated_at": "2026-10-18T12:52:41.799392+00:00"
+  },
+  {
+    "symbol": "UBER",
+    "han": 206,
+    "source": "https://s23.q4cdn.com/407969754/files/doc_events/2025/May/05/2024-Annual-Report.pdf",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "JD",
+    "han": 229,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/JD/profile",
+    "updated_at": "2026-10-18T12:52:48.480910+00:00"
+  },
+  {
+    "symbol": "COIN",
+    "han": 171,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/COIN/profile",
+    "updated_at": "2026-10-18T12:52:49.438966+00:00"
+  },
+  {
+    "symbol": "DELL",
+    "han": 200,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/DELL/profile",
+    "updated_at": "2026-10-18T12:52:52.213047+00:00"
+  },
+  {
+    "symbol": "LLY",
+    "han": 214,
+    "source": "https://www.lilly.com/medicines",
+    "updated_at": "2026-10-18T14:20:23.046055+00:00"
+  },
+  {
+    "symbol": "NIO",
+    "han": 216,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/NIO/profile",
+    "updated_at": "2026-10-18T12:52:54.431359+00:00"
+  },
+  {
+    "symbol": "RTX",
+    "han": 216,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/RTX/profile",
+    "updated_at": "2026-10-18T12:52:56.319428+00:00"
+  },
+  {
+    "symbol": "COST",
+    "han": 204,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/COST/profile",
+    "updated_at": "2026-10-18T12:52:58.754306+00:00"
+  },
+  {
+    "symbol": "CRWD",
+    "han": 184,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/CRWD/profile",
+    "updated_at": "2026-10-18T12:53:00.254786+00:00"
+  },
+  {
+    "symbol": "QCOM",
+    "han": 211,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/QCOM/profile",
+    "updated_at": "2026-10-18T12:53:02.550998+00:00"
+  },
+  {
+    "symbol": "CRM",
+    "han": 182,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/CRM/profile",
+    "updated_at": "2026-10-18T12:53:02.756343+00:00"
+  },
+  {
+    "symbol": "SNOW",
+    "han": 172,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/SNOW/profile",
+    "updated_at": "2026-10-18T12:53:03.312298+00:00"
+  },
+  {
+    "symbol": "ADBE",
+    "han": 224,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/ADBE/profile",
+    "updated_at": "2026-10-18T12:53:06.480108+00:00"
+  },
+  {
+    "symbol": "LI",
+    "han": 155,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/LI/profile",
+    "updated_at": "2026-10-18T12:53:09.734183+00:00"
+  },
+  {
+    "symbol": "XPEV",
+    "han": 177,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/XPEV/profile",
+    "updated_at": "2026-10-18T12:53:11.999720+00:00"
+  },
+  {
+    "symbol": "NET",
+    "han": 211,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/NET/profile",
+    "updated_at": "2026-10-18T12:53:13.403022+00:00"
+  },
+  {
+    "symbol": "PLTR",
+    "han": 201,
+    "source": "https://www.palantir.com/docs/foundry/architecture-center/platforms",
+    "updated_at": "2026-10-18T13:37:41.610186+00:00"
+  },
+  {
+    "symbol": "NVDA",
+    "han": 198,
+    "source": "https://www.nvidia.com/en-us/about-nvidia/",
+    "updated_at": "2026-10-18T13:37:41.610186+00:00"
+  },
+  {
+    "symbol": "BABA",
+    "han": 188,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/BABA/profile",
+    "updated_at": "2026-10-18T12:54:25.546644+00:00"
+  },
+  {
+    "symbol": "BRK.B",
+    "han": 177,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/BRK.B/profile",
+    "updated_at": "2026-10-18T12:56:51.896931+00:00"
+  },
+  {
+    "symbol": "UNH",
+    "han": 168,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/UNH/profile",
+    "updated_at": "2026-10-18T12:56:51.896545+00:00"
+  },
+  {
+    "symbol": "QBTS",
+    "han": 175,
+    "source": "https://stock-agent-production.up.railway.app/api/stocks/QBTS/profile",
+    "updated_at": "2026-10-18T12:56:51.896923+00:00"
+  }
+]

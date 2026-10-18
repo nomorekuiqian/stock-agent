@@ -78,6 +78,7 @@ export function ReportContent({
   calendar,
   showDisclaimer = true,
 }: ReportContentProps) {
+  const linkedSymbols = new Set<string>();
   // Filter to key indices only
   const keyIndices = useMemo(() => {
     if (!indices) return [];
@@ -136,7 +137,7 @@ export function ReportContent({
         <section className="rounded-xl border border-border/40 bg-card/50 p-5 animate-fade-in-up">
           <SectionHeader>今日要点</SectionHeader>
           <p className="text-base text-foreground leading-relaxed whitespace-pre-line">
-            <StockLinkedText text={intro.replace(/\\n/g, '\n')} />
+            <StockLinkedText seen={linkedSymbols} text={intro.replace(/\\n/g, '\n')} />
           </p>
         </section>
       )}
@@ -162,10 +163,10 @@ export function ReportContent({
                       {headline.title}
                     </a>
                     <NewsTimestamp timestamp={headline.published_at} />
-                    <p className="mb-3 text-sm leading-relaxed text-muted-foreground"><StockLinkedText text={headline.fact_summary} /></p>
+                    <p className="mb-3 text-sm leading-relaxed text-muted-foreground"><StockLinkedText seen={linkedSymbols} text={headline.fact_summary} /></p>
                     <div className="rounded-lg border border-border/30 bg-card/40 p-3">
                       <p className="text-sm leading-relaxed text-foreground">
-                        <StockLinkedText text={headline.deep_analysis} />
+                        <StockLinkedText seen={linkedSymbols} text={headline.deep_analysis} />
                       </p>
                     </div>
                   </div>
@@ -190,7 +191,7 @@ export function ReportContent({
                       {brief.title}
                     </a>
                     <NewsTimestamp timestamp={brief.published_at} />
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground"><StockLinkedText text={brief.summary} /></p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground"><StockLinkedText seen={linkedSymbols} text={brief.summary} /></p>
                   </div>
                 ))}
               </div>
@@ -202,7 +203,7 @@ export function ReportContent({
       {/* Upcoming Events Calendar */}
       {calendar && calendar.length > 0 && (
         <section className="rounded-xl border border-border/40 bg-card/50 p-5 animate-fade-in-up">
-          <SectionHeader>近期事件</SectionHeader>
+          <div id="events"><SectionHeader>近期事件</SectionHeader></div>
           <div className="space-y-4">
             {calendar.slice(0, 5).map((event, idx) => {
               const dateStr = event.date.split('T')[0];
@@ -227,8 +228,8 @@ export function ReportContent({
 
                   {/* Event Details */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground mb-1"><StockLinkedText text={event.event} /></h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed"><StockLinkedText text={event.analysis} /></p>
+                    <h3 className="text-sm font-semibold text-foreground mb-1"><StockLinkedText seen={linkedSymbols} anchor="#earnings" text={event.event} /></h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed"><StockLinkedText seen={linkedSymbols} anchor="#earnings" text={event.analysis} /></p>
                   </div>
                 </div>
               );
@@ -252,7 +253,7 @@ export function ReportContent({
                   <div className="space-y-3">
                     {section.content.replace(/\\n/g, '\n').split('\n').filter(p => p.trim()).map((paragraph, pIdx) => (
                       <p key={pIdx} className="text-base text-foreground leading-relaxed">
-                        <StockLinkedText text={paragraph} />
+                        <StockLinkedText seen={linkedSymbols} text={paragraph} />
                       </p>
                     ))}
                   </div>
@@ -281,7 +282,7 @@ export function ReportContent({
                         <div className="space-y-3">
                           {section.content.replace(/\\n/g, '\n').split('\n').filter(p => p.trim()).map((paragraph, pIdx) => (
                             <p key={pIdx} className="text-base text-foreground leading-relaxed">
-                              <StockLinkedText text={paragraph} />
+                              <StockLinkedText seen={linkedSymbols} text={paragraph} />
                             </p>
                           ))}
                         </div>
@@ -295,7 +296,7 @@ export function ReportContent({
                 <div className="space-y-4">
                   {report_summary.replace(/\\n/g, '\n').split('\n').filter((p: string) => p.trim()).map((paragraph: string, idx: number) => (
                     <p key={idx} className="text-base text-foreground leading-relaxed">
-                      <StockLinkedText text={paragraph} />
+                      <StockLinkedText seen={linkedSymbols} text={paragraph} />
                     </p>
                   ))}
                 </div>

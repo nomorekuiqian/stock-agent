@@ -1,0 +1,100 @@
+{
+  "checked_at": "2026-10-18T12:51:05.733630+00:00",
+  "complete": true,
+  "universe_count": 3914,
+  "missing_yield": 2178,
+  "anomalies": [
+    {
+      "symbol": "NASDAQ:IEP",
+      "dividend_yield": 30.1204819277,
+      "cross_check": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.30120483,
+        "normalized_percent": 30.120482999999997
+      }
+    },
+    {
+      "symbol": "NASDAQ:PSEC",
+      "dividend_yield": 25.7668711656,
+      "cross_check": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.3190184,
+        "normalized_percent": 31.901839999999996
+      }
+    },
+    {
+      "symbol": "NYSE:IVR",
+      "dividend_yield": 25.5319148936,
+      "cross_check": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.25177306,
+        "normalized_percent": 25.177305999999998
+      }
+    },
+    {
+      "symbol": "NYSE:ABR",
+      "dividend_yield": 33.5714285714,
+      "cross_check": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.33571428,
+        "normalized_percent": 33.571428
+      }
+    },
+    {
+      "symbol": "NYSE:PNNT",
+      "dividend_yield": 30.7692307692,
+      "cross_check": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.25641027,
+        "normalized_percent": 25.641027
+      }
+    },
+    {
+      "symbol": "NASDAQ:OXSQ",
+      "dividend_yield": 30,
+      "cross_check": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.3076923,
+        "normalized_percent": 30.769229999999997
+      }
+    }
+  ],
+  "benchmark": {
+    "NVDA": {
+      "api_percent": 0.1289,
+      "display": "0.13%",
+      "independent_source": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.0012889564,
+        "normalized_percent": 0.12889564
+      }
+    },
+    "AAPL": {
+      "api_percent": 0.307,
+      "display": "0.31%",
+      "independent_source": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.0030701754,
+        "normalized_percent": 0.30701754000000003
+      }
+    },
+    "MSFT": {
+      "api_percent": 0.6748,
+      "display": "0.67%",
+      "independent_source": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.0067477385,
+        "normalized_percent": 0.67477385
+      }
+    },
+    "KO": {
+      "api_percent": 2.2609,
+      "display": "2.26%",
+      "independent_source": {
+        "source": "Yahoo Finance trailingAnnualDividendYield",
+        "raw_decimal": 0.022608696,
+        "normalized_percent": 2.2608696
+      }
+    }
+  }
+}

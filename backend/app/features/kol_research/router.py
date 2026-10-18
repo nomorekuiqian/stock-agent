@@ -87,6 +87,16 @@ FLAG_KEY = "kol_research_agent"
 
 router = APIRouter(prefix="/api/kol_research", tags=["kol_research"])
 
+async def require_public_studio_access(username: str, user_id: str = Depends(verify_user_token)):
+    from app.features.payment.entitlements import has_entitlement
+    from app.features.seo.policy import license_status
+    if username not in ("qinbafrank","aleabitoreddit") or license_status(username)=="prohibited":
+        raise HTTPException(403,"该博主资料暂不开放")
+    if not await has_entitlement(user_id,"stock_research"):
+        raise HTTPException(403,"完整博主资料需要 Max 权益")
+    return user_id
+
+
 _TIMELINE_KEEP_TYPES = {"thesis", "catalyst", "risk_flag", "sector_framework", "trade_action", "macro_view"}
 _TIMELINE_DROP_TYPES = {"noise"}
 
@@ -263,7 +273,7 @@ def _is_skill_cockpit(username: str) -> bool:
     return username.lower() == "qinbafrank"
 
 
-@router.get("/personas/{username}/profile")
+@router.get("/personas/{username}/profile", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_profile(username: str):
     """Methodology core + sector card fronts."""
     persona = get_persona(username)
@@ -284,7 +294,7 @@ async def cockpit_profile(username: str):
     }
 
 
-@router.get("/personas/{username}/high-conviction")
+@router.get("/personas/{username}/high-conviction", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_high_conviction(username: str):
     """Sector-grouped high-conviction ticker grid for the cockpit hero list.
 
@@ -321,7 +331,7 @@ async def cockpit_high_conviction(username: str):
     return payload
 
 
-@router.get("/personas/{username}/tickers")
+@router.get("/personas/{username}/tickers", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_tickers(username: str):
     """Ticker list with mention counts + current price."""
     if _is_skill_cockpit(username):
@@ -348,7 +358,7 @@ async def cockpit_tickers(username: str):
     return {"tickers": tickers}
 
 
-@router.get("/personas/{username}/sectors")
+@router.get("/personas/{username}/sectors", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_sectors(username: str):
     """List skill-backed sectors for the cockpit sidebar."""
     persona = get_persona(username)
@@ -359,7 +369,7 @@ async def cockpit_sectors(username: str):
     return {"sectors": cockpit_v3.list_sectors_v3(username)}
 
 
-@router.get("/personas/{username}/sectors/{sector_key}")
+@router.get("/personas/{username}/sectors/{sector_key}", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_sector(username: str, sector_key: str):
     """Detailed sector + ticker prices + resolved representative tweets."""
     persona = get_persona(username)
@@ -504,7 +514,7 @@ async def cockpit_sector(username: str, sector_key: str):
     return detail
 
 
-@router.get("/personas/{username}/industry_chain/{board_key}")
+@router.get("/personas/{username}/industry_chain/{board_key}", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_industry_chain(username: str, board_key: str):
     """Industry chain visualization payload.
 
@@ -649,7 +659,7 @@ async def cockpit_industry_chain(username: str, board_key: str):
     }
 
 
-@router.get("/personas/{username}/feed")
+@router.get("/personas/{username}/feed", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_feed(
     username: str,
     limit: int = 20,
@@ -689,7 +699,7 @@ async def cockpit_feed(
     )
 
 
-@router.get("/personas/{username}/topics")
+@router.get("/personas/{username}/topics", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_topics(username: str):
     """Topic-filter tree (产业板块 with leaves / 宏观 / 美股规律) with tweet counts."""
     persona = get_persona(username)
@@ -698,7 +708,7 @@ async def cockpit_topics(username: str):
     return await cockpit.get_topic_tree(username)
 
 
-@router.get("/personas/{username}/tweets/by-ids")
+@router.get("/personas/{username}/tweets/by-ids", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_tweets_by_ids(username: str, ids: str):
     """Full-text tweets for curated evidence ids, preserving requested order."""
     persona = get_persona(username)
@@ -1394,7 +1404,7 @@ async def mcp_data_news(
     return await mcp_data.get_news(req, mcp_user)
 
 
-@router.get("/personas/{username}/mcp/status")
+@router.get("/personas/{username}/mcp/status", dependencies=[Depends(require_public_studio_access)])
 async def mcp_status(username: str):
     """Market Lens backend status."""
     if not mcp_materials.material_persona_exists(username):
@@ -1442,7 +1452,7 @@ async def mcp_personas(
     }
 
 
-@router.get("/personas/{username}/mcp/lenses")
+@router.get("/personas/{username}/mcp/lenses", dependencies=[Depends(require_public_studio_access)])
 async def mcp_list_lenses(
     username: str,
     lens_type: str | None = None,
@@ -1457,7 +1467,7 @@ async def mcp_list_lenses(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/personas/{username}/mcp/lenses/{lens_type}/{lens_id}")
+@router.get("/personas/{username}/mcp/lenses/{lens_type}/{lens_id}", dependencies=[Depends(require_public_studio_access)])
 async def mcp_get_lens(
     username: str,
     lens_type: str,
@@ -1727,7 +1737,7 @@ async def mcp_workflow_context(
     return response
 
 
-@router.get("/personas/{username}/tickers/{ticker}")
+@router.get("/personas/{username}/tickers/{ticker}", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_ticker_detail(username: str, ticker: str):
     """Per-ticker: verbatim tweets + price series + fundamentals + decoder."""
     if _is_skill_cockpit(username):
@@ -1941,7 +1951,7 @@ async def _v3_ticker_timeline(username: str, ticker: str, limit: int) -> dict | 
     }
 
 
-@router.get("/personas/{username}/tickers/{ticker}/timeline")
+@router.get("/personas/{username}/tickers/{ticker}/timeline", dependencies=[Depends(require_public_studio_access)])
 async def cockpit_ticker_timeline(username: str, ticker: str, limit: int = 10):
     """Per-ticker vertical opinion timeline. Picks the most informative
     enrichment-annotated mentions and returns them newest-first.

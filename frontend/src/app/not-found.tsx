@@ -7,10 +7,10 @@ export default function NotFound() {
         <div className="space-y-2">
           <p className="font-mono text-6xl font-semibold text-primary">404</p>
           <h1 className="font-serif text-2xl text-foreground">
-            Page Not Found
+            页面不存在
           </h1>
           <p className="text-sm text-muted-foreground">
-            The page you are looking for does not exist or has been moved.
+            这个网址不存在或已迁移，请从首页或日报继续浏览。
           </p>
         </div>
 
@@ -19,13 +19,13 @@ export default function NotFound() {
             href="/"
             className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
-            Back to Home
+            返回首页
           </Link>
           <Link
             href="/today"
             className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            View Daily Report
+            查看每日复盘
           </Link>
         </div>
       </div>

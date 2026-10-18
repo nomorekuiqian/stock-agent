@@ -1,0 +1,38 @@
+{
+  "SMR": [
+    {
+      "q": "NuScale 的设计获批了吗？",
+      "a": "NRC 于 {approved_on} 向 NuScale US460 颁发标准设计批准，可供后续项目许可申请引用；这不等于所有电站项目已获建设或运营许可。",
+      "facts": {
+        "approved_on": "2025-05-29"
+      },
+      "source": "https://www.nrc.gov/node/2151866"
+    },
+    {
+      "q": "股票代码 SMR 和小型模块化反应堆有什么关系？",
+      "a": "SMR 是 NuScale Power 的股票代码，也是小型模块化反应堆这一技术类别的缩写。NuScale 开发相关核电技术，研究时需要区分公司、技术类别和具体项目。",
+      "facts": {},
+      "source": "https://www.nrc.gov/facilities-safety/new-reactors/advanced-reactors/who-were-working-with/past-licensing-activities/nuscale-us460"
+    }
+  ],
+  "SOFI": [
+    {
+      "q": "SoFi 是银行吗？",
+      "a": "SoFi 于 {year} 年获准成为美国国民银行；集团还运营贷款、金融服务与 Galileo 等技术平台业务，应分别查看各业务的财报披露。",
+      "facts": {
+        "year": 2022
+      },
+      "source": "https://investors.sofi.com/news/news-details/2022/SoFi-Receives-Regulatory-Approval-to-Become-a-National-Bank/default.aspx"
+    }
+  ],
+  "NBIS": [
+    {
+      "q": "Nebius 和 Yandex 是什么关系？",
+      "a": "Nebius Group 的前身为 Yandex N.V.，剥离俄罗斯业务后于 {year} 年更名，并采用 NBIS 股票代码。当前 AI 云业务不能与历史上的全部 Yandex 业务混为一谈。",
+      "facts": {
+        "year": 2024
+      },
+      "source": "https://nebius.com/newsroom/nebius-group-announces-planned-resumption-of-trading-on-nasdaq-and-provides-investor-update"
+    }
+  ]
+}

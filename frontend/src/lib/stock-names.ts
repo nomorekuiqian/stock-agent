@@ -157,3 +157,9 @@ export function getStockDisplayName(symbol: string, fallback?: string): string {
   const info = STOCK_NAMES[symbol];
   return info?.zh || info?.en || fallback || symbol;
 }
+
+// Reviewed SEO sample aliases; English names stay English where no Chinese name is confirmed.
+import seoSamples from './seo-samples.json';
+for (const sample of seoSamples) {
+  if (!STOCK_NAMES[sample.symbol]) STOCK_NAMES[sample.symbol] = {zh:sample.name,en:sample.symbol};
+}

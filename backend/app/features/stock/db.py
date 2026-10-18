@@ -37,7 +37,7 @@ def _parse_jsonb_fields(data: dict[str, Any], fields: list[str]) -> dict[str, An
     return data
 
 
-async def get_stock_profile(symbol: str) -> Optional[dict[str, Any]]:
+async def get_stock_profile(symbol: str, *, strict: bool = False) -> Optional[dict[str, Any]]:
     """
     Get stock profile from cache (stock_profiles table).
 
@@ -56,6 +56,8 @@ async def get_stock_profile(symbol: str) -> Optional[dict[str, Any]]:
             timeout=30.0,
         )
 
+        if strict and result["status_code"] not in (200, 404):
+            raise RuntimeError("Stock profile storage unavailable")
         if result["status_code"] == 200:
             data = result.get("data", {})
             if data.get("success"):
@@ -66,6 +68,8 @@ async def get_stock_profile(symbol: str) -> Optional[dict[str, Any]]:
 
     except Exception as e:
         logger.error("Exception getting stock profile: %s: %s", type(e).__name__, e)
+        if strict:
+            raise
         return None
 
 
@@ -324,6 +328,14 @@ async def save_stock_analysis(
             if data.get("success") and data.get("data"):
                 analysis_id = data["data"].get("id")
                 logger.info("Stock analysis saved, ID: %s", analysis_id)
+                if analysis_type in ("comprehensive", "earnings"):
+                    try:
+                        from app.features.seo.service import _cache
+                        from app.features.seo.indexnow import notify
+                        _cache.pop("stock:" + symbol.upper(), None)
+                        await notify(["/stock/" + symbol.upper()])
+                    except Exception:
+                        logger.exception("SEO notification failed after analysis save")
                 return {"success": True, "analysis_id": analysis_id}
             else:
                 error_msg = data.get("error", "Unknown error")

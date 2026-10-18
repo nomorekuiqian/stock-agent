@@ -1,3 +1,8 @@
+import { ReportTimeline } from '@/components/ReportTimeline';
+import { Answer, SourceStamp, PublicFaq, PublicDisclaimer } from '@/components/PublicSeo';
+import { breadcrumbs, faqSchema } from '@/lib/seo-public';
+import { dailyAnswer, TODAY_FAQ } from '@/lib/report-seo';
+import { SITE_URL, serializeJsonLd } from '@/lib/seo';
 import { MarketSummary } from '@/components/MarketSummary';
 import Link from 'next/link';
 import { reportPath } from '@/lib/report-url';
@@ -50,7 +55,7 @@ async function getLatestReport(): Promise<MarketData | null> {
 
 async function getReportList(): Promise<{ data: ReportListItem[]; total: number }> {
   try {
-    const res = await fetch(`${API_BASE}/market/reports?limit=6&offset=0`, {
+    const res = await fetch(`${API_BASE}/market/reports?limit=7&offset=0`, {
       next: { revalidate: 300 },
       signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
@@ -89,12 +94,13 @@ export default async function TodayPage() {
   const isToday = todayReport ? true : latestReport?.report_date === today;
   const historicalReports = (historyResult.data ?? [])
     .filter(r => r.report_date !== today)
-    .slice(0, 5);
+    .slice(0, 6);
   const totalReports = historyResult.total;
   const reportTitle = report?.title || '今日日报';
 
   return (
     <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-background">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{__html:serializeJsonLd({'@context':'https://schema.org','@graph':[{'@type':'WebPage',url:`${SITE_URL}/today`,name:'美股今天为什么涨跌？今日收盘复盘与大跌原因（每日更新）',dateModified:report?.timestamp,hasPart:report?{'@type':'Article',headline:report.title,datePublished:report.timestamp}:undefined},breadcrumbs([{name:'收盘复盘',path:'/today'}]),faqSchema(TODAY_FAQ)]})}}/>
       <div className="mx-auto max-w-5xl px-4 md:px-6">
         <section className="border-b border-border/50 py-8 md:py-12">
           <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
@@ -116,11 +122,11 @@ export default async function TodayPage() {
                   {formatReportDate(report?.report_date ?? today)}
                 </p>
                 <h1 className="max-w-4xl font-editorial text-3xl leading-tight text-foreground md:text-5xl">
-                  {reportTitle}
+                  美股今天为什么涨跌：每日收盘复盘
                 </h1>
-                <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                  {report?.summary || 'AI 驱动的市场分析，提供可操作的投资洞察，助力明智决策。'}
-                </p>
+                <h2 className="text-xl font-medium">{report?.report_date} 收盘：{reportTitle}</h2>
+                {report&&<Answer at={report.timestamp}>{dailyAnswer(report,new Date())}</Answer>}
+                <SourceStamp at={report?.timestamp} source="市场行情与收盘日报"/>
               </div>
             </div>
 
@@ -136,6 +142,7 @@ export default async function TodayPage() {
           <ReportHeroBanner src="/report-banners/evening-report-banner.png" priority />
         </section>
 
+        <ReportTimeline/>
         {report ? (
           <article className="py-8 md:py-10">
             <ReportContent
@@ -202,6 +209,7 @@ export default async function TodayPage() {
           </div>
         </section>
       )}
+      <div className="mx-auto max-w-5xl px-4 py-8 space-y-6"><PublicFaq items={TODAY_FAQ}/><nav className="flex flex-wrap gap-4"><Link href="/guide/us-market-hours">美股开盘与休市时间</Link><Link href="/macro/sentiment">VIX 市场情绪</Link><Link href="/macro/liquidity">美元流动性</Link><Link href="/morning">盘前分析</Link><Link href="/kol/serenity">Serenity 观点</Link><Link href="/kol/qinbafrank">qinbafrank 观点</Link></nav><PublicDisclaimer at={report?.timestamp}/></div>
     </main>
   );
 }

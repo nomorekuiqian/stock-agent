@@ -108,7 +108,10 @@ class MarketAnalysisRequest(BaseModel):
 
 def _report_to_response(report: dict) -> dict:
     """Build a normalized API response dict from a DB report row."""
+    from app.features.seo.policy import published
+    answer=published('today-answer:'+str(report.get('report_date')))
     return _normalize_report_data({
+        'public_answer':answer['content'] if answer else '',
         "report_id": report.get("id"),
         "report_date": report.get("report_date", ""),
         "indices": report.get("indices", []),

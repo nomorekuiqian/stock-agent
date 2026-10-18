@@ -1,3 +1,5 @@
+import { Answer, SourceStamp, PublicDisclaimer } from '@/components/PublicSeo';
+import { morningIndexable, morningAnswer } from '@/lib/report-seo';
 import { reportPath, reportSlugDate, reportTitle } from '@/lib/report-url';
 import { SITE_URL, serializeJsonLd } from '@/lib/seo';
 import { Metadata } from 'next';
@@ -49,6 +51,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!report) {
     return {
       title: '未找到早报',
+      robots: { index: false, follow: true },
       description: '未找到该盘前早报。',
     };
   }
@@ -57,8 +60,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const description = report.market_pulse || '盘前市场简报，快速了解隔夜要闻与今日焦点。';
 
   return {
-    title,
+    title:{absolute:`${title}｜TheMarketBrew`},
     description,
+    robots:{index:morningIndexable(report),follow:true},
     openGraph: {
       title,
       description,
@@ -85,6 +89,8 @@ function generateJsonLd(report: { title?: string; report_date?: string; timestam
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
+    isAccessibleForFree: false,
+    hasPart: { '@type': 'WebPageElement', isAccessibleForFree: false, cssSelector: '.morning-paywall' },
     headline: reportTitle('morning', report),
     description: report.market_pulse || '盘前市场简报',
     datePublished: report.timestamp || `${report.report_date || ''}T00:00:00Z`,
@@ -125,7 +131,7 @@ export default async function MorningReportDetailPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd({'@context':'https://schema.org','@graph':[jsonLd]}) }}
       />
 
       <main className="min-h-screen bg-background">
@@ -144,7 +150,8 @@ export default async function MorningReportDetailPage({ params }: PageProps) {
         </div>
 
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-8">
-          <MorningReportBody report={report} targetPath={reportPath('morning', { ...report, id })} />
+          <h1 className="text-3xl font-editorial">{report.title || `美股盘前分析 · ${report.report_date}`}</h1>
+          <Answer at={report.timestamp}>{morningAnswer(report)}</Answer><SourceStamp at={report.timestamp} source="盘前早报"/><PublicDisclaimer at={report.timestamp}/><MorningReportBody report={report} targetPath={reportPath('morning', { ...report, id })} />
         </div>
       </main>
     </>

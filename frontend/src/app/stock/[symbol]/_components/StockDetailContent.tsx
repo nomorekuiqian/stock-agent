@@ -1,5 +1,7 @@
 'use client';
 
+import { STOCK_NAMES } from '@/lib/stock-names';
+
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -1206,7 +1208,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-3 flex-wrap">
                 <h1 className="text-xl font-semibold text-foreground truncate">
-                  {profile?.company_name || symbol}
+                  {STOCK_NAMES[symbol]?.zh || profile?.company_name || symbol}（{symbol}）
                 </h1>
                 {quote?.price != null && (
                   <div className="flex items-baseline gap-2 flex-shrink-0">
@@ -1220,7 +1222,7 @@ export default function StockDetailContent({ symbol }: { symbol: string }) {
                 )}
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                <span className="font-data font-medium text-foreground/80">{symbol}</span>
+                <span>{profile?.company_name || symbol}</span>
                 {profile?.exchange && (
                   <>
                     <span className="text-border/60">|</span>

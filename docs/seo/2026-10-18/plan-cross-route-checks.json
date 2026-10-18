@@ -1,0 +1,128 @@
+{
+  "environment": "isolated synthetic fixture",
+  "bot_parity": [
+    {
+      "path": "/stock/NVDA",
+      "ua": "Mozilla/5.0",
+      "passed": true
+    },
+    {
+      "path": "/stock/NVDA",
+      "ua": "Googlebot",
+      "passed": true
+    },
+    {
+      "path": "/stock/NVDA",
+      "ua": "GPTBot",
+      "passed": true
+    },
+    {
+      "path": "/stock/NVDA",
+      "ua": "PerplexityBot",
+      "passed": true
+    },
+    {
+      "path": "/stock/NVDA",
+      "ua": "ClaudeBot",
+      "passed": true
+    },
+    {
+      "path": "/stock/NVDA",
+      "ua": "Google-Extended",
+      "passed": true
+    },
+    {
+      "path": "/kol/serenity",
+      "ua": "Mozilla/5.0",
+      "passed": true
+    },
+    {
+      "path": "/kol/serenity",
+      "ua": "Googlebot",
+      "passed": true
+    },
+    {
+      "path": "/kol/serenity",
+      "ua": "GPTBot",
+      "passed": true
+    },
+    {
+      "path": "/kol/serenity",
+      "ua": "PerplexityBot",
+      "passed": true
+    },
+    {
+      "path": "/kol/serenity",
+      "ua": "ClaudeBot",
+      "passed": true
+    },
+    {
+      "path": "/kol/serenity",
+      "ua": "Google-Extended",
+      "passed": true
+    },
+    {
+      "path": "/morning",
+      "ua": "Mozilla/5.0",
+      "passed": true
+    },
+    {
+      "path": "/morning",
+      "ua": "Googlebot",
+      "passed": true
+    },
+    {
+      "path": "/morning",
+      "ua": "GPTBot",
+      "passed": true
+    },
+    {
+      "path": "/morning",
+      "ua": "PerplexityBot",
+      "passed": true
+    },
+    {
+      "path": "/morning",
+      "ua": "ClaudeBot",
+      "passed": true
+    },
+    {
+      "path": "/morning",
+      "ua": "Google-Extended",
+      "passed": true
+    },
+    {
+      "path": "/guide/us-market-hours",
+      "ua": "Mozilla/5.0",
+      "passed": true
+    },
+    {
+      "path": "/guide/us-market-hours",
+      "ua": "Googlebot",
+      "passed": true
+    },
+    {
+      "path": "/guide/us-market-hours",
+      "ua": "GPTBot",
+      "passed": true
+    },
+    {
+      "path": "/guide/us-market-hours",
+      "ua": "PerplexityBot",
+      "passed": true
+    },
+    {
+      "path": "/guide/us-market-hours",
+      "ua": "ClaudeBot",
+      "passed": true
+    },
+    {
+      "path": "/guide/us-market-hours",
+      "ua": "Google-Extended",
+      "passed": true
+    }
+  ],
+  "visible_faq_schema": true,
+  "llms_sample_links": true,
+  "guide_ssr_session": true
+}

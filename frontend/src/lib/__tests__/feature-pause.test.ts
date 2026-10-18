@@ -7,7 +7,6 @@ describe('paused products', () => {
   it.each([
     ['/for-you/health', '/for-you'], ['/for-you/monitor', '/for-you'],
     ['/research/kb', '/research'], ['/kol/panda', '/research'],
-    ['/kol/qinbafrank', '/research'], ['/kol/serenity', '/research'],
     ['/qinbafrank', '/research'], ['/frank-agent', '/research'],
     ['/panda', '/research'], ['/mcp/authorize', '/research'],
     ['/for-you/onboarding', '/for-you/watchlist'],
@@ -31,7 +30,7 @@ describe('paused products', () => {
     expect(isPersonaChatActive(persona)).toBe(false);
   });
   it('keeps core pages accessible and hides paused navigation for all tiers', () => {
-    for (const path of ['/for-you', '/for-you/watchlist', '/for-you/portfolio', '/research', '/today', '/twitter-digest']) {
+    for (const path of ['/for-you', '/for-you/watchlist', '/for-you/portfolio', '/research', '/today', '/twitter-digest', '/kol', '/kol/qinbafrank', '/kol/serenity', '/kol/qinbafrank/stocks', '/kol/serenity/latest']) {
       expect(pausedPageRedirect(path)).toBeNull();
     }
     for (const isAdmin of [false, true]) {

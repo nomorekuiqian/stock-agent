@@ -1,106 +1,11 @@
-'use client';
-
-import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-
-import { useAuth } from '@/contexts/AuthContext';
-import { useEntitlements } from '@/contexts/EntitlementsContext';
-import { api } from '@/lib/api';
-import { marketTodayStr } from '@/lib/timezone';
-
-import { DigestView } from './_components/DigestView';
-import { GenerateButton } from './_components/GenerateButton';
-import type { DailyDigest } from './_components/types';
-
-export default function TwitterDigestLatestPage() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { has: hasEntitlement, isLoading: entitlementLoading } = useEntitlements();
-  const hasTwitterDigestAccess = isAuthenticated && hasEntitlement('twitter_digest');
-  const [digest, setDigest] = useState<DailyDigest | null>(null);
-  const [date, setDate] = useState<string>(marketTodayStr());
-  const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [loadedKey, setLoadedKey] = useState('');
-  const requestKey = `${hasTwitterDigestAccess ? 'full' : 'locked'}:${refreshKey}`;
-
-  const refetchLatest = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-  }, []);
-
-  useEffect(() => {
-    if (authLoading || (isAuthenticated && entitlementLoading)) return;
-
-    let cancelled = false;
-
-    api.twitterDigest
-      .getLatest()
-      .then((result) => {
-        if (cancelled) return;
-        setDigest(result);
-        setError(null);
-        // Prefer the authoritative BJT business date from the backend. Legacy
-        // rows without `date` fall back to slicing the UTC generated_at, which
-        // can be off by a day around the 22:00 UTC cron — accept that for the
-        // small historical window where date is empty.
-        const explicit = result?.date;
-        if (explicit && /^\d{4}-\d{2}-\d{2}$/.test(explicit)) {
-          setDate(explicit);
-        } else if (result?.generated_at) {
-          const isoDate = result.generated_at.slice(0, 10);
-          if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
-            setDate(isoDate);
-          }
-        }
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setDigest(null);
-        setError(err instanceof Error ? err.message : '加载失败');
-      })
-      .finally(() => {
-        if (!cancelled) setLoadedKey(requestKey);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, entitlementLoading, hasTwitterDigestAccess, isAuthenticated, requestKey]);
-
-  if (authLoading || (isAuthenticated && entitlementLoading) || loadedKey !== requestKey) {
-    return (
-      <main className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-sky-400/20 border-t-sky-400 animate-spin" />
-            <p className="text-muted-foreground text-sm">加载中...</p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-20 text-center">
-          <h1 className="text-xl font-editorial">加载失败</h1>
-          <p className="text-muted-foreground mt-2 text-sm">{error}</p>
-          <Link href="/today" className="inline-block mt-6 text-sky-400 hover:underline">
-            返回日报
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <>
-      {hasTwitterDigestAccess && (
-        <div className="max-w-4xl mx-auto px-4 md:px-6 pt-4">
-          <GenerateButton onGenerated={refetchLatest} />
-        </div>
-      )}
-      <DigestView date={date} digest={digest} isAuthenticated={isAuthenticated} />
-    </>
-  );
-}
+import { publicFetch } from '@/lib/public-fetch';
+import type { TwitterDigestTeaser } from '@/lib/api';
+import { pageMetadata, serializeJsonLd, SITE_URL } from '@/lib/seo';
+import { Answer, PublicFaq, PublicDisclaimer, SourceStamp } from '@/components/PublicSeo';
+import { faqSchema, breadcrumbs, cleanPublic, KOL_DISCLAIMER } from '@/lib/seo-public';
+import { PaidDigestAccess } from './PaidDigestAccess';
+export const dynamic='force-dynamic';
+export const metadata=pageMetadata('/twitter-digest','美股博主观点简报（每日更新）','按日期整理美股博主讨论的热门个股、板块与主题，公开摘要附研究入口。');
+const faq=[{q:'这份简报整理什么内容？',a:'简报按期整理美股博主公开讨论中的热门个股、行业主题和事件线索。热度来自已收录的讨论记录，反映被提及的频率，不等于博主共识、当前持仓或未来价格表现。'}, {q:'摘要和完整日报有什么区别？',a:'公开页展示当期标题、导读和主题热榜，帮助判断本期讨论范围。完整论据、来源证据链和历史深度阅读按订阅权益提供。公开博主主页可查看带日期的简短观点及原帖入口。'}, {q:'如何核对博主观点？',a:'从博主主页或个股页进入对应原帖，检查发布时间、原文条件和后续更正。不同作者可能使用不同时间跨度和假设，摘要会保留分歧，不能把一条发言单独当作交易依据。'}];
+export default async function Page(){const d=await publicFetch<TwitterDigestTeaser>('/twitter-digest/teaser/latest');return <main className="mx-auto max-w-5xl px-4 py-10 space-y-8"><h1 className="text-3xl font-editorial">美股博主观点简报（每日更新）</h1><Answer at={d?.generated_at}>{cleanPublic(d?.intro_preview,140)||'按日期整理美股博主讨论的热门个股、行业主题与事件线索，公开摘要帮助读者定位研究范围；详细观点请结合原帖语境和公司公告核对。'}</Answer>{d&&<><h2 className="text-xl">{cleanPublic(d.headline)}</h2><SourceStamp at={d.generated_at} source="推特博主观点简报"/>{[ ['热门个股',d.hot_tickers],['板块主题',d.hot_sectors],['讨论事件',d.hot_events] ].map(([label,items])=><section key={label as string}><h2 className="text-xl">{label as string}</h2><ul>{(items as TwitterDigestTeaser['hot_tickers']).map(r=><li key={r.label}>{label==='热门个股'?<Link href={`/stock/${r.label.replace(/^\$/,'')}#kol`}>{r.label}</Link>:cleanPublic(r.label)} · {r.count} 次提及</li>)}</ul></section>)}</>}<nav className="flex gap-4"><Link href="/kol/serenity">Serenity 观点</Link><Link href="/kol/qinbafrank">qinbafrank 观点</Link><Link href="/twitter-digest/archive">往期简报</Link></nav><PublicFaq items={faq}/><p>{KOL_DISCLAIMER}</p><section className="paywalled-content"><h2 className="text-xl">完整观点与证据链</h2><p>Pro 用户可阅读完整日报与来源论据。</p><Link href="/pricing">查看订阅权益</Link><PaidDigestAccess/></section><PublicDisclaimer at={d?.generated_at}/><script type="application/ld+json" dangerouslySetInnerHTML={{__html:serializeJsonLd({'@context':'https://schema.org','@graph':[{'@type':'WebPage',url:`${SITE_URL}/twitter-digest`,name:'美股博主观点简报',dateModified:d?.generated_at,isAccessibleForFree:false,hasPart:{'@type':'WebPageElement',isAccessibleForFree:false,cssSelector:'.paywalled-content'}},breadcrumbs([{name:'博主观点简报',path:'/twitter-digest'}]),faqSchema(faq)]})}}/></main>}

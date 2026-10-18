@@ -1,110 +1,25 @@
+import { Answer, SourceStamp } from '@/components/PublicSeo';
+import { KOL_DISCLAIMER, formatET } from '@/lib/seo-public';
 import Link from 'next/link';
-import { relatedStocks } from '@/lib/stock-directory';
+import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { getQueryClient } from '@/hooks/queries/query-client';
-import { queryKeys } from '@/hooks/queries/query-keys';
-import StockDetailContent from './_components/StockDetailContent';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-
-// Sector translations for SEO metadata (subset of client-side translations)
-const SECTOR_ZH: Record<string, string> = {
-  'Technology': '科技', 'Healthcare': '医疗保健', 'Financial Services': '金融服务',
-  'Consumer Cyclical': '可选消费', 'Consumer Defensive': '必需消费', 'Industrials': '工业',
-  'Energy': '能源', 'Utilities': '公用事业', 'Real Estate': '房地产',
-  'Basic Materials': '基础材料', 'Communication Services': '通信服务',
-};
-
-interface PageProps {
-  params: Promise<{ symbol: string }>;
-}
-
-async function fetchProfile(symbol: string) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/stocks/${symbol}/profile`, {
-      next: { revalidate: 600 },
-    });
-    if (!response.ok) return null;
-    const result = await response.json();
-    return result.success && result.profile ? result.profile : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { symbol } = await params;
-  const upperSymbol = symbol.toUpperCase();
-  const profile = await fetchProfile(upperSymbol);
-
-  // Prefer Chinese company name for SEO, fall back to English
-  const companyNameZh = profile?.company_name_zh;
-  const companyNameEn = profile?.company_name || upperSymbol;
-  const displayName = companyNameZh
-    ? `${companyNameZh} ${companyNameEn}`
-    : companyNameEn;
-
-  const sector = profile?.classification?.sector || '';
-  const sectorZh = SECTOR_ZH[sector] || sector;
-
-  const title = `${displayName} (${upperSymbol}) 个股分析`;
-  const description = sectorZh
-    ? `${displayName} (${upperSymbol}) 深度分析：实时行情、财务数据、估值对比、同行比较与 AI 投研报告。${sectorZh}板块。`
-    : `${displayName} (${upperSymbol}) 深度分析：实时行情、财务数据、估值对比、同行比较与 AI 投研报告。`;
-
-  return {
-    title,
-    description,
-    alternates: {
-      canonical: `/stock/${upperSymbol}`,
-    },
-    openGraph: {
-      url: `/stock/${upperSymbol}`,
-      title,
-      description,
-    },
-  };
-}
-
-export default async function StockPage({ params }: PageProps) {
-  const { symbol } = await params;
-  const upperSymbol = symbol.toUpperCase();
-
-  const queryClient = getQueryClient();
-
-  // Prefetch profile + detail in parallel; failures don't block render
-  await Promise.allSettled([
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.stocks.profile(upperSymbol),
-      queryFn: async () => {
-        const response = await fetch(`${API_BASE_URL}/stocks/${upperSymbol}/profile`);
-        if (!response.ok) return null;
-        const result = await response.json();
-        return result.success && result.profile ? result.profile : null;
-      },
-      staleTime: 10 * 60 * 1000,
-    }),
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.stocks.detail(upperSymbol),
-      queryFn: async () => {
-        const response = await fetch(`${API_BASE_URL}/stocks/${upperSymbol}`);
-        if (!response.ok) throw new Error(`Failed to fetch stock data: ${response.status}`);
-        return response.json();
-      },
-      staleTime: 10 * 60 * 1000,
-    }),
-  ]);
-
-  const profile = await fetchProfile(upperSymbol);
-  const related = relatedStocks(upperSymbol, profile?.classification?.sector);
-  return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <StockDetailContent symbol={upperSymbol} />
-      {related.length > 0 && <nav aria-label="同板块股票" className="mx-auto max-w-5xl px-4 py-8">
-        <h2 className="mb-4 text-xl font-medium">同板块股票</h2>
-        <div className="flex flex-wrap gap-4">{related.map(item => <Link prefetch={false} className="text-primary hover:underline" key={item} href={`/stock/${item}`}>{item}</Link>)}</div>
-      </nav>}
-    </HydrationBoundary>
-  );
-}
+import { seoData, type StockSeoData } from '@/lib/seo-data';
+import { stockContent, DISCLAIMER } from '@/lib/stock-seo-content';
+import { SITE_URL, pageMetadata, serializeJsonLd } from '@/lib/seo';
+import Workspace from './_workspace';
+export const dynamic='force-dynamic';
+type Props={params:Promise<{symbol:string}>;searchParams:Promise<{view?:string}>};
+export async function generateMetadata({params,searchParams}:Props):Promise<Metadata>{const {symbol}=await params; const d=await seoData<StockSeoData>(`stock/${symbol.toUpperCase()}`);if(!d)return {robots:{index:false,follow:true}};const c=stockContent(d);return {...pageMetadata(`/stock/${d.symbol}`,c.title,`${c.name}（代码 ${d.symbol}）股价、涨跌原因、财报、分析师预期与博主观点汇总。仅供研究参考。`),robots:{index:c.quality.index&&!(await searchParams).view,follow:true}};}
+export default async function Page({params,searchParams}:Props){const {symbol}=await params;if((await searchParams).view==='workspace')return <Workspace params={params}/>; const d=await seoData<StockSeoData>(`stock/${symbol.toUpperCase()}`);if(!d)notFound(); const c=stockContent(d);
+return <main className="mx-auto max-w-5xl px-4 py-8 space-y-8" data-seo-ratio={c.quality.ratio} data-seo-total={c.quality.total} data-seo-unique={c.quality.unique}>
+<nav aria-label="面包屑"><Link href="/">首页</Link> › <Link href="/stock">个股</Link> › {c.name}（{d.symbol}）</nav>
+<header className="space-y-3"><h1 className="text-3xl font-editorial">{c.h1}</h1><p className="text-muted-foreground">{c.subtitle}</p>{c.aliases&&<p>又称：{c.aliases}</p>}<Answer at={d.updated_at}>{c.answer}</Answer><dl className="flex flex-wrap gap-6">{c.quoteMetrics.map(m=><div key={m.label}><dt>{m.label}</dt><dd className="font-data text-xl">{m.value}</dd></div>)}</dl><SourceStamp at={d.stock.meta?.quote_fetched_at||d.updated_at} source="行情数据源"/>{c.dividend&&<p>股息率：{c.dividend}</p>}<Link className="inline-block text-primary" href={`/stock/${d.symbol}?view=workspace`}>完整行情与研究工作台</Link></header>
+{d.ai_summary&&<section><h2 className="text-xl font-medium">AI 解读摘要</h2><p className="leading-7">{d.ai_summary}</p></section>}
+{c.blocks.filter(b=>b.rows.length).map(b=><section id={b.id} key={b.id} className="space-y-4 border-t border-border pt-6"><h2 className="text-xl font-medium">{b.title}</h2>{b.id==='kol'?<><p>{d.kol_conclusion}</p><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><th>博主</th><th>日期</th><th>方向</th><th>一句话摘要</th><th>来源</th></tr></thead><tbody>{d.kol.slice(0,10).map((r,i)=><tr key={i} className="border-b border-border"><td>{r.username}</td><td>{r.date.slice(0,10)}</td><td>{{bull:'偏多',bear:'偏空',neutral:'中性',disputed:'分歧'}[r.stances[0]?.stance]||'中性'}</td><td className="p-3">{r.summary.slice(0,60)}</td><td><a href={r.url}>原帖</a></td></tr>)}</tbody></table></div></>:<>{b.rows.some(r=>r.cells)&&<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr>{['财季','EPS 实际','EPS 预期','营收实际（美元）','营收预期（美元）'].map(label=><th key={label}>{label}</th>)}</tr></thead><tbody>{b.rows.filter(r=>r.cells).map((r,i)=><tr key={i}>{r.cells!.map((v,j)=><td className="p-3 border-t border-border" key={j}>{v}</td>)}</tr>)}</tbody></table></div>}{b.rows.filter(r=>!r.cells).map((r,i)=><article key={i}><p className="leading-7 whitespace-pre-line">{r.text}</p>{r.href&&<Link className="text-primary text-sm" href={r.href}>{r.label}</Link>}</article>)}</>}<SourceStamp at={d.module_dates?.[b.id]||d.updated_at} source={b.id==='kol'?'kol_daily_digests':b.id==='why'?'收盘日报与历史行情':'公司公告与财务数据'}/>{b.id==='kol'&&<p className="text-sm text-muted-foreground">{KOL_DISCLAIMER}</p>}</section>)}
+{d.change_20d!=null&&<p>区间总结：近 20 个交易日累计 {d.change_20d.toFixed(2)}%。{d.why_summary||d.why.find(r=>r.confidence==='high')?.summary}</p>}
+<section className="paywalled-content space-y-3 border-t border-border pt-6"><h2 className="text-xl">AI 深度研究与完整财报分析</h2><p>Max 提供完整 AI 分析、技术面解读与 AI 对话；更多博主论据按 Pro 权益提供。</p><Link href={`/stock/${d.symbol}?view=workspace`}>进入研究工作台</Link><Link className="ml-4" href="/pricing">查看订阅权益</Link></section>
+<section id="faq" className="space-y-5"><h2 className="text-xl font-medium">常见问题</h2>{c.faq.map(f=><article key={f.q}><h3 className="font-medium">{f.q}</h3><p className="text-muted-foreground leading-7">{f.a}</p>{f.source&&<a className="text-primary text-sm" href={f.source}>资料来源</a>}</article>)}</section>
+<nav className="space-y-3"><h2 className="text-xl">同主题个股</h2><div className="flex gap-4 flex-wrap">{c.peers.map(p=><Link key={p.symbol} href={`/stock/${p.symbol}`}>{p.name}（{p.symbol}）</Link>)}</div><h2 className="text-xl">出现在这些日报中</h2><div className="flex gap-4 flex-wrap">{d.reports.map(r=><Link key={r.url} href={r.url}>{r.date} 日报</Link>)}</div><h2 className="text-xl">相关博主</h2><div className="flex gap-4">{[...new Set(d.kol.map(r=>r.username))].map(name=><Link key={name} href={`/kol/${name==='aleabitoreddit'?'serenity':name}`}>{name}</Link>)}</div></nav>
+<p className="text-xs text-muted-foreground">{DISCLAIMER} 数据更新时间：{formatET(d.updated_at)} ET。</p>
+<script type="application/ld+json" dangerouslySetInnerHTML={{__html:serializeJsonLd({'@context':'https://schema.org','@graph':[{'@type':'WebPage',isAccessibleForFree:false,hasPart:[{'@type':'WebPageElement',isAccessibleForFree:false,cssSelector:'.paywalled-content'},...c.blocks.filter(b=>['why','earnings'].includes(b.id)&&b.rows.length).map(b=>({'@type':'Article',headline:b.title,url:`${SITE_URL}/stock/${d.symbol}#${b.id}`,dateModified:d.module_dates?.[b.id]||d.updated_at}))],url:`${SITE_URL}/stock/${d.symbol}`,name:`${c.name}（${d.symbol}）`,inLanguage:'zh-CN',...(d.updated_at?{dateModified:d.updated_at}:{})},{'@type':'Corporation',name:d.profile.company_name,alternateName:[c.name,c.aliases].filter(Boolean),tickerSymbol:`${d.profile.exchange||''}: ${d.symbol}`,url:d.profile.company_details?.website},{'@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'首页',item:SITE_URL},{'@type':'ListItem',position:2,name:'个股',item:`${SITE_URL}/stock`},{'@type':'ListItem',position:3,name:c.name,item:`${SITE_URL}/stock/${d.symbol}`}]},{'@type':'FAQPage',mainEntity:c.faq.map(f=>({'@type':'Question',name:f.q,acceptedAnswer:{'@type':'Answer',text:f.a}}))}]})}}/>
+</main>}

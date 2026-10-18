@@ -168,6 +168,15 @@ async def save_digest(digest: DailyDigest, date: str) -> None:
 
     if result["status_code"] == 200 and result.get("data", {}).get("success"):
         logger.info("Saved digest for date=%s", date)
+        try:
+            from app.features.seo.generation import enqueue_digest
+            from app.features.seo.service import _cache
+            enqueue_digest(body)
+            for key in list(_cache):
+                if key=='digests' or key.startswith(('stock:','kol:')):
+                    _cache.pop(key,None)
+        except Exception:
+            logger.exception("Unable to queue SEO digest summaries")
         return
 
     raise RuntimeError(

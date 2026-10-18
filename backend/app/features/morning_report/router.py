@@ -101,7 +101,6 @@ _LOCKED_STRING_FIELDS = (
 )
 _LOCKED_LIST_FIELDS = (
     "overnight_news",
-    "today_focus",
     "summary",
 )
 
@@ -111,6 +110,31 @@ async def _viewer_has_morning_access(user_id: Optional[str]) -> bool:
     if not user_id:
         return False
     return await has_entitlement(user_id, _MORNING_FEATURE)
+
+
+def _public_movers(data: dict) -> list[dict]:
+    """Optional saved-source extension. Never fetch live or infer missing movers."""
+    import math
+    import re
+    market_data = data.get("market_data")
+    if not isinstance(market_data, dict):
+        return []
+    premarket = market_data.get("premarket")
+    if not isinstance(premarket, dict):
+        return []
+    source = premarket.get("movers")
+    if not isinstance(source, list):
+        return []
+    rows = []
+    for row in source:
+        if not isinstance(row,dict):continue
+        symbol=str(row.get('symbol') or '').upper()
+        price=row.get('price');change=row.get('change_percent')
+        if not re.fullmatch(r'[A-Z][A-Z0-9.\-]{0,9}',symbol):continue
+        if not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in (price,change)):continue
+        if price<=0 or abs(change)>60:continue
+        rows.append({'symbol':symbol,'price':price,'change_percent':change})
+    return sorted(rows,key=lambda r:abs(r['change_percent']),reverse=True)[:5]
 
 
 def _maybe_lock_report(data: dict, *, viewer_has_access: bool) -> dict:
@@ -123,6 +147,18 @@ def _maybe_lock_report(data: dict, *, viewer_has_access: bool) -> dict:
     to be locked. Strip AI text fields server-side before they ever leave
     the API.
     """
+    # Public excerpt is independent of entitlement; never serialize the remaining narrative.
+    from app.features.seo.policy import public_text
+    excerpt = public_text(str(data.get("futures_analysis") or "").strip().split("\n\n")[0],250)
+    focus = [{"title":public_text(row.get("title"),80), "analysis":public_text(row.get("analysis"),160), "time":row.get("time")} for row in data.get("today_focus",[]) if isinstance(row,dict)]
+    points = [{"title":public_text(row.get("title"),50),"url":row.get("url")} for row in data.get("overnight_news",[])[:3] if isinstance(row,dict)]
+    from app.features.seo.policy import published
+    for i,point in enumerate(points):
+        event=published(f"morning-point:{data.get('report_date')}:{i}")
+        if event:point['title']=event['content']
+    generated = published('morning-excerpt:'+str(data.get('report_date')))
+    answer = published('morning-answer:'+str(data.get('report_date')))
+    data = {**data, "public_movers":_public_movers(data), "public_excerpt": generated['content'] if generated else excerpt, "public_answer":answer['content'] if answer else '', "today_focus":focus, "public_event_points":points}
     if viewer_has_access:
         normalized = dict(data)
         normalized["is_locked"] = False

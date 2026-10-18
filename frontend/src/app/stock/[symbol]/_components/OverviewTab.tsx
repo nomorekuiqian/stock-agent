@@ -1,4 +1,5 @@
 'use client';
+import { formatDividendYield } from '@/lib/seo-public';
 
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
@@ -277,7 +278,7 @@ function StockSnapshot({ quote, fundamentals, analystTargets, dcfValue, currency
           <MetricRow label="EPS 增速" value={fmtPct(fundamentals?.growth.net_income_yoy, true)}
             positive={fundamentals?.growth.net_income_yoy ? fundamentals.growth.net_income_yoy > 0 : undefined} />
           <MetricRow label="市值" value={fmtBig(quote?.market_cap, currency)} />
-          <MetricRow label="股息率" value={fundamentals?.valuation.dividend_yield ? fmtPct(fundamentals.valuation.dividend_yield) : '--'} />
+          <>{formatDividendYield(fundamentals?.valuation.dividend_yield) !== null && <MetricRow label="股息率" value={formatDividendYield(fundamentals?.valuation.dividend_yield)!} />}</>
         </div>
       </div>
     </div>
@@ -378,7 +379,7 @@ export function OverviewTab({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
         {/* LEFT: AI Analysis */}
-        <div className="order-2 lg:order-1">
+        <div className="stock-ai-paywall order-2 lg:order-1">
           <div className="bg-card/50 border border-border/30 rounded-xl overflow-hidden">
             {!hasAIAccess ? (
               <AIPaywall symbol={symbol} label="AI 投研分析" />
@@ -444,7 +445,7 @@ export function OverviewTab({
                 <MetricCard metricKey="market_cap" value={formatNumber(quote.market_cap, { style: 'currency', compact: true, currency })} />
                 <MetricCard metricKey={fundamentals?.valuation.pe != null ? "pe" : "forward_pe"} value={formatNumber(fundamentals?.valuation.pe ?? fundamentals?.valuation.forward_pe)} />
                 <MetricCard metricKey="eps" value={formatNumber(quote.eps ?? fundamentals?.ttm.eps ?? null, { style: 'currency', maximumFractionDigits: 2, currency })} />
-                <MetricCard metricKey="dividend_yield" value={fundamentals?.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
+                <>{formatDividendYield(fundamentals?.valuation.dividend_yield) !== null && <MetricCard metricKey="dividend_yield" value={formatDividendYield(fundamentals?.valuation.dividend_yield)!} />}</>
                 <MetricCard metricKey="volume" value={formatNumber(quote.volume, { compact: true })} />
               </div>
 
@@ -554,7 +555,7 @@ export function OverviewTab({
                 <MetricCard metricKey="pb" value={formatNumber(fundamentals.valuation.pb)} />
                 <MetricCard metricKey="ev_ebitda" value={formatNumber(fundamentals.valuation.ev_to_ebitda)} />
                 <MetricCard metricKey="peg" value={formatNumber(fundamentals.valuation.peg)} />
-                <MetricCard metricKey="dividend_yield" value={fundamentals.valuation.dividend_yield ? `${fundamentals.valuation.dividend_yield.toFixed(2)}%` : '--'} />
+                <>{formatDividendYield(fundamentals?.valuation.dividend_yield) !== null && <MetricCard metricKey="dividend_yield" value={formatDividendYield(fundamentals?.valuation.dividend_yield)!} />}</>
               </div>
 
               {valuationData && !valuationLoading && (

@@ -1,0 +1,42 @@
+[
+  {
+    "label": "AI 算力 · Mag7 锚",
+    "short": "NVDA / AVGO / MRVL / TSM · 大盘 anchor 配置, alpha 在下游"
+  },
+  {
+    "label": "光子学 · CPO",
+    "short": "光通信 · 数据中心从 800G → 1.6T → CPO 跃迁的主战场"
+  },
+  {
+    "label": "存储与 HBM",
+    "short": "HBM 紧缺循环 · MU / SNDK + AEHR 测试设备"
+  },
+  {
+    "label": "国防与太空",
+    "short": "商业航天 + 国防 · RKLB / 太空发射子系统"
+  },
+  {
+    "label": "电力与数据中心电力",
+    "short": "800V HVDC · 数据中心电力扩容 chokepoint"
+  },
+  {
+    "label": "光模块",
+    "short": "800G → 1.6T → CPO 过渡期 · LITE / COHR / AAOI 主战场"
+  },
+  {
+    "label": "衬底材料",
+    "short": "Substrates supercycle · AXTI / IQE / TSEM / SOI / POET"
+  },
+  {
+    "label": "人形机器人",
+    "short": "人形机器人 + 工业自动化 · 她有专门 crowdsourced list"
+  },
+  {
+    "label": "Neocloud",
+    "short": "GPU cloud / Neocloud · NBIS / CRWV / IREN / CIFR / WULF"
+  },
+  {
+    "label": "AI 资本开支周期",
+    "short": "AI capex 2030 还在 ramp + KR / TW / JP 地缘"
+  }
+]

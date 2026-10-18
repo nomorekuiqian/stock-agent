@@ -77,6 +77,18 @@ async def save_market_report(report_data: Dict[str, Any]) -> Dict[str, Any]:
                 if data.get("success"):
                     report_id = data.get("data", {}).get("id")
                     logger.info("Report saved successfully, ID: %s", report_id)
+                    try:
+                        from app.features.seo.generation import enqueue_report
+                        enqueue_report("today", db_report)
+                    except Exception:
+                        logger.exception("Unable to queue SEO public copy")
+                    from app.features.seo.indexnow import notify
+                    from app.features.seo.service import _cache
+                    _cache.pop("reports", None)
+                    for key in list(_cache):
+                        if key.startswith("stock:"):
+                            _cache.pop(key, None)
+                    await notify(["/today", f"/today/{report_date}-market-report"])
                     return {
                         "success": True,
                         "report_id": report_id,

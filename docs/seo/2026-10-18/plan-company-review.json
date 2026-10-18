@@ -1,0 +1,123 @@
+{
+  "scope": "Six priority companies reviewed against official sources; not a human sign-off",
+  "reviewed": [
+    {
+      "symbol": "CRWV",
+      "source": "https://www.coreweave.com/about-us",
+      "about": "CoreWeave（CRWV）是面向人工智能工作负载的专业云基础设施公司。公司把 GPU 计算、存储、网络和托管服务组合为云平台，为模型开发者与企业提供训练、微调和推理所需的计算环境。其业务围绕客户使用算力与配套软件服务展开，涵盖计算资源部署、集群管理和开发流程支持。研究时应把基础设施建设、客户签约和实际收入确认分开核对，具体客户结构与资金投入以公司财报为准。公司属于 AI 算力与云服务主题，可与同样提供云基础设施的企业对照业务范围。"
+    },
+    {
+      "symbol": "SOFI",
+      "source": "https://tech.sofi.com/blog/how-sofi-and-galileo-work-together-to-help-people-get-their-money-right/",
+      "about": "SoFi Technologies（SOFI）是提供线上金融产品与技术服务的美国公司。其面向会员的业务包括个人贷款、学生贷款再融资、银行储蓄和投资服务，帮助用户在同一体系内管理不同金融需求。公司同时通过 Galileo 等技术平台向其他机构提供支付处理、账户和金融产品相关基础设施。SoFi 于 2022 年获得美国国民银行牌照；公司经营银行业务，同时保留技术平台业务，不能仅把它理解为贷款应用。阅读财报时应分别观察借贷、金融服务与技术平台的收入和成本，具体产品与业务归属以公司最新披露为准。"
+    },
+    {
+      "symbol": "NBIS",
+      "source": "https://nebius.com/newsroom/nebius-group-announces-planned-resumption-of-trading-on-nasdaq-and-provides-investor-update",
+      "about": "Nebius Group（NBIS）是总部位于荷兰阿姆斯特丹的人工智能基础设施公司，核心业务是为高强度 AI 工作负载提供云平台。公司提供 GPU 集群、计算、存储、托管服务和开发工具，支持客户构建、调整与运行模型。其前身为 Yandex N.V.，在剥离俄罗斯业务后，于 2024 年更名为 Nebius Group，并将股票代码改为 NBIS。历史上的 Yandex 业务与现在的 AI 云业务需分开理解。公司属于 AI 算力与云服务主题，研究时应对照最新公告核实基础设施投入、客户交付和收入确认，而不把建设规划直接当成已兑现业绩。"
+    },
+    {
+      "symbol": "SMR",
+      "source": "https://www.nrc.gov/facilities-safety/new-reactors/advanced-reactors/who-were-working-with/past-licensing-activities/nuscale-us460",
+      "about": "SMR 是 NuScale Power 的股票代码，也用于表示小型模块化反应堆这一技术类别。NuScale 主要开发轻水型小型模块化核反应堆设计，其发电方案以模块化反应堆为基础。公司所属主题为核电技术与能源基础设施，设计审查、项目许可和实际建成投运是不同阶段，不能把某一设计获批理解为所有电站项目都获准建设。小型模块化反应堆强调把反应堆系统按模块组织，以适配不同项目规模；具体部署仍需核对项目选址、许可、客户合同和工程进度。投资研究应依照公司公告与监管文件区分技术方案和已经落地的商业项目。"
+    },
+    {
+      "symbol": "PLTR",
+      "source": "https://www.palantir.com/docs/foundry/architecture-center/platforms",
+      "about": "Palantir（PLTR）是面向政府与商业机构提供数据分析和人工智能软件的公司。其平台将不同来源的数据连接到统一业务模型，支持用户分析信息并把结果用于实际工作流程。Gotham 面向相关任务场景，Foundry 提供数据整合与应用基础，AIP 将人工智能能力接入受控的业务环境，Apollo 支持软件部署和运维。公司通过软件平台及相关服务开展业务，研究时应结合客户类型、合同条款、部署进展与实际财务披露理解收入表现。平台名称和功能范围并不等于客户已经实现的经济效果，具体使用情况应以公开案例和公司披露为准。"
+    },
+    {
+      "symbol": "NVDA",
+      "source": "https://www.nvidia.com/en-us/about-nvidia/",
+      "about": "英伟达（NVIDIA，NVDA）是提供 GPU、加速计算、网络与人工智能软件的技术公司。其产品与平台服务于数据中心、游戏、专业图形、汽车和机器人等计算场景。公司把芯片、系统、互联和软件工具组合为计算平台，帮助开发者运行图形处理、科学计算与人工智能工作负载。研究其业务时，应区分产品发布、客户采用、交付和财报收入，不把行业算力需求直接等同于公司已经确认的业绩。公司的具体业务分类、收入构成与产品范围应以最新财报及官方资料为准，相关云服务客户与设备供应商处于不同产业链环节。"
+    }
+  ],
+  "additional_sample": [
+    "AAPL",
+    "ALAB",
+    "AMZN",
+    "ANET",
+    "BRK.B",
+    "GOOGL",
+    "IONQ",
+    "LLY",
+    "META",
+    "PDD",
+    "QBTS",
+    "SNDK",
+    "TSLA",
+    "UBER",
+    "UNH"
+  ],
+  "additional_evidence": "company-content-review.json plus official-source revisions in this file; 15 of remaining 64 descriptions source-reviewed by agent",
+  "human_review": "Required by plan; not represented as completed by agent.",
+  "amazon_source": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000004/amzn-20251231.htm",
+  "amazon_findings": "North America, International and AWS segments, retail and third-party services confirmed. Agent source review; human sign-off pending.",
+  "reviewed_at": "2026-10-18T14:20:23.046055+00:00",
+  "amazon_about_reviewed": "亚马逊公司（Amazon.com, Inc.）于1994年成立，总部位于美国华盛顿州西雅图。公司运营庞大的全球零售业务，通过线上平台和实体门店在北美及国际市场分销消费品与订阅服务。其业务主要由北美、国际和亚马逊网络服务（AWS）三大部门组成。公司商品涵盖自营转售商品与内容，以及第三方卖家产品；开发销售Kindle电子书阅读器、Fire平板及电视、Ring、Blink、eero与Echo等电子设备，并制作原创媒体内容。",
+  "additional_revisions": [
+    {
+      "symbol": "AAPL",
+      "han": 192,
+      "source": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+      "about": "苹果（AAPL）是设计、制造和销售智能手机、个人电脑、平板电脑及相关设备的科技公司，同时提供数字服务。硬件包括苹果手机、麦金塔电脑、平板电脑、可穿戴设备、家庭设备和配件；服务涵盖广告、应用商店、云服务和数字内容等。公司将硬件、操作系统与应用服务结合，为个人和机构用户提供产品。收入分析需要区分设备销售与服务业务，不能把应用商店交易规模直接视为苹果收入。其业务横跨消费电子与数字服务，不同产品的更新周期、渠道和需求变化应按财报分类分别观察。",
+      "review": "agent source review; human sign-off pending"
+    },
+    {
+      "symbol": "GOOGL",
+      "han": 205,
+      "source": "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000018/goog-20251231.htm",
+      "about": "谷歌母公司 Alphabet（GOOGL）经营面向消费者和企业的互联网产品、广告与云服务。财务披露将谷歌业务分为谷歌服务与谷歌云，其他非谷歌业务合并列入其他投资。谷歌服务包括搜索、视频、移动操作系统、浏览器和应用等产品，并通过广告、订阅、平台及设备开展业务；谷歌云提供面向企业的计算和相关服务。不同业务的收入来源与成本结构不同，阅读财报时需要分别观察广告需求、云服务采用和其他业务投入。公司整体属于数字平台、人工智能与云计算主题，不能把旗下每个产品的用户规模直接等同于收入规模。",
+      "review": "agent source review; human sign-off pending"
+    },
+    {
+      "symbol": "AMZN",
+      "han": 199,
+      "source": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000004/amzn-20251231.htm",
+      "about": "亚马逊（AMZN）经营零售、第三方商家服务、订阅、数字内容和云计算业务。公司按北美、国际和亚马逊网络服务划分经营分部。零售平台既销售自营商品，也允许第三方商家提供商品；线上商店与实体门店共同服务消费者。云服务面向企业和开发者提供计算及相关技术能力。亚马逊还销售电子阅读器、平板电脑、电视、智能音箱和家庭设备，并制作媒体内容。公司并非单一的网上商店，比较财报时应区分商品销售、第三方服务和云业务各自的收入确认与成本结构，避免用电商成交额代表集团收入。",
+      "review": "agent source review; human sign-off pending"
+    },
+    {
+      "symbol": "IONQ",
+      "han": 214,
+      "source": "https://www.ionq.com/quantum-cloud",
+      "about": "IonQ（IONQ）是研发量子计算系统并向客户提供计算能力的技术公司，采用离子阱技术路线。客户可通过公司自己的量子云服务以及合作云平台访问量子计算机，在远程环境中提交和运行计算任务。公司同时提供专家支持和定制合作方式，帮助企业与研究团队探索量子计算应用。量子云访问服务、系统能力和商业合作属于不同层面的业务信息；设备参数与可用平台应以当前官方产品资料为准，不沿用历史简介中的固定量子比特数量。公司处于量子计算主题，研究时需要结合实际系统交付、客户使用和财务披露理解商业进展。",
+      "review": "agent source review; human sign-off pending"
+    },
+    {
+      "symbol": "ALAB",
+      "han": 197,
+      "source": "https://www.asteralabs.com/solutions/ai-servers-and-clustering/",
+      "about": "Astera Labs（ALAB）为人工智能与云计算基础设施提供半导体连接解决方案，重点处理服务器和集群中的数据、内存与网络连接问题。其智能连接平台采用高速互联协议，并配套系统管理和优化软件。产品用于连接处理器、图形处理器、存储及其他系统部件，支持服务器内部以及集群之间的数据传输。公司在产业链中的角色是连接芯片和配套软件供应商，而不是通用图形处理器制造商或云服务运营商。理解其业务需要区分协议代际、产品类别与客户部署阶段，并以公司披露核对量产和收入进度。",
+      "review": "agent source review; human sign-off pending"
+    },
+    {
+      "symbol": "SNDK",
+      "han": 200,
+      "source": "https://www.sandisk.com/company/about-us",
+      "about": "闪迪（SNDK）从事闪存半导体与数据存储技术业务，核心技术涉及非易失性闪存。公司的存储产品包括固态硬盘、嵌入式存储、可移动存储卡、通用串行总线存储设备以及相关组件，服务不同设备和数据保存场景。闪存产品用于保存数据，与主要执行运算的处理器属于不同产品类别。不同存储产品的容量、接口、性能和用途需要按具体产品资料核对，不能仅用品牌名称判断技术参数。公司属于半导体存储主题，阅读经营数据时应区分产品类型、销售数量和价格变化，具体收入分类以公司财报为准。",
+      "review": "agent source review; human sign-off pending"
+    },
+    {
+      "symbol": "UBER",
+      "han": 206,
+      "source": "https://s23.q4cdn.com/407969754/files/doc_events/2025/May/05/2024-Annual-Report.pdf",
+      "about": "Uber（UBER）运营连接消费者与运输、配送服务提供者的技术平台，经营业务包括出行、配送和货运。出行业务连接乘客与司机，配送业务连接用户、餐饮或其他商户与配送人员，货运业务服务货物运输需求。公司的软件平台负责提供订单连接等能力，不同业务对应不同类型的交易参与者与履约方式。平台交易金额与公司确认的收入不是同一指标，研究财报时应按经营分部比较收入和费用，不能把全部订单金额直接看作公司营业收入。其主题涵盖本地生活、移动出行和运输服务，业务范围与规则依具体市场而异。",
+      "review": "agent source review; human sign-off pending"
+    },
+    {
+      "symbol": "PDD",
+      "han": 202,
+      "source": "https://www.sec.gov/Archives/edgar/data/1737806/000110465926050727/pdd-20251231x20f.htm",
+      "about": "拼多多母公司 PDD Holdings（PDD）是经营电子商务平台的商业集团，旗下包括拼多多与 Temu。平台让商家展示商品，消费者可浏览、选择并下单购买；商家通过平台触达用户并完成相关交易。公司收入主要包括面向第三方商家的交易服务，以及在线营销和其他服务。集团的不同平台面向不同市场，经营环境、服务方式与成本需要结合披露分别理解。平台商品成交金额、商家销售额和公司确认的收入属于不同口径，不能直接相互替代。其业务属于电子商务与数字平台主题，具体经营表现应以集团财报和正式公告为准。",
+      "review": "agent source review; human sign-off pending"
+    },
+    {
+      "symbol": "LLY",
+      "han": 214,
+      "source": "https://www.lilly.com/medicines",
+      "about": "礼来（LLY）是一家从事药物研发与商业化的制药公司，产品涉及糖尿病、肥胖、癌症、免疫疾病、神经科学和其他治疗领域。公司围绕人类疾病开展药物研究，将获准使用的产品推向相应市场。不同药物的适应证、批准范围和可获得性取决于具体国家或地区，不能把某一市场的产品清单当成全球统一清单。研发管线中的候选药物与已经商业化销售的药物也需要区分，临床研究进展不等于销售收入。公司属于创新药与医疗健康主题，经营分析应按财报核对产品收入、研发投入及市场变化，药物信息应以官方说明和监管批准为准。",
+      "review": "agent source review; human sign-off pending"
+    }
+  ]
+}

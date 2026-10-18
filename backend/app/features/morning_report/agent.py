@@ -87,6 +87,7 @@ Copy the futures data EXACTLY from the input. For each future (S&P 500 Futures, 
 provide name, value, and daily_change from the input data.
 
 ### futures_analysis
+首段写 150–250 个简体中文字的完整公开解读，事实不足不凑字；进一步细节放后续段落。
 2-3 sentences interpreting the futures and global market movements as a whole:
 - What drove the moves (e.g. geopolitics, earnings, macro data)?
 - What does the pattern suggest for today's session?
@@ -100,6 +101,7 @@ Copy the global market data EXACTLY from the input. Organize into:
 - other: Gold, Crude Oil, US Dollar, BTC, VIX from input
 
 ### global_markets_analysis
+首段写 150–250 个简体中文字的完整公开解读，事实不足不凑字；进一步细节放后续段落。
 2-3 sentences summarizing the overnight global market picture:
 - What's the dominant theme across regions (risk-on, risk-off, mixed)?
 - Which assets or regions stood out and why?

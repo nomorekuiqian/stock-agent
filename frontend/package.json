@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run seo:audit && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "NODE_OPTIONS='--no-experimental-webstorage' vitest run",
     "test:watch": "NODE_OPTIONS='--no-experimental-webstorage' vitest",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "seo:audit": "node scripts/run-seo-audit.mjs"
   },
   "dependencies": {
     "@insforge/sdk": "^1.2.0",

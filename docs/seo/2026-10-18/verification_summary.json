@@ -1,0 +1,20 @@
+{
+  "verified_at": "2026-10-18T13:13:30.922797+00:00",
+  "environment": "local production build with read-only source projections; no deployment",
+  "frontend_tests": 79,
+  "backend_tests": 242,
+  "lint_errors": 0,
+  "existing_lint_warnings": 8,
+  "production_build": "passed",
+  "build_audit": "automatic; 127 candidates checked",
+  "sitemap_urls": 418,
+  "sitemap_passed": 418,
+  "stock_samples_with_150_300_char_about": 70,
+  "company_source_review": 7,
+  "indexable_stocks": 15,
+  "conditional_earnings_subpages": 0,
+  "source_dividend_alerts": 6,
+  "external_schema_validator": "not run",
+  "production_indexnow": "not submitted",
+  "git_commit_push_deploy": "not performed"
+}

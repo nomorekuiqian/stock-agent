@@ -1,3 +1,7 @@
+import { Answer, SourceStamp, PublicFaq, PublicDisclaimer } from '@/components/PublicSeo';
+import { breadcrumbs, faqSchema } from '@/lib/seo-public';
+import { morningAnswer, MORNING_FAQ } from '@/lib/report-seo';
+import { SITE_URL, serializeJsonLd } from '@/lib/seo';
 import { MarketSummary } from '@/components/MarketSummary';
 import Link from 'next/link';
 import { reportPath } from '@/lib/report-url';
@@ -60,7 +64,7 @@ async function getMorningReportList(): Promise<{ data: MorningReportListItem[]; 
   try {
     // The list endpoint returns only metadata (titles, dates) — no AI text —
     // so it doesn't need auth forwarding. Keep ISR for it.
-    const res = await fetch(`${API_BASE}/morning/reports?limit=6&offset=0`, {
+    const res = await fetch(`${API_BASE}/morning/reports?limit=7&offset=0`, {
       next: { revalidate: 300 },
       signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     });
@@ -85,11 +89,12 @@ export default async function MorningPage() {
   const isToday = todayReport ? true : latestReport?.report_date === today;
   const historicalReports = (historyResult.data ?? [])
     .filter(r => r.report_date !== today)
-    .slice(0, 5);
+    .slice(0, 6);
   const totalReports = historyResult.total;
 
   return (
     <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-background">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{__html:serializeJsonLd({'@context':'https://schema.org','@graph':[{'@type':'WebPage',url:`${SITE_URL}/morning`,name:'美股盘前分析：今日美股期货、隔夜要闻与盘前异动（每日更新）',isAccessibleForFree:false,hasPart:[{'@type':'WebPageElement',isAccessibleForFree:false,cssSelector:'.morning-paywall'}],dateModified:report?.timestamp,mainEntity:report?{'@type':'Article',headline:report.title,datePublished:report.timestamp}:undefined},breadcrumbs([{name:'盘前分析',path:'/morning'}]),faqSchema(MORNING_FAQ)]})}}/>
       {/* Page Header */}
       <section className="border-b border-border/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
@@ -103,7 +108,7 @@ export default async function MorningPage() {
                 )}
               </div>
               <h1 className="text-3xl md:text-5xl font-editorial text-foreground tracking-tight leading-[1.1] animate-fade-in-up delay-100">
-                盘前早报
+                美股盘前分析（每日更新）
               </h1>
               <p className="text-muted-foreground text-sm md:text-base max-w-lg leading-relaxed animate-fade-in-up delay-200">
                 盘前市场简报，快速了解隔夜要闻与今日焦点
@@ -121,6 +126,7 @@ export default async function MorningPage() {
             </div>
           </div>
 
+          {report&&<><h2 className="text-xl">{report.report_date} 盘前：{report.title}</h2><Answer at={report.timestamp}>{morningAnswer(report)}</Answer><SourceStamp at={report.timestamp} source="盘前早报与市场行情"/></>}
           {report && <MarketSummary morning={report} />}
           <ReportHeroBanner src="/report-banners/morning-brief-banner.png" priority />
         </div>
@@ -197,6 +203,7 @@ export default async function MorningPage() {
           </div>
         </section>
       )}
+      <div className="mx-auto max-w-5xl px-4 py-8 space-y-6"><PublicFaq items={MORNING_FAQ}/><nav className="flex flex-wrap gap-4"><Link href="/guide/us-market-hours">美股开盘与休市时间</Link><Link href="/macro/sentiment">VIX 市场情绪</Link><Link href="/macro/liquidity">美元流动性</Link><Link href="/today">收盘复盘</Link><Link href="/kol/serenity">Serenity 观点</Link><Link href="/kol/qinbafrank">qinbafrank 观点</Link></nav><PublicDisclaimer at={report?.timestamp}/></div>
     </main>
   );
 }

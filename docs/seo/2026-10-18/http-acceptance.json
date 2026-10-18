@@ -1,0 +1,1932 @@
+[
+  {
+    "path": "/not-a-real-seo-page",
+    "status": 404,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "TheMarketBrew - AI 美股分析 | 每日行情、宏观研究、个股投研",
+    "h1": 1,
+    "robots": [
+      "noindex",
+      "index, follow"
+    ],
+    "canonical": [],
+    "schemas": [],
+    "quality_ratio": null,
+    "main_chars": 0,
+    "banned": []
+  },
+  {
+    "path": "/stock/ZZZZQ",
+    "status": 404,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": "noindex, follow",
+    "title": "股票不存在 | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "noindex,follow"
+    ],
+    "canonical": [],
+    "schemas": [],
+    "quality_ratio": null,
+    "main_chars": 27,
+    "banned": []
+  },
+  {
+    "path": "/kol",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美股推特博主观点汇总：Serenity、qinbafrank 等中文大V每日观点 | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/kol"
+    ],
+    "schemas": [],
+    "quality_ratio": null,
+    "main_chars": 366,
+    "banned": []
+  },
+  {
+    "path": "/kol/serenity",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "白毛股神 Serenity（@aleabitoreddit）最新观点：研究框架与提及个股 | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/kol/serenity"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "ProfilePage",
+            "url": "https://www.themarketbrew.com/kol/serenity",
+            "dateModified": "2026-10-16T21:25:06+00:00",
+            "mainEntity": {
+              "@type": "Person",
+              "name": "白毛股神 Serenity",
+              "alternateName": "aleabitoreddit",
+              "sameAs": [
+                "https://x.com/aleabitoreddit"
+              ]
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "博主观点",
+                "item": "https://www.themarketbrew.com/kol"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "白毛股神 Serenity",
+                "item": "https://www.themarketbrew.com/kol/serenity"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 21578,
+    "banned": []
+  },
+  {
+    "path": "/kol/qinbafrank",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "qinbafrank（@qinbafrank）最新观点：研究框架与提及个股 | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/kol/qinbafrank"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "ProfilePage",
+            "url": "https://www.themarketbrew.com/kol/qinbafrank",
+            "dateModified": "2026-10-18T11:49:09+00:00",
+            "mainEntity": {
+              "@type": "Person",
+              "name": "qinbafrank",
+              "alternateName": "qinbafrank",
+              "sameAs": [
+                "https://x.com/qinbafrank"
+              ]
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "博主观点",
+                "item": "https://www.themarketbrew.com/kol"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "qinbafrank",
+                "item": "https://www.themarketbrew.com/kol/qinbafrank"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 13635,
+    "banned": []
+  },
+  {
+    "path": "/llms.txt",
+    "status": 200,
+    "content_type": "text/plain; charset=utf-8",
+    "robots_header": null,
+    "title": "",
+    "h1": 0,
+    "robots": [],
+    "canonical": [],
+    "schemas": [],
+    "quality_ratio": null,
+    "main_chars": 0,
+    "banned": []
+  },
+  {
+    "path": "/guide/us-market-hours",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美股开盘时间、收盘时间与2026休市日历（北京/台北/温哥华时间对照） | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/guide/us-market-hours"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "美股交易时间与休市日历",
+        "url": "https://www.themarketbrew.com/guide/us-market-hours",
+        "dateModified": "2026-10-18T12:45:15.041265+00:00",
+        "inLanguage": "zh-CN"
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 2044,
+    "banned": []
+  },
+  {
+    "path": "/earnings-calendar",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美股财报日历：本周财报时间表（盘前/盘后） | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/earnings-calendar"
+    ],
+    "schemas": [],
+    "quality_ratio": null,
+    "main_chars": 40789,
+    "banned": []
+  },
+  {
+    "path": "/ai-stock-research",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "AI美股研究工具：中文AI个股分析、日报与博主观点 | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/ai-stock-research"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "url": "https://www.themarketbrew.com/ai-stock-research",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "和直接问 ChatGPT 有什么区别？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "这里把行情、财报、日报和博主历史观点组织到固定研究页面，并展示可用数据的来源与更新时间。通用聊天工具的结果取决于是否接入数据；任何 AI 输出都需要核对原始来源，不能保证实时或准确。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "AI 分析能代替投资判断吗？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "不能。AI 用于整理信息、解释变化与提出研究问题。数据可能延迟，历史表现不能预测未来，请独立判断。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "在哪里查看样例？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "免费每日复盘与公开个股页可以直接阅读；完整付费内容的访问范围以定价页与账户权益为准。"
+            }
+          }
+        ]
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 476,
+    "banned": []
+  },
+  {
+    "path": "/today",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美股今日行情与收盘复盘：今天为什么涨/跌（每日更新） | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/today"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "url": "https://www.themarketbrew.com/today",
+        "name": "美股今日行情复盘",
+        "inLanguage": "zh-CN",
+        "hasPart": {
+          "@type": "Article",
+          "headline": "AI融资与资本开支隐忧发酵，纳指领跌科技成长股承压",
+          "url": "https://www.themarketbrew.com/today/2026-10-16-market-report"
+        }
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 3622,
+    "banned": []
+  },
+  {
+    "path": "/morning",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美股盘前早报：美股期货、纳指期货与盘前异动（每日更新） | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/morning"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "url": "https://www.themarketbrew.com/morning",
+        "name": "美股盘前早报",
+        "inLanguage": "zh-CN",
+        "hasPart": {
+          "@type": "Article",
+          "isAccessibleForFree": false,
+          "hasPart": {
+            "@type": "WebPageElement",
+            "isAccessibleForFree": false,
+            "cssSelector": ".morning-paywall"
+          },
+          "headline": "沃什讲话缓解加息忧虑，期指分化科技独弱",
+          "url": "https://www.themarketbrew.com/morning/2026-10-16-morning-brief"
+        }
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 1074,
+    "banned": []
+  },
+  {
+    "path": "/macro/sentiment",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "恐慌贪婪指数与VIX恐慌指数实时：美股市场情绪",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/macro/sentiment"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "url": "https://www.themarketbrew.com/macro/sentiment",
+        "name": "恐慌贪婪指数与VIX恐慌指数实时：美股市场情绪",
+        "inLanguage": "zh-CN"
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 867,
+    "banned": []
+  },
+  {
+    "path": "/macro/inflation-rates",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美债收益率（10年期）、CPI与美联储利率实时",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/macro/inflation-rates"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "url": "https://www.themarketbrew.com/macro/inflation-rates",
+        "name": "美债收益率（10年期）、CPI与美联储利率实时",
+        "inLanguage": "zh-CN"
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 707,
+    "banned": []
+  },
+  {
+    "path": "/macro/liquidity",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美元流动性状况与趋势分析",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/macro/liquidity"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "url": "https://www.themarketbrew.com/macro/liquidity",
+        "name": "美元流动性状况",
+        "inLanguage": "zh-CN"
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 2214,
+    "banned": []
+  },
+  {
+    "path": "/morning/2026-10-16-morning-brief",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美股盘前早报｜2026-10-16｜沃什讲话缓解加息忧虑，期指分化科技独弱",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/morning/2026-10-16-morning-brief"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "isAccessibleForFree": false,
+        "hasPart": {
+          "@type": "WebPageElement",
+          "isAccessibleForFree": false,
+          "cssSelector": ".morning-paywall"
+        },
+        "headline": "美股盘前早报｜2026-10-16｜沃什讲话缓解加息忧虑，期指分化科技独弱",
+        "description": "盘前市场简报",
+        "datePublished": "2026-10-16T13:00:50Z",
+        "dateModified": "2026-10-16T13:00:50Z",
+        "author": {
+          "@type": "Organization",
+          "name": "TheMarketBrew",
+          "url": "https://www.themarketbrew.com"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "TheMarketBrew",
+          "url": "https://www.themarketbrew.com"
+        },
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": "https://www.themarketbrew.com/morning/2026-10-16-morning-brief"
+        },
+        "articleSection": "盘前早报",
+        "inLanguage": "zh-CN"
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 677,
+    "banned": []
+  },
+  {
+    "path": "/today/2026-10-16-market-report",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "美股全市场日报｜2026-10-16｜AI融资与资本开支隐忧发酵，纳指领跌科技成长股承压",
+    "h1": 1,
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/today/2026-10-16-market-report"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "美股全市场日报｜2026-10-16｜AI融资与资本开支隐忧发酵，纳指领跌科技成长股承压",
+        "description": "AI基建债务负担与盈利兑现周期的担忧升温，纳斯达克下挫2.15%，恐慌指数VIX飙升21%逼近20关口；油价受中东地缘扰动突破百元，市场在财报潮前夕规避高估值标的风险。",
+        "datePublished": "2026-10-16T22:00:39Z",
+        "dateModified": "2026-10-16T22:00:39Z",
+        "author": {
+          "@type": "Organization",
+          "name": "TheMarketBrew",
+          "url": "https://www.themarketbrew.com"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "TheMarketBrew",
+          "url": "https://www.themarketbrew.com"
+        },
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": "https://www.themarketbrew.com/today/2026-10-16-market-report"
+        },
+        "articleSection": "美股市场分析",
+        "inLanguage": "zh-CN"
+      }
+    ],
+    "quality_ratio": null,
+    "main_chars": 3104,
+    "banned": []
+  },
+  {
+    "path": "/stock/BRK.B",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "伯克希尔(BRK.B)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/BRK.B"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/BRK.B",
+            "name": "伯克希尔（BRK.B）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:56:51.896931+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Berkshire Hathaway Inc.",
+            "alternateName": [
+              "伯克希尔",
+              "波克夏 / Berkshire Hathaway"
+            ],
+            "tickerSymbol": "NYSE: BRK.B",
+            "url": "https://www.berkshirehathaway.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "伯克希尔",
+                "item": "https://www.themarketbrew.com/stock/BRK.B"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "伯克希尔的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 BRK.B，交易所为 NYSE。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "伯克希尔是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "伯克希尔哈撒韦是一家多元化企业集团，核心业务涵盖财产与人寿等各类保险、北美铁路货运网络，以及涉及多种能源发电、天然气与煤矿的公用事业。公司拥有庞大的制造与建筑业务，生产航空及工业构件、特种化学品、金属工具、建材、电池、糖果和服饰，并提供房屋建造及相关借贷金融服务。此外，其业务还延伸至电子元件分销、快餐特许、物流配送、航空培训和飞机共享所有权等服务，并广泛零售汽车、家具、家电和珠宝等多样化商品。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "伯克希尔发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.00%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "伯克希尔的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:56:51 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究伯克希尔需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.16296296296296298",
+    "main_chars": 1215,
+    "banned": []
+  },
+  {
+    "path": "/stock/QBTS",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "D-Wave(QBTS)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/QBTS"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/QBTS",
+            "name": "D-Wave（QBTS）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:56:51.896923+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "D-Wave Quantum Inc.",
+            "alternateName": [
+              "D-Wave",
+              "D-Wave"
+            ],
+            "tickerSymbol": "NASDAQ: QBTS",
+            "url": "https://www.dwavequantum.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "D-Wave",
+                "item": "https://www.themarketbrew.com/stock/QBTS"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "D-Wave的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 QBTS，交易所为 NASDAQ。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "D-Wave是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "D-Wave Quantum面向全球客户开发和提供量子计算系统、配套软件与专业服务。其产品包括Advantage量子计算机、Ocean开源编程工具套件，以及支持用户与量子计算机实时交互的Leap云服务。Leap还提供混合问题求解工具、软件开发工具包、代码示例、演示及学习资源。公司通过D-Wave Launch专业服务，帮助企业从识别适合的问题逐步推进到量子应用部署。其解决方案应用于人工智能、材料科学、药物发现、调度、网络安全、故障检测与金融建模，服务制造、物流、金融和生命科学等行业。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "D-Wave发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.00%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "D-Wave的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:56:51 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究D-Wave需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.18305597579425115",
+    "main_chars": 1322,
+    "banned": []
+  },
+  {
+    "path": "/stock/NVDA/earnings",
+    "status": 404,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": "noindex, follow",
+    "title": "股票不存在 | TheMarketBrew",
+    "h1": 1,
+    "robots": [
+      "noindex,follow"
+    ],
+    "canonical": [],
+    "schemas": [],
+    "quality_ratio": null,
+    "main_chars": 27,
+    "banned": []
+  },
+  {
+    "path": "/twitter-digest/2026-10-16",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "2026-10-16 美股博主观点简报",
+    "h1": 0,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/twitter-digest/2026-10-16"
+    ],
+    "schemas": [],
+    "quality_ratio": null,
+    "main_chars": 6,
+    "banned": []
+  },
+  {
+    "path": "/indexnow-key.txt",
+    "status": 200,
+    "content_type": "text/plain; charset=utf-8",
+    "robots_header": null,
+    "title": "",
+    "h1": 0,
+    "robots": [],
+    "canonical": [],
+    "schemas": [],
+    "quality_ratio": null,
+    "main_chars": 0,
+    "banned": []
+  },
+  {
+    "path": "/stock/TSLA",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "特斯拉(TSLA)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/TSLA"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/TSLA",
+            "name": "特斯拉（TSLA）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:50:03.833321+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Tesla, Inc.",
+            "alternateName": [
+              "特斯拉",
+              "特斯拉 / Tesla Inc."
+            ],
+            "tickerSymbol": "NASDAQ: TSLA",
+            "url": "https://www.tesla.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "特斯拉",
+                "item": "https://www.themarketbrew.com/stock/TSLA"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "特斯拉的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 TSLA，交易所为 NASDAQ。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "特斯拉是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "特斯拉公司成立于2003年，总部位于美国得克萨斯州奥斯汀，业务遍及美国、中国等全球多个地区。公司主营业务为电动汽车的研发、生产与销售，以及能源生成和存储解决方案。其业务主要由两大部门组成：汽车业务部门负责电动轿车及运动型多用途汽车的销售，提供二手车交易、汽车监管信用额度销售、融资租赁、超级充电网络支持，以及车辆维修、保险和保修等售后服务；能源生成与存储部门则专注于面向住宅、商业、工业和公共事业客户，开发、制造、安装、销售及租赁太阳能发电系统与储能产品，并提供相应的维护、修理与融资支持服务。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "特斯拉下一次财报是什么时候？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "预计 2026-10-21，以公司公告为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "特斯拉发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.00%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "特斯拉的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:50:03 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究特斯拉需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.3132947976878613",
+    "main_chars": 1730,
+    "banned": []
+  },
+  {
+    "path": "/stock/ORCL",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "甲骨文(ORCL)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/ORCL"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/ORCL",
+            "name": "甲骨文（ORCL）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:52:08.371547+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Oracle Corporation",
+            "alternateName": [
+              "甲骨文",
+              "甲骨文 / Oracle Corp."
+            ],
+            "tickerSymbol": "NYSE: ORCL",
+            "url": "https://www.oracle.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "甲骨文",
+                "item": "https://www.themarketbrew.com/stock/ORCL"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "甲骨文的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 ORCL，交易所为 NYSE。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "甲骨文是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "甲骨文公司成立于1977年，总部位于美国德克萨斯州奥斯汀，面向全球提供全面的企业信息技术解决方案。公司的业务主要由软件及云应用、基础架构技术、硬件产品及相关服务构成。在应用方面，公司提供涵盖ERP、EPM、SCM和HCM的Oracle Fusion Cloud套件、NetSuite套件、行业云方案以及应用许可与支持服务；在基础架构方面，涵盖Oracle数据库、Java语言、中间件，以及提供计算、存储、网络和Oracle自治数据库等能力的云基础架构；硬件方面则提供集成系统、企业服务器、存储设备及配套系统软件与支持。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "甲骨文下一次财报是什么时候？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "预计 2026-12-14，以公司公告为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "甲骨文发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 1.49%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "甲骨文的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:52:08 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究甲骨文需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.17213663764233086",
+    "main_chars": 1493,
+    "banned": []
+  },
+  {
+    "path": "/stock/PLTR",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "Palantir(PLTR)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/PLTR"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/PLTR",
+            "name": "Palantir（PLTR）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:54:22.338715+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Palantir Technologies Inc.",
+            "alternateName": [
+              "Palantir",
+              "Palantir"
+            ],
+            "tickerSymbol": "NASDAQ: PLTR",
+            "url": "https://www.palantir.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Palantir",
+                "item": "https://www.themarketbrew.com/stock/PLTR"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Palantir的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 PLTR，交易所为 NASDAQ。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Palantir是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Palantir Technologies成立于2003年，总部位于科罗拉多州丹佛，主营业务是为情报机构开发并部署高级软件平台，以支持美国、英国及国际反恐调查与行动。业务组成涵盖能够识别多元数据隐藏模式以协同应对威胁的Gotham平台，以及提供集中式数据操作系统以实现多源数据整合与分析的Foundry平台。公司还拥有可在各种环境中分发与部署软件更新的Apollo解决方案，以及接入各类大语言模型并将复杂数据转化为实用工具的人工智能平台AIP。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Palantir下一次财报是什么时候？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "预计 2026-11-02，以公司公告为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Palantir发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.00%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Palantir的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:54:22 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究Palantir需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.1562942008486563",
+    "main_chars": 1414,
+    "banned": []
+  },
+  {
+    "path": "/stock/OKLO",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "Oklo(OKLO)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/OKLO"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/OKLO",
+            "name": "Oklo（OKLO）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:51:18.100060+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Oklo Inc.",
+            "alternateName": [
+              "Oklo",
+              "Oklo"
+            ],
+            "tickerSymbol": "NYSE: OKLO",
+            "url": "https://www.oklo.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Oklo",
+                "item": "https://www.themarketbrew.com/stock/OKLO"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Oklo的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 OKLO，交易所为 NYSE。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Oklo是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Oklo Inc.成立于2013年，总部位于美国加利福尼亚州圣克拉拉，前身为AltC Acquisition Corp.，于2024年5月更名为现名。该公司的主营业务是开发先进裂变发电厂，旨在为美国客户大规模提供清洁、可靠且经济实惠的能源。公司的核心产品为Aurora发电站，设计发电容量在15兆瓦至最高75兆瓦之间。业务组成还包括商业化核燃料回收、燃料制造技术以及放射性同位素的生产；其中，燃料制造技术能够将使用过的废核燃料转化为供其反应堆使用的燃料。此外，公司与Blykalla AB建立了战略合作伙伴关系，共同致力于先进核反应堆技术的开发与商业化。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Oklo发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.00%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Oklo的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:51:18 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究Oklo需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.32770927968851393",
+    "main_chars": 1541,
+    "banned": []
+  },
+  {
+    "path": "/stock/SMCI",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "超微电脑(SMCI)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/SMCI"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/SMCI",
+            "name": "超微电脑（SMCI）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:51:46.601695+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Super Micro Computer, Inc.",
+            "alternateName": [
+              "超微电脑",
+              "美超微 / Super Micro Computer"
+            ],
+            "tickerSymbol": "NASDAQ: SMCI",
+            "url": "https://www.supermicro.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "超微电脑",
+                "item": "https://www.themarketbrew.com/stock/SMCI"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "超微电脑的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 SMCI，交易所为 NASDAQ。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "超微电脑是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Super Micro Computer, Inc.成立于1993年，总部位于美国加利福尼亚州圣何塞。公司主营业务是开发和销售基于模块化与开放标准架构的服务器和存储解决方案。其业务组成涵盖多种硬件与系统，包括用于训练和推理的液冷及风冷AI服务器、刀片及多节点系统、SuperStorage存储系统、机架式系统以及5G、物联网与边缘嵌入式系统；同时提供工作站、网络设备，以及服务器主板、机箱和电源等模块化子系统与配件，并配备远程系统管理软件套件。此外，公司还为AI及高性能计算数据中心提供机架级设计部署、验证测试、培训、现场支持和软硬件技术维护等服务，全面服务于企业数据中心、云计算及人工智能等市场。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "超微电脑发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.00%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "超微电脑的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:51:46 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究超微电脑需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.20889202540578689",
+    "main_chars": 1417,
+    "banned": []
+  },
+  {
+    "path": "/stock/ALAB",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "Astera Labs(ALAB)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/ALAB"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/ALAB",
+            "name": "Astera Labs（ALAB）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:52:10.578615+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Astera Labs, Inc. Common Stock",
+            "alternateName": [
+              "Astera Labs",
+              "Astera Labs"
+            ],
+            "tickerSymbol": "NASDAQ: ALAB",
+            "url": "https://www.asteralabs.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Astera Labs",
+                "item": "https://www.themarketbrew.com/stock/ALAB"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Astera Labs的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 ALAB，交易所为 NASDAQ。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Astera Labs是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Astera Labs, Inc.成立于2017年，总部位于美国加利福尼亚州圣克拉拉。公司主要从事用于云计算和人工智能基础设施的半导体连接解决方案的研发、生产与销售。其核心业务产品为智能连接平台，业务组成涵盖数据连接、网络连接和内存连接等全面的产品组合。这些产品由软件定义架构进行统一整合，旨在支持客户大规模无缝部署并运行高性能云计算与人工智能系统。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Astera Labs下一次财报是什么时候？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "预计 2026-11-03，以公司公告为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Astera Labs发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.00%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Astera Labs的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:52:10 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究Astera Labs需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.25297432686286786",
+    "main_chars": 1597,
+    "banned": []
+  },
+  {
+    "path": "/stock/GEV",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "GE Vernova(GEV)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/GEV"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/GEV",
+            "name": "GE Vernova（GEV）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:52:24.914413+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "GE Vernova Inc.",
+            "alternateName": [
+              "GE Vernova",
+              "GE Vernova"
+            ],
+            "tickerSymbol": "NYSE: GEV",
+            "url": "https://www.gevernova.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "GE Vernova",
+                "item": "https://www.themarketbrew.com/stock/GEV"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "GE Vernova的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 GEV，交易所为 NYSE。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "GE Vernova是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "GE Vernova Inc.成立于2023年，总部位于马萨诸塞州剑桥市，是一家主要从事发电业务的能源企业。该公司的业务主要划分为三个部门：电力、风能和电气化。电力部门负责利用水力、天然气、核能和蒸汽动力等多种来源进行发电和配电；风能部门专注于风力涡轮机叶片的制造与销售；电气化部门则提供包括电网基础设施解决方案、电能转换技术，以及太阳能和储能系统在内的一系列服务。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "GE Vernova下一次财报是什么时候？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "预计 2026-10-28，以公司公告为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "GE Vernova发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.19%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "GE Vernova的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:52:24 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究GE Vernova需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.15070774354704414",
+    "main_chars": 1201,
+    "banned": []
+  },
+  {
+    "path": "/stock/NVO",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "诺和诺德(NVO)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/NVO"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/NVO",
+            "name": "诺和诺德（NVO）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:52:36.788450+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Novo Nordisk A/S",
+            "alternateName": [
+              "诺和诺德",
+              "諾和諾德"
+            ],
+            "tickerSymbol": "NYSE: NVO",
+            "url": "https://www.novonordisk.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "诺和诺德",
+                "item": "https://www.themarketbrew.com/stock/NVO"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "诺和诺德的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 NVO，交易所为 NYSE。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "诺和诺德是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "诺和诺德（Novo Nordisk A/S）成立于1923年，总部位于丹麦鲍斯韦，是一家全球性制药公司，专注于医药产品的研发、生产与销售，业务覆盖欧洲、中东、非洲、北美及亚洲（含中国大陆、香港和台湾）。公司业务主要由两大部门构成：糖尿病与肥胖症护理部门，提供糖尿病、肥胖症、心血管疾病及其他新兴治疗领域的疗法；罕见病部门，专注于罕见血液疾病、罕见内分泌疾病及激素替代方案。此外，公司还生产胰岛素笔、生长激素笔和注射针等专用医疗设备，并开发智能胰岛素笔及Dose Check应用程序等数字化糖尿病管理工具。公司还与联合国儿童基金会合作应对儿童肥胖，并与Valo Health合作开发心脏代谢新药。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "诺和诺德下一次财报是什么时候？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "预计 2026-11-04，以公司公告为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "诺和诺德的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:52:36 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究诺和诺德需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.20736022646850671",
+    "main_chars": 1413,
+    "banned": []
+  },
+  {
+    "path": "/stock/LLY",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "礼来(LLY)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/LLY"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/LLY",
+            "name": "礼来（LLY）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:52:52.581687+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "Eli Lilly and Company",
+            "alternateName": [
+              "礼来",
+              "禮來 / Eli Lilly"
+            ],
+            "tickerSymbol": "NYSE: LLY",
+            "url": "https://www.lilly.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "礼来",
+                "item": "https://www.themarketbrew.com/stock/LLY"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "礼来的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 LLY，交易所为 NYSE。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "礼来是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "礼来公司成立于1876年，总部位于美国印第安纳州印第安纳波利斯，是一家致力于全球人类药物研发与商业化的跨国制药企业。公司主营业务涵盖多个治疗领域：在糖尿病领域，提供Basaglar、Humalog系列、Humulin系列等胰岛素制剂，以及Jardiance、Trajenta和Trulicity等2型糖尿病药物；在肿瘤领域，拥有Alimta、Cyramza、Erbitux、Retevmo、Tyvyt和Verzenio等药物；在自身免疫与炎症领域，销售Olumiant和Taltz；在神经与疼痛管理领域，提供Cymbalta、Emgality及Zyprexa。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "礼来下一次财报是什么时候？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "预计 2026-10-29，以公司公告为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "礼来发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 0.52%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "礼来的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:52:52 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究礼来需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.19943019943019943",
+    "main_chars": 1404,
+    "banned": []
+  },
+  {
+    "path": "/stock/QCOM",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "robots_header": null,
+    "title": "高通(QCOM)股票：股价、财报与AI解读",
+    "h1": 1,
+    "robots": [
+      "noindex, follow"
+    ],
+    "canonical": [
+      "https://www.themarketbrew.com/stock/QCOM"
+    ],
+    "schemas": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "url": "https://www.themarketbrew.com/stock/QCOM",
+            "name": "高通（QCOM）",
+            "inLanguage": "zh-CN",
+            "dateModified": "2026-10-18T12:53:02.550998+00:00"
+          },
+          {
+            "@type": "Corporation",
+            "name": "QUALCOMM Incorporated",
+            "alternateName": [
+              "高通",
+              "高通 / Qualcomm"
+            ],
+            "tickerSymbol": "NASDAQ: QCOM",
+            "url": "https://www.qualcomm.com"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "首页",
+                "item": "https://www.themarketbrew.com"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "个股",
+                "item": "https://www.themarketbrew.com/stock"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "高通",
+                "item": "https://www.themarketbrew.com/stock/QCOM"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "高通的股票代码是什么，在哪个交易所上市？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "股票代码是 QCOM，交易所为 NASDAQ。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "高通是什么公司？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "QUALCOMM Incorporated成立于1985年，总部位于加利福尼亚州圣迭戈，致力于研发并商业化推广全球无线通信行业的基础技术，并向美国政府机构及其承包商提供开发服务及相关产品。公司业务主要分为三个部门：QCT部门负责开发和供应基于3G、4G、5G等无线技术的集成电路与系统软件，用于语音与数据通信、网络、应用处理、多媒体和全球定位等产品；QTL部门通过许可制造和销售无线设备所需的专利及知识产权获取收入，覆盖CDMA2000、WCDMA、LTE及5G等技术标准；QSI部门则对5G、人工智能、汽车、物联网和云计算等领域的初创企业进行投资，以支持通信应用新产品与服务的推出。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "高通下一次财报是什么时候？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "预计 2026-11-04，以公司公告为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "高通发股息吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "数据源显示股息率为 2.01%。股息政策可能调整，历史股息不保证未来支付。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "高通的研究信息何时更新？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "本页资料更新于 2026/10/18 08:53:02 ET，各指标以标注的来源日期为准。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "研究高通需要关注哪些风险？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "结合公司财报、业务竞争、估值、现金流与宏观环境判断；数据和 AI 解读可能存在延迟或错误。"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "quality_ratio": "0.30155979202772965",
+    "main_chars": 1731,
+    "banned": []
+  }
+]

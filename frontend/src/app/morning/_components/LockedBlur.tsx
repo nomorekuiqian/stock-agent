@@ -24,7 +24,7 @@ export function LockedBlur({
 }) {
   return (
     <div
-      className="relative rounded-md border border-dashed border-amber-400/30 bg-amber-400/5 px-4 py-3"
+      className="morning-paywall relative rounded-md border border-dashed border-amber-400/30 bg-amber-400/5 px-4 py-3"
       aria-label={label ? `${label}（订阅解锁）` : '订阅解锁'}
     >
       {label && (

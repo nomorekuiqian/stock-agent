@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { reportPath, reportSlugDate, reportTitle } from '@/lib/report-url';
 import { relatedStocks } from '@/lib/stock-directory';
@@ -32,6 +32,22 @@ describe('SEO content boundaries', () => {
     expect(html).not.toContain('SECRET');
     expect(html).toContain('本期未提供');
     expect(html).toContain('-1.00%');
-    expect(html.match(/<li>/g)).toHaveLength(3);
+    expect(html.match(/<li>/g)).toBeNull(); // No fabricated event bullets when sources are absent.
   });
+});
+
+vi.mock('@/lib/seo-data',()=>({seoData:vi.fn(async()=>null)}));
+import { KolPublicProfile } from '@/components/KolPublicProfile';
+it.each(['serenity', 'qinbafrank'] as const)('public %s has substantive visible Chinese content', async (slug) => {
+  const html = renderToStaticMarkup(await KolPublicProfile({slug}));
+  const text = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]*>/g, '');
+  expect((text.match(/[\u4e00-\u9fff]/g) || []).length).toBeGreaterThanOrEqual(800);
+  expect(text).not.toMatch(/必涨|推荐买入|稳赚|保证收益|喊单/);
+  expect(html).toContain('ProfilePage');
+});
+
+it('renders PageShell content exactly once in server HTML', async () => {
+  const { PageShell } = await import('@/components/PageShell');
+  const html = renderToStaticMarkup(<PageShell><h1>Unique SEO heading</h1></PageShell>);
+  expect(html.match(/Unique SEO heading/g)).toHaveLength(1);
 });

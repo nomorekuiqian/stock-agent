@@ -1,0 +1,59 @@
+{
+  "verified_at": "2026-10-18T14:31:37.232955+00:00",
+  "plan": "docs/seo/SEO_IMPLEMENTATION_PLAN.md",
+  "scope": "Local implementation and isolated verification only; not deployed or indexed evidence.",
+  "environment": {
+    "frontend": "Production Next build on 127.0.0.1:3107",
+    "api": "Synthetic fixture on 127.0.0.1:18998",
+    "browser": "Anonymous desktop 1440px and mobile 390px; external requests blocked",
+    "backend": "Mocked providers and temporary SQLite; no paid model calls or production writes"
+  },
+  "checks": {
+    "frontend_unit": {
+      "passed": 85,
+      "suites": 5
+    },
+    "backend_unit": {
+      "passed": 26,
+      "warnings": 6
+    },
+    "typescript": "passed",
+    "eslint_changed_scope": "passed",
+    "production_build": "passed",
+    "backend_import_and_routes": "passed with socket connections blocked; production lifespan not started",
+    "http": {
+      "passed": 46,
+      "evidence": "plan-http-acceptance.json"
+    },
+    "sitemap": {
+      "passed": 87,
+      "shards": 6,
+      "evidence": "plan-sitemap-acceptance.json"
+    },
+    "browser": {
+      "passed": 18,
+      "evidence": "plan-browser/results.json"
+    },
+    "bot_parity": {
+      "passed": 24,
+      "evidence": "plan-cross-route-checks.json"
+    },
+    "visible_faq_schema": true,
+    "company_length": {
+      "passed": 70,
+      "han_range": [
+        150,
+        300
+      ],
+      "evidence": "plan-company-lengths.json"
+    },
+    "diff_whitespace": "passed"
+  },
+  "pending_external": [
+    "Commit/push/deploy not requested or performed",
+    "Production persistent SEO_CONTENT_DB deployment and real API build",
+    "Required human approval of priority company descriptions, calendars and regulatory facts",
+    "Production account entitlement and provider/model/SLA acceptance",
+    "Post-deployment GSC/sitemap/GEO checks and four-week outcome tracking"
+  ]
+}

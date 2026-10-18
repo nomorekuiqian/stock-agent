@@ -1,0 +1,18 @@
+import { Answer, PublicFaq, SourceStamp, PublicDisclaimer } from '@/components/PublicSeo';
+import { breadcrumbs, faqSchema } from '@/lib/seo-public';
+import Link from 'next/link';
+import calendar from '@/lib/nyse-calendar.json';
+import { MARKET_ZONES, sessionTimes, nextTradingDay, daylightTransitions } from '@/lib/market-hours';
+import { pageMetadata, SITE_URL, serializeJsonLd } from '@/lib/seo';
+import { MarketStatus } from './MarketStatus';
+export const dynamic='force-dynamic';
+export const metadata=pageMetadata('/guide/us-market-hours','美股开盘时间、收盘时间与2026休市日历（北京/台北/温哥华时间对照）','NYSE 官方休市与半日市日历，纽约、北京、台北等八个时区的夏令时和冬令时交易时间。');
+export default function Page(){const year=2026;const dst=daylightTransitions(year);const next=nextTradingDay(new Date());const faq=[{q:'美股几点开盘（北京时间）？',a:'常规交易于美东上午九点半开始。美国夏令时对应北京、台北晚上九点半，冬令时为晚上十点半。跨地区换算请看上方按 IANA 时区计算的对照表，日期变更以当地时间为准。'}, {q:'美股几点收盘？',a:'常规交易于美东下午四点结束，夏令时对应北京次日凌晨四点，冬令时为次日凌晨五点。提前收盘日不同，请查看官方日历；收盘后的交易属于延长时段。'}, {q:'2026 年美股哪天休市？',a:'下表逐项列出 NYSE 官方休市日及提前收盘日。周末也不进行常规股票交易；遇到临时停市安排，应以交易所最新公告为准。期货、债券与其他市场可能有不同日程。'}, {q:'美股感恩节休市吗？',a:'NYSE 在感恩节休市，次日通常提前收盘；本页按年度官方日历列出具体日期。不能把提前收盘日当作完整休市日，盘后开放时间也需按交易场所和券商规则核对。'}, {q:'美股夏令时和冬令时什么时候切换？',a:`${year} 年夏令时从 ${dst.start} 开始，于 ${dst.end} 结束。纽约本地开盘时刻不变；北京、台北没有夏令时，因此与纽约的时差随季节变化。`}, {q:'美股盘前盘后交易时间是几点？',a:'这里采用 NYSE Arca 的延长交易时段：美东凌晨四点至上午九点半为盘前，下午四点至晚上八点为盘后。具体证券、订单类型与券商支持范围不同，流动性与常规时段也不同。'}];return <main className="mx-auto max-w-5xl px-4 py-10 space-y-8">
+  <h1 className="text-3xl font-editorial">美股开盘时间与 2026 年休市日历</h1><Answer at={calendar.retrieved_at}>美股常规交易为美东时间 9:30–16:00。{dst.end} 起恢复冬令时，北京、台北为 22:30 至次日 5:00；夏令时为 21:30 至次日 4:00。延长时段请按交易场所与券商规定核对。</Answer><p>下一个交易日：{next||'官方日历尚待更新'}</p><MarketStatus initial={new Date().toISOString()}/>
+  <p>常规交易为纽约时间 09:30–16:00。下表盘前 04:00–09:30、盘后 16:00–20:00 采用 NYSE Arca 延长交易时段；具体证券与券商支持范围可能不同。半日市常规交易 13:00 结束，所列延长交易市场 17:00 结束。夏令时切换按纽约时区计算：{dst.start} 开始，{dst.end} 结束。</p>
+  {(['summer','winter'] as const).map(season=><section key={season}><h2 className="text-xl font-medium mb-4">{season==='summer'?'夏令时':'冬令时'}时间对照</h2><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr>{['城市','盘前开始','常规开盘','常规收盘','盘后结束'].map(h=><th className="p-3 text-left" key={h}>{h}</th>)}</tr></thead><tbody>{MARKET_ZONES.map(([name,zone])=><tr key={zone} className="border-t border-border"><th className="p-3 text-left">{name}</th>{sessionTimes(season,zone).map((t,i)=><td className="p-3 whitespace-nowrap font-data" key={i}>{t}</td>)}</tr>)}</tbody></table></div><p className="text-xs text-muted-foreground">表内日期为时差示例，跨日以表中日期为准。</p></section>)}
+  {Object.entries(calendar.years).map(([year,data])=><section key={year} className="space-y-3"><h2 className="text-xl font-medium">{year} 年休市与半日市</h2><ul className="grid gap-2 sm:grid-cols-2">{data.holidays.map(row=><li key={row.date}><time>{row.date}</time> · {row.name} · 休市</li>)}{data.early_closes.map(row=><li key={row.date}><time>{row.date}</time> · 半日市，{row.close} ET 收盘</li>)}</ul></section>)}
+  <p className="text-xs text-muted-foreground">来源：<a href={calendar.source} className="underline">NYSE 官方日历</a> · 数据抓取时间 {calendar.retrieved_at}</p><nav className="flex gap-4"><Link href="/today">每日收盘复盘</Link><Link href="/morning">盘前早报</Link></nav>
+  <SourceStamp at={calendar.retrieved_at} source="NYSE 官方日历"/><PublicFaq items={faq}/><PublicDisclaimer at={calendar.retrieved_at}/>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{__html:serializeJsonLd({'@context':'https://schema.org','@graph':[{'@type':'WebPage',name:'美股开盘时间与2026年休市日历',url:`${SITE_URL}/guide/us-market-hours`,dateModified:calendar.retrieved_at,inLanguage:'zh-CN'},breadcrumbs([{name:'美股交易时间',path:'/guide/us-market-hours'}]),faqSchema(faq)]})}}/>
+</main>}

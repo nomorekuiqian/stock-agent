@@ -168,6 +168,12 @@ async def upsert_tweets_batch(tweets: list[dict]) -> int:
         if data.get("success"):
             count = data.get("count", 0)
             logger.info("Upserted %d tweets", count)
+            if count:
+                try:
+                    from app.features.seo.service import notify_tweet_updates
+                    await notify_tweet_updates(tweets)
+                except Exception:
+                    logger.exception("SEO notification failed after tweet upsert")
             return count
 
     logger.error("Failed to upsert tweets: %s", result.get("text", ""))
@@ -179,6 +185,7 @@ async def get_tweets(
     category: Optional[str] = None,
     page: int = 1,
     limit: int = 20,
+    strict: bool = False,
 ) -> list[dict]:
     """Get tweets for a username, optionally filtered by category."""
     db = get_insforge_service()
@@ -204,6 +211,8 @@ async def get_tweets(
             return data.get("data", [])
 
     logger.error("Failed to get tweets: %s", result.get("text", ""))
+    if strict:
+        raise RuntimeError("Tweet source unavailable")
     return []
 
 

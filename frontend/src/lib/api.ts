@@ -73,6 +73,7 @@ export interface SummarySection {
 
 // MarketData from backend API - matches database schema (snake_case)
 export interface MarketData {
+  public_answer?: string;
   report_id?: string;
   report_date?: string;
   indices: MarketIndex[];
@@ -856,6 +857,10 @@ export interface MorningSummarySection {
 }
 
 export interface MorningReport {
+  public_movers?: {symbol:string;price:number;change_percent:number}[];
+  public_answer?: string;
+  public_excerpt?: string;
+  public_event_points?: {title:string;url?:string}[];
   report_id?: string;
   report_date?: string;
   timestamp: string;
@@ -1961,6 +1966,8 @@ async function fetchProtected(
   }
   return response;
 }
+
+const fetchCockpit = (url: string) => fetchProtected(url, {}, 'Failed to load studio');
 
 export const api = {
   getMarketAnalysis: async (force: boolean = false): Promise<MarketData> => {
@@ -3130,15 +3137,15 @@ export const api = {
       return response.json();
     },
 
-    // --- Cockpit (public reads; no auth required) ---
+    // --- Cockpit (authenticated Max reads; public summaries use /seo) ---
     cockpitProfile: async (username: string): Promise<KolCockpitProfile> => {
-      const response = await fetch(`${API_BASE_URL}/kol_research/personas/${username}/profile`);
+      const response = await fetchCockpit(`${API_BASE_URL}/kol_research/personas/${username}/profile`);
       if (!response.ok) throw new Error('Failed to load persona profile');
       return response.json();
     },
 
     cockpitTickers: async (username: string): Promise<{ tickers: KolCockpitTickerSummary[] }> => {
-      const response = await fetch(`${API_BASE_URL}/kol_research/personas/${username}/tickers`);
+      const response = await fetchCockpit(`${API_BASE_URL}/kol_research/personas/${username}/tickers`);
       if (!response.ok) throw new Error('Failed to load tickers');
       return response.json();
     },
@@ -3146,7 +3153,7 @@ export const api = {
     cockpitHighConviction: async (
       username: string,
     ): Promise<KolCockpitHighConvictionResponse> => {
-      const response = await fetch(
+      const response = await fetchCockpit(
         `${API_BASE_URL}/kol_research/personas/${username}/high-conviction`,
       );
       if (!response.ok) throw new Error('Failed to load high-conviction grid');
@@ -3154,7 +3161,7 @@ export const api = {
     },
 
     cockpitTickerDetail: async (username: string, ticker: string): Promise<KolCockpitTickerDetail> => {
-      const response = await fetch(
+      const response = await fetchCockpit(
         `${API_BASE_URL}/kol_research/personas/${username}/tickers/${ticker}`,
       );
       if (!response.ok) throw new Error('Failed to load ticker detail');
@@ -3164,7 +3171,7 @@ export const api = {
     cockpitSectors: async (
       username: string,
     ): Promise<{ sectors: KolSectorSummary[] }> => {
-      const response = await fetch(
+      const response = await fetchCockpit(
         `${API_BASE_URL}/kol_research/personas/${username}/sectors`,
       );
       if (!response.ok) throw new Error('Failed to load skill sectors');
@@ -3175,7 +3182,7 @@ export const api = {
       username: string,
       boardKey: string,
     ): Promise<KolIndustryChain> => {
-      const response = await fetch(
+      const response = await fetchCockpit(
         `${API_BASE_URL}/kol_research/personas/${username}/industry_chain/${boardKey}`,
       );
       if (!response.ok) throw new Error('Failed to load industry chain');
@@ -3186,7 +3193,7 @@ export const api = {
       username: string,
       sectorKey: string,
     ): Promise<KolSectorDetail> => {
-      const response = await fetch(
+      const response = await fetchCockpit(
         `${API_BASE_URL}/kol_research/personas/${username}/sectors/${sectorKey}`,
       );
       if (!response.ok) throw new Error('Failed to load skill sector detail');
@@ -3207,7 +3214,7 @@ export const api = {
       if (opts.topic) params.set('topic', opts.topic);
       const qs = params.toString();
       const url = `${API_BASE_URL}/kol_research/personas/${username}/feed${qs ? `?${qs}` : ''}`;
-      const response = await fetch(url);
+      const response = await fetchCockpit(url);
       if (!response.ok) throw new Error('Failed to load live feed');
       return response.json();
     },
@@ -3216,7 +3223,7 @@ export const api = {
       username: string,
       ticker: string,
     ): Promise<KolCockpitTickerTimeline> => {
-      const response = await fetch(
+      const response = await fetchCockpit(
         `${API_BASE_URL}/kol_research/personas/${username}/tickers/${ticker}/timeline`,
       );
       if (!response.ok) throw new Error('Failed to load ticker timeline');
@@ -3226,7 +3233,7 @@ export const api = {
     cockpitTopics: async (
       username: string,
     ): Promise<KolCockpitTopicsResponse> => {
-      const response = await fetch(
+      const response = await fetchCockpit(
         `${API_BASE_URL}/kol_research/personas/${username}/topics`,
       );
       if (!response.ok) throw new Error('Failed to load topic tree');
@@ -3240,7 +3247,7 @@ export const api = {
       if (ids.length === 0) return { tweets: [] };
       const params = new URLSearchParams();
       params.set('ids', ids.join(','));
-      const response = await fetch(
+      const response = await fetchCockpit(
         `${API_BASE_URL}/kol_research/personas/${username}/tweets/by-ids?${params.toString()}`,
       );
       if (!response.ok) throw new Error('Failed to load evidence tweets');

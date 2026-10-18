@@ -59,10 +59,23 @@ async def lifespan(app: FastAPI):
     async with AsyncExitStack() as stack:
         if market_mcp_app is not None:
             await stack.enter_async_context(market_mcp_app.lifespan(app))
+        from app.features.seo.content_store import initialize_storage
+        initialize_storage()
         await _startup()
+        import asyncio
+        import os
+        seo_worker = None
+        if os.getenv("ENVIRONMENT") == "production":
+            from app.features.seo.generation import worker
+            seo_worker = asyncio.create_task(worker(),name="seo-publication")
         try:
             yield
         finally:
+            if seo_worker is not None:
+                seo_worker.cancel()
+                import contextlib
+                with contextlib.suppress(asyncio.CancelledError):
+                    await seo_worker
             await _shutdown()
 
 
@@ -347,3 +360,6 @@ async def root():
 # --- Mount Market Lens MCP (Streamable HTTP) at /frank/mcp/ ---
 if market_mcp_app is not None:
     app.mount("/frank", market_mcp_app)
+
+from app.features.seo.router import router as seo_router
+app.include_router(seo_router)

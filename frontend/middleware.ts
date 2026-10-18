@@ -36,10 +36,13 @@ const PUBLIC_ROUTES = [
   '/research',
   '/twitter-digest',
   '/kol',
+  '/guide',
+  '/earnings-calendar',
+  '/ai-stock-research',
   '/panda',
 ];
 
-const SEO_FILES = new Set(['/robots.txt', '/sitemap.xml']);
+const SEO_FILES = new Set(['/robots.txt', '/sitemap.xml', '/llms.txt', '/indexnow-key.txt']);
 const NOINDEX_ROUTES = [
   '/research', '/login', '/auth', '/forgot-password', '/reset-password', '/verify-email',
   '/unsubscribe', '/feedback', '/email-test', '/webview-check', '/pricing/success',
@@ -81,7 +84,7 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(target, 308);
   }
   // Exact files only: never expose private routes by file extension.
-  if (SEO_FILES.has(request.nextUrl.pathname) || /^\/sitemaps\/(static|stock-\d+|today-\d+|morning-\d+|twitter-digest-\d+)\.xml$/.test(request.nextUrl.pathname)) return NextResponse.next();
+  if (SEO_FILES.has(request.nextUrl.pathname) || /^\/sitemaps\/(static|kol-0|stock-\d+|today-\d+|morning-\d+|twitter-digest-\d+)\.xml$/.test(request.nextUrl.pathname)) return NextResponse.next();
   const response = withAcquisitionCookies(request, await route(request));
   if (request.nextUrl.searchParams.size > 0 || NOINDEX_ROUTES.some((path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`))) {
     response.headers.set('X-Robots-Tag', 'noindex, follow');
@@ -92,8 +95,31 @@ export default async function middleware(request: NextRequest) {
 async function route(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
+  const redirects: Record<string,string> = {'/liquidity':'/macro/liquidity','/kol/aleabitoreddit':'/kol/serenity','/ai-stock-research':'/','/earnings-calendar':'/today#events'};
+  if (redirects[pathname]) return NextResponse.redirect(new URL(redirects[pathname], request.url),301);
+  const earningsChild = /^\/stock\/([^/]+)\/earnings$/.exec(pathname);
+  if (earningsChild) return NextResponse.redirect(new URL(`/stock/${earningsChild[1].toUpperCase()}#earnings`,request.url),301);
+  const legacyKolChild=/^\/kol\/aleabitoreddit\/(latest|highlights|sectors|stocks)$/.exec(pathname);
+  if(legacyKolChild)return NextResponse.rewrite(new URL(`/kol/serenity/${legacyKolChild[1]}${search}`,request.url));
   const pausedRedirect = pausedPageRedirect(pathname, request.nextUrl.searchParams);
   if (pausedRedirect) return NextResponse.redirect(new URL(pausedRedirect, request.url));
+
+  const stock = /^\/stock\/([^/]+)(\/earnings)?$/.exec(pathname);
+  if (stock) {
+    const symbol = stock[1].toUpperCase();
+    if (!/^[A-Z0-9.\-]{1,10}$/.test(symbol)) return stockNotFound();
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/stocks/${symbol}/profile`, { signal: AbortSignal.timeout(10000) });
+      if (response.status === 404) return stockNotFound();
+      if (!response.ok) throw new Error('Profile unavailable');
+      const result = await response.json();
+      if (result.source === 'error') throw new Error('Profile unavailable');
+      if (!result.profile) return stockNotFound();
+      if (stock[1] !== symbol) return NextResponse.redirect(new URL(`/stock/${symbol}${stock[2] || ''}${search}`, request.url), 308);
+    } catch {
+      return new NextResponse('Stock temporarily unavailable', { status: 503, headers: { 'Retry-After': '300', 'Cache-Control': 'no-store' } });
+    }
+  }
 
   // Resolve legacy IDs before Next.js starts streaming, so the HTTP status is 308.
   const legacy = /^\/(today|morning)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(pathname);
@@ -118,6 +144,10 @@ async function route(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Unknown public paths reach Next.js's real 404; only known private trees require login.
+  const privateRoots = ['/admin', '/profile', '/settings', '/for-you', '/request-access', '/dev', '/mcp'];
+  if (!privateRoots.some(root => pathname === root || pathname.startsWith(`${root}/`))) return NextResponse.next();
+
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
 
@@ -137,3 +167,7 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
+
+function stockNotFound() {
+  return new NextResponse('<!doctype html><html lang="zh-CN"><head><meta name="robots" content="noindex,follow"><title>股票不存在 | TheMarketBrew</title></head><body><main><h1>未找到该股票</h1><p>该代码不在当前数据库中。</p><nav><a href="/stock">个股目录</a> · <a href="/today">美股日报</a></nav></main></body></html>', { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex, follow' } });
+}
